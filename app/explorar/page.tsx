@@ -20,7 +20,10 @@ function ExplorarPageContent() {
   const [filtros, setFiltros] = useState<FiltrosOferta>({});
   const [ofertas, setOfertas] = useState<OfertaAcademica[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [totalOfertas, setTotalOfertas] = useState(0);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [hayDatos, setHayDatos] = useState(false);
   const [sortBy, setSortBy] = useState('relevancia');
   const [selectedOferta, setSelectedOferta] = useState<OfertaAcademica | null>(null);
@@ -29,7 +32,7 @@ function ExplorarPageContent() {
   useEffect(() => {
     async function inicializar() {
       setLoading(true);
-      
+
       // Verificar si hay datos
       const tieneDatos = await verificarDatosDemo();
       setHayDatos(tieneDatos);
@@ -40,30 +43,48 @@ function ExplorarPageContent() {
         return;
       }
 
-      // Cargar ofertas iniciales
-      const { ofertas: ofertasIniciales, total } = await obtenerOfertas(filtros);
+      // Cargar ofertas iniciales (página 0)
+      const { ofertas: ofertasIniciales, total, hasMore: masResultados } = await obtenerOfertas(filtros, 0);
       setOfertas(ofertasIniciales);
       setTotalOfertas(total);
+      setPage(0);
+      setHasMore(masResultados);
       setLoading(false);
     }
 
     inicializar();
   }, []);
 
-  // Recargar ofertas cuando cambian los filtros
+  // Recargar ofertas (reiniciando a página 0) cuando cambian los filtros
   useEffect(() => {
     async function cargarOfertas() {
       if (!hayDatos) return;
-      
+
       setLoading(true);
-      const { ofertas: nuevasOfertas, total } = await obtenerOfertas(filtros);
+      const { ofertas: nuevasOfertas, total, hasMore: masResultados } = await obtenerOfertas(filtros, 0);
       setOfertas(nuevasOfertas);
       setTotalOfertas(total);
+      setPage(0);
+      setHasMore(masResultados);
       setLoading(false);
     }
 
     cargarOfertas();
   }, [filtros, hayDatos]);
+
+  // Cargar la siguiente página y CONCATENAR (no reemplaza) el listado
+  const handleVerMas = async () => {
+    if (loadingMore || !hasMore) return;
+
+    setLoadingMore(true);
+    const siguientePagina = page + 1;
+    const { ofertas: masOfertas, total, hasMore: masResultados } = await obtenerOfertas(filtros, siguientePagina);
+    setOfertas((prev) => [...prev, ...masOfertas]);
+    setTotalOfertas(total);
+    setPage(siguientePagina);
+    setHasMore(masResultados);
+    setLoadingMore(false);
+  };
 
   // Callback cuando NaIA detecta filtros
   const handleFiltersDetected = (nuevosFiltros: NaiaMockResponse['filtros']) => {
@@ -136,7 +157,11 @@ function ExplorarPageContent() {
                     Opciones que coinciden con tu búsqueda
                   </h1>
                   <p className="text-sm text-buscoedu-muted">
-                    {loading ? 'Cargando...' : `${totalOfertas} ${totalOfertas === 1 ? 'resultado' : 'resultados'}`}
+                    {loading
+                      ? 'Cargando...'
+                      : totalOfertas === 0
+                        ? '0 resultados'
+                        : `Mostrando ${ofertas.length} de ${totalOfertas} ${totalOfertas === 1 ? 'resultado' : 'resultados'}`}
                   </p>
                 </div>
                 <SortControl value={sortBy} onChange={setSortBy} />
@@ -166,17 +191,31 @@ function ExplorarPageContent() {
                 </p>
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {ofertas.map((oferta) => (
-                  <OfferCard
-                    key={oferta.id}
-                    oferta={oferta}
-                    onCardClick={() => setSelectedOferta(oferta)}
-                    isInMyList={isInMyList(oferta.id)}
-                    onToggleMyList={() => handleToggleMyList(oferta.id)}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {ofertas.map((oferta) => (
+                    <OfferCard
+                      key={oferta.id}
+                      oferta={oferta}
+                      onCardClick={() => setSelectedOferta(oferta)}
+                      isInMyList={isInMyList(oferta.id)}
+                      onToggleMyList={() => handleToggleMyList(oferta.id)}
+                    />
+                  ))}
+                </div>
+
+                {hasMore && (
+                  <div className="mt-8 flex justify-center">
+                    <button
+                      onClick={handleVerMas}
+                      disabled={loadingMore}
+                      className="px-6 py-3 rounded-md border border-buscoedu-teal text-buscoedu-teal font-semibold hover:bg-buscoedu-teal hover:text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {loadingMore ? 'Cargando...' : 'Ver más resultados'}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -202,10 +241,17 @@ function ExplorarPageContent() {
 
         {/* Resultados */}
         <div className="p-4">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between">
             <h1 className="text-xl font-bold text-buscoedu-blue">Explorar Opciones</h1>
             <SortControl value={sortBy} onChange={setSortBy} />
           </div>
+          <p className="text-sm text-buscoedu-muted mb-4">
+            {loading
+              ? 'Cargando...'
+              : totalOfertas === 0
+                ? '0 resultados'
+                : `Mostrando ${ofertas.length} de ${totalOfertas} ${totalOfertas === 1 ? 'resultado' : 'resultados'}`}
+          </p>
 
           <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4">
             Las opciones mostradas coinciden con los criterios indicados.
@@ -229,17 +275,31 @@ function ExplorarPageContent() {
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {ofertas.map((oferta) => (
-                <OfferCard
-                  key={oferta.id}
-                  oferta={oferta}
-                  onCardClick={() => setSelectedOferta(oferta)}
-                  isInMyList={isInMyList(oferta.id)}
-                  onToggleMyList={() => handleToggleMyList(oferta.id)}
-                />
-              ))}
-            </div>
+            <>
+              <div className="space-y-3">
+                {ofertas.map((oferta) => (
+                  <OfferCard
+                    key={oferta.id}
+                    oferta={oferta}
+                    onCardClick={() => setSelectedOferta(oferta)}
+                    isInMyList={isInMyList(oferta.id)}
+                    onToggleMyList={() => handleToggleMyList(oferta.id)}
+                  />
+                ))}
+              </div>
+
+              {hasMore && (
+                <div className="mt-6 flex justify-center">
+                  <button
+                    onClick={handleVerMas}
+                    disabled={loadingMore}
+                    className="w-full px-6 py-3 rounded-md border border-buscoedu-teal text-buscoedu-teal font-semibold hover:bg-buscoedu-teal hover:text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {loadingMore ? 'Cargando...' : 'Ver más resultados'}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
