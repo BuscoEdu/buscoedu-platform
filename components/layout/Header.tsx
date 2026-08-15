@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import NaiaEntryModal from "@/components/naia/NaiaEntryModal";
+import { useMyList } from "@/src/contexts/MyListContext";
 
 const navItems = [
   { label: "Cómo funciona", href: "/como-funciona" },
@@ -18,6 +19,15 @@ const navItems = [
 export default function Header() {
   const pathname = usePathname();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { myList } = useMyList();
+
+  // Evitar desajuste de hidratación: el conteo depende de localStorage, que
+  // solo existe en el cliente. Mostramos el badge tras montar.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  const count = mounted ? myList.length : 0;
 
   return (
     <>
@@ -36,6 +46,34 @@ export default function Header() {
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link
+                  href="/mi-lista"
+                  className="inline-flex items-center gap-1.5 rounded px-1 py-1 font-medium hover:text-buscoedu-blue"
+                  aria-label={`Mi lista${count > 0 ? ` (${count} guardadas)` : ''}`}
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill={count > 0 ? 'currentColor' : 'none'}
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                    />
+                  </svg>
+                  <span>Mi lista</span>
+                  {count > 0 && (
+                    <span className="ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-buscoedu-teal px-1.5 py-0.5 text-xs font-semibold text-white">
+                      {count}
+                    </span>
+                  )}
+                </Link>
+              </li>
             </ul>
           </nav>
 

@@ -390,6 +390,41 @@ export async function obtenerOfertas(
 }
 
 /**
+ * Obtiene ofertas académicas por una lista de IDs (para "Mi Lista").
+ *
+ * Devuelve las ofertas en el mismo orden en que se pasaron los IDs. Solo
+ * considera ofertas activas (no filtra por vigencia para no ocultar algo que
+ * el usuario ya guardó, pero sí exige que sigan publicadas).
+ */
+export async function obtenerOfertasPorIds(ids: string[]): Promise<OfertaAcademica[]> {
+  if (!ids || ids.length === 0) return [];
+
+  try {
+    const hoy = todayISO();
+    const { data, error } = await supabase
+      .from('ofertas_academicas')
+      .select(SELECT_OFERTAS)
+      .in('id', ids);
+
+    if (error) {
+      console.error('Error obteniendo ofertas por IDs:', error);
+      return [];
+    }
+
+    const ofertas = (data || []).map((item: any) => mapearOferta(item, hoy));
+
+    // Reordenar según el orden en que el usuario las guardó.
+    const orden = new Map(ids.map((id, index) => [id, index]));
+    ofertas.sort((a, b) => (orden.get(a.id) ?? 0) - (orden.get(b.id) ?? 0));
+
+    return ofertas;
+  } catch (error) {
+    console.error('Error en obtenerOfertasPorIds:', error);
+    return [];
+  }
+}
+
+/**
  * Verifica si hay datos de ofertas en la base de datos.
  */
 export async function verificarDatosDemo(): Promise<boolean> {
