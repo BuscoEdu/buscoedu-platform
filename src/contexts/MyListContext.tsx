@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { trackOfferAddedToMyList, trackOfferRemovedFromMyList } from '@/src/lib/events';
 
 interface MyListContextType {
   myList: string[];
@@ -45,12 +46,21 @@ export function MyListProvider({ children }: { children: ReactNode }) {
   const addToMyList = (ofertaId: string) => {
     setMyList(prev => {
       if (prev.includes(ofertaId)) return prev;
+      // Registrar evento de adición
+      trackOfferAddedToMyList(ofertaId);
       return [...prev, ofertaId];
     });
   };
 
   const removeFromMyList = (ofertaId: string) => {
-    setMyList(prev => prev.filter(id => id !== ofertaId));
+    setMyList(prev => {
+      const filtered = prev.filter(id => id !== ofertaId);
+      // Solo registrar si realmente se eliminó
+      if (filtered.length < prev.length) {
+        trackOfferRemovedFromMyList(ofertaId);
+      }
+      return filtered;
+    });
   };
 
   const isInMyList = (ofertaId: string) => {

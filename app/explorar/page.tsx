@@ -7,6 +7,7 @@ import FilterPanel from '@/components/explorar/FilterPanel';
 import ActiveFilterTags from '@/components/explorar/ActiveFilterTags';
 import SortControl from '@/components/explorar/SortControl';
 import OfferCard from '@/components/explorar/OfferCard';
+import OfferDetailModal from '@/components/explorar/OfferDetailModal';
 import { useMyList } from '@/src/contexts/MyListContext';
 import { obtenerOfertas, verificarDatosDemo, type FiltrosOferta, type OfertaAcademica } from '@/src/lib/ofertas';
 import type { NaiaMockResponse } from '@/src/lib/naia-mock';
@@ -242,6 +243,9 @@ export default function ExplorarPage() {
           )}
         </div>
       </div>
+
+      {/* Modal de detalle de oferta */}
+      <OfferDetailModal oferta={selectedOferta} onClose={() => setSelectedOferta(null)} />
     </div>
   );
 }

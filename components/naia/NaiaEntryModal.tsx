@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getOrCreateVisitorId } from '@/src/lib/visitor';
+import { trackNaiaModalOpened, trackSearchIntention } from '@/src/lib/events';
 
 interface NaiaEntryModalProps {
   isOpen: boolean;
@@ -22,10 +23,14 @@ export default function NaiaEntryModal({ isOpen, onClose }: NaiaEntryModalProps)
   const [showWarning, setShowWarning] = useState(false);
   const router = useRouter();
 
-  // Inicializar visitante al abrir el modal
+  // Inicializar visitante y registrar evento al abrir el modal
   useEffect(() => {
     if (isOpen) {
-      getOrCreateVisitorId().catch(console.error);
+      getOrCreateVisitorId()
+        .then(() => {
+          trackNaiaModalOpened();
+        })
+        .catch(console.error);
     }
   }, [isOpen]);
 
@@ -48,6 +53,9 @@ export default function NaiaEntryModal({ isOpen, onClose }: NaiaEntryModalProps)
       setShowWarning(true);
       return;
     }
+
+    // Registrar evento de búsqueda
+    trackSearchIntention(trimmedIntention);
 
     // Redirigir a /explorar con la intención como query param
     router.push(`/explorar?q=${encodeURIComponent(trimmedIntention)}`);
