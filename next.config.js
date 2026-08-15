@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Permitir acceso desde preview URL del VM
-  allowedDevOrigins: ['*'],
+  allowedDevOrigins: ['a21c52671.na113.preview.abacusai.app'],
   
   // Configuración de imágenes para Supabase
   images: {
