@@ -3,18 +3,26 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import NaiaChatPanel from '@/components/naia/NaiaChatPanel';
+import FilterPanel from '@/components/explorar/FilterPanel';
+import ActiveFilterTags from '@/components/explorar/ActiveFilterTags';
+import SortControl from '@/components/explorar/SortControl';
+import OfferCard from '@/components/explorar/OfferCard';
+import { useMyList } from '@/src/contexts/MyListContext';
 import { obtenerOfertas, verificarDatosDemo, type FiltrosOferta, type OfertaAcademica } from '@/src/lib/ofertas';
 import type { NaiaMockResponse } from '@/src/lib/naia-mock';
 
 export default function ExplorarPage() {
   const searchParams = useSearchParams();
   const intention = searchParams.get('q');
+  const { isInMyList, addToMyList, removeFromMyList } = useMyList();
 
   const [filtros, setFiltros] = useState<FiltrosOferta>({});
   const [ofertas, setOfertas] = useState<OfertaAcademica[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalOfertas, setTotalOfertas] = useState(0);
   const [hayDatos, setHayDatos] = useState(false);
+  const [sortBy, setSortBy] = useState('relevancia');
+  const [selectedOferta, setSelectedOferta] = useState<OfertaAcademica | null>(null);
 
   // Verificar datos y cargar ofertas iniciales
   useEffect(() => {
@@ -64,6 +72,32 @@ export default function ExplorarPage() {
     }));
   };
 
+  // Manejar cambios en filtros manuales
+  const handleManualFiltersChange = (nuevosFiltros: FiltrosOferta) => {
+    setFiltros(nuevosFiltros);
+  };
+
+  // Remover un filtro específico
+  const handleRemoveFilter = (key: keyof FiltrosOferta) => {
+    const newFiltros = { ...filtros };
+    delete newFiltros[key];
+    setFiltros(newFiltros);
+  };
+
+  // Limpiar todos los filtros
+  const handleClearAllFilters = () => {
+    setFiltros({});
+  };
+
+  // Toggle oferta en Mi Lista
+  const handleToggleMyList = (ofertaId: string) => {
+    if (isInMyList(ofertaId)) {
+      removeFromMyList(ofertaId);
+    } else {
+      addToMyList(ofertaId);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-buscoedu-bg">
       {/* Layout Desktop: 2 columnas */}
@@ -80,31 +114,32 @@ export default function ExplorarPage() {
           
           <div className="p-4">
             <h3 className="font-bold text-buscoedu-blue mb-3">Filtros</h3>
-            <p className="text-sm text-buscoedu-muted">
-              Los filtros manuales se implementarán en el BLOQUE 3.
-            </p>
-            
-            {/* Mostrar filtros activos de NaIA */}
-            {Object.keys(filtros).length > 0 && (
-              <div className="mt-4 space-y-2">
-                <p className="text-xs font-semibold text-buscoedu-muted uppercase">Filtros activos:</p>
-                {Object.entries(filtros).map(([key, value]) => (
-                  <div key={key} className="text-sm bg-buscoedu-teal/10 px-3 py-2 rounded-md">
-                    <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {value}
-                  </div>
-                ))}
-              </div>
-            )}
+            <FilterPanel filtros={filtros} onFiltrosChange={handleManualFiltersChange} />
           </div>
         </div>
 
         {/* Columna derecha: Resultados */}
-        <div className="overflow-y-auto">
-          <div className="p-6">
+        <div className="overflow-y-auto flex flex-col">
+          {/* Tags de filtros activos */}
+          <ActiveFilterTags 
+            filtros={filtros}
+            onRemoveFilter={handleRemoveFilter}
+            onClearAll={handleClearAllFilters}
+          />
+
+          <div className="p-6 flex-1">
             <div className="mb-6">
-              <h1 className="text-2xl font-bold text-buscoedu-blue mb-2">
-                Opciones que coinciden con tu búsqueda
-              </h1>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-buscoedu-blue mb-2">
+                    Opciones que coinciden con tu búsqueda
+                  </h1>
+                  <p className="text-sm text-buscoedu-muted">
+                    {loading ? 'Cargando...' : `${totalOfertas} ${totalOfertas === 1 ? 'resultado' : 'resultados'}`}
+                  </p>
+                </div>
+                <SortControl value={sortBy} onChange={setSortBy} />
+              </div>
               <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
                 Las opciones mostradas coinciden con los criterios indicados. No constituyen una garantía de admisión, beca concedida ni disponibilidad de cupo.
               </p>
@@ -130,29 +165,16 @@ export default function ExplorarPage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
-                <p className="text-sm text-buscoedu-muted">
-                  {totalOfertas} {totalOfertas === 1 ? 'resultado' : 'resultados'}
-                </p>
-                
-                {/* Placeholder para tarjetas - se implementarán en BLOQUE 3 */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {ofertas.map((oferta) => (
-                    <div key={oferta.id} className="bg-white border border-buscoedu-border rounded-lg p-4">
-                      <h3 className="font-semibold text-buscoedu-blue mb-2">
-                        {oferta.programa?.nombre || oferta.nombre}
-                      </h3>
-                      <p className="text-sm text-buscoedu-muted mb-2">
-                        {oferta.universidad?.nombre}
-                      </p>
-                      {oferta.programa?.modalidad && (
-                        <p className="text-xs text-buscoedu-muted">
-                          Modalidad: {oferta.programa.modalidad}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {ofertas.map((oferta) => (
+                  <OfferCard
+                    key={oferta.id}
+                    oferta={oferta}
+                    onCardClick={() => setSelectedOferta(oferta)}
+                    isInMyList={isInMyList(oferta.id)}
+                    onToggleMyList={() => handleToggleMyList(oferta.id)}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -160,11 +182,9 @@ export default function ExplorarPage() {
       </div>
 
       {/* Layout Mobile: vertical */}
-      <div className="md:hidden p-4 space-y-4">
-        <h1 className="text-xl font-bold text-buscoedu-blue">Explorar Opciones</h1>
-        
+      <div className="md:hidden space-y-4">
         {/* Chat compacto */}
-        <div className="bg-white border border-buscoedu-border rounded-lg h-[300px]">
+        <div className="bg-white border-b border-buscoedu-border h-[300px]">
           <NaiaChatPanel
             initialMessage={intention || undefined}
             onFiltersDetected={handleFiltersDetected}
@@ -172,8 +192,20 @@ export default function ExplorarPage() {
           />
         </div>
 
+        {/* Tags de filtros activos */}
+        <ActiveFilterTags 
+          filtros={filtros}
+          onRemoveFilter={handleRemoveFilter}
+          onClearAll={handleClearAllFilters}
+        />
+
         {/* Resultados */}
-        <div>
+        <div className="p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <h1 className="text-xl font-bold text-buscoedu-blue">Explorar Opciones</h1>
+            <SortControl value={sortBy} onChange={setSortBy} />
+          </div>
+
           <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4">
             Las opciones mostradas coinciden con los criterios indicados.
           </p>
@@ -184,6 +216,11 @@ export default function ExplorarPage() {
                 No hay datos demo disponibles.
               </p>
             </div>
+          ) : loading ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-buscoedu-teal"></div>
+              <p className="mt-4 text-buscoedu-muted">Cargando ofertas...</p>
+            </div>
           ) : ofertas.length === 0 ? (
             <div className="bg-white border border-buscoedu-border rounded-lg p-6 text-center">
               <p className="text-sm text-buscoedu-muted">
@@ -193,14 +230,13 @@ export default function ExplorarPage() {
           ) : (
             <div className="space-y-3">
               {ofertas.map((oferta) => (
-                <div key={oferta.id} className="bg-white border border-buscoedu-border rounded-lg p-4">
-                  <h3 className="font-semibold text-buscoedu-blue mb-1">
-                    {oferta.programa?.nombre || oferta.nombre}
-                  </h3>
-                  <p className="text-sm text-buscoedu-muted">
-                    {oferta.universidad?.nombre}
-                  </p>
-                </div>
+                <OfferCard
+                  key={oferta.id}
+                  oferta={oferta}
+                  onCardClick={() => setSelectedOferta(oferta)}
+                  isInMyList={isInMyList(oferta.id)}
+                  onToggleMyList={() => handleToggleMyList(oferta.id)}
+                />
               ))}
             </div>
           )}
