@@ -54,22 +54,54 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function normalizeText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function tokenize(value: string): string[] {
+  const stopWords = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'y', 'en', 'con', 'para', 'por', 'una', 'un']);
+
+  return normalizeText(value)
+    .split(/[^a-z0-9]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 1 && !stopWords.has(t));
+}
+
+function extraerTokensDesdeFiltros(filtros: FiltrosOferta): string[] {
+  const valores = [
+    filtros.programa_o_area,
+    filtros.modalidad,
+    filtros.ciudad,
+    filtros.pais,
+    filtros.nivel_academico,
+    filtros.tipo_beneficio,
+    filtros.universidad
+  ].filter(Boolean) as string[];
+
+  return valores.flatMap(tokenize);
+}
+
 /**
  * Obtiene ofertas académicas con filtros opcionales.
  *
  * Nota técnica:
- * - Se consulta únicamente ofertas_academicas para evitar errores por
- *   diferencias de columnas/políticas en tablas relacionadas.
+ * - Se consulta únicamente ofertas_academicas para evitar fallos por joins
+ *   en tablas relacionadas que actualmente están vacías en el entorno.
+ * - Los filtros se aplican en memoria sobre nombre/descripcion/beneficio.
  */
 export async function obtenerOfertas(
   filtros: FiltrosOferta = {},
-  limit: number = 20,
+  limit: number = 40,
   offset: number = 0
 ): Promise<{ ofertas: OfertaAcademica[]; total: number }> {
   try {
     const hoy = todayISO();
 
-    let query = supabase
+    const { data, error } = await supabase
       .from('ofertas_academicas')
       .select(
         `
@@ -87,27 +119,12 @@ export async function obtenerOfertas(
           descripcion_beneficio,
           vigente_desde,
           vigente_hasta
-        `,
-        { count: 'exact' }
+        `
       )
       .eq('activo', true)
       .lte('vigente_desde', hoy)
-      .or(`vigente_hasta.is.null,vigente_hasta.gte.${hoy}`);
-
-    // Filtros soportados directamente por columnas existentes
-    if (filtros.programa_o_area) {
-      query = query.or(
-        `nombre_oferta.ilike.%${filtros.programa_o_area}%,descripcion_comercial.ilike.%${filtros.programa_o_area}%`
-      );
-    }
-
-    if (filtros.tipo_beneficio) {
-      query = query.ilike('tipo_beneficio', `%${filtros.tipo_beneficio}%`);
-    }
-
-    query = query.range(offset, offset + limit - 1);
-
-    const { data, error, count } = await query;
+      .or(`vigente_hasta.is.null,vigente_hasta.gte.${hoy}`)
+      .limit(1000);
 
     if (error) {
       console.error('Error obteniendo ofertas:', error);
@@ -139,16 +156,39 @@ export async function obtenerOfertas(
           ? [
               {
                 tipo: String(item.tipo_beneficio).replaceAll('_', ' '),
-                descripcion: item.descripcion_beneficio || undefined,
-              },
+                descripcion: item.descripcion_beneficio || undefined
+              }
             ]
-          : [],
+          : []
       };
     });
 
+    const tokensFiltro = extraerTokensDesdeFiltros(filtros);
+
+    const ofertasFiltradas =
+      tokensFiltro.length === 0
+        ? ofertas
+        : ofertas.filter((oferta) => {
+            const bolsaTexto = normalizeText(
+              [
+                oferta.nombre,
+                oferta.descripcion,
+                oferta.tipo_beneficio,
+                ...(oferta.beneficios || []).map((b) => `${b.tipo} ${b.descripcion || ''}`)
+              ]
+                .filter(Boolean)
+                .join(' ')
+            );
+
+            return tokensFiltro.every((token) => bolsaTexto.includes(token));
+          });
+
+    const total = ofertasFiltradas.length;
+    const ofertasPaginadas = ofertasFiltradas.slice(offset, offset + limit);
+
     return {
-      ofertas,
-      total: count || 0,
+      ofertas: ofertasPaginadas,
+      total
     };
   } catch (error) {
     console.error('Error en obtenerOfertas:', error);
@@ -161,10 +201,7 @@ export async function obtenerOfertas(
  */
 export async function verificarDatosDemo(): Promise<boolean> {
   try {
-    const { data, error } = await supabase
-      .from('ofertas_academicas')
-      .select('id')
-      .limit(1);
+    const { data, error } = await supabase.from('ofertas_academicas').select('id').limit(1);
 
     return !error && (data?.length || 0) > 0;
   } catch {
