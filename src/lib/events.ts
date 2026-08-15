@@ -3,7 +3,7 @@
  * Registra eventos de usuario en la tabla eventos_negocio
  */
 
-import { getSupabaseClient } from './supabase';
+import { supabase } from './supabase';
 import { getCurrentVisitorId } from './visitor';
 
 export type EventType =
@@ -39,8 +39,6 @@ export async function trackEvent(eventData: EventData): Promise<void> {
   }
 
   try {
-    const supabase = getSupabaseClient();
-    
     const { error } = await supabase.from('eventos_negocio').insert({
       visitante_id: visitorId,
       tipo_evento: eventData.tipo_evento,

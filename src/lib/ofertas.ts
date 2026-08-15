@@ -2,7 +2,7 @@
  * Funciones para consultar ofertas académicas desde Supabase
  */
 
-import { getSupabaseClient } from './supabase';
+import { supabase } from './supabase';
 
 export interface OfertaAcademica {
   id: string;
@@ -54,8 +54,6 @@ export async function obtenerOfertas(
   limit: number = 20,
   offset: number = 0
 ): Promise<{ ofertas: OfertaAcademica[]; total: number }> {
-  const supabase = getSupabaseClient();
-
   try {
     // Query base - solo ofertas publicadas, validadas y vigentes
     let query = supabase
@@ -151,8 +149,6 @@ export async function obtenerOfertas(
  * Verifica si hay datos demo en la base de datos
  */
 export async function verificarDatosDemo(): Promise<boolean> {
-  const supabase = getSupabaseClient();
-  
   try {
     const { data, error } = await supabase
       .from('ofertas_academicas')

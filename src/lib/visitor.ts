@@ -3,7 +3,7 @@
  * Crea y gestiona identificadores UUID para usuarios no registrados
  */
 
-import { getSupabaseClient } from './supabase';
+import { supabase } from './supabase';
 
 const VISITOR_ID_KEY = 'buscoedu_identificador_navegacion';
 
@@ -41,7 +41,6 @@ export async function getOrCreateVisitorId(): Promise<string> {
 
   // Registrar en Supabase (visitantes table)
   try {
-    const supabase = getSupabaseClient();
     const { error } = await supabase.from('visitantes').insert({
       id: visitorId,
       fecha_primera_visita: new Date().toISOString(),
@@ -66,7 +65,6 @@ export async function updateVisitorActivity(visitorId: string): Promise<void> {
   if (!visitorId || typeof window === 'undefined') return;
 
   try {
-    const supabase = getSupabaseClient();
     await supabase
       .from('visitantes')
       .update({ fecha_ultima_actividad: new Date().toISOString() })
