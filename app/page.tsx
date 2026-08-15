@@ -1,14 +1,11 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import type { Metadata } from "next";
 import InterestForm from "@/components/forms/InterestForm";
 import SectionHeading from "@/components/ui/SectionHeading";
 import InfoCard from "@/components/ui/InfoCard";
-
-export const metadata: Metadata = {
-  title: "BuscoEdu | Encuentra opciones educativas con orientación inteligente",
-  description:
-    "Explora alternativas de estudio con BuscoEdu y NaIA. Solo compartimos tus datos con universidades aliadas cuando lo autorizas expresamente."
-};
+import NaiaEntryModal from "@/components/naia/NaiaEntryModal";
 
 const beneficios = [
   {
@@ -50,26 +47,29 @@ const pasos = [
 ];
 
 export default function HomePage() {
-  return (
-    <div className="mx-auto w-full max-w-6xl space-y-14 px-4 py-10 sm:px-6 lg:px-8">
-      <section className="rounded-2xl bg-gradient-to-br from-buscoedu-blue to-[#1d4d88] px-6 py-12 text-white sm:px-10">
-        <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-widest text-buscoedu-yellow">Orientación educativa</p>
-          <h1 className="mt-4 text-3xl font-bold leading-tight sm:text-5xl">
-            Encuentra opciones educativas con orientación inteligente.
-          </h1>
-          <p className="mt-5 text-base leading-relaxed text-slate-100 sm:text-lg">
-            BuscoEdu te ayuda a explorar alternativas de estudio, aclarar tu perfil educativo y, solo si lo
-            autorizas, conectarte con universidades aliadas.
-          </p>
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link
-              href="#formulario-interes"
-              className="inline-flex items-center rounded-md bg-buscoedu-teal px-5 py-2.5 font-semibold text-white transition hover:brightness-95"
-            >
-              Hablar con NaIA
-            </Link>
+  return (
+    <>
+      <div className="mx-auto w-full max-w-6xl space-y-14 px-4 py-10 sm:px-6 lg:px-8">
+        <section className="rounded-2xl bg-gradient-to-br from-buscoedu-blue to-[#1d4d88] px-6 py-12 text-white sm:px-10">
+          <div className="max-w-3xl">
+            <p className="text-sm font-semibold uppercase tracking-widest text-buscoedu-yellow">Orientación educativa</p>
+            <h1 className="mt-4 text-3xl font-bold leading-tight sm:text-5xl">
+              Encuentra opciones educativas con orientación inteligente.
+            </h1>
+            <p className="mt-5 text-base leading-relaxed text-slate-100 sm:text-lg">
+              BuscoEdu te ayuda a explorar alternativas de estudio, aclarar tu perfil educativo y, solo si lo
+              autorizas, conectarte con universidades aliadas.
+            </p>
+
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex items-center rounded-md bg-buscoedu-teal px-5 py-2.5 font-semibold text-white transition hover:brightness-95"
+              >
+                Hablar con NaIA
+              </button>
             <Link
               href="/programas"
               className="inline-flex items-center rounded-md border border-white px-5 py-2.5 font-semibold text-white transition hover:bg-white/10"
@@ -167,6 +167,10 @@ export default function HomePage() {
 
       <InterestForm />
     </div>
+
+    {/* Modal de NaIA */}
+    <NaiaEntryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+    </>
   );
 }
 
