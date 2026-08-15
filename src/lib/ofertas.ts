@@ -1,5 +1,6 @@
 /**
  * Funciones para consultar ofertas académicas desde Supabase
+ * Adaptadas al esquema real de la tabla ofertas_academicas.
  */
 
 import { supabase } from './supabase';
@@ -15,7 +16,10 @@ export interface OfertaAcademica {
   cupos_disponibles?: number;
   estado_publicacion?: string;
   estado_validacion?: string;
-  // Joins
+  tipo_beneficio?: string;
+  vigente_desde?: string;
+  vigente_hasta?: string;
+  // Joins opcionales (temporalmente no usados hasta alinear esquema/políticas)
   programa?: {
     nombre: string;
     nivel_academico?: string;
@@ -46,8 +50,16 @@ export interface FiltrosOferta {
   universidad?: string;
 }
 
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 /**
- * Obtiene ofertas académicas con filtros opcionales
+ * Obtiene ofertas académicas con filtros opcionales.
+ *
+ * Nota técnica:
+ * - Se consulta únicamente ofertas_academicas para evitar errores por
+ *   diferencias de columnas/políticas en tablas relacionadas.
  */
 export async function obtenerOfertas(
   filtros: FiltrosOferta = {},
@@ -55,48 +67,44 @@ export async function obtenerOfertas(
   offset: number = 0
 ): Promise<{ ofertas: OfertaAcademica[]; total: number }> {
   try {
-    // Query base - solo ofertas publicadas, validadas y vigentes
+    const hoy = todayISO();
+
     let query = supabase
       .from('ofertas_academicas')
-      .select(`
-        id,
-        nombre,
-        descripcion,
-        programa_id,
-        universidad_id,
-        sede_id,
-        vigente,
-        cupos_disponibles,
-        estado_publicacion,
-        estado_validacion,
-        programas_academicos!inner(
-          nombre,
-          nivel_academico,
-          duracion,
-          modalidad
-        ),
-        universidades!inner(
-          nombre
-        ),
-        sedes(
-          nombre,
-          ciudad,
-          pais
-        ),
-        beneficios_oferta(
-          tipo,
-          descripcion
-        )
-      `, { count: 'exact' })
-      .eq('vigente', true)
-      .eq('estado_publicacion', 'publicado')
-      .eq('estado_validacion', 'validado');
+      .select(
+        `
+          id,
+          nombre_oferta,
+          descripcion_comercial,
+          programa_id,
+          universidad_id,
+          sede_id,
+          activo,
+          cupos_disponibles,
+          estado_publicacion,
+          estado_validacion,
+          tipo_beneficio,
+          descripcion_beneficio,
+          vigente_desde,
+          vigente_hasta
+        `,
+        { count: 'exact' }
+      )
+      .eq('activo', true)
+      .lte('vigente_desde', hoy)
+      .or(`vigente_hasta.is.null,vigente_hasta.gte.${hoy}`);
 
-    // Aplicar filtros si existen
-    // Nota: Los filtros en tablas relacionadas requieren ajustes según el esquema real
-    // Por ahora aplicamos filtros básicos
-    
-    // Paginación
+    // Filtros soportados directamente por columnas existentes
+    if (filtros.programa_o_area) {
+      query = query.or(
+        `nombre_oferta.ilike.%${filtros.programa_o_area}%,descripcion_comercial.ilike.%${filtros.programa_o_area}%`
+      );
+    }
+
+    if (filtros.tipo_beneficio) {
+      query = query.ilike('tipo_beneficio', `%${filtros.tipo_beneficio}%`);
+    }
+
     query = query.range(offset, offset + limit - 1);
 
     const { data, error, count } = await query;
@@ -106,38 +114,41 @@ export async function obtenerOfertas(
       return { ofertas: [], total: 0 };
     }
 
-    // Transformar datos al formato esperado
-    const ofertas: OfertaAcademica[] = (data || []).map((item: any) => ({
-      id: item.id,
-      nombre: item.nombre,
-      descripcion: item.descripcion,
-      programa_id: item.programa_id,
-      universidad_id: item.universidad_id,
-      sede_id: item.sede_id,
-      vigente: item.vigente,
-      cupos_disponibles: item.cupos_disponibles,
-      estado_publicacion: item.estado_publicacion,
-      estado_validacion: item.estado_validacion,
-      programa: item.programas_academicos ? {
-        nombre: item.programas_academicos.nombre,
-        nivel_academico: item.programas_academicos.nivel_academico,
-        duracion: item.programas_academicos.duracion,
-        modalidad: item.programas_academicos.modalidad
-      } : undefined,
-      universidad: item.universidades ? {
-        nombre: item.universidades.nombre
-      } : undefined,
-      sede: item.sedes ? {
-        nombre: item.sedes.nombre,
-        ciudad: item.sedes.ciudad,
-        pais: item.sedes.pais
-      } : undefined,
-      beneficios: item.beneficios_oferta || []
-    }));
+    const ofertas: OfertaAcademica[] = (data || []).map((item: any) => {
+      const vigente =
+        Boolean(item.activo) &&
+        Boolean(item.vigente_desde) &&
+        item.vigente_desde <= hoy &&
+        (!item.vigente_hasta || item.vigente_hasta >= hoy);
+
+      return {
+        id: item.id,
+        nombre: item.nombre_oferta,
+        descripcion: item.descripcion_comercial,
+        programa_id: item.programa_id,
+        universidad_id: item.universidad_id,
+        sede_id: item.sede_id,
+        vigente,
+        cupos_disponibles: item.cupos_disponibles,
+        estado_publicacion: item.estado_publicacion,
+        estado_validacion: item.estado_validacion,
+        tipo_beneficio: item.tipo_beneficio,
+        vigente_desde: item.vigente_desde,
+        vigente_hasta: item.vigente_hasta,
+        beneficios: item.tipo_beneficio
+          ? [
+              {
+                tipo: String(item.tipo_beneficio).replaceAll('_', ' '),
+                descripcion: item.descripcion_beneficio || undefined,
+              },
+            ]
+          : [],
+      };
+    });
 
     return {
       ofertas,
-      total: count || 0
+      total: count || 0,
     };
   } catch (error) {
     console.error('Error en obtenerOfertas:', error);
@@ -146,7 +157,7 @@ export async function obtenerOfertas(
 }
 
 /**
- * Verifica si hay datos demo en la base de datos
+ * Verifica si hay datos de ofertas en la base de datos.
  */
 export async function verificarDatosDemo(): Promise<boolean> {
   try {

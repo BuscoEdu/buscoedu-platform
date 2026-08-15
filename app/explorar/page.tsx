@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import NaiaChatPanel from '@/components/naia/NaiaChatPanel';
 import FilterPanel from '@/components/explorar/FilterPanel';
@@ -12,7 +12,7 @@ import { useMyList } from '@/src/contexts/MyListContext';
 import { obtenerOfertas, verificarDatosDemo, type FiltrosOferta, type OfertaAcademica } from '@/src/lib/ofertas';
 import type { NaiaMockResponse } from '@/src/lib/naia-mock';
 
-export default function ExplorarPage() {
+function ExplorarPageContent() {
   const searchParams = useSearchParams();
   const intention = searchParams.get('q');
   const { isInMyList, addToMyList, removeFromMyList } = useMyList();
@@ -148,9 +148,9 @@ export default function ExplorarPage() {
 
             {!hayDatos ? (
               <div className="bg-white border border-buscoedu-border rounded-lg p-8 text-center">
-                <p className="text-buscoedu-text mb-2 font-semibold">No hay datos demo en Supabase</p>
+                <p className="text-buscoedu-text mb-2 font-semibold">No hay ofertas visibles para este entorno</p>
                 <p className="text-sm text-buscoedu-muted">
-                  Las tablas de ofertas académicas están vacías. Se necesita insertar datos demo antes de continuar.
+                  Verifica vigencia de fechas y políticas de lectura (RLS) para el rol anon/authenticated en Supabase.
                 </p>
               </div>
             ) : loading ? (
@@ -214,7 +214,7 @@ export default function ExplorarPage() {
           {!hayDatos ? (
             <div className="bg-white border border-buscoedu-border rounded-lg p-6 text-center">
               <p className="text-sm text-buscoedu-muted">
-                No hay datos demo disponibles.
+                No hay ofertas visibles en este entorno. Revisa vigencia y políticas RLS para anon/authenticated.
               </p>
             </div>
           ) : loading ? (
@@ -247,5 +247,14 @@ export default function ExplorarPage() {
       {/* Modal de detalle de oferta */}
       <OfferDetailModal oferta={selectedOferta} onClose={() => setSelectedOferta(null)} />
     </div>
+  );
+}
+
+
+export default function ExplorarPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-buscoedu-muted">Cargando experiencia de exploración...</div>}>
+      <ExplorarPageContent />
+    </Suspense>
   );
 }
