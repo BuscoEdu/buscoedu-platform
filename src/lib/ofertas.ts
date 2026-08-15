@@ -94,6 +94,39 @@ function patronTipoBeneficio(valor: string): string {
   return `%${v}%`;
 }
 
+/**
+ * Expande sinónimos y agrupaciones comunes para mejorar coincidencias.
+ * Devuelve una lista de términos alternativos a buscar (el original + expansiones).
+ */
+function expandirSinonimos(termino: string, contexto: 'nivel' | 'area'): string[] {
+  const t = termino.trim().toLowerCase();
+  
+  if (contexto === 'nivel') {
+    // "Posgrado" no es un nivel en la BD, es un grupo conceptual.
+    if (t.includes('posgrado') || t.includes('postgrado')) {
+      return ['Especialización', 'Maestría', 'Doctorado'];
+    }
+  }
+
+  if (contexto === 'area') {
+    // Sinónimos comunes para áreas de conocimiento.
+    if (t.includes('empresa') || t.includes('negocio')) {
+      return ['Administración', 'Negocios', 'Empresariales', 'Gestión', termino];
+    }
+    if (t.includes('salud') || t.includes('medicina')) {
+      return ['Salud', 'Medicina', 'Ciencias de la Salud', termino];
+    }
+    if (t.includes('ingenier')) {
+      return ['Ingeniería', termino];
+    }
+    if (t.includes('derecho') || t.includes('leyes')) {
+      return ['Derecho', 'Ciencias Jurídicas', termino];
+    }
+  }
+
+  return [termino];
+}
+
 /** Devuelve IDs de una tabla catálogo cuyo `nombre` coincide (ILIKE). */
 async function idsPorNombre(tabla: string, termino: string): Promise<string[]> {
   const { data, error } = await supabase
@@ -111,10 +144,16 @@ async function idsPorNombre(tabla: string, termino: string): Promise<string[]> {
 /**
  * Resuelve los IDs de programas que satisfacen el término de programa/área.
  * Coincide si: nombre_oficial ILIKE término OR area_conocimiento_id ∈ áreas
- * cuyo nombre coincide con el término.
+ * cuyo nombre coincide con el término (expandiendo sinónimos comunes).
  */
 async function resolverProgramasPorTexto(termino: string): Promise<string[]> {
-  const areaIds = await idsPorNombre('areas_conocimiento', termino);
+  // Expandir sinónimos para áreas (ej: "empresas" → "Administración", "Negocios", etc.)
+  const terminosArea = expandirSinonimos(termino, 'area');
+  
+  // Buscar IDs de áreas que coincidan con cualquiera de los términos expandidos.
+  const areaIdsPromises = terminosArea.map(t => idsPorNombre('areas_conocimiento', t));
+  const areaIdsArrays = await Promise.all(areaIdsPromises);
+  const areaIds = [...new Set(areaIdsArrays.flat())]; // Deduplica
 
   const condiciones = [`nombre_oficial.ilike.${likePattern(termino)}`];
   if (areaIds.length > 0) {
@@ -137,6 +176,8 @@ async function resolverProgramasPorTexto(termino: string): Promise<string[]> {
  * Resuelve IDs de programas que cumplen restricciones duras (nivel y/o
  * modalidad). Devuelve `null` cuando no hay ninguna de esas restricciones
  * activas (no se debe filtrar por programa en ese caso).
+ * 
+ * Expande "posgrado" a Especialización + Maestría + Doctorado.
  */
 async function resolverProgramasPorNivelModalidad(
   filtros: FiltrosOferta
@@ -146,7 +187,14 @@ async function resolverProgramasPorNivelModalidad(
   let query = supabase.from('programas_academicos').select('id');
 
   if (filtros.nivel_academico) {
-    const nivelIds = await idsPorNombre('niveles_academicos', filtros.nivel_academico);
+    // Expandir sinónimos para niveles (ej: "posgrado" → Especialización + Maestría + Doctorado)
+    const terminosNivel = expandirSinonimos(filtros.nivel_academico, 'nivel');
+    
+    // Buscar IDs de niveles que coincidan con cualquiera de los términos expandidos.
+    const nivelIdsPromises = terminosNivel.map(t => idsPorNombre('niveles_academicos', t));
+    const nivelIdsArrays = await Promise.all(nivelIdsPromises);
+    const nivelIds = [...new Set(nivelIdsArrays.flat())]; // Deduplica
+    
     if (nivelIds.length === 0) return [];
     query = query.in('nivel_academico_id', nivelIds);
   }

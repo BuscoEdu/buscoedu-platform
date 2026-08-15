@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FiltrosOferta } from '@/src/lib/ofertas';
 
 interface FilterPanelProps {
@@ -40,6 +40,25 @@ export default function FilterPanel({ filtros, onFiltrosChange }: FilterPanelPro
     beneficios: false
   });
 
+  // Estado local para campos de texto (evita pérdida de foco al escribir).
+  // Solo propaga al padre al presionar Enter o al salir del campo (onBlur).
+  const [localTexts, setLocalTexts] = useState({
+    programa_o_area: filtros.programa_o_area || '',
+    pais: filtros.pais || '',
+    ciudad: filtros.ciudad || '',
+    universidad: filtros.universidad || ''
+  });
+
+  // Sincronizar estado local cuando cambien los filtros externos (ej. tags activos).
+  useEffect(() => {
+    setLocalTexts({
+      programa_o_area: filtros.programa_o_area || '',
+      pais: filtros.pais || '',
+      ciudad: filtros.ciudad || '',
+      universidad: filtros.universidad || ''
+    });
+  }, [filtros.programa_o_area, filtros.pais, filtros.ciudad, filtros.universidad]);
+
   const toggleGroup = (group: string) => {
     setExpandedGroups(prev => ({
       ...prev,
@@ -52,6 +71,15 @@ export default function FilterPanel({ filtros, onFiltrosChange }: FilterPanelPro
       ...filtros,
       [key]: value || undefined
     });
+  };
+
+  const handleTextChange = (key: keyof typeof localTexts, value: string) => {
+    setLocalTexts(prev => ({ ...prev, [key]: value }));
+  };
+
+  const commitTextFilter = (key: keyof typeof localTexts) => {
+    const value = localTexts[key].trim();
+    handleChange(key, value);
   };
 
   const handleClear = (key: keyof FiltrosOferta) => {
@@ -95,9 +123,15 @@ export default function FilterPanel({ filtros, onFiltrosChange }: FilterPanelPro
           <input
             id="programa-area"
             type="text"
-            value={filtros.programa_o_area || ''}
-            onChange={(e) => handleChange('programa_o_area', e.target.value)}
-            placeholder="Ej: Administración, Medicina..."
+            value={localTexts.programa_o_area}
+            onChange={(e) => handleTextChange('programa_o_area', e.target.value)}
+            onBlur={() => commitTextFilter('programa_o_area')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                commitTextFilter('programa_o_area');
+              }
+            }}
+            placeholder="Ej: Administración, Medicina... (presiona Enter)"
             className="w-full px-3 py-2 border border-buscoedu-border rounded-md text-sm focus:ring-2 focus:ring-buscoedu-blue focus:border-transparent"
           />
         </div>
@@ -129,9 +163,15 @@ export default function FilterPanel({ filtros, onFiltrosChange }: FilterPanelPro
           <input
             id="pais"
             type="text"
-            value={filtros.pais || ''}
-            onChange={(e) => handleChange('pais', e.target.value)}
-            placeholder="Ej: Colombia"
+            value={localTexts.pais}
+            onChange={(e) => handleTextChange('pais', e.target.value)}
+            onBlur={() => commitTextFilter('pais')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                commitTextFilter('pais');
+              }
+            }}
+            placeholder="Ej: Colombia (presiona Enter)"
             className="w-full px-3 py-2 border border-buscoedu-border rounded-md text-sm focus:ring-2 focus:ring-buscoedu-blue focus:border-transparent"
           />
         </div>
@@ -143,9 +183,15 @@ export default function FilterPanel({ filtros, onFiltrosChange }: FilterPanelPro
           <input
             id="ciudad"
             type="text"
-            value={filtros.ciudad || ''}
-            onChange={(e) => handleChange('ciudad', e.target.value)}
-            placeholder="Ej: Bogotá"
+            value={localTexts.ciudad}
+            onChange={(e) => handleTextChange('ciudad', e.target.value)}
+            onBlur={() => commitTextFilter('ciudad')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                commitTextFilter('ciudad');
+              }
+            }}
+            placeholder="Ej: Bogotá (presiona Enter)"
             className="w-full px-3 py-2 border border-buscoedu-border rounded-md text-sm focus:ring-2 focus:ring-buscoedu-blue focus:border-transparent"
           />
         </div>
@@ -157,9 +203,15 @@ export default function FilterPanel({ filtros, onFiltrosChange }: FilterPanelPro
           <input
             id="universidad"
             type="text"
-            value={filtros.universidad || ''}
-            onChange={(e) => handleChange('universidad', e.target.value)}
-            placeholder="Nombre de universidad"
+            value={localTexts.universidad}
+            onChange={(e) => handleTextChange('universidad', e.target.value)}
+            onBlur={() => commitTextFilter('universidad')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                commitTextFilter('universidad');
+              }
+            }}
+            placeholder="Nombre de universidad (presiona Enter)"
             className="w-full px-3 py-2 border border-buscoedu-border rounded-md text-sm focus:ring-2 focus:ring-buscoedu-blue focus:border-transparent"
           />
         </div>
