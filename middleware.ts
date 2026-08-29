@@ -61,7 +61,7 @@ export async function middleware(request: NextRequest) {
     .eq('activo', true)
     .single();
 
-  const roleCode = internalUser?.roles?.[0]?.codigo;
+  const roleCode = internalUser?.roles?.codigo;
 
   if (roleError || !internalUser || roleCode !== 'super_admin') {
     return redirectToAdminLogin(request);

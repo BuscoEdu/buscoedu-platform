@@ -61,7 +61,7 @@ export default function AdminLoginPage() {
       .eq('activo', true)
       .single();
 
-    const roleCode = internalUser?.roles?.[0]?.codigo;
+    const roleCode = internalUser?.roles?.codigo;
 
     console.log('[ADMIN LOGIN][ROLE CHECK]', {
       authUserId: data.user.id,
