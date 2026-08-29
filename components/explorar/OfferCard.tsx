@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { OfertaAcademica } from '@/src/lib/ofertas';
+import { getUniversityColor } from '@/src/lib/university-colors';
 
 interface OfferCardProps {
   oferta: OfertaAcademica;
@@ -12,6 +13,8 @@ interface OfferCardProps {
 
 export default function OfferCard({ oferta, onCardClick, isInMyList = false, onToggleMyList }: OfferCardProps) {
   const [imageError, setImageError] = useState(false);
+  const universityNameOrSlug = oferta.universidad?.nombre ?? '';
+  const universityColor = getUniversityColor(universityNameOrSlug);
 
   // Información para mostrar (máximo 5 campos)
   const fields = [
@@ -34,7 +37,10 @@ export default function OfferCard({ oferta, onCardClick, isInMyList = false, onT
   ].filter(Boolean).slice(0, 5);
 
   return (
-    <article className="self-start h-fit bg-white border border-buscoedu-border rounded-lg overflow-hidden hover:shadow-card transition-shadow cursor-pointer">
+    <article
+      className="self-start h-fit bg-white border border-buscoedu-border border-l-4 rounded-lg overflow-hidden hover:shadow-card transition-shadow cursor-pointer"
+      style={{ borderLeftColor: universityColor }}
+    >
       {/* Imagen o placeholder */}
       <div className="relative h-40 bg-gradient-to-br from-buscoedu-blue/10 to-buscoedu-teal/10" onClick={onCardClick}>
         {!imageError && oferta.universidad?.nombre && (
