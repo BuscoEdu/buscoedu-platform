@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/src/lib/supabase';
 
@@ -13,6 +13,7 @@ export default function AdminLoginPage() {
 
   const [email, setEmail] = useState('admin@buscoedu.com');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +32,10 @@ export default function AdminLoginPage() {
 
     checkExistingSession();
   }, [router, supabase]);
+
+  function handlePasswordVisibilityChange(event: ChangeEvent<HTMLInputElement>) {
+    setShowPassword(event.target.checked);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -114,13 +119,26 @@ export default function AdminLoginPage() {
             </label>
             <input
               id="password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               className="w-full rounded-lg border border-buscoedu-border px-3 py-2 text-sm text-buscoedu-text outline-none ring-buscoedu-teal focus:ring-2"
               placeholder="••••••••"
             />
+            <label
+              htmlFor="show-password"
+              className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-buscoedu-muted sm:text-[0.95rem]"
+            >
+              <input
+                id="show-password"
+                type="checkbox"
+                checked={showPassword}
+                onChange={handlePasswordVisibilityChange}
+                className="h-4 w-4 rounded border-buscoedu-border text-buscoedu-teal focus:ring-buscoedu-teal"
+              />
+              <span className="font-medium text-buscoedu-blue">Mostrar contraseña</span>
+            </label>
           </div>
 
           {error ? (
