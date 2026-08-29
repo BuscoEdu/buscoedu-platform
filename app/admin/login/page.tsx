@@ -83,8 +83,8 @@ export default function AdminLoginPage() {
       return;
     }
 
-    setIsLoading(false);
-    router.replace('/admin');
+    // Usar window.location para forzar recarga completa y asegurar sincronización de cookies
+    window.location.href = '/admin';
   }
 
   return (

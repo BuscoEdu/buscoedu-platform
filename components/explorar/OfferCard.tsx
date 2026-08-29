@@ -38,15 +38,17 @@ export default function OfferCard({ oferta, onCardClick, isInMyList = false, onT
 
   return (
     <article
-      className="self-start h-fit bg-white border border-buscoedu-border border-l-4 rounded-lg overflow-hidden hover:shadow-card transition-shadow cursor-pointer"
-      style={{ borderLeftColor: universityColor }}
+      className="self-start h-fit bg-white border border-buscoedu-border rounded-lg overflow-hidden hover:shadow-card transition-shadow cursor-pointer"
     >
       {/* Imagen o placeholder */}
       <div className="relative h-40 bg-gradient-to-br from-buscoedu-blue/10 to-buscoedu-teal/10" onClick={onCardClick}>
         {!imageError && oferta.universidad?.nombre && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center p-4">
-              <div className="w-16 h-16 mx-auto bg-buscoedu-blue rounded-full flex items-center justify-center text-white font-bold text-2xl">
+              <div 
+                className="w-16 h-16 mx-auto rounded-full flex items-center justify-center text-white font-bold text-2xl"
+                style={{ backgroundColor: universityColor }}
+              >
                 {oferta.universidad.nombre.charAt(0).toUpperCase()}
               </div>
               <p className="mt-2 text-xs text-buscoedu-muted font-medium line-clamp-2">
