@@ -56,13 +56,14 @@ export async function middleware(request: NextRequest) {
 
   const { data: internalUser, error: roleError } = await supabase
     .from('usuarios_internos')
-    .select('id, activo, roles!inner(codigo)')
+    .select('id, activo, rol_id, roles(codigo)')
     .eq('auth_user_id', user.id)
     .eq('activo', true)
-    .eq('roles.codigo', 'super_admin')
-    .maybeSingle();
+    .single();
 
-  if (roleError || !internalUser) {
+  const roleCode = internalUser?.roles?.[0]?.codigo;
+
+  if (roleError || !internalUser || roleCode !== 'super_admin') {
     return redirectToAdminLogin(request);
   }
 

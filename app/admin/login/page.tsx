@@ -56,13 +56,21 @@ export default function AdminLoginPage() {
 
     const { data: internalUser, error: roleError } = await supabase
       .from('usuarios_internos')
-      .select('id, activo, roles!inner(codigo)')
+      .select('id, activo, rol_id, roles(codigo)')
       .eq('auth_user_id', data.user.id)
       .eq('activo', true)
-      .eq('roles.codigo', 'super_admin')
-      .maybeSingle();
+      .single();
 
-    if (roleError || !internalUser) {
+    const roleCode = internalUser?.roles?.[0]?.codigo;
+
+    console.log('[ADMIN LOGIN][ROLE CHECK]', {
+      authUserId: data.user.id,
+      roleError,
+      internalUser,
+      roleCode
+    });
+
+    if (roleError || !internalUser || roleCode !== 'super_admin') {
       await supabase.auth.signOut();
       setError('No tienes acceso al panel de administración');
       setIsLoading(false);
