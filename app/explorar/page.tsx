@@ -12,6 +12,135 @@ import { useMyList } from '@/src/contexts/MyListContext';
 import { obtenerOfertas, verificarDatosDemo, type FiltrosOferta, type OfertaAcademica } from '@/src/lib/ofertas';
 import type { NaiaMockResponse } from '@/src/lib/naia-mock';
 
+interface ResumenEstadisticas {
+  totalProgramas: number;
+  virtuales: number;
+  presenciales: number;
+  hibridosODistancia: number;
+  ciudadesTop: Array<{ ciudad: string; cantidad: number }>;
+  duracionSemestresMin?: number;
+  duracionSemestresMax?: number;
+}
+
+function normalizarTexto(valor: string): string {
+  return valor
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function extraerDuracionSemestres(duracion?: string): number | null {
+  if (!duracion) return null;
+
+  const duracionNormalizada = normalizarTexto(duracion);
+  if (!duracionNormalizada.includes('semestre')) return null;
+
+  const numero = duracionNormalizada.match(/\d+(?:[\.,]\d+)?/);
+  if (!numero) return null;
+
+  const valor = Number(numero[0].replace(',', '.'));
+  return Number.isFinite(valor) ? valor : null;
+}
+
+function calcularResumenEstadisticas(ofertas: OfertaAcademica[]): ResumenEstadisticas {
+  const conteoCiudades = new Map<string, number>();
+  const duracionesSemestres: number[] = [];
+
+  let virtuales = 0;
+  let presenciales = 0;
+  let hibridosODistancia = 0;
+
+  for (const oferta of ofertas) {
+    const modalidadNormalizada = normalizarTexto(oferta.programa?.modalidad ?? '');
+
+    if (modalidadNormalizada.includes('virtual')) {
+      virtuales += 1;
+    } else if (
+      modalidadNormalizada.includes('hibrid') ||
+      modalidadNormalizada.includes('mixt') ||
+      modalidadNormalizada.includes('distancia') ||
+      modalidadNormalizada.includes('semipresencial')
+    ) {
+      hibridosODistancia += 1;
+    } else if (modalidadNormalizada.includes('presencial')) {
+      presenciales += 1;
+    }
+
+    const ciudad = oferta.sede?.ciudad?.trim();
+    if (ciudad) {
+      conteoCiudades.set(ciudad, (conteoCiudades.get(ciudad) ?? 0) + 1);
+    }
+
+    const semestres = extraerDuracionSemestres(oferta.programa?.duracion);
+    if (semestres !== null) {
+      duracionesSemestres.push(semestres);
+    }
+  }
+
+  const ciudadesTop = [...conteoCiudades.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([ciudad, cantidad]) => ({ ciudad, cantidad }));
+
+  const duracionSemestresMin =
+    duracionesSemestres.length > 0 ? Math.min(...duracionesSemestres) : undefined;
+  const duracionSemestresMax =
+    duracionesSemestres.length > 0 ? Math.max(...duracionesSemestres) : undefined;
+
+  return {
+    totalProgramas: ofertas.length,
+    virtuales,
+    presenciales,
+    hibridosODistancia,
+    ciudadesTop,
+    duracionSemestresMin,
+    duracionSemestresMax
+  };
+}
+
+function construirResumenEjecutivoResultados(ofertas: OfertaAcademica[]): string | null {
+  if (ofertas.length === 0) return null;
+
+  const estadisticas = calcularResumenEstadisticas(ofertas);
+  const partes: string[] = [
+    `Encontré ${estadisticas.totalProgramas} ${estadisticas.totalProgramas === 1 ? 'programa' : 'programas'} que coinciden con lo que buscas.`
+  ];
+
+  const totalConModalidad =
+    estadisticas.virtuales + estadisticas.presenciales + estadisticas.hibridosODistancia;
+
+  if (totalConModalidad > 0) {
+    partes.push(
+      `De estos, ${estadisticas.virtuales} ${estadisticas.virtuales === 1 ? 'es virtual' : 'son virtuales'}, ${estadisticas.presenciales} ${estadisticas.presenciales === 1 ? 'es presencial' : 'son presenciales'}${estadisticas.hibridosODistancia > 0 ? ` y ${estadisticas.hibridosODistancia} ${estadisticas.hibridosODistancia === 1 ? 'es híbrido o a distancia' : 'son híbridos o a distancia'}` : ''}.`
+    );
+  }
+
+  if (estadisticas.ciudadesTop.length > 0) {
+    const ciudadesTexto = estadisticas.ciudadesTop
+      .map(({ ciudad, cantidad }) => `${ciudad} (${cantidad})`)
+      .join(', ');
+    partes.push(`Las ciudades con mayor presencia son ${ciudadesTexto}.`);
+  }
+
+  if (
+    estadisticas.duracionSemestresMin !== undefined &&
+    estadisticas.duracionSemestresMax !== undefined
+  ) {
+    if (estadisticas.duracionSemestresMin === estadisticas.duracionSemestresMax) {
+      partes.push(`La duración referenciada es de ${estadisticas.duracionSemestresMin} semestres.`);
+    } else {
+      partes.push(
+        `El rango de duración va de ${estadisticas.duracionSemestresMin} a ${estadisticas.duracionSemestresMax} semestres.`
+      );
+    }
+  }
+
+  partes.push('Aquí están las opciones:');
+
+  return partes.join(' ');
+}
+
 function ExplorarPageContent() {
   const searchParams = useSearchParams();
   const intention = searchParams.get('q');
@@ -120,6 +249,8 @@ function ExplorarPageContent() {
     }
   };
 
+  const resumenEjecutivo = construirResumenEjecutivoResultados(ofertas);
+
   return (
     <div className="min-h-screen bg-buscoedu-bg">
       {/* Layout Desktop: 2 columnas */}
@@ -192,6 +323,11 @@ function ExplorarPageContent() {
               </div>
             ) : (
               <>
+                {resumenEjecutivo && (
+                  <p className="mb-4 text-sm text-buscoedu-blue bg-blue-50 border border-blue-100 rounded-md px-3 py-2">
+                    {resumenEjecutivo}
+                  </p>
+                )}
                 <div className="grid content-start items-start auto-rows-max gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {ofertas.map((oferta) => (
                     <OfferCard
@@ -276,6 +412,11 @@ function ExplorarPageContent() {
             </div>
           ) : (
             <>
+              {resumenEjecutivo && (
+                <p className="mb-4 text-sm text-buscoedu-blue bg-blue-50 border border-blue-100 rounded-md px-3 py-2">
+                  {resumenEjecutivo}
+                </p>
+              )}
               <div className="space-y-3">
                 {ofertas.map((oferta) => (
                   <OfferCard
