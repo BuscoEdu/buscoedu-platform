@@ -34,7 +34,7 @@ export default function OfferCard({ oferta, onCardClick, isInMyList = false, onT
   ].filter(Boolean).slice(0, 5);
 
   return (
-    <article className="bg-white border border-buscoedu-border rounded-lg overflow-hidden hover:shadow-card transition-shadow cursor-pointer">
+    <article className="self-start h-fit bg-white border border-buscoedu-border rounded-lg overflow-hidden hover:shadow-card transition-shadow cursor-pointer">
       {/* Imagen o placeholder */}
       <div className="relative h-40 bg-gradient-to-br from-buscoedu-blue/10 to-buscoedu-teal/10" onClick={onCardClick}>
         {!imageError && oferta.universidad?.nombre && (

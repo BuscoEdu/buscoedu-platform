@@ -192,7 +192,7 @@ function ExplorarPageContent() {
               </div>
             ) : (
               <>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid content-start items-start auto-rows-max gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {ofertas.map((oferta) => (
                     <OfferCard
                       key={oferta.id}
