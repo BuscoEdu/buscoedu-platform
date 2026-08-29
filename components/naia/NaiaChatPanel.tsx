@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import NaiaMessage from './NaiaMessage';
+import SuggestedActions from './SuggestedActions';
 import { callNaia, type NaiaResponse } from '@/src/lib/naia-real';
 
 interface Message {
@@ -26,6 +27,7 @@ export default function NaiaChatPanel({
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
+  const [showSuggestedActions, setShowSuggestedActions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Procesar mensaje inicial si existe
@@ -47,6 +49,8 @@ export default function NaiaChatPanel({
    * @param esInicial Si es el mensaje inicial (define el saludo).
    */
   const enviarAMotor = async (mensaje: string, esInicial = false) => {
+    setShowSuggestedActions(false);
+
     // Agregar mensaje del usuario
     const userMsg: Message = {
       id: `user-${Date.now()}`,
@@ -76,10 +80,15 @@ export default function NaiaChatPanel({
       };
       setMessages(prev => [...prev, naiaMsg]);
 
+      const tieneFiltrosDetectados =
+        respuesta.filtros && Object.keys(respuesta.filtros).length > 0;
+
       // Notificar filtros detectados
-      if (respuesta.filtros && Object.keys(respuesta.filtros).length > 0) {
+      if (tieneFiltrosDetectados) {
         onFiltersDetected(respuesta.filtros);
       }
+
+      setShowSuggestedActions(Boolean(tieneFiltrosDetectados));
     } catch {
       // No debería ocurrir (callNaia ya maneja errores), pero por seguridad:
       const errorMsg: Message = {
@@ -107,6 +116,11 @@ export default function NaiaChatPanel({
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const handleSuggestedActionSelect = (actionText: string) => {
+    if (isLoading) return;
+    void enviarAMotor(actionText);
   };
 
   return (
@@ -149,6 +163,13 @@ export default function NaiaChatPanel({
               </div>
             </div>
           </div>
+        )}
+
+        {showSuggestedActions && !isLoading && (
+          <SuggestedActions
+            isLoading={isLoading}
+            onSelectAction={handleSuggestedActionSelect}
+          />
         )}
 
         <div ref={messagesEndRef} />
