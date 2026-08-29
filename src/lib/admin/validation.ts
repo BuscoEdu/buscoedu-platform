@@ -82,6 +82,59 @@ export function validateCurrencyCode(
   return '';
 }
 
+export function validateAcademicPeriodDates(values: {
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null;
+  fecha_limite_inscripcion?: string | null;
+  fecha_limite_matricula?: string | null;
+}): ValidationErrors {
+  const errors: ValidationErrors = {};
+
+  const mainRangeError = validateDateRange(values.fecha_inicio, values.fecha_fin, 'periodo académico');
+  if (mainRangeError) {
+    errors.fecha_inicio = mainRangeError;
+    errors.fecha_fin = mainRangeError;
+  }
+
+  if (values.fecha_limite_inscripcion && values.fecha_inicio) {
+    const limit = new Date(values.fecha_limite_inscripcion);
+    const start = new Date(values.fecha_inicio);
+    if (!Number.isNaN(limit.getTime()) && !Number.isNaN(start.getTime()) && limit > start) {
+      errors.fecha_limite_inscripcion = 'La fecha límite de inscripción debe ser menor o igual a la fecha de inicio.';
+    }
+  }
+
+  if (values.fecha_limite_matricula && values.fecha_inicio) {
+    const limit = new Date(values.fecha_limite_matricula);
+    const start = new Date(values.fecha_inicio);
+    if (!Number.isNaN(limit.getTime()) && !Number.isNaN(start.getTime()) && limit > start) {
+      errors.fecha_limite_matricula = 'La fecha límite de matrícula debe ser menor o igual a la fecha de inicio.';
+    }
+  }
+
+  return errors;
+}
+
+export function validateCatalogCodeUnique(
+  codigo: string,
+  existingCodes: string[],
+  currentCode?: string | null
+): string {
+  const normalizedCode = codigo.trim().toLowerCase();
+  if (!normalizedCode) return '';
+
+  const normalizedCurrent = (currentCode || '').trim().toLowerCase();
+  const duplicate = existingCodes
+    .map((item) => item.trim().toLowerCase())
+    .some((item) => item === normalizedCode && item !== normalizedCurrent);
+
+  if (duplicate) {
+    return 'El código ya existe. Debe ser único.';
+  }
+
+  return '';
+}
+
 export function mergeValidationErrors(...errorsList: Array<ValidationErrors>): ValidationErrors {
   return errorsList.reduce((acc, curr) => ({ ...acc, ...curr }), {});
 }
