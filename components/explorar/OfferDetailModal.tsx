@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { OfertaAcademica } from '@/src/lib/ofertas';
 import { useMyList } from '@/src/contexts/MyListContext';
 import { trackOfferOpened, trackOfferClosed, trackApplyAttempt } from '@/src/lib/events';
+import AplicacionConsentimientoModal from '@/components/leadcenter/AplicacionConsentimientoModal';
 
 interface OfferDetailModalProps {
   oferta: OfertaAcademica | null;
@@ -12,6 +13,7 @@ interface OfferDetailModalProps {
 
 export default function OfferDetailModal({ oferta, onClose }: OfferDetailModalProps) {
   const { isInMyList, addToMyList, removeFromMyList } = useMyList();
+  const [mostrarAplicacion, setMostrarAplicacion] = useState(false);
 
   // Prevenir scroll del body cuando el modal está abierto y registrar eventos
   useEffect(() => {
@@ -55,12 +57,12 @@ export default function OfferDetailModal({ oferta, onClose }: OfferDetailModalPr
   };
 
   const handleApplyClick = () => {
-    // Registrar intento de aplicación
+    // Registrar intento de aplicación (evento existente, intacto).
     if (oferta) {
       trackApplyAttempt(oferta.id, oferta.programa_id, oferta.universidad_id);
     }
-    
-    alert('La aplicación está sujeta a requisitos, revisión, condiciones, vigencia y disponibilidad de la oferta. Iniciarla no garantiza admisión ni asignación de beneficio.\n\nEl flujo de aplicación completo se implementará en una fase posterior.');
+    // Abrir el flujo consent-first de aplicación (identidad + consentimientos + conversión).
+    setMostrarAplicacion(true);
   };
 
   return (
@@ -217,6 +219,18 @@ export default function OfferDetailModal({ oferta, onClose }: OfferDetailModalPr
           </div>
         </div>
       </div>
+
+      {mostrarAplicacion && oferta && (
+        <AplicacionConsentimientoModal
+          ofertaId={oferta.id}
+          ofertaNombre={oferta.nombre || (oferta as any).nombre_oferta || 'Oferta'}
+          modeloNegocio={(oferta as any).modelo_negocio ?? null}
+          onCerrar={() => setMostrarAplicacion(false)}
+          onConvertido={() => {
+            /* La confirmación se muestra dentro del modal. */
+          }}
+        />
+      )}
     </>
   );
 }
