@@ -2,9 +2,9 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveRoleCode } from '@/src/lib/admin/resolve-role-code';
 
-function redirectToAdminLogin(request: NextRequest) {
+function redirectToLogin(request: NextRequest, loginPath: string) {
   const url = request.nextUrl.clone();
-  url.pathname = '/admin/login';
+  url.pathname = loginPath;
   url.searchParams.set('next', request.nextUrl.pathname);
   return NextResponse.redirect(url);
 }
@@ -12,19 +12,28 @@ function redirectToAdminLogin(request: NextRequest) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (!pathname.startsWith('/admin')) {
+  const esAdmin = pathname.startsWith('/admin');
+  const esLeadCenter = pathname.startsWith('/leadcenter');
+
+  // Solo protegemos /admin y /leadcenter. El resto pasa sin cambios.
+  if (!esAdmin && !esLeadCenter) {
     return NextResponse.next();
   }
 
-  if (pathname === '/admin/login') {
+  // Login del Lead Center abierto (autenticación por contraseña de usuario interno).
+  if (pathname === '/admin/login' || pathname === '/leadcenter/login') {
     return NextResponse.next();
   }
+
+  const loginPath = esLeadCenter ? '/leadcenter/login' : '/admin/login';
+  // El Lead Center permite asesor Y super_admin; /admin solo super_admin.
+  const rolesPermitidos = esLeadCenter ? ['super_admin', 'asesor'] : ['super_admin'];
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    return redirectToAdminLogin(request);
+    return redirectToLogin(request, loginPath);
   }
 
   let response = NextResponse.next({
@@ -52,7 +61,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    return redirectToAdminLogin(request);
+    return redirectToLogin(request, loginPath);
   }
 
   const { data: internalUser, error: roleError } = await supabase
@@ -64,13 +73,13 @@ export async function middleware(request: NextRequest) {
 
   const roleCode = resolveRoleCode(internalUser?.roles);
 
-  if (roleError || !internalUser || roleCode !== 'super_admin') {
-    return redirectToAdminLogin(request);
+  if (roleError || !internalUser || !roleCode || !rolesPermitidos.includes(roleCode)) {
+    return redirectToLogin(request, loginPath);
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ['/admin/:path*']
+  matcher: ['/admin/:path*', '/leadcenter/:path*']
 };
