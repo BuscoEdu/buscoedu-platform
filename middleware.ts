@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveRoleCode } from '@/src/lib/admin/resolve-role-code';
 
 function redirectToAdminLogin(request: NextRequest) {
   const url = request.nextUrl.clone();
@@ -61,7 +62,7 @@ export async function middleware(request: NextRequest) {
     .eq('activo', true)
     .single();
 
-  const roleCode = internalUser?.roles?.codigo;
+  const roleCode = resolveRoleCode(internalUser?.roles);
 
   if (roleError || !internalUser || roleCode !== 'super_admin') {
     return redirectToAdminLogin(request);

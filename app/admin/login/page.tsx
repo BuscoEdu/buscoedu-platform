@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/src/lib/supabase';
+import { resolveRoleCode } from '@/src/lib/admin/resolve-role-code';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -66,7 +67,7 @@ export default function AdminLoginPage() {
       .eq('activo', true)
       .single();
 
-    const roleCode = internalUser?.roles?.codigo;
+    const roleCode = resolveRoleCode(internalUser?.roles);
 
     console.log('[ADMIN LOGIN][ROLE CHECK]', {
       authUserId: data.user.id,
