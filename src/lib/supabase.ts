@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 let supabaseClient: SupabaseClient | null = null;
 
@@ -14,7 +15,9 @@ export function getSupabaseClient(): SupabaseClient {
     );
   }
 
-  supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+  // createBrowserClient sincroniza correctamente la sesión entre navegador y cookies,
+  // permitiendo que el middleware SSR lea el usuario autenticado.
+  supabaseClient = createBrowserClient(supabaseUrl, supabaseAnonKey);
   return supabaseClient;
 }
 

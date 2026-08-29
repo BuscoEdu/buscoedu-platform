@@ -2,7 +2,10 @@ const DEFAULT_UNIVERSITY_COLOR = '#14b8a6';
 
 const UNIVERSITY_COLORS_BY_SLUG: Record<string, string> = {
   areandina: '#00843D',
+  'fundacion-universitaria-areandina': '#00843D',
+  arealinda: '#00843D',
   'politecnico-grancolombiano': '#003DA5',
+  'politecnico-granamericano': '#003DA5',
   unad: '#003087',
   'universidad-de-los-andes': '#C8102E',
   javeriana: '#001F5B',
@@ -16,6 +19,8 @@ const UNIVERSITY_COLORS_BY_SLUG: Record<string, string> = {
   'universidad-externado': '#3D3D3D',
   cun: '#0099CC',
   'universidad-libre': '#003C71',
+  unired: '#7C3AED',
+  'fundacion-unired-colombia': '#7C3AED',
   'sin-identificar': '#14b8a6',
   demo: '#14b8a6'
 };
@@ -43,9 +48,9 @@ export function getUniversityColor(nombre: string): string {
     return colorByExactSlug;
   }
 
-  const colorByPartialMatch = Object.entries(UNIVERSITY_COLORS_BY_SLUG).find(([key]) =>
-    normalizedName.includes(key)
-  )?.[1];
+  const colorByPartialMatch = Object.entries(UNIVERSITY_COLORS_BY_SLUG).find(([key]) => {
+    return normalizedName.includes(key) || key.includes(normalizedName);
+  })?.[1];
 
   return colorByPartialMatch ?? DEFAULT_UNIVERSITY_COLOR;
 }
