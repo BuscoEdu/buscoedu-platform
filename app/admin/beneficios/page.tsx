@@ -131,6 +131,31 @@ export default function AdminBeneficiosPage() {
         query = query.eq('oferta_id', ofertaFilter);
       }
 
+      if (universidadFilter && !ofertaFilter) {
+        const allowedOfferIds = Object.entries(ofertaUniversidadMap)
+          .filter(([, universidadId]) => universidadId === universidadFilter)
+          .map(([offerId]) => offerId);
+
+        if (allowedOfferIds.length === 0) {
+          setRows([]);
+          setTotal(0);
+          setIsLoading(false);
+          return;
+        }
+
+        query = query.in('oferta_id', allowedOfferIds);
+      }
+
+      if (universidadFilter && ofertaFilter) {
+        const universidadOfOferta = ofertaUniversidadMap[ofertaFilter] || '';
+        if (universidadOfOferta !== universidadFilter) {
+          setRows([]);
+          setTotal(0);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       const from = (page - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
@@ -143,13 +168,8 @@ export default function AdminBeneficiosPage() {
         setRows([]);
         setTotal(0);
       } else {
-        const baseRows = (data || []) as BeneficioRow[];
-        const filteredRows = universidadFilter
-          ? baseRows.filter((row) => (row.oferta_id ? ofertaUniversidadMap[row.oferta_id] === universidadFilter : false))
-          : baseRows;
-
-        setRows(filteredRows);
-        setTotal(universidadFilter ? filteredRows.length : count || 0);
+        setRows((data || []) as BeneficioRow[]);
+        setTotal(count || 0);
       }
 
       setIsLoading(false);

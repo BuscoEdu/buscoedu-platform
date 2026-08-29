@@ -11,7 +11,6 @@ import {
   mergeValidationErrors,
   validateCurrencyCode,
   validateDateRange,
-  validatePositiveValue,
   validateRequiredFields,
   type ValidationErrors
 } from '@/src/lib/admin/validation';
@@ -69,6 +68,21 @@ const PERIODICIDAD_OPTIONS: SelectOption[] = [
   { value: 'mensual', label: 'Mensual' },
   { value: 'anual', label: 'Anual' }
 ];
+
+function parseCurrencyToNumber(raw: string): number {
+  const normalized = raw.trim();
+  if (!normalized) return 0;
+
+  if (normalized.includes(',') && normalized.includes('.')) {
+    return Number(normalized.replace(/\./g, '').replace(',', '.'));
+  }
+
+  if (normalized.includes(',')) {
+    return Number(normalized.replace(',', '.'));
+  }
+
+  return Number(normalized);
+}
 
 export const EMPTY_PRECIO_VALUES: PrecioFormValues = {
   oferta_id: '',
@@ -150,7 +164,11 @@ export default function PrecioForm({ initialValues, submitLabel, onSubmit, isSub
       { key: 'periodicidad', label: 'Periodicidad' }
     ]);
 
-    const valueError = validatePositiveValue(values.valor, 'valor');
+    const parsedValue = parseCurrencyToNumber(values.valor);
+    const valueError =
+      values.valor.trim() === '' || (Number.isFinite(parsedValue) && parsedValue > 0)
+        ? ''
+        : 'El campo valor debe ser mayor que 0.';
     const currencyError = validateCurrencyCode(values.moneda, MONEDA_OPTIONS.map((option) => option.value));
     const dateError = validateDateRange(values.vigente_desde, values.vigente_hasta, 'vigencia');
 
@@ -173,7 +191,7 @@ export default function PrecioForm({ initialValues, submitLabel, onSubmit, isSub
 
     const payload = {
       ...values,
-      valor: Number(values.valor.replace('.', '').replace(',', '.')),
+      valor: parseCurrencyToNumber(values.valor),
       periodo_academico_id: values.periodo_academico_id || null,
       descripcion_condiciones: values.descripcion_condiciones || null,
       vigente_desde: values.vigente_desde || null,
