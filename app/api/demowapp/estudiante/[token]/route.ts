@@ -49,7 +49,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
         .select('id, nombres, apellidos, celular_e164, correo_principal')
         .eq('id', payload.personaId)
         .maybeSingle(),
-      db.from('ofertas_academicas').select('id, nombre').eq('id', app.oferta_id).maybeSingle(),
+      db.from('ofertas_academicas').select('id, nombre_oferta').eq('id', app.oferta_id).maybeSingle(),
       getLatestConversationByOpportunity(db, payload.oportunidadId)
     ]);
 
@@ -71,7 +71,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
         aplicacionId: payload.aplicacionId,
         personaId: payload.personaId,
         nombre: [personaRes.data?.nombres, personaRes.data?.apellidos].filter(Boolean).join(' ') || 'Estudiante',
-        oferta: ofertaRes.data?.nombre || 'Oferta',
+        oferta: ofertaRes.data?.nombre_oferta || 'Oferta',
         conversacionId: conv?.id || null,
         mensajes
       }
