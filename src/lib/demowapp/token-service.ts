@@ -15,12 +15,9 @@ interface DemoWappTokenPayload {
 }
 
 function getTokenSecret(): string {
-  const secret =
-    process.env.DEMOWAPP_TOKEN_SECRET ||
-    process.env.ABACUS_NAIA_DEPLOYMENT_TOKEN ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const secret = process.env.DEMOWAPP_TOKEN_SECRET;
   if (!secret) {
-    throw new Error('No hay secreto configurado para tokens temporales de Demo WApp.');
+    throw new Error('Falta DEMOWAPP_TOKEN_SECRET para los tokens temporales de Demo WApp.');
   }
   return secret;
 }
@@ -39,7 +36,7 @@ function sign(unsigned: string): string {
   return hmac.digest('base64url');
 }
 
-export function createDemoWappToken(input: Omit<DemoWappTokenPayload, 'exp' | 'iat' | 'nonce' | 'canal'>): string {
+export function createDemoWappToken(input: Omit<DemoWappTokenPayload, 'exp' | 'iat' | 'nonce' | 'canal'>) {
   const now = Math.floor(Date.now() / 1000);
   const payload: DemoWappTokenPayload = {
     ...input,
@@ -51,7 +48,7 @@ export function createDemoWappToken(input: Omit<DemoWappTokenPayload, 'exp' | 'i
 
   const encodedPayload = toBase64Url(JSON.stringify(payload));
   const signature = sign(encodedPayload);
-  return `${encodedPayload}.${signature}`;
+  return { token: `${encodedPayload}.${signature}`, nonce: payload.nonce };
 }
 
 export function verifyDemoWappToken(token: string): { ok: true; payload: DemoWappTokenPayload } | { ok: false; error: string } {
