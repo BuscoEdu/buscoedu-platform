@@ -6,6 +6,7 @@ import {
   updateConversationContext
 } from './conversacion-service';
 import { DEMOWAPP_PUSH_CATALOG, type DemoWappPushCode, renderPushTemplate } from './push-catalog';
+import { DEMOWAPP_TIMEOUTS } from './config';
 
 function nowIso() {
   return new Date().toISOString();
@@ -129,7 +130,7 @@ export async function scheduleSilenceReminderPush(
     personaId: input.personaId,
     conversacionId: input.conversacionId,
     destinatario: 'estudiante',
-    fechaProgramada: plusSeconds(180),
+    fechaProgramada: plusSeconds(DEMOWAPP_TIMEOUTS.SILENCE_REMINDER_SECONDS),
     idempotencyKey,
     metadatos: {
       base_message_id: input.baseMessageId,
@@ -261,7 +262,7 @@ async function scheduleCloseAfterReminder(
     personaId: row.persona_id,
     conversacionId: row.conversacion_id,
     destinatario: row.destinatario || 'estudiante',
-    fechaProgramada: plusSeconds(120),
+    fechaProgramada: plusSeconds(DEMOWAPP_TIMEOUTS.CLOSE_AFTER_REMINDER_SECONDS),
     idempotencyKey,
     metadatos: {
       disparado_por: row.id,
