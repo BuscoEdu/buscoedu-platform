@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     // --- Verificación previa de titularidad del celular (OTP) ---
     const hace15min = new Date(Date.now() - 15 * 60_000).toISOString();
-    const { data: reto } = await db
+    let { data: reto, error: retoError } = await db
       .from('desafios_otp')
       .select('id, verificado_en')
       .eq('celular_e164', norm.e164)
@@ -73,6 +73,34 @@ export async function POST(req: NextRequest) {
       .order('verificado_en', { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    // Compatibilidad con instalaciones anteriores sin la columna verificado_en.
+    // En ellas, actualizado_en se establece al confirmar correctamente el OTP.
+    if (retoError && /verificado_en/i.test(retoError.message || '')) {
+      const fallback = await db
+        .from('desafios_otp')
+        .select('id, actualizado_en')
+        .eq('celular_e164', norm.e164)
+        .eq('estado', 'verificado')
+        .gte('actualizado_en', hace15min)
+        .order('actualizado_en', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      reto = fallback.data as any;
+      retoError = fallback.error;
+    }
+
+    if (retoError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'otp_verification_query_error',
+          mensaje: 'No se pudo comprobar la verificación del celular.',
+          detalle: retoError.message
+        },
+        { status: 500 }
+      );
+    }
 
     if (!reto) {
       return NextResponse.json(
