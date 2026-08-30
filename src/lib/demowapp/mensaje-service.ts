@@ -9,7 +9,7 @@ import { scheduleSilenceReminderPush, cancelPendingSilencePushes } from './push-
 
 const ABACUS_ENDPOINT = 'https://api.abacus.ai/api/v0/getConversationResponse';
 
-type MensajeRemitente = 'estudiante' | 'naia';
+type MensajeRemitente = 'persona' | 'naia';
 
 interface NaiaStructuredResponse {
   mensaje: string;
@@ -260,14 +260,14 @@ export async function processInboundStudentMessage(
 
   const inbound = await appendConversationMessage(db, {
     conversacionId: conversacion.id,
-    remitenteTipo: 'estudiante',
+    remitenteTipo: 'persona',
     remitenteId: input.personaId,
     contenido: input.texto,
     referenciaExterna: inboundRef,
     metadatos: {
       origen: 'estudiante_inbound',
       clientMessageId: input.clientMessageId,
-      canal: 'demo_wapp'
+      canal_simulado: 'demo_wapp'
     }
   });
 
