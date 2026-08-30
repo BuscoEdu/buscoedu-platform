@@ -59,22 +59,28 @@ export default function DemoWappPage() {
 
   const onSend = async (texto: string, clientMessageId: string) => {
     if (!selectedId) return;
-    const res = await fetch(`/api/demowapp/sesiones/${selectedId}/mensaje`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texto, clientMessageId })
-    });
+    setError('');
+    try {
+      const res = await fetch(`/api/demowapp/sesiones/${selectedId}/mensaje`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto, clientMessageId })
+      });
 
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'No se pudo enviar');
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'No se pudo enviar');
 
-    await fetch('/api/demowapp/push/procesar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ oportunidadId: selectedId })
-    });
-    await loadDetail(selectedId);
-    await loadSessions();
+      await fetch('/api/demowapp/push/procesar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oportunidadId: selectedId })
+      });
+      await loadDetail(selectedId);
+      await loadSessions();
+    } catch (e: any) {
+      setError(`No se pudo enviar el mensaje: ${e?.message || 'error desconocido'}`);
+      throw e;
+    }
   };
 
   useEffect(() => {
