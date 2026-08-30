@@ -118,6 +118,20 @@ function normalizeToken(text: string) {
   return normalizeText(text).toLowerCase();
 }
 
+/**
+ * Los efectos de CRM (analítica, funnel, recordatorios y hechos) nunca deben
+ * interrumpir la conversación. El mensaje del estudiante y la respuesta de
+ * NaIA son la ruta crítica; el resto queda registrado cuando la base lo admite.
+ */
+async function bestEffort<T>(label: string, operation: () => Promise<T>): Promise<T | null> {
+  try {
+    return await operation();
+  } catch (error) {
+    console.error(`[demowapp] ${label}`, error);
+    return null;
+  }
+}
+
 function makeIdempotencyRef(prefix: string, id: string) {
   return `${prefix}:${id}`;
 }
@@ -299,7 +313,7 @@ async function getConfirmedFactsMap(db: SupabaseClient, personaId: string) {
     .from('hechos_extraidos_naia')
     .select('id, clave, valor, estado_confirmacion, actualizado_en')
     .eq('persona_id', personaId)
-    .eq('origen', 'demowapp')
+    .eq('origen', 'naia')
     .order('actualizado_en', { ascending: false })
     .limit(200);
 
@@ -326,7 +340,7 @@ async function persistFactIfMissing(
     .from('hechos_extraidos_naia')
     .select('id, estado_confirmacion')
     .eq('persona_id', input.personaId)
-    .eq('origen', 'demowapp')
+    .eq('origen', 'naia')
     .eq('clave', input.clave)
     .eq('estado_confirmacion', 'confirmado')
     .limit(1)
@@ -341,7 +355,7 @@ async function persistFactIfMissing(
     tipo_hecho: 'dato_declarado',
     clave: input.clave,
     valor: input.valor,
-    origen: 'demowapp',
+    origen: 'naia',
     nivel_confianza: 1,
     estado_confirmacion: 'confirmado',
     fecha_confirmacion: nowIso(),
@@ -662,7 +676,9 @@ export async function processInboundStudentMessage(
     }
   });
 
-  await cancelPendingSilencePushes(db, conversacion.id);
+  await bestEffort('cancelar recordatorios pendientes', () =>
+    cancelPendingSilencePushes(db, conversacion.id)
+  );
 
   const [personaRes, aplicacionRes, oportunidadRes, historyRes] = await Promise.all([
     db
@@ -701,29 +717,36 @@ export async function processInboundStudentMessage(
         .maybeSingle()
     : { data: null as any };
 
-  const confirmedFacts = await getConfirmedFactsMap(db, input.personaId);
+  const confirmedFacts =
+    (await bestEffort('cargar hechos confirmados', () =>
+      getConfirmedFactsMap(db, input.personaId)
+    )) || {};
   const initialState = inferKnownState({ persona, oferta, confirmedFacts });
   const newFactsRaw = detectNewFactsFromText(input.texto);
 
   const persistedFacts: CapturedFacts = {};
   for (const [k, value] of Object.entries(newFactsRaw) as [DemoWappCaptureKey, string][]) {
     if (!value || initialState.known[k]) continue;
-    const inserted = await persistFactIfMissing(db, {
-      personaId: input.personaId,
-      conversacionId: conversacion.id,
-      mensajeId: inbound.id,
-      clave: k,
-      valor: value
-    });
+    const inserted = await bestEffort(`guardar hecho ${k}`, () =>
+      persistFactIfMissing(db, {
+        personaId: input.personaId,
+        conversacionId: conversacion.id,
+        mensajeId: inbound.id,
+        clave: k,
+        valor: value
+      })
+    );
     if (inserted) persistedFacts[k] = value;
   }
 
-  await persistPersonaUpdatesWithoutOverwrite(db, {
-    personaId: input.personaId,
-    persona,
-    captured: persistedFacts,
-    rawText: input.texto
-  });
+  await bestEffort('actualizar datos de persona', () =>
+    persistPersonaUpdatesWithoutOverwrite(db, {
+      personaId: input.personaId,
+      persona,
+      captured: persistedFacts,
+      rawText: input.texto
+    })
+  );
 
   const stateAfterCapture = (() => {
     const known = mergeKnown(initialState.known, persistedFacts);
@@ -756,7 +779,13 @@ export async function processInboundStudentMessage(
   };
 
   if (naia.conversationId && naia.conversationId !== (conversacion as any).referencia_externa) {
-    await db.from('conversaciones').update({ referencia_externa: naia.conversationId, actualizado_en: nowIso() }).eq('id', conversacion.id);
+    await bestEffort('guardar sesión de Abacus', async () => {
+      const { error } = await db
+        .from('conversaciones')
+        .update({ referencia_externa: naia.conversationId, actualizado_en: nowIso() })
+        .eq('id', conversacion.id);
+      if (error) throw error;
+    });
   }
 
   const naiaRef = makeIdempotencyRef('naia', input.clientMessageId);
@@ -779,52 +808,61 @@ export async function processInboundStudentMessage(
   const studentMessages = (historyRes.data || []).filter((m: any) => m.remitente_tipo === 'persona' || m.remitente_tipo === 'estudiante').length;
   const firstStudentMessage = studentMessages === 1;
 
-  const funnelAdvance = await advanceFunnelIfNeeded(db, {
-    oportunidad,
-    oportunidadId: input.oportunidadId,
-    personaId: input.personaId,
-    firstStudentMessage,
-    perfilMinimoCompleto: reply.perfilMinimoCompleto,
-    conversacionId: conversacion.id,
-    mensajeId: outbound.id
-  });
+  const funnelAdvance =
+    (await bestEffort('avanzar funnel', () =>
+      advanceFunnelIfNeeded(db, {
+        oportunidad,
+        oportunidadId: input.oportunidadId,
+        personaId: input.personaId,
+        firstStudentMessage,
+        perfilMinimoCompleto: reply.perfilMinimoCompleto,
+        conversacionId: conversacion.id,
+        mensajeId: outbound.id
+      })
+    )) || { changed: false, trigger: null as string | null };
 
-  await updateConversationContext(db, conversacion.id, {
-    estado: CONVERSACION_ESTADO_ACTIVA,
-    resumen: naia.resumen_actualizado || (conversacion as any).resumen || 'Conversación NaIA Demowapp',
-    contextoResumido: JSON.stringify({
-      origen: 'demowapp_abacus',
-      known: stateAfterCapture.known,
-      missing: stateAfterCapture.missing,
-      intencion: naia.intencion_detectada || null,
-      siguiente_accion: naia.siguiente_accion_sugerida || null,
-      requiere_escalamiento: Boolean(naia.requiere_escalamiento),
-      funnel_advance_trigger: funnelAdvance.trigger,
-      updated_at: nowIso()
+  await bestEffort('actualizar contexto de conversación', () =>
+    updateConversationContext(db, conversacion.id, {
+      estado: CONVERSACION_ESTADO_ACTIVA,
+      resumen: naia.resumen_actualizado || (conversacion as any).resumen || 'Conversación NaIA Demowapp',
+      contextoResumido: JSON.stringify({
+        origen: 'demowapp_abacus',
+        known: stateAfterCapture.known,
+        missing: stateAfterCapture.missing,
+        intencion: naia.intencion_detectada || null,
+        siguiente_accion: naia.siguiente_accion_sugerida || null,
+        requiere_escalamiento: Boolean(naia.requiere_escalamiento),
+        funnel_advance_trigger: funnelAdvance.trigger,
+        updated_at: nowIso()
+      })
     })
-  });
+  );
 
-  await appendEventAndNote(db, {
-    oportunidadId: input.oportunidadId,
-    personaId: input.personaId,
-    evento: 'demowapp_turno_estudiante',
-    nota: `Captura progresiva: faltantes=${stateAfterCapture.missing.join(', ') || 'ninguno'}; capturados=${Object.keys(persistedFacts).join(', ') || 'ninguno'}.`,
-    idempotencyKey: input.clientMessageId,
-    generadoPor: input.origen,
-    metadatos: {
-      conversacion_id: conversacion.id,
-      mensaje_estudiante_id: inbound.id,
-      mensaje_naia_id: outbound.id,
-      funnel_advance_trigger: funnelAdvance.trigger
-    }
-  });
+  await bestEffort('registrar nota y evento CRM', () =>
+    appendEventAndNote(db, {
+      oportunidadId: input.oportunidadId,
+      personaId: input.personaId,
+      evento: 'demowapp_turno_estudiante',
+      nota: `Captura progresiva: faltantes=${stateAfterCapture.missing.join(', ') || 'ninguno'}; capturados=${Object.keys(persistedFacts).join(', ') || 'ninguno'}.`,
+      idempotencyKey: input.clientMessageId,
+      generadoPor: input.origen,
+      metadatos: {
+        conversacion_id: conversacion.id,
+        mensaje_estudiante_id: inbound.id,
+        mensaje_naia_id: outbound.id,
+        funnel_advance_trigger: funnelAdvance.trigger
+      }
+    })
+  );
 
-  await scheduleSilenceReminderPush(db, {
-    conversacionId: conversacion.id,
-    oportunidadId: input.oportunidadId,
-    personaId: input.personaId,
-    baseMessageId: outbound.id
-  });
+  await bestEffort('programar recordatorio de silencio', () =>
+    scheduleSilenceReminderPush(db, {
+      conversacionId: conversacion.id,
+      oportunidadId: input.oportunidadId,
+      personaId: input.personaId,
+      baseMessageId: outbound.id
+    })
+  );
 
   return {
     conversacionId: conversacion.id,
