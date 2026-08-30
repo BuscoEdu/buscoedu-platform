@@ -1,0 +1,1275 @@
+{
+  "create": {
+    "roles": {
+      "file": "20260129000100_create_roles.sql",
+      "columns": [
+        {
+          "name": "id",
+          "def": "id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+        },
+        {
+          "name": "codigo",
+          "def": "codigo TEXT UNIQUE NOT NULL"
+        },
+        {
+          "name": "nombre",
+          "def": "nombre TEXT NOT NULL"
+        },
+        {
+          "name": "descripcion",
+          "def": "descripcion TEXT"
+        },
+        {
+          "name": "permisos",
+          "def": "permisos JSONB NOT NULL DEFAULT '{}'::jsonb"
+        },
+        {
+          "name": "activo",
+          "def": "activo BOOLEAN NOT NULL DEFAULT true"
+        },
+        {
+          "name": "creado_en",
+          "def": "creado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        },
+        {
+          "name": "actualizado_en",
+          "def": "actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        }
+      ]
+    },
+    "usuarios_internos": {
+      "file": "20260129000200_create_usuarios_internos.sql",
+      "columns": [
+        {
+          "name": "id",
+          "def": "id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+        },
+        {
+          "name": "auth_user_id",
+          "def": "auth_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "rol_id",
+          "def": "rol_id UUID REFERENCES public.roles(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "nombres",
+          "def": "nombres TEXT NOT NULL"
+        },
+        {
+          "name": "apellidos",
+          "def": "apellidos TEXT NOT NULL"
+        },
+        {
+          "name": "correo",
+          "def": "correo TEXT UNIQUE NOT NULL"
+        },
+        {
+          "name": "telefono",
+          "def": "telefono TEXT"
+        },
+        {
+          "name": "cargo",
+          "def": "cargo TEXT"
+        },
+        {
+          "name": "activo",
+          "def": "activo BOOLEAN NOT NULL DEFAULT true"
+        },
+        {
+          "name": "ultimo_acceso_en",
+          "def": "ultimo_acceso_en TIMESTAMPTZ"
+        },
+        {
+          "name": "creado_en",
+          "def": "creado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        },
+        {
+          "name": "actualizado_en",
+          "def": "actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        }
+      ]
+    },
+    "jornadas": {
+      "file": "20260129000300_create_jornadas.sql",
+      "columns": [
+        {
+          "name": "id",
+          "def": "id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+        },
+        {
+          "name": "codigo",
+          "def": "codigo TEXT UNIQUE NOT NULL"
+        },
+        {
+          "name": "nombre",
+          "def": "nombre TEXT NOT NULL"
+        },
+        {
+          "name": "descripcion",
+          "def": "descripcion TEXT"
+        },
+        {
+          "name": "activo",
+          "def": "activo BOOLEAN NOT NULL DEFAULT true"
+        }
+      ]
+    },
+    "tipos_beneficio": {
+      "file": "20260129000400_create_tipos_beneficio.sql",
+      "columns": [
+        {
+          "name": "id",
+          "def": "id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+        },
+        {
+          "name": "codigo",
+          "def": "codigo TEXT UNIQUE NOT NULL"
+        },
+        {
+          "name": "nombre",
+          "def": "nombre TEXT NOT NULL"
+        },
+        {
+          "name": "descripcion",
+          "def": "descripcion TEXT"
+        },
+        {
+          "name": "activo",
+          "def": "activo BOOLEAN NOT NULL DEFAULT true"
+        }
+      ]
+    },
+    "periodos_academicos": {
+      "file": "20260129000500_create_periodos_academicos.sql",
+      "columns": [
+        {
+          "name": "id",
+          "def": "id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+        },
+        {
+          "name": "universidad_id",
+          "def": "universidad_id UUID REFERENCES public.universidades(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "sede_id",
+          "def": "sede_id UUID REFERENCES public.sedes(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "nombre",
+          "def": "nombre TEXT NOT NULL"
+        },
+        {
+          "name": "tipo_periodicidad",
+          "def": "tipo_periodicidad TEXT"
+        },
+        {
+          "name": "fecha_inicio",
+          "def": "fecha_inicio DATE"
+        },
+        {
+          "name": "fecha_fin",
+          "def": "fecha_fin DATE"
+        },
+        {
+          "name": "fecha_limite_inscripcion",
+          "def": "fecha_limite_inscripcion DATE"
+        },
+        {
+          "name": "fecha_limite_matricula",
+          "def": "fecha_limite_matricula DATE"
+        },
+        {
+          "name": "anio",
+          "def": "anio INT"
+        },
+        {
+          "name": "numero_periodo",
+          "def": "numero_periodo INT"
+        },
+        {
+          "name": "estado",
+          "def": "estado TEXT NOT NULL DEFAULT 'activo'"
+        },
+        {
+          "name": "notas",
+          "def": "notas TEXT"
+        },
+        {
+          "name": "activo",
+          "def": "activo BOOLEAN NOT NULL DEFAULT true"
+        },
+        {
+          "name": "creado_en",
+          "def": "creado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        },
+        {
+          "name": "actualizado_en",
+          "def": "actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        }
+      ]
+    },
+    "periodos_comerciales": {
+      "file": "20260129000600_create_periodos_comerciales.sql",
+      "columns": [
+        {
+          "name": "id",
+          "def": "id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+        },
+        {
+          "name": "nombre",
+          "def": "nombre TEXT NOT NULL"
+        },
+        {
+          "name": "descripcion",
+          "def": "descripcion TEXT"
+        },
+        {
+          "name": "fecha_inicio",
+          "def": "fecha_inicio DATE"
+        },
+        {
+          "name": "fecha_fin",
+          "def": "fecha_fin DATE"
+        },
+        {
+          "name": "periodo_academico_objetivo_id",
+          "def": "periodo_academico_objetivo_id UUID REFERENCES public.periodos_academicos(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "estado",
+          "def": "estado TEXT NOT NULL DEFAULT 'activo'"
+        },
+        {
+          "name": "activo",
+          "def": "activo BOOLEAN NOT NULL DEFAULT true"
+        },
+        {
+          "name": "creado_en",
+          "def": "creado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        },
+        {
+          "name": "actualizado_en",
+          "def": "actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        }
+      ]
+    },
+    "precios_oferta": {
+      "file": "20260129000700_create_precios_oferta.sql",
+      "columns": [
+        {
+          "name": "id",
+          "def": "id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+        },
+        {
+          "name": "oferta_id",
+          "def": "oferta_id UUID REFERENCES public.ofertas_academicas(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "tipo_valor",
+          "def": "tipo_valor TEXT"
+        },
+        {
+          "name": "concepto_cobro",
+          "def": "concepto_cobro TEXT"
+        },
+        {
+          "name": "valor",
+          "def": "valor NUMERIC(12,2)"
+        },
+        {
+          "name": "moneda",
+          "def": "moneda TEXT NOT NULL DEFAULT 'COP'"
+        },
+        {
+          "name": "periodicidad",
+          "def": "periodicidad TEXT"
+        },
+        {
+          "name": "impuestos_incluidos",
+          "def": "impuestos_incluidos BOOLEAN NOT NULL DEFAULT false"
+        },
+        {
+          "name": "descripcion_condiciones",
+          "def": "descripcion_condiciones TEXT"
+        },
+        {
+          "name": "periodo_academico_id",
+          "def": "periodo_academico_id UUID REFERENCES public.periodos_academicos(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "fuente",
+          "def": "fuente TEXT"
+        },
+        {
+          "name": "estado_validacion",
+          "def": "estado_validacion TEXT NOT NULL DEFAULT 'pendiente'"
+        },
+        {
+          "name": "fecha_validacion",
+          "def": "fecha_validacion TIMESTAMPTZ"
+        },
+        {
+          "name": "validado_por",
+          "def": "validado_por UUID REFERENCES public.usuarios_internos(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "vigente_desde",
+          "def": "vigente_desde DATE"
+        },
+        {
+          "name": "vigente_hasta",
+          "def": "vigente_hasta DATE"
+        },
+        {
+          "name": "es_precio_activo",
+          "def": "es_precio_activo BOOLEAN NOT NULL DEFAULT true"
+        },
+        {
+          "name": "reemplaza_precio_id",
+          "def": "reemplaza_precio_id UUID REFERENCES public.precios_oferta(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "creado_por",
+          "def": "creado_por UUID REFERENCES public.usuarios_internos(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "creado_en",
+          "def": "creado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        },
+        {
+          "name": "actualizado_en",
+          "def": "actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        }
+      ]
+    },
+    "beneficios_oferta": {
+      "file": "20260129000800_create_beneficios_oferta.sql",
+      "columns": [
+        {
+          "name": "id",
+          "def": "id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+        },
+        {
+          "name": "oferta_id",
+          "def": "oferta_id UUID REFERENCES public.ofertas_academicas(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "tipo_beneficio_id",
+          "def": "tipo_beneficio_id UUID REFERENCES public.tipos_beneficio(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "nombre_beneficio",
+          "def": "nombre_beneficio TEXT NOT NULL"
+        },
+        {
+          "name": "descripcion",
+          "def": "descripcion TEXT"
+        },
+        {
+          "name": "condiciones",
+          "def": "condiciones TEXT"
+        },
+        {
+          "name": "cupos_disponibles",
+          "def": "cupos_disponibles INT"
+        },
+        {
+          "name": "vigente_desde",
+          "def": "vigente_desde DATE"
+        },
+        {
+          "name": "vigente_hasta",
+          "def": "vigente_hasta DATE"
+        },
+        {
+          "name": "estado_validacion",
+          "def": "estado_validacion TEXT NOT NULL DEFAULT 'pendiente'"
+        },
+        {
+          "name": "estado_publicacion",
+          "def": "estado_publicacion TEXT NOT NULL DEFAULT 'creado_internamente'"
+        },
+        {
+          "name": "es_principal",
+          "def": "es_principal BOOLEAN NOT NULL DEFAULT false"
+        },
+        {
+          "name": "activo",
+          "def": "activo BOOLEAN NOT NULL DEFAULT true"
+        },
+        {
+          "name": "creado_en",
+          "def": "creado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        },
+        {
+          "name": "actualizado_en",
+          "def": "actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        }
+      ]
+    },
+    "imagenes_universidad": {
+      "file": "20260129000900_create_imagenes_universidad.sql",
+      "columns": [
+        {
+          "name": "id",
+          "def": "id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+        },
+        {
+          "name": "universidad_id",
+          "def": "universidad_id UUID REFERENCES public.universidades(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "tipo",
+          "def": "tipo TEXT"
+        },
+        {
+          "name": "url_storage",
+          "def": "url_storage TEXT"
+        },
+        {
+          "name": "nombre_archivo",
+          "def": "nombre_archivo TEXT"
+        },
+        {
+          "name": "descripcion",
+          "def": "descripcion TEXT"
+        },
+        {
+          "name": "texto_alternativo",
+          "def": "texto_alternativo TEXT"
+        },
+        {
+          "name": "es_principal",
+          "def": "es_principal BOOLEAN NOT NULL DEFAULT false"
+        },
+        {
+          "name": "orden",
+          "def": "orden INT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "activo",
+          "def": "activo BOOLEAN NOT NULL DEFAULT true"
+        },
+        {
+          "name": "creado_por",
+          "def": "creado_por UUID REFERENCES public.usuarios_internos(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "creado_en",
+          "def": "creado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        },
+        {
+          "name": "actualizado_en",
+          "def": "actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        }
+      ]
+    },
+    "usuarios_universidad": {
+      "file": "20260129001000_create_usuarios_universidad.sql",
+      "columns": [
+        {
+          "name": "id",
+          "def": "id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+        },
+        {
+          "name": "universidad_id",
+          "def": "universidad_id UUID REFERENCES public.universidades(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "auth_user_id",
+          "def": "auth_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "correo",
+          "def": "correo TEXT UNIQUE NOT NULL"
+        },
+        {
+          "name": "nombres",
+          "def": "nombres TEXT NOT NULL"
+        },
+        {
+          "name": "apellidos",
+          "def": "apellidos TEXT NOT NULL"
+        },
+        {
+          "name": "cargo",
+          "def": "cargo TEXT"
+        },
+        {
+          "name": "rol_universidad",
+          "def": "rol_universidad TEXT NOT NULL DEFAULT 'editor'"
+        },
+        {
+          "name": "activo",
+          "def": "activo BOOLEAN NOT NULL DEFAULT true"
+        },
+        {
+          "name": "ultimo_acceso_en",
+          "def": "ultimo_acceso_en TIMESTAMPTZ"
+        },
+        {
+          "name": "creado_en",
+          "def": "creado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        },
+        {
+          "name": "actualizado_en",
+          "def": "actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        }
+      ]
+    },
+    "desafios_otp": {
+      "file": "20260829120100_leadcenter_desafios_otp.sql",
+      "columns": [
+        {
+          "name": "id",
+          "def": "id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+        },
+        {
+          "name": "celular_e164",
+          "def": "celular_e164 TEXT NOT NULL"
+        },
+        {
+          "name": "proposito",
+          "def": "proposito TEXT NOT NULL DEFAULT 'registro',        -- registro | login | reverificacion"
+        },
+        {
+          "name": "codigo_hash",
+          "def": "codigo_hash TEXT NOT NULL,                          -- hash bcrypt del código (NUNCA texto plano)"
+        },
+        {
+          "name": "proveedor",
+          "def": "proveedor TEXT NOT NULL DEFAULT 'simulated',        -- simulated | twilio | whatsapp"
+        },
+        {
+          "name": "estado",
+          "def": "estado TEXT NOT NULL DEFAULT 'pendiente',           -- pendiente | verificado | vencido | invalidado"
+        },
+        {
+          "name": "intentos",
+          "def": "intentos INT NOT NULL DEFAULT 0"
+        },
+        {
+          "name": "max_intentos",
+          "def": "max_intentos INT NOT NULL DEFAULT 5"
+        },
+        {
+          "name": "ip_origen",
+          "def": "ip_origen TEXT"
+        },
+        {
+          "name": "visitante_id",
+          "def": "visitante_id UUID"
+        },
+        {
+          "name": "persona_id",
+          "def": "persona_id UUID"
+        },
+        {
+          "name": "expira_en",
+          "def": "expira_en TIMESTAMPTZ NOT NULL"
+        },
+        {
+          "name": "verificado_en",
+          "def": "verificado_en TIMESTAMPTZ"
+        },
+        {
+          "name": "creado_en",
+          "def": "creado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        },
+        {
+          "name": "actualizado_en",
+          "def": "actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()"
+        },
+        {
+          "name": "CHECK",
+          "def": "CHECK (estado IN ('pendiente','verificado','vencido','invalidado'))"
+        },
+        {
+          "name": "CHECK",
+          "def": "CHECK (proposito IN ('registro','login','reverificacion'))"
+        }
+      ]
+    }
+  },
+  "alters": {
+    "personas": [
+      {
+        "file": "20260829120000_leadcenter_extension_personas_identidad.sql",
+        "column": "celular_e164",
+        "def": "TEXT"
+      },
+      {
+        "file": "20260829120000_leadcenter_extension_personas_identidad.sql",
+        "column": "pais_celular",
+        "def": "TEXT"
+      },
+      {
+        "file": "20260829120000_leadcenter_extension_personas_identidad.sql",
+        "column": "auth_user_id",
+        "def": "UUID"
+      },
+      {
+        "file": "20260829120000_leadcenter_extension_personas_identidad.sql",
+        "column": "telefono_verificado",
+        "def": "BOOLEAN DEFAULT false"
+      },
+      {
+        "file": "20260829120000_leadcenter_extension_personas_identidad.sql",
+        "column": "whatsapp_verificado",
+        "def": "BOOLEAN DEFAULT false"
+      },
+      {
+        "file": "20260829120000_leadcenter_extension_personas_identidad.sql",
+        "column": "metodo_verificacion",
+        "def": "TEXT"
+      },
+      {
+        "file": "20260829120000_leadcenter_extension_personas_identidad.sql",
+        "column": "fecha_verificacion_celular",
+        "def": "TIMESTAMPTZ"
+      }
+    ],
+    "ofertas_academicas": [
+      {
+        "file": "20260829120200_leadcenter_modelo_negocio.sql",
+        "column": "modelo_negocio",
+        "def": "TEXT"
+      }
+    ],
+    "oportunidades": [
+      {
+        "file": "20260829120200_leadcenter_modelo_negocio.sql",
+        "column": "modelo_negocio_snapshot",
+        "def": "TEXT"
+      },
+      {
+        "file": "20260829120200_leadcenter_modelo_negocio.sql",
+        "column": "clave_idempotencia",
+        "def": "TEXT"
+      }
+    ]
+  },
+  "indexes": {
+    "roles": [
+      {
+        "file": "20260129000100_create_roles.sql",
+        "name": "idx_roles_activo",
+        "unique": false,
+        "cols": "activo"
+      }
+    ],
+    "usuarios_internos": [
+      {
+        "file": "20260129000200_create_usuarios_internos.sql",
+        "name": "idx_usuarios_internos_rol_id",
+        "unique": false,
+        "cols": "rol_id"
+      },
+      {
+        "file": "20260129000200_create_usuarios_internos.sql",
+        "name": "idx_usuarios_internos_auth_user_id",
+        "unique": false,
+        "cols": "auth_user_id"
+      },
+      {
+        "file": "20260129000200_create_usuarios_internos.sql",
+        "name": "idx_usuarios_internos_activo",
+        "unique": false,
+        "cols": "activo"
+      },
+      {
+        "file": "20260129000200_create_usuarios_internos.sql",
+        "name": "idx_usuarios_internos_ultimo_acceso_en",
+        "unique": false,
+        "cols": "ultimo_acceso_en DESC"
+      },
+      {
+        "file": "20260129000200_create_usuarios_internos.sql",
+        "name": "uq_usuarios_internos_auth_user_id",
+        "unique": true,
+        "cols": "auth_user_id"
+      }
+    ],
+    "jornadas": [
+      {
+        "file": "20260129000300_create_jornadas.sql",
+        "name": "idx_jornadas_activo",
+        "unique": false,
+        "cols": "activo"
+      }
+    ],
+    "tipos_beneficio": [
+      {
+        "file": "20260129000400_create_tipos_beneficio.sql",
+        "name": "idx_tipos_beneficio_activo",
+        "unique": false,
+        "cols": "activo"
+      }
+    ],
+    "periodos_academicos": [
+      {
+        "file": "20260129000500_create_periodos_academicos.sql",
+        "name": "idx_periodos_academicos_universidad_id",
+        "unique": false,
+        "cols": "universidad_id"
+      },
+      {
+        "file": "20260129000500_create_periodos_academicos.sql",
+        "name": "idx_periodos_academicos_sede_id",
+        "unique": false,
+        "cols": "sede_id"
+      },
+      {
+        "file": "20260129000500_create_periodos_academicos.sql",
+        "name": "idx_periodos_academicos_activo",
+        "unique": false,
+        "cols": "activo"
+      },
+      {
+        "file": "20260129000500_create_periodos_academicos.sql",
+        "name": "idx_periodos_academicos_estado",
+        "unique": false,
+        "cols": "estado"
+      },
+      {
+        "file": "20260129000500_create_periodos_academicos.sql",
+        "name": "idx_periodos_academicos_anio_numero_periodo",
+        "unique": false,
+        "cols": "anio, numero_periodo"
+      },
+      {
+        "file": "20260129000500_create_periodos_academicos.sql",
+        "name": "idx_periodos_academicos_fechas",
+        "unique": false,
+        "cols": "fecha_inicio, fecha_fin"
+      }
+    ],
+    "periodos_comerciales": [
+      {
+        "file": "20260129000600_create_periodos_comerciales.sql",
+        "name": "idx_periodos_comerciales_periodo_objetivo_id",
+        "unique": false,
+        "cols": "periodo_academico_objetivo_id"
+      },
+      {
+        "file": "20260129000600_create_periodos_comerciales.sql",
+        "name": "idx_periodos_comerciales_activo",
+        "unique": false,
+        "cols": "activo"
+      },
+      {
+        "file": "20260129000600_create_periodos_comerciales.sql",
+        "name": "idx_periodos_comerciales_estado",
+        "unique": false,
+        "cols": "estado"
+      },
+      {
+        "file": "20260129000600_create_periodos_comerciales.sql",
+        "name": "idx_periodos_comerciales_fechas",
+        "unique": false,
+        "cols": "fecha_inicio, fecha_fin"
+      }
+    ],
+    "precios_oferta": [
+      {
+        "file": "20260129000700_create_precios_oferta.sql",
+        "name": "idx_precios_oferta_oferta_id",
+        "unique": false,
+        "cols": "oferta_id"
+      },
+      {
+        "file": "20260129000700_create_precios_oferta.sql",
+        "name": "idx_precios_oferta_periodo_academico_id",
+        "unique": false,
+        "cols": "periodo_academico_id"
+      },
+      {
+        "file": "20260129000700_create_precios_oferta.sql",
+        "name": "idx_precios_oferta_validado_por",
+        "unique": false,
+        "cols": "validado_por"
+      },
+      {
+        "file": "20260129000700_create_precios_oferta.sql",
+        "name": "idx_precios_oferta_creado_por",
+        "unique": false,
+        "cols": "creado_por"
+      },
+      {
+        "file": "20260129000700_create_precios_oferta.sql",
+        "name": "idx_precios_oferta_reemplaza_precio_id",
+        "unique": false,
+        "cols": "reemplaza_precio_id"
+      },
+      {
+        "file": "20260129000700_create_precios_oferta.sql",
+        "name": "idx_precios_oferta_estado_validacion",
+        "unique": false,
+        "cols": "estado_validacion"
+      },
+      {
+        "file": "20260129000700_create_precios_oferta.sql",
+        "name": "idx_precios_oferta_activo_por_oferta",
+        "unique": false,
+        "cols": "oferta_id, es_precio_activo"
+      },
+      {
+        "file": "20260129000700_create_precios_oferta.sql",
+        "name": "idx_precios_oferta_vigencia",
+        "unique": false,
+        "cols": "vigente_desde, vigente_hasta"
+      }
+    ],
+    "beneficios_oferta": [
+      {
+        "file": "20260129000800_create_beneficios_oferta.sql",
+        "name": "idx_beneficios_oferta_oferta_id",
+        "unique": false,
+        "cols": "oferta_id"
+      },
+      {
+        "file": "20260129000800_create_beneficios_oferta.sql",
+        "name": "idx_beneficios_oferta_tipo_beneficio_id",
+        "unique": false,
+        "cols": "tipo_beneficio_id"
+      },
+      {
+        "file": "20260129000800_create_beneficios_oferta.sql",
+        "name": "idx_beneficios_oferta_estado_validacion",
+        "unique": false,
+        "cols": "estado_validacion"
+      },
+      {
+        "file": "20260129000800_create_beneficios_oferta.sql",
+        "name": "idx_beneficios_oferta_estado_publicacion",
+        "unique": false,
+        "cols": "estado_publicacion"
+      },
+      {
+        "file": "20260129000800_create_beneficios_oferta.sql",
+        "name": "idx_beneficios_oferta_activo",
+        "unique": false,
+        "cols": "activo"
+      },
+      {
+        "file": "20260129000800_create_beneficios_oferta.sql",
+        "name": "idx_beneficios_oferta_vigencia",
+        "unique": false,
+        "cols": "vigente_desde, vigente_hasta"
+      }
+    ],
+    "imagenes_universidad": [
+      {
+        "file": "20260129000900_create_imagenes_universidad.sql",
+        "name": "idx_imagenes_universidad_universidad_id",
+        "unique": false,
+        "cols": "universidad_id"
+      },
+      {
+        "file": "20260129000900_create_imagenes_universidad.sql",
+        "name": "idx_imagenes_universidad_creado_por",
+        "unique": false,
+        "cols": "creado_por"
+      },
+      {
+        "file": "20260129000900_create_imagenes_universidad.sql",
+        "name": "idx_imagenes_universidad_activo",
+        "unique": false,
+        "cols": "activo"
+      },
+      {
+        "file": "20260129000900_create_imagenes_universidad.sql",
+        "name": "idx_imagenes_universidad_principal",
+        "unique": false,
+        "cols": "universidad_id, es_principal"
+      },
+      {
+        "file": "20260129000900_create_imagenes_universidad.sql",
+        "name": "idx_imagenes_universidad_orden",
+        "unique": false,
+        "cols": "universidad_id, orden"
+      }
+    ],
+    "usuarios_universidad": [
+      {
+        "file": "20260129001000_create_usuarios_universidad.sql",
+        "name": "idx_usuarios_universidad_universidad_id",
+        "unique": false,
+        "cols": "universidad_id"
+      },
+      {
+        "file": "20260129001000_create_usuarios_universidad.sql",
+        "name": "idx_usuarios_universidad_rol_universidad",
+        "unique": false,
+        "cols": "rol_universidad"
+      },
+      {
+        "file": "20260129001000_create_usuarios_universidad.sql",
+        "name": "idx_usuarios_universidad_activo",
+        "unique": false,
+        "cols": "activo"
+      },
+      {
+        "file": "20260129001000_create_usuarios_universidad.sql",
+        "name": "idx_usuarios_universidad_ultimo_acceso_en",
+        "unique": false,
+        "cols": "ultimo_acceso_en DESC"
+      },
+      {
+        "file": "20260129001000_create_usuarios_universidad.sql",
+        "name": "uq_usuarios_universidad_auth_user_id",
+        "unique": true,
+        "cols": "auth_user_id"
+      }
+    ],
+    "personas": [
+      {
+        "file": "20260829120000_leadcenter_extension_personas_identidad.sql",
+        "name": "idx_personas_celular_e164_unique",
+        "unique": true,
+        "cols": "celular_e164"
+      },
+      {
+        "file": "20260829120000_leadcenter_extension_personas_identidad.sql",
+        "name": "idx_personas_auth_user_unique",
+        "unique": true,
+        "cols": "auth_user_id"
+      },
+      {
+        "file": "20260829120000_leadcenter_extension_personas_identidad.sql",
+        "name": "idx_personas_correo_principal",
+        "unique": false,
+        "cols": "correo_principal"
+      },
+      {
+        "file": "20260829120000_leadcenter_extension_personas_identidad.sql",
+        "name": "idx_personas_visitante",
+        "unique": false,
+        "cols": "visitante_id"
+      },
+      {
+        "file": "20260829120000_leadcenter_extension_personas_identidad.sql",
+        "name": "idx_personas_estado_relacion",
+        "unique": false,
+        "cols": "estado_relacion"
+      }
+    ],
+    "desafios_otp": [
+      {
+        "file": "20260829120100_leadcenter_desafios_otp.sql",
+        "name": "idx_desafios_otp_celular",
+        "unique": false,
+        "cols": "celular_e164"
+      },
+      {
+        "file": "20260829120100_leadcenter_desafios_otp.sql",
+        "name": "idx_desafios_otp_estado",
+        "unique": false,
+        "cols": "estado"
+      },
+      {
+        "file": "20260829120100_leadcenter_desafios_otp.sql",
+        "name": "idx_desafios_otp_expira",
+        "unique": false,
+        "cols": "expira_en"
+      },
+      {
+        "file": "20260829120100_leadcenter_desafios_otp.sql",
+        "name": "idx_desafios_otp_ip",
+        "unique": false,
+        "cols": "ip_origen"
+      },
+      {
+        "file": "20260829120100_leadcenter_desafios_otp.sql",
+        "name": "idx_desafios_otp_celular_creado",
+        "unique": false,
+        "cols": "celular_e164, creado_en DESC"
+      }
+    ],
+    "ofertas_academicas": [
+      {
+        "file": "20260829120200_leadcenter_modelo_negocio.sql",
+        "name": "idx_ofertas_modelo_negocio",
+        "unique": false,
+        "cols": "modelo_negocio"
+      }
+    ],
+    "oportunidades": [
+      {
+        "file": "20260829120200_leadcenter_modelo_negocio.sql",
+        "name": "idx_oportunidades_idempotencia_unique",
+        "unique": true,
+        "cols": "clave_idempotencia"
+      },
+      {
+        "file": "20260829120200_leadcenter_modelo_negocio.sql",
+        "name": "idx_oportunidades_etapa",
+        "unique": false,
+        "cols": "etapa_id"
+      },
+      {
+        "file": "20260829120200_leadcenter_modelo_negocio.sql",
+        "name": "idx_oportunidades_subestado",
+        "unique": false,
+        "cols": "subestado_id"
+      },
+      {
+        "file": "20260829120200_leadcenter_modelo_negocio.sql",
+        "name": "idx_oportunidades_asesor",
+        "unique": false,
+        "cols": "asesor_asignado_id"
+      },
+      {
+        "file": "20260829120200_leadcenter_modelo_negocio.sql",
+        "name": "idx_oportunidades_estado",
+        "unique": false,
+        "cols": "estado"
+      },
+      {
+        "file": "20260829120200_leadcenter_modelo_negocio.sql",
+        "name": "idx_oportunidades_persona",
+        "unique": false,
+        "cols": "persona_id"
+      },
+      {
+        "file": "20260829120200_leadcenter_modelo_negocio.sql",
+        "name": "idx_oportunidades_universidad",
+        "unique": false,
+        "cols": "universidad_id"
+      },
+      {
+        "file": "20260829120200_leadcenter_modelo_negocio.sql",
+        "name": "idx_oportunidades_proxima_accion",
+        "unique": false,
+        "cols": "fecha_proxima_accion"
+      },
+      {
+        "file": "20260829120200_leadcenter_modelo_negocio.sql",
+        "name": "idx_oportunidades_actualizado",
+        "unique": false,
+        "cols": "actualizado_en"
+      }
+    ],
+    "comunicaciones_transaccionales": [
+      {
+        "file": "20260830130000_demowapp_idempotency_indexes.sql",
+        "name": "comunicaciones_transaccionales_demowapp_idempotency_uq",
+        "unique": true,
+        "cols": "(metadatos ->> 'idempotency_key'"
+      }
+    ],
+    "mensajes_conversacion": [
+      {
+        "file": "20260830130000_demowapp_idempotency_indexes.sql",
+        "name": "mensajes_conversacion_referencia_uq",
+        "unique": true,
+        "cols": "conversacion_id, referencia_externa"
+      }
+    ],
+    "notas_crm": [
+      {
+        "file": "20260830130000_demowapp_idempotency_indexes.sql",
+        "name": "notas_crm_demowapp_idempotency_uq",
+        "unique": true,
+        "cols": "oportunidad_id, persona_id, contenido"
+      }
+    ],
+    "eventos_negocio": [
+      {
+        "file": "20260830130000_demowapp_idempotency_indexes.sql",
+        "name": "eventos_negocio_demowapp_idempotency_uq",
+        "unique": true,
+        "cols": "evento, (metadatos ->> 'idempotency_key'"
+      }
+    ]
+  },
+  "policies": {
+    "roles": [
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_select_roles"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_insert_roles"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_update_roles"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_delete_roles"
+      }
+    ],
+    "usuarios_internos": [
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_select_usuarios_internos"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_insert_usuarios_internos"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_update_usuarios_internos"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_delete_usuarios_internos"
+      }
+    ],
+    "jornadas": [
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_select_jornadas"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_insert_jornadas"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_update_jornadas"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_delete_jornadas"
+      }
+    ],
+    "tipos_beneficio": [
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_select_tipos_beneficio"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_insert_tipos_beneficio"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_update_tipos_beneficio"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_delete_tipos_beneficio"
+      }
+    ],
+    "periodos_academicos": [
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_select_periodos_academicos"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_insert_periodos_academicos"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_update_periodos_academicos"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_delete_periodos_academicos"
+      }
+    ],
+    "periodos_comerciales": [
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_select_periodos_comerciales"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_insert_periodos_comerciales"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_update_periodos_comerciales"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_delete_periodos_comerciales"
+      }
+    ],
+    "precios_oferta": [
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_select_precios_oferta"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_insert_precios_oferta"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_update_precios_oferta"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_delete_precios_oferta"
+      }
+    ],
+    "beneficios_oferta": [
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_select_beneficios_oferta"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_insert_beneficios_oferta"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_update_beneficios_oferta"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_delete_beneficios_oferta"
+      }
+    ],
+    "imagenes_universidad": [
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_select_imagenes_universidad"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_insert_imagenes_universidad"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_update_imagenes_universidad"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_delete_imagenes_universidad"
+      }
+    ],
+    "usuarios_universidad": [
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_select_usuarios_universidad"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_insert_usuarios_universidad"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_update_usuarios_universidad"
+      },
+      {
+        "file": "20260129001100_create_admin_rls_policies.sql",
+        "name": "solo_super_admin_delete_usuarios_universidad"
+      }
+    ],
+    "desafios_otp": [
+      {
+        "file": "20260829120100_leadcenter_desafios_otp.sql",
+        "name": "otp_solo_super_admin_lectura"
+      }
+    ]
+  }
+}

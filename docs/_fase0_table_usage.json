@@ -1,0 +1,168 @@
+{
+  "personas": [
+    "app/api/demowapp/estudiante/[token]/route.ts",
+    "app/api/demowapp/sesiones/[oportunidadId]/route.ts",
+    "app/api/demowapp/sesiones/route.ts",
+    "app/api/leadcenter/convertir/route.ts",
+    "app/leadcenter/oportunidades/[id]/page.tsx",
+    "app/leadcenter/personas/[id]/page.tsx",
+    "app/leadcenter/personas/page.tsx",
+    "components/leadcenter/LeadCenterNav.tsx",
+    "src/lib/demowapp/mensaje-service.ts",
+    "src/lib/phone.ts"
+  ],
+  "oportunidades": [
+    "app/api/demowapp/sesiones/[oportunidadId]/route.ts",
+    "app/api/demowapp/sesiones/route.ts",
+    "app/api/leadcenter/oportunidad/[id]/copiloto/route.ts",
+    "app/leadcenter/oportunidades/[id]/page.tsx",
+    "app/leadcenter/oportunidades/page.tsx",
+    "app/leadcenter/page.tsx",
+    "app/leadcenter/personas/[id]/page.tsx",
+    "app/leadcenter/tareas/page.tsx",
+    "app/page.tsx",
+    "app/para-universidades/page.tsx",
+    "components/leadcenter/LeadCenterNav.tsx",
+    "src/lib/demowapp/mensaje-service.ts",
+    "src/lib/demowapp/push-catalog.ts"
+  ],
+  "aplicaciones": [
+    "app/api/demowapp/estudiante/[token]/route.ts",
+    "app/api/demowapp/sesiones/[oportunidadId]/mensaje/route.ts",
+    "app/api/demowapp/sesiones/[oportunidadId]/route.ts",
+    "app/api/demowapp/sesiones/route.ts",
+    "src/lib/demowapp/mensaje-service.ts"
+  ],
+  "etapas_embudo": [
+    "app/api/demowapp/sesiones/[oportunidadId]/route.ts",
+    "app/api/demowapp/sesiones/route.ts",
+    "app/api/leadcenter/oportunidad/[id]/copiloto/route.ts",
+    "app/leadcenter/oportunidades/[id]/page.tsx",
+    "app/leadcenter/oportunidades/page.tsx",
+    "app/leadcenter/page.tsx",
+    "src/lib/demowapp/mensaje-service.ts"
+  ],
+  "subestados_oportunidad": [
+    "app/api/demowapp/sesiones/[oportunidadId]/route.ts",
+    "app/api/demowapp/sesiones/route.ts",
+    "app/leadcenter/oportunidades/[id]/page.tsx",
+    "src/lib/demowapp/mensaje-service.ts"
+  ],
+  "reglas_estancamiento": [],
+  "notas_crm": [
+    "app/api/demowapp/sesiones/[oportunidadId]/route.ts",
+    "app/api/leadcenter/oportunidad/[id]/copiloto/route.ts",
+    "app/leadcenter/oportunidades/[id]/page.tsx",
+    "app/leadcenter/personas/[id]/page.tsx",
+    "src/lib/demowapp/mensaje-service.ts",
+    "src/lib/demowapp/push-service.ts"
+  ],
+  "roles": [
+    "app/admin/catalogos/page.tsx",
+    "app/admin/layout.tsx",
+    "app/admin/login/page.tsx",
+    "app/leadcenter/login/page.tsx",
+    "src/lib/admin/resolve-role-code.ts",
+    "src/lib/leadcenter/session.ts"
+  ],
+  "usuarios_internos": [
+    "app/admin/layout.tsx",
+    "app/admin/login/page.tsx",
+    "app/admin/precios/nuevo/page.tsx",
+    "app/leadcenter/login/page.tsx",
+    "src/lib/leadcenter/session.ts"
+  ],
+  "conversaciones": [
+    "app/api/demowapp/sesiones/route.ts",
+    "src/lib/demowapp/conversacion-service.ts"
+  ],
+  "mensajes_conversacion": [
+    "app/api/demowapp/estudiante/[token]/route.ts",
+    "app/api/demowapp/sesiones/[oportunidadId]/route.ts",
+    "src/lib/demowapp/mensaje-service.ts",
+    "src/lib/demowapp/push-service.ts"
+  ],
+  "hechos_extraidos_naia": [],
+  "ofertas_academicas": [
+    "app/admin/beneficios/_components/BeneficioForm.tsx",
+    "app/admin/beneficios/page.tsx",
+    "app/admin/ofertas/[id]/page.tsx",
+    "app/admin/ofertas/_components/OfertaForm.tsx",
+    "app/admin/ofertas/nueva/page.tsx",
+    "app/admin/ofertas/page.tsx",
+    "app/admin/page.tsx",
+    "app/admin/precios/_components/PrecioForm.tsx",
+    "app/admin/precios/page.tsx",
+    "app/api/demowapp/estudiante/[token]/route.ts",
+    "app/api/demowapp/sesiones/[oportunidadId]/route.ts",
+    "app/api/demowapp/sesiones/route.ts",
+    "app/api/leadcenter/convertir/route.ts",
+    "src/lib/demowapp/mensaje-service.ts",
+    "src/lib/ofertas.ts"
+  ],
+  "universidades": [
+    "app/admin/beneficios/page.tsx",
+    "app/admin/ofertas/_components/OfertaForm.tsx",
+    "app/admin/ofertas/page.tsx",
+    "app/admin/page.tsx",
+    "app/admin/periodos/_components/PeriodoAcademicoForm.tsx",
+    "app/admin/periodos/page.tsx",
+    "app/admin/programas/_components/ProgramaForm.tsx",
+    "app/admin/programas/page.tsx",
+    "app/admin/sedes/_components/SedeForm.tsx",
+    "app/admin/sedes/page.tsx",
+    "app/admin/universidades/[id]/page.tsx",
+    "app/admin/universidades/_components/UniversidadForm.tsx",
+    "app/admin/universidades/nueva/page.tsx",
+    "app/admin/universidades/page.tsx",
+    "app/como-funciona/page.tsx",
+    "app/layout.tsx",
+    "app/naia/page.tsx",
+    "app/page.tsx",
+    "app/para-universidades/page.tsx",
+    "app/privacidad/page.tsx",
+    "app/terminos/page.tsx",
+    "app/universidades/page.tsx",
+    "components/admin/AdminSidebar.tsx",
+    "components/forms/InterestForm.tsx",
+    "components/layout/Footer.tsx",
+    "components/layout/Header.tsx",
+    "components/naia/NaiaEntryModal.tsx",
+    "src/lib/ofertas.ts"
+  ],
+  "programas_academicos": [
+    "app/admin/ofertas/_components/OfertaForm.tsx",
+    "app/admin/ofertas/page.tsx",
+    "app/admin/page.tsx",
+    "app/admin/programas/[id]/page.tsx",
+    "app/admin/programas/_components/ProgramaForm.tsx",
+    "app/admin/programas/nuevo/page.tsx",
+    "app/admin/programas/page.tsx",
+    "src/lib/ofertas.ts"
+  ],
+  "consentimientos_persona": [
+    "app/leadcenter/oportunidades/[id]/page.tsx",
+    "app/leadcenter/personas/[id]/page.tsx"
+  ],
+  "transferencias_universidad": [
+    "app/api/leadcenter/oportunidad/[id]/copiloto/route.ts",
+    "app/leadcenter/oportunidades/[id]/page.tsx",
+    "app/leadcenter/page.tsx"
+  ],
+  "propuestas_comerciales": [
+    "app/leadcenter/oportunidades/[id]/page.tsx"
+  ],
+  "versiones_propuesta_comercial": [],
+  "eventos_negocio": [
+    "src/lib/demowapp/mensaje-service.ts",
+    "src/lib/demowapp/push-service.ts",
+    "src/lib/events.ts"
+  ],
+  "desafios_otp": [
+    "app/api/leadcenter/convertir/route.ts",
+    "src/lib/otp/OtpProvider.ts",
+    "src/lib/otp/SimulatedOtpProvider.ts",
+    "src/lib/otp/TwilioOtpProvider.ts",
+    "src/lib/otp/WhatsAppOtpProvider.ts"
+  ]
+}

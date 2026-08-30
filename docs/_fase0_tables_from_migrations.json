@@ -1,0 +1,631 @@
+{
+  "aplicaciones": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_convertir_aplicacion"
+    ]
+  },
+  "asignaciones_oportunidad": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_convertir_aplicacion"
+    ]
+  },
+  "beneficios_oferta": {
+    "created_in": [
+      "20260129000800_create_beneficios_oferta.sql"
+    ],
+    "altered_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "policies": [
+      {
+        "name": "solo_super_admin_select_beneficios_oferta",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_insert_beneficios_oferta",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_update_beneficios_oferta",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_delete_beneficios_oferta",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      }
+    ],
+    "rls_enabled_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "functions": []
+  },
+  "comunicaciones_transaccionales": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": []
+  },
+  "consentimientos_persona": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_convertir_aplicacion"
+    ]
+  },
+  "conversaciones": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "usuario_interno_id"
+    ]
+  },
+  "desafios_otp": {
+    "created_in": [
+      "20260829120100_leadcenter_desafios_otp.sql"
+    ],
+    "altered_in": [
+      "20260829120100_leadcenter_desafios_otp.sql"
+    ],
+    "policies": [
+      {
+        "name": "otp_solo_super_admin_lectura",
+        "file": "20260829120100_leadcenter_desafios_otp.sql"
+      }
+    ],
+    "rls_enabled_in": [
+      "20260829120100_leadcenter_desafios_otp.sql"
+    ],
+    "functions": []
+  },
+  "etapas_embudo": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_cambiar_etapa",
+      "fn_convertir_aplicacion"
+    ]
+  },
+  "eventos_negocio": {
+    "created_in": [],
+    "altered_in": [
+      "20260815_add_visitante_id_to_eventos_negocio.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [],
+    "functions": [
+      "fn_convertir_aplicacion"
+    ]
+  },
+  "hechos_extraidos_naia": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": []
+  },
+  "historial_etapas_oportunidad": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_cambiar_etapa",
+      "fn_convertir_aplicacion",
+      "fn_evaluar_estancamiento"
+    ]
+  },
+  "historial_scoring_oportunidad": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_evaluar_estancamiento"
+    ]
+  },
+  "imagenes_universidad": {
+    "created_in": [
+      "20260129000900_create_imagenes_universidad.sql"
+    ],
+    "altered_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "policies": [
+      {
+        "name": "solo_super_admin_select_imagenes_universidad",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_insert_imagenes_universidad",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_update_imagenes_universidad",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_delete_imagenes_universidad",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      }
+    ],
+    "rls_enabled_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "functions": []
+  },
+  "jornadas": {
+    "created_in": [
+      "20260129000300_create_jornadas.sql"
+    ],
+    "altered_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "policies": [
+      {
+        "name": "solo_super_admin_select_jornadas",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_insert_jornadas",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_update_jornadas",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_delete_jornadas",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      }
+    ],
+    "rls_enabled_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "functions": []
+  },
+  "mensajes_conversacion": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": []
+  },
+  "notas_crm": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_cambiar_etapa",
+      "fn_evaluar_estancamiento"
+    ]
+  },
+  "ofertas_academicas": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120200_leadcenter_modelo_negocio.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [],
+    "functions": [
+      "fn_convertir_aplicacion"
+    ]
+  },
+  "oportunidades": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120200_leadcenter_modelo_negocio.sql",
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_cambiar_etapa",
+      "fn_convertir_aplicacion",
+      "fn_evaluar_estancamiento",
+      "usuario_interno_id"
+    ]
+  },
+  "perfil_progresivo_persona": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": []
+  },
+  "periodos_academicos": {
+    "created_in": [
+      "20260129000500_create_periodos_academicos.sql"
+    ],
+    "altered_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "policies": [
+      {
+        "name": "solo_super_admin_select_periodos_academicos",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_insert_periodos_academicos",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_update_periodos_academicos",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_delete_periodos_academicos",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      }
+    ],
+    "rls_enabled_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "functions": []
+  },
+  "periodos_comerciales": {
+    "created_in": [
+      "20260129000600_create_periodos_comerciales.sql"
+    ],
+    "altered_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "policies": [
+      {
+        "name": "solo_super_admin_select_periodos_comerciales",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_insert_periodos_comerciales",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_update_periodos_comerciales",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_delete_periodos_comerciales",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      }
+    ],
+    "rls_enabled_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "functions": []
+  },
+  "personas": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120000_leadcenter_extension_personas_identidad.sql",
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_convertir_aplicacion"
+    ]
+  },
+  "precios_oferta": {
+    "created_in": [
+      "20260129000700_create_precios_oferta.sql"
+    ],
+    "altered_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "policies": [
+      {
+        "name": "solo_super_admin_select_precios_oferta",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_insert_precios_oferta",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_update_precios_oferta",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_delete_precios_oferta",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      }
+    ],
+    "rls_enabled_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "functions": []
+  },
+  "preferencias_educativas_persona": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": []
+  },
+  "propuestas_comerciales": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_convertir_aplicacion",
+      "usuario_interno_id"
+    ]
+  },
+  "reglas_estancamiento": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_evaluar_estancamiento"
+    ]
+  },
+  "roles": {
+    "created_in": [
+      "20260129000100_create_roles.sql"
+    ],
+    "altered_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "policies": [
+      {
+        "name": "solo_super_admin_select_roles",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_insert_roles",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_update_roles",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_delete_roles",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      }
+    ],
+    "rls_enabled_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "functions": [
+      "fn_convertir_aplicacion",
+      "usuario_interno_id"
+    ]
+  },
+  "subestados_oportunidad": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_convertir_aplicacion"
+    ]
+  },
+  "tareas_crm": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_cambiar_etapa",
+      "fn_evaluar_estancamiento"
+    ]
+  },
+  "tipos_beneficio": {
+    "created_in": [
+      "20260129000400_create_tipos_beneficio.sql"
+    ],
+    "altered_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "policies": [
+      {
+        "name": "solo_super_admin_select_tipos_beneficio",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_insert_tipos_beneficio",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_update_tipos_beneficio",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_delete_tipos_beneficio",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      }
+    ],
+    "rls_enabled_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "functions": []
+  },
+  "tipos_consentimiento": {
+    "created_in": [],
+    "altered_in": [],
+    "policies": [],
+    "rls_enabled_in": [],
+    "functions": [
+      "fn_convertir_aplicacion"
+    ]
+  },
+  "transferencias_universidad": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_convertir_aplicacion"
+    ]
+  },
+  "usuarios_internos": {
+    "created_in": [
+      "20260129000200_create_usuarios_internos.sql"
+    ],
+    "altered_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "policies": [
+      {
+        "name": "solo_super_admin_select_usuarios_internos",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_insert_usuarios_internos",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_update_usuarios_internos",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_delete_usuarios_internos",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      }
+    ],
+    "rls_enabled_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "functions": [
+      "fn_convertir_aplicacion",
+      "usuario_interno_id"
+    ]
+  },
+  "usuarios_universidad": {
+    "created_in": [
+      "20260129001000_create_usuarios_universidad.sql"
+    ],
+    "altered_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "policies": [
+      {
+        "name": "solo_super_admin_select_usuarios_universidad",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_insert_usuarios_universidad",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_update_usuarios_universidad",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      },
+      {
+        "name": "solo_super_admin_delete_usuarios_universidad",
+        "file": "20260129001100_create_admin_rls_policies.sql"
+      }
+    ],
+    "rls_enabled_in": [
+      "20260129001100_create_admin_rls_policies.sql"
+    ],
+    "functions": []
+  },
+  "versiones_propuesta_comercial": {
+    "created_in": [],
+    "altered_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "policies": [],
+    "rls_enabled_in": [
+      "20260829120300_leadcenter_rls_crm.sql"
+    ],
+    "functions": [
+      "fn_convertir_aplicacion"
+    ]
+  }
+}
