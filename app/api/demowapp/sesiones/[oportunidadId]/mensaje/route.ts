@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase } from '@/src/lib/supabase-server';
+import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 import { processInboundStudentMessage } from '@/src/lib/demowapp/mensaje-service';
 
@@ -38,7 +38,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ opo
   }
 
   try {
-    const db = await getServerSupabase();
+    // El mensaje y la respuesta de NaIA crean filas de conversación. Se usa el
+    // cliente de servidor después de verificar super_admin para no quedar
+    // bloqueados por políticas RLS de solo lectura.
+    const db = getServiceRoleClient();
 
     const { data: app, error: appError } = await db
       .from('aplicaciones')
