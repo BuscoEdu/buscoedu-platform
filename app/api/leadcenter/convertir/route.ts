@@ -95,8 +95,9 @@ export async function POST(req: NextRequest) {
         const ahora = new Date().toISOString();
         const { error: visitanteInsertError } = await db.from('visitantes').insert({
           id: visitanteTexto,
-          fecha_primera_visita: ahora,
-          fecha_ultima_actividad: ahora
+          identificador_navegacion: visitanteTexto,
+          primer_acceso_en: ahora,
+          ultimo_acceso_en: ahora
         });
 
         if (visitanteInsertError) {
