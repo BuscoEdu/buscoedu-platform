@@ -36,6 +36,68 @@ function makeIdempotencyRef(prefix: string, id: string) {
   return `${prefix}:${id}`;
 }
 
+/**
+ * Abacás normalmente devuelve JSON válido, pero algunos modelos insertan un
+ * salto de línea literal dentro de una cadena. JSON.parse lo rechaza aunque la
+ * intención y el contenido sean correctos. Esta normalización conserva los
+ * saltos dentro de cadenas como \"\\n\" y deja el JSON listo para parsear.
+ */
+function repairJsonText(text: string) {
+  let output = '';
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (escaped) {
+      output += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\' && inString) {
+      output += char;
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      output += char;
+      continue;
+    }
+
+    if (char === '\r' || char === '\n') {
+      if (char === '\r' && text[index + 1] === '\n') index += 1;
+      output += inString ? '\\n' : ' ';
+      continue;
+    }
+
+    output += char;
+  }
+
+  return output;
+}
+
+function parseNaiaStructuredResponse(text: string) {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
+  const source = (fenced || text).trim();
+  const start = source.indexOf('{');
+  const end = source.lastIndexOf('}');
+  const candidate = start >= 0 && end > start ? source.slice(start, end + 1) : source;
+
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    try {
+      return JSON.parse(repairJsonText(candidate));
+    } catch {
+      return null;
+    }
+  }
+}
+
 async function findMessageByReference(
   db: SupabaseClient,
   conversacionId: string,
@@ -207,17 +269,14 @@ async function callNaiaFromServer(input: {
     const result = data?.result ?? data;
     const messages = result?.messages;
 
-    const botText = Array.isArray(messages)
-      ? [...messages].reverse().find((m: any) => !(m?.is_user ?? m?.isUser))?.text || ''
-      : '';
+    const botMessage = Array.isArray(messages)
+      ? [...messages].reverse().find((m: any) => !(m?.is_user ?? m?.isUser))
+      : null;
+    const botText = safeString(botMessage?.text || botMessage?.content);
 
     if (!botText.trim()) throw new Error('abacus_sin_mensaje');
-    const match = botText.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    const jsonText = match?.[1] || botText;
-    let parsed: any = null;
-    try {
-      parsed = JSON.parse(jsonText);
-    } catch {
+    const parsed = parseNaiaStructuredResponse(botText);
+    if (!parsed) {
       // La integración existente también puede responder texto plano. En ese caso
       // se conserva la respuesta comercial de NaIA en lugar de descartarla.
       return { mensaje: botText.trim(), espera_respuesta: true };
@@ -399,5 +458,3 @@ export async function processInboundStudentMessage(
     inbound,
     outbound,
     estadoConversacion: naia.espera_respuesta === false ? CONVERSACION_ESTADO_CERRADA : CONVERSACION_ESTADO_ACTIVA
-  };
-}
