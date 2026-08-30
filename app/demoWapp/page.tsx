@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import SessionList from '@/components/demowapp/SessionList';
 import DemoWappPanel from '@/components/demowapp/DemoWappPanel';
 import ContextPanel from '@/components/demowapp/ContextPanel';
+import WhatsAppMark from '@/components/demowapp/WhatsAppMark';
 
 export default function DemoWappPage() {
   const [started, setStarted] = useState(false);
@@ -67,10 +68,31 @@ export default function DemoWappPage() {
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'No se pudo enviar');
 
-    await fetch('/api/demowapp/push/procesar', { method: 'POST' });
+    await fetch('/api/demowapp/push/procesar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oportunidadId: selectedId })
+    });
     await loadDetail(selectedId);
     await loadSessions();
   };
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const interval = window.setInterval(() => {
+      void (async () => {
+        await fetch('/api/demowapp/push/procesar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oportunidadId: selectedId })
+        });
+        await loadDetail(selectedId);
+        await loadSessions();
+      })();
+    }, 5000);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   const filteredSessions = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -84,8 +106,8 @@ export default function DemoWappPage() {
     return (
       <main className="mx-auto max-w-3xl p-6">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-3xl">
-            💬
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
+            <WhatsAppMark className="h-9 w-9" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Demo WApp</h1>
           <p className="mt-2 text-sm text-gray-500">
@@ -105,7 +127,7 @@ export default function DemoWappPage() {
   return (
     <main className="mx-auto max-w-7xl space-y-4 p-4">
       <header className="rounded-2xl border border-gray-200 bg-white p-4">
-        <h1 className="text-xl font-bold text-gray-900">Demo WApp</h1>
+        <div className="flex items-center gap-2"><WhatsAppMark /><h1 className="text-xl font-bold text-gray-900">Demo WApp</h1></div>
         <p className="text-xs text-gray-500">NaIA · BuscoEdu · Simulación interna</p>
       </header>
 
