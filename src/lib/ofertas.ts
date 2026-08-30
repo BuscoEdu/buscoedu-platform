@@ -69,14 +69,66 @@ export interface ResultadoOfertas {
 
 const PAGE_SIZE_DEFAULT = 20;
 
+const STOPWORDS_BUSQUEDA = new Set([
+  'quiero',
+  'buscar',
+  'busco',
+  'estudiar',
+  'en',
+  'de',
+  'la',
+  'el',
+  'los',
+  'las',
+  'con',
+  'para',
+  'por',
+  'que',
+  'una',
+  'un',
+  'del',
+  'al'
+]);
+
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function normalizarTermino(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 }
 
 /** Escapa caracteres especiales de PostgREST en patrones ILIKE. */
 function likePattern(value: string): string {
   const clean = value.trim().replace(/[%,()]/g, ' ').replace(/\s+/g, ' ').trim();
   return `%${clean}%`;
+}
+
+function construirTerminosBusqueda(entrada: string): string[] {
+  const raw = entrada.trim();
+  const normalizado = normalizarTermino(raw);
+
+  const tokens = normalizado
+    .split(/[^a-z0-9]+/)
+    .map((x) => x.trim())
+    .filter((x) => x.length >= 3 && !STOPWORDS_BUSQUEDA.has(x));
+
+  const terminos = new Set<string>([raw]);
+
+  for (const token of tokens) {
+    terminos.add(token);
+  }
+
+  for (let i = 0; i < tokens.length - 1; i++) {
+    const bigrama = `${tokens[i]} ${tokens[i + 1]}`;
+    if (bigrama.length >= 7) terminos.add(bigrama);
+  }
+
+  return [...terminos].slice(0, 8);
 }
 
 /**
@@ -99,40 +151,45 @@ function patronTipoBeneficio(valor: string): string {
  * Devuelve una lista de términos alternativos a buscar (el original + expansiones).
  */
 function expandirSinonimos(termino: string, contexto: 'nivel' | 'area'): string[] {
-  const t = termino.trim().toLowerCase();
-  
+  const t = normalizarTermino(termino);
+
   if (contexto === 'nivel') {
-    // "Posgrado" no es un nivel en la BD, es un grupo conceptual.
     if (t.includes('posgrado') || t.includes('postgrado')) {
-      return ['Especialización', 'Maestría', 'Doctorado'];
+      return ['Especialización', 'Especializacion', 'Maestría', 'Maestria', 'Doctorado'];
     }
+    return [termino];
   }
 
-  if (contexto === 'area') {
-    // Sinónimos comunes para áreas de conocimiento.
-    if (t.includes('empresa') || t.includes('negocio')) {
-      return ['Administración', 'Negocios', 'Empresariales', 'Gestión', termino];
-    }
-    if (t.includes('salud') || t.includes('medicina')) {
-      return ['Salud', 'Medicina', 'Ciencias de la Salud', termino];
-    }
-    if (t.includes('ingenier')) {
-      return ['Ingeniería', termino];
-    }
-    if (t.includes('derecho') || t.includes('leyes')) {
-      return ['Derecho', 'Ciencias Jurídicas', termino];
-    }
+  const sin: string[] = [termino];
+
+  if (t.includes('empresa') || t.includes('negocio') || t.includes('administr')) {
+    sin.push('Administración', 'Administracion', 'Negocios', 'Empresariales', 'Gestión', 'Gestion');
+  }
+  if (t.includes('salud') || t.includes('medicina') || t.includes('medico')) {
+    sin.push('Salud', 'Medicina', 'Ciencias de la Salud');
+  }
+  if (t.includes('ingenier') || t.includes('ingeniero')) {
+    sin.push('Ingeniería', 'Ingenieria', 'Tecnología', 'Tecnologia');
+  }
+  if (t.includes('derecho') || t.includes('leyes') || t.includes('juridic')) {
+    sin.push('Derecho', 'Ciencias Jurídicas', 'Ciencias Juridicas', 'Leyes');
+  }
+  if (t.includes('comunic')) {
+    sin.push('Comunicación', 'Comunicacion', 'Periodismo');
   }
 
-  return [termino];
+  return [...new Set(sin)];
 }
 
 /** Devuelve IDs de una tabla catálogo cuyo `nombre` coincide (ILIKE). */
 async function idsPorNombre(tabla: string, termino: string): Promise<string[]> {
+  const variantes = [...new Set([termino, normalizarTermino(termino)])].filter(Boolean);
+  const condiciones = variantes.map((v) => `nombre.ilike.${likePattern(v)}`);
+
   const { data, error } = await supabase
     .from(tabla)
     .select('id')
-    .ilike('nombre', likePattern(termino));
+    .or(condiciones.join(','));
 
   if (error) {
     console.error(`Error resolviendo IDs de ${tabla}:`, error);
@@ -147,15 +204,14 @@ async function idsPorNombre(tabla: string, termino: string): Promise<string[]> {
  * cuyo nombre coincide con el término (expandiendo sinónimos comunes).
  */
 async function resolverProgramasPorTexto(termino: string): Promise<string[]> {
-  // Expandir sinónimos para áreas (ej: "empresas" → "Administración", "Negocios", etc.)
-  const terminosArea = expandirSinonimos(termino, 'area');
-  
-  // Buscar IDs de áreas que coincidan con cualquiera de los términos expandidos.
-  const areaIdsPromises = terminosArea.map(t => idsPorNombre('areas_conocimiento', t));
-  const areaIdsArrays = await Promise.all(areaIdsPromises);
-  const areaIds = [...new Set(areaIdsArrays.flat())]; // Deduplica
+  const terminosBusqueda = construirTerminosBusqueda(termino);
 
-  const condiciones = [`nombre_oficial.ilike.${likePattern(termino)}`];
+  const terminosArea = [...new Set(terminosBusqueda.flatMap((t) => expandirSinonimos(t, 'area')))];
+  const areaIdsPromises = terminosArea.map((t) => idsPorNombre('areas_conocimiento', t));
+  const areaIdsArrays = await Promise.all(areaIdsPromises);
+  const areaIds = [...new Set(areaIdsArrays.flat())];
+
+  const condiciones = terminosBusqueda.map((t) => `nombre_oficial.ilike.${likePattern(t)}`);
   if (areaIds.length > 0) {
     condiciones.push(`area_conocimiento_id.in.(${areaIds.join(',')})`);
   }
@@ -239,14 +295,23 @@ async function resolverSedes(filtros: FiltrosOferta): Promise<string[] | null> {
   return (data || []).map((row: any) => row.id);
 }
 
-/** Resuelve IDs de universidades por nombre oficial. `null` si no aplica. */
+/** Resuelve IDs de universidades por nombre oficial/corto/sigla. `null` si no aplica. */
 async function resolverUniversidades(filtros: FiltrosOferta): Promise<string[] | null> {
   if (!filtros.universidad) return null;
+
+  const terminos = construirTerminosBusqueda(filtros.universidad);
+  const condiciones: string[] = [];
+  for (const t of terminos) {
+    const p = likePattern(t);
+    condiciones.push(`nombre_oficial.ilike.${p}`);
+    condiciones.push(`nombre_corto.ilike.${p}`);
+    condiciones.push(`sigla.ilike.${p}`);
+  }
 
   const { data, error } = await supabase
     .from('universidades')
     .select('id')
-    .ilike('nombre_oficial', likePattern(filtros.universidad));
+    .or(condiciones.join(','));
 
   if (error) {
     console.error('Error resolviendo universidades:', error);
@@ -383,12 +448,15 @@ export async function obtenerOfertas(
       .select(SELECT_OFERTAS, { count: 'exact' })
       .eq('activo', true)
       .eq('estado_publicacion', 'publicado')
+      .eq('estado_validacion', 'validado')
       .lte('vigente_desde', hoy)
       .or(`vigente_hasta.is.null,vigente_hasta.gte.${hoy}`);
 
     // Filtro programa/área: nombre_oferta ILIKE término OR programa ∈ coincidencias.
     if (terminoPrograma) {
-      const condiciones = [`nombre_oferta.ilike.${likePattern(terminoPrograma)}`];
+      const condiciones = construirTerminosBusqueda(terminoPrograma).map(
+        (t) => `nombre_oferta.ilike.${likePattern(t)}`
+      );
       if (programasTexto && programasTexto.length > 0) {
         condiciones.push(`programa_id.in.(${programasTexto.join(',')})`);
       }
@@ -484,3 +552,9 @@ export async function verificarDatosDemo(): Promise<boolean> {
     return false;
   }
 }
+
+export const __ofertaSearchTestUtils = {
+  normalizarTermino,
+  construirTerminosBusqueda,
+  expandirSinonimos
+};

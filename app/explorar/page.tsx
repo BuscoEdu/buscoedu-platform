@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import NaiaChatPanel from '@/components/naia/NaiaChatPanel';
+import NaiaChatPanel, { type NaiaChatStateSnapshot } from '@/components/naia/NaiaChatPanel';
 import FilterPanel from '@/components/explorar/FilterPanel';
 import ActiveFilterTags from '@/components/explorar/ActiveFilterTags';
 import SortControl from '@/components/explorar/SortControl';
@@ -10,8 +10,12 @@ import OfferCard from '@/components/explorar/OfferCard';
 import OfferDetailModal from '@/components/explorar/OfferDetailModal';
 import DemoWappModal from '@/components/demowapp/DemoWappModal';
 import { useMyList } from '@/src/contexts/MyListContext';
-import { obtenerOfertas, verificarDatosDemo, type FiltrosOferta, type OfertaAcademica } from '@/src/lib/ofertas';
-import type { NaiaMockResponse } from '@/src/lib/naia-mock';
+import {
+  obtenerOfertas,
+  verificarDatosDemo,
+  type FiltrosOferta,
+  type OfertaAcademica
+} from '@/src/lib/ofertas';
 
 interface ResumenEstadisticas {
   totalProgramas: number;
@@ -23,6 +27,25 @@ interface ResumenEstadisticas {
   duracionSemestresMax?: number;
 }
 
+interface ExplorePersistentState {
+  filtros: FiltrosOferta;
+  sortBy: string;
+  totalOfertas: number;
+  page: number;
+  mobileChatOpen: boolean;
+  mobileResultsScrollY: number;
+  selectedOfertaId: string | null;
+  chat: {
+    conversationId?: string;
+    scrollTop: number;
+    lastQuestion?: string | null;
+    suggestedActions?: string[];
+    messages: Array<{ id: string; content: string; isUser: boolean; timestamp: string }>;
+  };
+}
+
+const EXPLORE_STATE_KEY = 'buscoedu_explorar_state_v6';
+
 function normalizarTexto(valor: string): string {
   return valor
     .normalize('NFD')
@@ -33,7 +56,6 @@ function normalizarTexto(valor: string): string {
 
 function extraerDuracionSemestres(duracion?: string): number | null {
   if (!duracion) return null;
-
   const duracionNormalizada = normalizarTexto(duracion);
   if (!duracionNormalizada.includes('semestre')) return null;
 
@@ -74,9 +96,7 @@ function calcularResumenEstadisticas(ofertas: OfertaAcademica[]): ResumenEstadis
     }
 
     const semestres = extraerDuracionSemestres(oferta.programa?.duracion);
-    if (semestres !== null) {
-      duracionesSemestres.push(semestres);
-    }
+    if (semestres !== null) duracionesSemestres.push(semestres);
   }
 
   const ciudadesTop = [...conteoCiudades.entries()]
@@ -100,12 +120,15 @@ function calcularResumenEstadisticas(ofertas: OfertaAcademica[]): ResumenEstadis
   };
 }
 
-function construirResumenEjecutivoResultados(ofertas: OfertaAcademica[]): string | null {
+function construirResumenEjecutivoResultados(
+  ofertas: OfertaAcademica[],
+  totalResultados: number
+): string | null {
   if (ofertas.length === 0) return null;
 
   const estadisticas = calcularResumenEstadisticas(ofertas);
   const partes: string[] = [
-    `Encontré ${estadisticas.totalProgramas} ${estadisticas.totalProgramas === 1 ? 'programa' : 'programas'} que coinciden con lo que buscas.`
+    `Encontré ${totalResultados} ${totalResultados === 1 ? 'resultado' : 'resultados'} en total. En esta vista estás viendo ${ofertas.length}.`
   ];
 
   const totalConModalidad =
@@ -113,7 +136,7 @@ function construirResumenEjecutivoResultados(ofertas: OfertaAcademica[]): string
 
   if (totalConModalidad > 0) {
     partes.push(
-      `De estos, ${estadisticas.virtuales} ${estadisticas.virtuales === 1 ? 'es virtual' : 'son virtuales'}, ${estadisticas.presenciales} ${estadisticas.presenciales === 1 ? 'es presencial' : 'son presenciales'}${estadisticas.hibridosODistancia > 0 ? ` y ${estadisticas.hibridosODistancia} ${estadisticas.hibridosODistancia === 1 ? 'es híbrido o a distancia' : 'son híbridos o a distancia'}` : ''}.`
+      `De los visibles, ${estadisticas.virtuales} ${estadisticas.virtuales === 1 ? 'es virtual' : 'son virtuales'}, ${estadisticas.presenciales} ${estadisticas.presenciales === 1 ? 'es presencial' : 'son presenciales'}${estadisticas.hibridosODistancia > 0 ? ` y ${estadisticas.hibridosODistancia} ${estadisticas.hibridosODistancia === 1 ? 'es híbrido o a distancia' : 'son híbridos o a distancia'}` : ''}.`
     );
   }
 
@@ -137,15 +160,50 @@ function construirResumenEjecutivoResultados(ofertas: OfertaAcademica[]): string
     }
   }
 
-  partes.push('Aquí están las opciones:');
-
   return partes.join(' ');
+}
+
+function toPersistableChatState(chatState: NaiaChatStateSnapshot): ExplorePersistentState['chat'] {
+  return {
+    conversationId: chatState.conversationId,
+    scrollTop: chatState.scrollTop || 0,
+    lastQuestion: chatState.lastQuestion || null,
+    suggestedActions: chatState.suggestedActions || [],
+    messages: chatState.messages.map((m) => ({
+      id: m.id,
+      content: m.content,
+      isUser: m.isUser,
+      timestamp: m.timestamp.toISOString()
+    }))
+  };
+}
+
+function fromPersistedChatState(
+  persisted?: ExplorePersistentState['chat']
+): Partial<NaiaChatStateSnapshot> | undefined {
+  if (!persisted) return undefined;
+
+  return {
+    conversationId: persisted.conversationId,
+    scrollTop: persisted.scrollTop || 0,
+    lastQuestion: persisted.lastQuestion || null,
+    suggestedActions: persisted.suggestedActions || [],
+    messages: (persisted.messages || []).map((m) => ({
+      id: m.id,
+      content: m.content,
+      isUser: m.isUser,
+      timestamp: new Date(m.timestamp)
+    }))
+  };
 }
 
 function ExplorarPageContent() {
   const searchParams = useSearchParams();
   const intention = searchParams.get('q');
   const { isInMyList, addToMyList, removeFromMyList } = useMyList();
+
+  const mobileResultsRef = useRef<HTMLDivElement>(null);
+  const restoringResultsScrollRef = useRef(false);
 
   const [filtros, setFiltros] = useState<FiltrosOferta>({});
   const [ofertas, setOfertas] = useState<OfertaAcademica[]>([]);
@@ -157,25 +215,84 @@ function ExplorarPageContent() {
   const [hayDatos, setHayDatos] = useState(false);
   const [sortBy, setSortBy] = useState('relevancia');
   const [selectedOferta, setSelectedOferta] = useState<OfertaAcademica | null>(null);
+  const [selectedOfertaId, setSelectedOfertaId] = useState<string | null>(null);
   const [demoToken, setDemoToken] = useState<string | null>(null);
   const [mostrarDemoWapp, setMostrarDemoWapp] = useState(false);
 
-  // Verificar datos y cargar ofertas iniciales
+  const [chatState, setChatState] = useState<Partial<NaiaChatStateSnapshot>>();
+  const [mobileChatOpen, setMobileChatOpen] = useState(Boolean(intention));
+  const [mobileResultsScrollY, setMobileResultsScrollY] = useState(0);
+
+  // Cargar snapshot previo de estado de experiencia.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const raw = sessionStorage.getItem(EXPLORE_STATE_KEY);
+      if (!raw) return;
+
+      const persisted = JSON.parse(raw) as ExplorePersistentState;
+      if (persisted.filtros) setFiltros(persisted.filtros);
+      if (persisted.sortBy) setSortBy(persisted.sortBy);
+      if (typeof persisted.mobileChatOpen === 'boolean') setMobileChatOpen(persisted.mobileChatOpen);
+      if (typeof persisted.mobileResultsScrollY === 'number') setMobileResultsScrollY(persisted.mobileResultsScrollY);
+      if (persisted.selectedOfertaId) setSelectedOfertaId(persisted.selectedOfertaId);
+
+      const recoveredChat = fromPersistedChatState(persisted.chat);
+      if (recoveredChat) setChatState(recoveredChat);
+    } catch {
+      // noop
+    }
+  }, []);
+
+  // Persistencia continua del estado.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const payload: ExplorePersistentState = {
+      filtros,
+      sortBy,
+      totalOfertas,
+      page,
+      mobileChatOpen,
+      mobileResultsScrollY,
+      selectedOfertaId,
+      chat: toPersistableChatState({
+        messages: chatState?.messages || [],
+        conversationId: chatState?.conversationId,
+        scrollTop: chatState?.scrollTop || 0,
+        lastQuestion: chatState?.lastQuestion || null,
+        suggestedActions: chatState?.suggestedActions || []
+      })
+    };
+
+    sessionStorage.setItem(EXPLORE_STATE_KEY, JSON.stringify(payload));
+  }, [filtros, sortBy, totalOfertas, page, mobileChatOpen, mobileResultsScrollY, selectedOfertaId, chatState]);
+
+  // Bloquear scroll del body cuando el chat móvil está abierto.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!mobileChatOpen) return;
+
+    const original = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [mobileChatOpen]);
+
+  // Verificar datos y cargar ofertas iniciales.
   useEffect(() => {
     async function inicializar() {
       setLoading(true);
-
-      // Verificar si hay datos
       const tieneDatos = await verificarDatosDemo();
       setHayDatos(tieneDatos);
 
       if (!tieneDatos) {
-        console.warn('No hay datos demo en Supabase. Las tablas están vacías.');
         setLoading(false);
         return;
       }
 
-      // Cargar ofertas iniciales (página 0)
       const { ofertas: ofertasIniciales, total, hasMore: masResultados } = await obtenerOfertas(filtros, 0);
       setOfertas(ofertasIniciales);
       setTotalOfertas(total);
@@ -184,14 +301,14 @@ function ExplorarPageContent() {
       setLoading(false);
     }
 
-    inicializar();
+    void inicializar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Recargar ofertas (reiniciando a página 0) cuando cambian los filtros
+  // Recargar ofertas cuando cambian filtros.
   useEffect(() => {
     async function cargarOfertas() {
       if (!hayDatos) return;
-
       setLoading(true);
       const { ofertas: nuevasOfertas, total, hasMore: masResultados } = await obtenerOfertas(filtros, 0);
       setOfertas(nuevasOfertas);
@@ -201,16 +318,51 @@ function ExplorarPageContent() {
       setLoading(false);
     }
 
-    cargarOfertas();
+    void cargarOfertas();
   }, [filtros, hayDatos]);
 
-  // Cargar la siguiente página y CONCATENAR (no reemplaza) el listado
+  // Restituir oferta abierta si estaba en estado persistido.
+  useEffect(() => {
+    if (!selectedOfertaId || selectedOferta) return;
+    const match = ofertas.find((x) => x.id === selectedOfertaId);
+    if (match) setSelectedOferta(match);
+  }, [selectedOfertaId, ofertas, selectedOferta]);
+
+  // Guardar scroll de resultados en móvil.
+  useEffect(() => {
+    const container = mobileResultsRef.current;
+    if (!container) return;
+
+    const onScroll = () => {
+      if (restoringResultsScrollRef.current) return;
+      setMobileResultsScrollY(container.scrollTop);
+    };
+
+    container.addEventListener('scroll', onScroll);
+    return () => container.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Restaurar scroll de resultados cuando se vuelve al listado móvil.
+  useEffect(() => {
+    const container = mobileResultsRef.current;
+    if (!container || mobileChatOpen) return;
+
+    restoringResultsScrollRef.current = true;
+    container.scrollTo({ top: mobileResultsScrollY, behavior: 'auto' });
+    requestAnimationFrame(() => {
+      restoringResultsScrollRef.current = false;
+    });
+  }, [mobileChatOpen, mobileResultsScrollY]);
+
   const handleVerMas = async () => {
     if (loadingMore || !hasMore) return;
 
     setLoadingMore(true);
     const siguientePagina = page + 1;
-    const { ofertas: masOfertas, total, hasMore: masResultados } = await obtenerOfertas(filtros, siguientePagina);
+    const { ofertas: masOfertas, total, hasMore: masResultados } = await obtenerOfertas(
+      filtros,
+      siguientePagina
+    );
     setOfertas((prev) => [...prev, ...masOfertas]);
     setTotalOfertas(total);
     setPage(siguientePagina);
@@ -218,38 +370,34 @@ function ExplorarPageContent() {
     setLoadingMore(false);
   };
 
-  // Callback cuando NaIA detecta filtros
-  const handleFiltersDetected = (nuevosFiltros: NaiaMockResponse['filtros']) => {
-    setFiltros(prev => ({
-      ...prev,
-      ...nuevosFiltros
-    }));
+  const handleFiltersDetected = (nuevosFiltros: FiltrosOferta) => {
+    setFiltros((prev) => ({ ...prev, ...nuevosFiltros }));
   };
 
-  // Manejar cambios en filtros manuales
   const handleManualFiltersChange = (nuevosFiltros: FiltrosOferta) => {
     setFiltros(nuevosFiltros);
   };
 
-  // Remover un filtro específico
   const handleRemoveFilter = (key: keyof FiltrosOferta) => {
     const newFiltros = { ...filtros };
     delete newFiltros[key];
     setFiltros(newFiltros);
   };
 
-  // Limpiar todos los filtros
-  const handleClearAllFilters = () => {
-    setFiltros({});
+  const handleClearAllFilters = () => setFiltros({});
+
+  const handleToggleMyList = (ofertaId: string) => {
+    if (isInMyList(ofertaId)) removeFromMyList(ofertaId);
+    else addToMyList(ofertaId);
   };
 
-  // Toggle oferta en Mi Lista
-  const handleToggleMyList = (ofertaId: string) => {
-    if (isInMyList(ofertaId)) {
-      removeFromMyList(ofertaId);
-    } else {
-      addToMyList(ofertaId);
-    }
+  const handleAbrirOferta = (oferta: OfertaAcademica) => {
+    setSelectedOferta(oferta);
+    setSelectedOfertaId(oferta.id);
+  };
+
+  const handleCerrarOferta = () => {
+    setSelectedOferta(null);
   };
 
   const handleAplicacionCompletada = (resultado: any) => {
@@ -257,77 +405,94 @@ function ExplorarPageContent() {
     if (typeof token === 'string' && token.length > 20) {
       setDemoToken(token);
       setMostrarDemoWapp(true);
+      setSelectedOferta(null);
+      setSelectedOfertaId(null);
     }
   };
 
-  const resumenEjecutivo = construirResumenEjecutivoResultados(ofertas);
+  const abrirChatMobile = () => {
+    if (typeof window !== 'undefined') {
+      const fallbackScroll = mobileResultsRef.current?.scrollTop ?? window.scrollY;
+      setMobileResultsScrollY(fallbackScroll);
+    }
+    setMobileChatOpen(true);
+  };
+
+  const irAResultadosMobile = () => {
+    setMobileChatOpen(false);
+  };
+
+  const resumenEjecutivo = useMemo(
+    () => construirResumenEjecutivoResultados(ofertas, totalOfertas),
+    [ofertas, totalOfertas]
+  );
 
   return (
     <div className="min-h-screen bg-buscoedu-bg">
-      {/* Layout Desktop: 2 columnas */}
-      <div className="hidden md:grid md:grid-cols-[400px_1fr] h-[calc(100vh-64px)]">
-        {/* Columna izquierda: Chat + Filtros */}
-        <div className="border-r border-buscoedu-border bg-white overflow-y-auto">
+      {/* Desktop */}
+      <div className="hidden h-[calc(100vh-64px)] md:grid md:grid-cols-[400px_1fr]">
+        <div className="overflow-y-auto border-r border-buscoedu-border bg-white">
           <div className="h-[60%] border-b border-buscoedu-border">
             <NaiaChatPanel
               initialMessage={intention || undefined}
+              initialState={chatState}
+              onStateChange={setChatState}
               onFiltersDetected={handleFiltersDetected}
+              onExploreCurrentFilter={() => undefined}
               className="h-full"
             />
           </div>
-          
+
           <div className="p-4">
-            <h3 className="font-bold text-buscoedu-blue mb-3">Filtros</h3>
+            <h3 className="mb-3 font-bold text-buscoedu-blue">Filtros</h3>
             <FilterPanel filtros={filtros} onFiltrosChange={handleManualFiltersChange} />
           </div>
         </div>
 
-        {/* Columna derecha: Resultados */}
-        <div className="overflow-y-auto flex flex-col">
-          {/* Tags de filtros activos */}
-          <ActiveFilterTags 
+        <div className="flex flex-col overflow-y-auto">
+          <ActiveFilterTags
             filtros={filtros}
             onRemoveFilter={handleRemoveFilter}
             onClearAll={handleClearAllFilters}
           />
 
-          <div className="p-6 flex-1">
+          <div className="flex-1 p-6">
             <div className="mb-6">
-              <div className="flex items-start justify-between mb-4">
+              <div className="mb-4 flex items-start justify-between">
                 <div>
-                  <h1 className="text-2xl font-bold text-buscoedu-blue mb-2">
+                  <h1 className="mb-2 text-2xl font-bold text-buscoedu-blue">
                     Opciones que coinciden con tu búsqueda
                   </h1>
                   <p className="text-sm text-buscoedu-muted">
                     {loading
-                      ? 'Cargando...'
+                      ? 'Cargando resultados...'
                       : totalOfertas === 0
-                        ? '0 resultados'
-                        : `Mostrando ${ofertas.length} de ${totalOfertas} ${totalOfertas === 1 ? 'resultado' : 'resultados'}`}
+                        ? '0 resultados encontrados'
+                        : `${totalOfertas} resultados encontrados · mostrando ${ofertas.length}`}
                   </p>
                 </div>
                 <SortControl value={sortBy} onChange={setSortBy} />
               </div>
-              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
                 Las opciones mostradas coinciden con los criterios indicados. No constituyen una garantía de admisión, beca concedida ni disponibilidad de cupo.
               </p>
             </div>
 
             {!hayDatos ? (
-              <div className="bg-white border border-buscoedu-border rounded-lg p-8 text-center">
-                <p className="text-buscoedu-text mb-2 font-semibold">No hay ofertas visibles para este entorno</p>
+              <div className="rounded-lg border border-buscoedu-border bg-white p-8 text-center">
+                <p className="mb-2 font-semibold text-buscoedu-text">No hay ofertas visibles para este entorno</p>
                 <p className="text-sm text-buscoedu-muted">
                   Verifica vigencia de fechas y políticas de lectura (RLS) para el rol anon/authenticated en Supabase.
                 </p>
               </div>
             ) : loading ? (
-              <div className="text-center py-12">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-buscoedu-teal"></div>
+              <div className="py-12 text-center">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-b-2 border-buscoedu-teal"></div>
                 <p className="mt-4 text-buscoedu-muted">Cargando ofertas...</p>
               </div>
             ) : ofertas.length === 0 ? (
-              <div className="bg-white border border-buscoedu-border rounded-lg p-8 text-center">
-                <p className="text-buscoedu-text mb-2 font-semibold">No se encontraron resultados</p>
+              <div className="rounded-lg border border-buscoedu-border bg-white p-8 text-center">
+                <p className="mb-2 font-semibold text-buscoedu-text">No se encontraron resultados</p>
                 <p className="text-sm text-buscoedu-muted">
                   Intenta ajustar tus filtros o pregúntale a NaIA por otras opciones.
                 </p>
@@ -335,16 +500,16 @@ function ExplorarPageContent() {
             ) : (
               <>
                 {resumenEjecutivo && (
-                  <p className="mb-4 text-sm text-buscoedu-blue bg-blue-50 border border-blue-100 rounded-md px-3 py-2">
+                  <p className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-buscoedu-blue">
                     {resumenEjecutivo}
                   </p>
                 )}
-                <div className="grid content-start items-start auto-rows-max gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid auto-rows-max content-start items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {ofertas.map((oferta) => (
                     <OfferCard
                       key={oferta.id}
                       oferta={oferta}
-                      onCardClick={() => setSelectedOferta(oferta)}
+                      onCardClick={() => handleAbrirOferta(oferta)}
                       isInMyList={isInMyList(oferta.id)}
                       onToggleMyList={() => handleToggleMyList(oferta.id)}
                     />
@@ -356,7 +521,7 @@ function ExplorarPageContent() {
                     <button
                       onClick={handleVerMas}
                       disabled={loadingMore}
-                      className="px-6 py-3 rounded-md border border-buscoedu-teal text-buscoedu-teal font-semibold hover:bg-buscoedu-teal hover:text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="rounded-md border border-buscoedu-teal px-6 py-3 font-semibold text-buscoedu-teal transition-colors hover:bg-buscoedu-teal hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {loadingMore ? 'Cargando...' : 'Ver más resultados'}
                     </button>
@@ -368,98 +533,114 @@ function ExplorarPageContent() {
         </div>
       </div>
 
-      {/* Layout Mobile: vertical */}
-      <div className="md:hidden space-y-4">
-        {/* Chat compacto */}
-        <div className="bg-white border-b border-buscoedu-border h-[300px]">
-          <NaiaChatPanel
-            initialMessage={intention || undefined}
-            onFiltersDetected={handleFiltersDetected}
-            className="h-full"
-          />
-        </div>
-
-        {/* Tags de filtros activos */}
-        <ActiveFilterTags 
-          filtros={filtros}
-          onRemoveFilter={handleRemoveFilter}
-          onClearAll={handleClearAllFilters}
-        />
-
-        {/* Resultados */}
-        <div className="p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <h1 className="text-xl font-bold text-buscoedu-blue">Explorar Opciones</h1>
-            <SortControl value={sortBy} onChange={setSortBy} />
-          </div>
-          <p className="text-sm text-buscoedu-muted mb-4">
-            {loading
-              ? 'Cargando...'
-              : totalOfertas === 0
-                ? '0 resultados'
-                : `Mostrando ${ofertas.length} de ${totalOfertas} ${totalOfertas === 1 ? 'resultado' : 'resultados'}`}
-          </p>
-
-          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4">
-            Las opciones mostradas coinciden con los criterios indicados.
-          </p>
-
-          {!hayDatos ? (
-            <div className="bg-white border border-buscoedu-border rounded-lg p-6 text-center">
-              <p className="text-sm text-buscoedu-muted">
-                No hay ofertas visibles en este entorno. Revisa vigencia y políticas RLS para anon/authenticated.
-              </p>
-            </div>
-          ) : loading ? (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-buscoedu-teal"></div>
-              <p className="mt-4 text-buscoedu-muted">Cargando ofertas...</p>
-            </div>
-          ) : ofertas.length === 0 ? (
-            <div className="bg-white border border-buscoedu-border rounded-lg p-6 text-center">
-              <p className="text-sm text-buscoedu-muted">
-                No se encontraron resultados.
-              </p>
-            </div>
-          ) : (
-            <>
-              {resumenEjecutivo && (
-                <p className="mb-4 text-sm text-buscoedu-blue bg-blue-50 border border-blue-100 rounded-md px-3 py-2">
-                  {resumenEjecutivo}
-                </p>
-              )}
-              <div className="space-y-3">
-                {ofertas.map((oferta) => (
-                  <OfferCard
-                    key={oferta.id}
-                    oferta={oferta}
-                    onCardClick={() => setSelectedOferta(oferta)}
-                    isInMyList={isInMyList(oferta.id)}
-                    onToggleMyList={() => handleToggleMyList(oferta.id)}
-                  />
-                ))}
+      {/* Mobile */}
+      <div className="md:hidden">
+        {!mobileChatOpen && (
+          <div ref={mobileResultsRef} className="h-[calc(100vh-64px)] overflow-y-auto">
+            <div className="p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={abrirChatMobile}
+                  className="rounded-lg bg-buscoedu-blue px-3 py-2 text-sm font-semibold text-white"
+                >
+                  Continuar con NaIA
+                </button>
+                <SortControl value={sortBy} onChange={setSortBy} />
               </div>
 
-              {hasMore && (
-                <div className="mt-6 flex justify-center">
-                  <button
-                    onClick={handleVerMas}
-                    disabled={loadingMore}
-                    className="w-full px-6 py-3 rounded-md border border-buscoedu-teal text-buscoedu-teal font-semibold hover:bg-buscoedu-teal hover:text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {loadingMore ? 'Cargando...' : 'Ver más resultados'}
-                  </button>
+              <ActiveFilterTags
+                filtros={filtros}
+                onRemoveFilter={handleRemoveFilter}
+                onClearAll={handleClearAllFilters}
+              />
+
+              <h1 className="mt-3 text-xl font-bold text-buscoedu-blue">Explorar opciones</h1>
+              <p className="mb-4 text-sm text-buscoedu-muted">
+                {loading
+                  ? 'Cargando resultados...'
+                  : totalOfertas === 0
+                    ? '0 resultados encontrados'
+                    : `${totalOfertas} resultados encontrados · mostrando ${ofertas.length}`}
+              </p>
+
+              <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                Las opciones mostradas coinciden con tus criterios actuales.
+              </p>
+
+              {!hayDatos ? (
+                <div className="rounded-lg border border-buscoedu-border bg-white p-6 text-center">
+                  <p className="text-sm text-buscoedu-muted">
+                    No hay ofertas visibles en este entorno. Revisa vigencia y políticas RLS para anon/authenticated.
+                  </p>
                 </div>
+              ) : loading ? (
+                <div className="py-12 text-center">
+                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-b-2 border-buscoedu-teal"></div>
+                  <p className="mt-4 text-buscoedu-muted">Cargando ofertas...</p>
+                </div>
+              ) : ofertas.length === 0 ? (
+                <div className="rounded-lg border border-buscoedu-border bg-white p-6 text-center">
+                  <p className="text-sm text-buscoedu-muted">No se encontraron resultados.</p>
+                </div>
+              ) : (
+                <>
+                  {resumenEjecutivo && (
+                    <p className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-buscoedu-blue">
+                      {resumenEjecutivo}
+                    </p>
+                  )}
+                  <div className="space-y-3">
+                    {ofertas.map((oferta) => (
+                      <OfferCard
+                        key={oferta.id}
+                        oferta={oferta}
+                        onCardClick={() => handleAbrirOferta(oferta)}
+                        isInMyList={isInMyList(oferta.id)}
+                        onToggleMyList={() => handleToggleMyList(oferta.id)}
+                      />
+                    ))}
+                  </div>
+
+                  {hasMore && (
+                    <div className="mt-6 flex justify-center">
+                      <button
+                        onClick={handleVerMas}
+                        disabled={loadingMore}
+                        className="w-full rounded-md border border-buscoedu-teal px-6 py-3 font-semibold text-buscoedu-teal transition-colors hover:bg-buscoedu-teal hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {loadingMore ? 'Cargando...' : 'Ver más resultados'}
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
+            </div>
+          </div>
+        )}
+
+        <div
+          className={`fixed inset-0 z-50 bg-white transition-transform duration-200 ${
+            mobileChatOpen ? 'translate-y-0' : 'pointer-events-none translate-y-full'
+          }`}
+        >
+          <div className="flex h-full flex-col">
+            <NaiaChatPanel
+              initialMessage={intention || undefined}
+              initialState={chatState}
+              onStateChange={setChatState}
+              onFiltersDetected={handleFiltersDetected}
+              onExploreCurrentFilter={irAResultadosMobile}
+              showMobileExploreButton
+              className="h-full"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Modal de detalle de oferta */}
       <OfferDetailModal
         oferta={selectedOferta}
-        onClose={() => setSelectedOferta(null)}
+        onClose={handleCerrarOferta}
         onAplicacionCompletada={handleAplicacionCompletada}
       />
 
@@ -475,10 +656,11 @@ function ExplorarPageContent() {
   );
 }
 
-
 export default function ExplorarPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-buscoedu-muted">Cargando experiencia de exploración...</div>}>
+    <Suspense
+      fallback={<div className="p-6 text-sm text-buscoedu-muted">Cargando experiencia de exploración...</div>}
+    >
       <ExplorarPageContent />
     </Suspense>
   );

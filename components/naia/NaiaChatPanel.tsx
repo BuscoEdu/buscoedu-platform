@@ -5,100 +5,188 @@ import NaiaMessage from './NaiaMessage';
 import SuggestedActions from './SuggestedActions';
 import { callNaia, type NaiaResponse } from '@/src/lib/naia-real';
 
-interface Message {
+export interface NaiaChatMessage {
   id: string;
   content: string;
   isUser: boolean;
   timestamp: Date;
 }
 
+export interface NaiaChatStateSnapshot {
+  messages: NaiaChatMessage[];
+  conversationId?: string;
+  scrollTop: number;
+  lastQuestion?: string | null;
+  suggestedActions?: string[];
+}
+
 interface NaiaChatPanelProps {
   initialMessage?: string;
   onFiltersDetected: (filtros: NaiaResponse['filtros']) => void;
   className?: string;
+  initialState?: Partial<NaiaChatStateSnapshot>;
+  onStateChange?: (state: NaiaChatStateSnapshot) => void;
+  onExploreCurrentFilter?: () => void;
+  showMobileExploreButton?: boolean;
+}
+
+const ACTION_EXPLORE_CURRENT = 'Explorar el filtro actual';
+
+function sanitizeTone(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/\b(¡)?excelente elección!?/gi, '')
+    .replace(/\b(qué bueno que te guste esta carrera\.?)/gi, '')
+    .replace(/\b(genial|perfecto)\.?\s*/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function inferActionsFromQuestion(questionOrMessage: string, apiActions?: string[]): string[] {
+  const fromApi = (apiActions || []).filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim());
+  if (fromApi.length >= 2) return [fromApi[0], fromApi[1], ACTION_EXPLORE_CURRENT];
+
+  const text = questionOrMessage.toLowerCase();
+
+  if (text.includes('pregrado') && text.includes('posgrado')) {
+    return ['Me interesa pregrado', 'Me interesa posgrado', ACTION_EXPLORE_CURRENT];
+  }
+  if (text.includes('modalidad')) {
+    return ['Prefiero modalidad virtual', 'Prefiero modalidad presencial', ACTION_EXPLORE_CURRENT];
+  }
+  if (text.includes('ciudad') || text.includes('ubicación') || text.includes('pais')) {
+    return ['Quiero estudiar en Bogotá', 'Estoy abierto a cualquier ciudad', ACTION_EXPLORE_CURRENT];
+  }
+  if (text.includes('beneficio') || text.includes('beca') || text.includes('descuento')) {
+    return ['Quiero opciones con beca', 'Quiero opciones con descuento', ACTION_EXPLORE_CURRENT];
+  }
+
+  return ['Quiero filtrar por modalidad', 'Quiero ajustar por ciudad', ACTION_EXPLORE_CURRENT];
 }
 
 export default function NaiaChatPanel({
   initialMessage,
   onFiltersDetected,
-  className = ''
+  className = '',
+  initialState,
+  onStateChange,
+  onExploreCurrentFilter,
+  showMobileExploreButton = false
 }: NaiaChatPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<NaiaChatMessage[]>(initialState?.messages || []);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string | undefined>(undefined);
-  const [showSuggestedActions, setShowSuggestedActions] = useState(false);
+  const [conversationId, setConversationId] = useState<string | undefined>(initialState?.conversationId);
+  const [showSuggestedActions, setShowSuggestedActions] = useState(
+    Boolean(initialState?.suggestedActions?.length)
+  );
+  const [suggestedActions, setSuggestedActions] = useState<string[]>(initialState?.suggestedActions || []);
+  const [lastQuestion, setLastQuestion] = useState<string | null>(initialState?.lastQuestion || null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const restoredScrollRef = useRef(false);
+  const hasBootstrappedFromInitialMessage = useRef(false);
 
-  // Procesar mensaje inicial si existe
+  const emitState = () => {
+    if (!onStateChange) return;
+    onStateChange({
+      messages,
+      conversationId,
+      scrollTop: scrollContainerRef.current?.scrollTop || 0,
+      lastQuestion,
+      suggestedActions: showSuggestedActions ? suggestedActions : []
+    });
+  };
+
+  // Restaurar scroll previo una sola vez.
   useEffect(() => {
-    if (initialMessage && messages.length === 0) {
-      void enviarAMotor(initialMessage, true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialMessage]);
+    if (restoredScrollRef.current) return;
+    if (!scrollContainerRef.current) return;
 
-  // Auto-scroll al último mensaje
+    const target = Number(initialState?.scrollTop || 0);
+    if (target > 0) {
+      requestAnimationFrame(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = target;
+        }
+      });
+    }
+    restoredScrollRef.current = true;
+  }, [initialState?.scrollTop]);
+
+  // Procesar mensaje inicial solo si no había historial.
+  useEffect(() => {
+    if (hasBootstrappedFromInitialMessage.current) return;
+    if (!initialMessage || messages.length > 0) return;
+
+    hasBootstrappedFromInitialMessage.current = true;
+    void enviarAMotor(initialMessage, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMessage, messages.length]);
+
+  // Auto-scroll al último mensaje durante conversación viva.
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
+  useEffect(() => {
+    emitState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, conversationId, showSuggestedActions, suggestedActions, lastQuestion]);
+
   /**
    * Envía un mensaje a NaIA (motor real) y agrega la respuesta al chat.
-   * @param mensaje   Texto del usuario.
-   * @param esInicial Si es el mensaje inicial (define el saludo).
    */
   const enviarAMotor = async (mensaje: string, esInicial = false) => {
     setShowSuggestedActions(false);
 
-    // Agregar mensaje del usuario
-    const userMsg: Message = {
+    const userMsg: NaiaChatMessage = {
       id: `user-${Date.now()}`,
       content: mensaje,
       isUser: true,
       timestamp: new Date()
     };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
 
     try {
       const respuesta = await callNaia(mensaje, conversationId);
 
-      // Guardar/actualizar el ID de conversación para mantener contexto
       if (respuesta.conversationId) {
         setConversationId(respuesta.conversationId);
       }
 
-      const textoBase = esInicial ? `Hola, soy NaIA. ${respuesta.mensaje}` : respuesta.mensaje;
-      const naiaMsg: Message = {
+      const respuestaLimpia = sanitizeTone(respuesta.mensaje) || 'Actualicé la búsqueda con tu mensaje.';
+      const preguntaLimpia = respuesta.pregunta_seguimiento ? sanitizeTone(respuesta.pregunta_seguimiento) : null;
+      const textoBase = esInicial ? `Hola, soy NaIA. ${respuestaLimpia}` : respuestaLimpia;
+
+      const naiaMsg: NaiaChatMessage = {
         id: `naia-${Date.now()}`,
-        content:
-          textoBase +
-          (respuesta.pregunta_seguimiento ? `\n\n${respuesta.pregunta_seguimiento}` : ''),
+        content: textoBase + (preguntaLimpia ? `\n\n${preguntaLimpia}` : ''),
         isUser: false,
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, naiaMsg]);
+      setMessages((prev) => [...prev, naiaMsg]);
 
-      const tieneFiltrosDetectados =
-        respuesta.filtros && Object.keys(respuesta.filtros).length > 0;
-
-      // Notificar filtros detectados
+      const tieneFiltrosDetectados = respuesta.filtros && Object.keys(respuesta.filtros).length > 0;
       if (tieneFiltrosDetectados) {
         onFiltersDetected(respuesta.filtros);
       }
 
-      setShowSuggestedActions(Boolean(tieneFiltrosDetectados));
+      const anchorText = preguntaLimpia || respuestaLimpia;
+      const actions = inferActionsFromQuestion(anchorText, respuesta.opciones_sugeridas);
+      setSuggestedActions(actions);
+      setLastQuestion(anchorText);
+      setShowSuggestedActions(true);
     } catch {
-      // No debería ocurrir (callNaia ya maneja errores), pero por seguridad:
-      const errorMsg: Message = {
+      const errorMsg: NaiaChatMessage = {
         id: `naia-error-${Date.now()}`,
-        content:
-          'Tuve un inconveniente para responder en este momento. ¿Puedes intentarlo de nuevo?',
+        content: 'Tuve un inconveniente para responder en este momento. ¿Puedes intentarlo de nuevo?',
         isUser: false,
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, errorMsg]);
+      setMessages((prev) => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
     }
@@ -120,28 +208,35 @@ export default function NaiaChatPanel({
 
   const handleSuggestedActionSelect = (actionText: string) => {
     if (isLoading) return;
+
+    if (actionText === ACTION_EXPLORE_CURRENT) {
+      setShowSuggestedActions(false);
+      onExploreCurrentFilter?.();
+      return;
+    }
+
     void enviarAMotor(actionText);
   };
 
   return (
-    <div className={`flex flex-col h-full ${className}`}>
-      {/* Encabezado del chat */}
-      <div className="p-4 border-b border-buscoedu-border bg-white">
+    <div className={`flex h-full flex-col ${className}`}>
+      <div className="border-b border-buscoedu-border bg-white p-4">
         <h2 className="text-lg font-bold text-buscoedu-blue">Chat con NaIA</h2>
         <p className="text-sm text-buscoedu-muted">Tu asesora virtual educativa</p>
       </div>
 
-      {/* Área de mensajes */}
-      <div className="flex-1 overflow-y-auto p-4 bg-buscoedu-bg">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto bg-buscoedu-bg p-4"
+        onScroll={emitState}
+      >
         {messages.length === 0 && !isLoading && (
-          <div className="text-center py-8">
-            <p className="text-buscoedu-muted text-sm">
-              Hola, soy NaIA. ¿En qué puedo ayudarte hoy?
-            </p>
+          <div className="py-8 text-center">
+            <p className="text-sm text-buscoedu-muted">Hola, soy NaIA. ¿En qué puedo ayudarte hoy?</p>
           </div>
         )}
 
-        {messages.map(message => (
+        {messages.map((message) => (
           <NaiaMessage
             key={message.id}
             content={message.content}
@@ -151,13 +246,13 @@ export default function NaiaChatPanel({
         ))}
 
         {isLoading && (
-          <div className="flex flex-col items-start mb-4">
-            <div className="bg-white border border-buscoedu-border rounded-lg px-4 py-3">
+          <div className="mb-4 flex flex-col items-start">
+            <div className="rounded-lg border border-buscoedu-border bg-white px-4 py-3">
               <div className="flex items-center space-x-2">
                 <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-buscoedu-teal rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-2 h-2 bg-buscoedu-teal rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-2 h-2 bg-buscoedu-teal rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  <div className="h-2 w-2 animate-bounce rounded-full bg-buscoedu-teal" style={{ animationDelay: '0ms' }}></div>
+                  <div className="h-2 w-2 animate-bounce rounded-full bg-buscoedu-teal" style={{ animationDelay: '150ms' }}></div>
+                  <div className="h-2 w-2 animate-bounce rounded-full bg-buscoedu-teal" style={{ animationDelay: '300ms' }}></div>
                 </div>
                 <span className="text-xs text-buscoedu-muted">NaIA está pensando...</span>
               </div>
@@ -168,6 +263,7 @@ export default function NaiaChatPanel({
         {showSuggestedActions && !isLoading && (
           <SuggestedActions
             isLoading={isLoading}
+            actions={suggestedActions}
             onSelectAction={handleSuggestedActionSelect}
           />
         )}
@@ -175,8 +271,7 @@ export default function NaiaChatPanel({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input de mensaje */}
-      <div className="p-4 border-t border-buscoedu-border bg-white">
+      <div className="border-t border-buscoedu-border bg-white p-4">
         <div className="flex space-x-2">
           <input
             type="text"
@@ -185,29 +280,29 @@ export default function NaiaChatPanel({
             onKeyDown={handleKeyPress}
             placeholder="Escribe tu pregunta o criterio de búsqueda..."
             disabled={isLoading}
-            className="flex-1 px-4 py-2 border border-buscoedu-border rounded-lg focus:ring-2 focus:ring-buscoedu-blue focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"
+            className="flex-1 rounded-lg border border-buscoedu-border px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-buscoedu-blue disabled:bg-gray-50 disabled:text-gray-400"
           />
           <button
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || isLoading}
-            className="px-4 py-2 bg-buscoedu-teal text-white rounded-lg font-semibold hover:bg-buscoedu-teal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded-lg bg-buscoedu-teal px-4 py-2 font-semibold text-white transition-colors hover:bg-buscoedu-teal/90 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Enviar mensaje"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-              />
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
             </svg>
           </button>
         </div>
+
+        {showMobileExploreButton && (
+          <button
+            type="button"
+            onClick={() => onExploreCurrentFilter?.()}
+            className="mt-3 w-full rounded-lg bg-buscoedu-blue px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            Ver resultados
+          </button>
+        )}
       </div>
     </div>
   );

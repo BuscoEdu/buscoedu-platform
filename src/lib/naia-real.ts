@@ -18,6 +18,7 @@ export interface NaiaResponse {
     universidad?: string;
   };
   pregunta_seguimiento: string | null;
+  opciones_sugeridas?: string[];
   conversationId?: string;
 }
 
@@ -64,6 +65,9 @@ export async function callNaia(
         typeof data?.pregunta_seguimiento === 'string' && data.pregunta_seguimiento.trim()
           ? data.pregunta_seguimiento
           : null,
+      opciones_sugeridas: Array.isArray(data?.opciones_sugeridas)
+        ? data.opciones_sugeridas.filter((x: any) => typeof x === 'string' && x.trim()).slice(0, 3)
+        : undefined,
       conversationId: data?.conversationId || conversationId,
     };
   } catch {

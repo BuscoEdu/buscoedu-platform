@@ -1,24 +1,21 @@
 interface SuggestedActionsProps {
   isLoading: boolean;
+  actions: string[];
   onSelectAction: (actionText: string) => void;
 }
 
-const SUGGESTED_ACTIONS = [
-  'Ver más detalles de un programa',
-  'Refinar la búsqueda',
-  'Hablar con un asesor'
-] as const;
+export default function SuggestedActions({ isLoading, actions, onSelectAction }: SuggestedActionsProps) {
+  if (!actions.length) return null;
 
-export default function SuggestedActions({ isLoading, onSelectAction }: SuggestedActionsProps) {
   return (
     <div className="mt-4 rounded-xl border border-buscoedu-border bg-white p-3">
       <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-buscoedu-blue">
         Siguientes pasos sugeridos
       </p>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        {SUGGESTED_ACTIONS.map((actionText, index) => (
+        {actions.slice(0, 3).map((actionText, index) => (
           <button
-            key={actionText}
+            key={`${actionText}-${index}`}
             type="button"
             disabled={isLoading}
             onClick={() => onSelectAction(actionText)}
