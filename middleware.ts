@@ -14,9 +14,9 @@ export async function middleware(request: NextRequest) {
 
   const esAdmin = pathname.startsWith('/admin');
   const esLeadCenter = pathname.startsWith('/leadcenter');
-  const esDemoWapp = pathname.startsWith('/demowapp');
+  const esDemoWapp = pathname.startsWith('/demoWapp');
 
-  // Solo protegemos /admin, /leadcenter y /demowapp. El resto pasa sin cambios.
+  // Solo protegemos /admin, /leadcenter y /demoWapp. El resto pasa sin cambios.
   if (!esAdmin && !esLeadCenter && !esDemoWapp) {
     return NextResponse.next();
   }
@@ -82,5 +82,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/leadcenter/:path*', '/demowapp/:path*']
+  matcher: ['/admin/:path*', '/leadcenter/:path*', '/demoWapp/:path*']
 };
