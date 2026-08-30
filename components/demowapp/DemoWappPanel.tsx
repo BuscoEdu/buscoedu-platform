@@ -5,7 +5,7 @@ import WhatsAppMark from './WhatsAppMark';
 
 interface ChatMessage {
   id: string;
-  remitente_tipo: 'estudiante' | 'naia' | string;
+  remitente_tipo: 'persona' | 'naia' | string;
   contenido: string;
   enviado_en?: string;
   creado_en?: string;
@@ -55,7 +55,7 @@ export default function DemoWappPanel({ titulo, subtitulo, mensajes, onEnviar, d
 
       <div className="flex-1 space-y-2 overflow-y-auto p-4">
         {sortedMessages.map((m) => {
-          const mine = m.remitente_tipo === 'estudiante';
+          const mine = m.remitente_tipo === 'persona';
           return (
             <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
               <div
