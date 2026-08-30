@@ -165,9 +165,15 @@ async function callNaiaFromServer(input: {
   const deploymentToken = process.env.ABACUS_NAIA_DEPLOYMENT_TOKEN;
 
   if (!deploymentId || !deploymentToken) {
+    const faltantes = [
+      !deploymentId ? 'ABACUS_NAIA_DEPLOYMENT_ID' : null,
+      !deploymentToken ? 'ABACUS_NAIA_DEPLOYMENT_TOKEN' : null
+    ].filter(Boolean);
+    console.error('[demowapp] Configuración Abacás incompleta:', faltantes.join(', '));
     return {
       mensaje:
-        'Gracias por tu mensaje. En este momento tuve un inconveniente técnico, pero puedo seguir acompañándote. ¿Cuál es tu principal duda para avanzar con tu postulación?',
+        `[Diagnóstico Demo WApp] Falta configurar en este despliegue: ${faltantes.join(', ')}. ` +
+        'Añádela para Production y Preview en Vercel y vuelve a desplegar.',
       espera_respuesta: true
     };
   }
@@ -227,10 +233,13 @@ async function callNaiaFromServer(input: {
       requiere_escalamiento: Boolean(parsed?.requiere_escalamiento),
       espera_respuesta: parsed?.espera_respuesta !== false
     };
-  } catch {
+  } catch (error: any) {
+    const detalle = safeString(error?.message) || 'error_desconocido';
+    console.error('[demowapp] Error llamando a Abacás:', detalle);
     return {
       mensaje:
-        'Te leí y quiero acompañarte en este proceso. Para ayudarte mejor, cuéntame cuál es tu principal objetivo con esta oportunidad.',
+        `[Diagnóstico Demo WApp] Abacás no respondió correctamente: ${detalle}. ` +
+        'Revisa las credenciales y los logs del despliegue.',
       espera_respuesta: true
     };
   }
