@@ -5,6 +5,12 @@ import type { OfertaAcademica } from '@/src/lib/ofertas';
 import { useMyList } from '@/src/contexts/MyListContext';
 import { trackOfferOpened, trackOfferClosed, trackApplyAttempt } from '@/src/lib/events';
 import AplicacionConsentimientoModal from '@/components/leadcenter/AplicacionConsentimientoModal';
+import {
+  getUniversityBorderColor,
+  getUniversityColor,
+  getUniversitySoftBgColor,
+  getUniversityTextColor
+} from '@/src/lib/university-colors';
 interface OfferDetailModalProps {
   oferta: OfertaAcademica | null;
   onClose: () => void;
@@ -47,6 +53,12 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
   if (!oferta) return null;
 
   const inMyList = isInMyList(oferta.id);
+  const universidadNombre = oferta.universidad?.nombre ?? '';
+  const universityColor = getUniversityColor(oferta.universidad_id, universidadNombre);
+  const universityBorderColor = getUniversityBorderColor(oferta.universidad_id, universidadNombre);
+  const universitySoftBg = getUniversitySoftBgColor(oferta.universidad_id, universidadNombre);
+  const universityTextColor = getUniversityTextColor(oferta.universidad_id, universidadNombre);
+  const universityInitial = universidadNombre ? universidadNombre.charAt(0).toUpperCase() : 'U';
 
   const handleToggleMyList = () => {
     if (inMyList) {
@@ -82,7 +94,8 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
         className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
       >
         <div
-          className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto my-8"
+          className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto my-8 border-t-4"
+          style={{ borderTopColor: universityBorderColor }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header fijo */}
@@ -91,12 +104,24 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
               <h2 id="detail-modal-title" className="text-2xl font-bold text-buscoedu-blue mb-1">
                 {oferta.programa?.nombre || oferta.nombre}
               </h2>
-              <p className="text-sm text-buscoedu-muted">
-                {oferta.universidad?.nombre}
-                {oferta.sede?.nombre && ` • ${oferta.sede.nombre}`}
-                {oferta.sede?.ciudad && ` • ${oferta.sede.ciudad}`}
-                {oferta.sede?.pais && `, ${oferta.sede.pais}`}
-              </p>
+              <div className="mt-2 flex items-center gap-2">
+                <span
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
+                  style={{ backgroundColor: universityColor, color: universityTextColor }}
+                  aria-hidden="true"
+                >
+                  {universityInitial}
+                </span>
+                <p
+                  className="rounded-md px-2 py-1 text-sm"
+                  style={{ backgroundColor: universitySoftBg, color: universityBorderColor }}
+                >
+                  {oferta.universidad?.nombre}
+                  {oferta.sede?.nombre && ` • ${oferta.sede.nombre}`}
+                  {oferta.sede?.ciudad && ` • ${oferta.sede.ciudad}`}
+                  {oferta.sede?.pais && `, ${oferta.sede.pais}`}
+                </p>
+              </div>
               <div className="flex flex-wrap gap-2 mt-2">
                 {oferta.programa?.nivel_academico && (
                   <span className="inline-block px-2 py-1 bg-buscoedu-blue/10 text-buscoedu-blue text-xs font-medium rounded">

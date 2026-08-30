@@ -2,7 +2,11 @@
 
 import { useState } from 'react';
 import type { OfertaAcademica } from '@/src/lib/ofertas';
-import { getUniversityColor } from '@/src/lib/university-colors';
+import {
+  getUniversityBorderColor,
+  getUniversityColor,
+  getUniversityTextColor
+} from '@/src/lib/university-colors';
 
 interface OfferCardProps {
   oferta: OfertaAcademica;
@@ -14,7 +18,9 @@ interface OfferCardProps {
 export default function OfferCard({ oferta, onCardClick, isInMyList = false, onToggleMyList }: OfferCardProps) {
   const [imageError, setImageError] = useState(false);
   const universityNameOrSlug = oferta.universidad?.nombre ?? '';
-  const universityColor = getUniversityColor(universityNameOrSlug);
+  const universityColor = getUniversityColor(oferta.universidad_id, universityNameOrSlug);
+  const universityBorderColor = getUniversityBorderColor(oferta.universidad_id, universityNameOrSlug);
+  const universityTextColor = getUniversityTextColor(oferta.universidad_id, universityNameOrSlug);
 
   // Información para mostrar (máximo 5 campos)
   const fields = [
@@ -38,7 +44,8 @@ export default function OfferCard({ oferta, onCardClick, isInMyList = false, onT
 
   return (
     <article
-      className="self-start h-fit bg-white border border-buscoedu-border rounded-lg overflow-hidden hover:shadow-card transition-shadow cursor-pointer"
+      className="self-start h-fit bg-white border border-buscoedu-border border-l-4 rounded-lg overflow-hidden hover:shadow-card transition-shadow cursor-pointer"
+      style={{ borderLeftColor: universityBorderColor }}
     >
       {/* Imagen o placeholder */}
       <div className="relative h-40 bg-gradient-to-br from-buscoedu-blue/10 to-buscoedu-teal/10" onClick={onCardClick}>
@@ -46,8 +53,8 @@ export default function OfferCard({ oferta, onCardClick, isInMyList = false, onT
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center p-4">
               <div 
-                className="w-16 h-16 mx-auto rounded-full flex items-center justify-center text-white font-bold text-2xl"
-                style={{ backgroundColor: universityColor }}
+                className="w-16 h-16 mx-auto rounded-full flex items-center justify-center font-bold text-2xl"
+                style={{ backgroundColor: universityColor, color: universityTextColor }}
               >
                 {oferta.universidad.nombre.charAt(0).toUpperCase()}
               </div>
