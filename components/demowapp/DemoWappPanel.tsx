@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import WhatsAppMark from './WhatsAppMark';
 
 interface ChatMessage {
   id: string;
@@ -46,9 +47,10 @@ export default function DemoWappPanel({ titulo, subtitulo, mensajes, onEnviar, d
 
   return (
     <section className="flex h-[70vh] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-[#efeae2]">
-      <header className="bg-[#075e54] px-4 py-3 text-white">
-        <p className="font-semibold">{titulo}</p>
-        <p className="text-xs text-green-100">{subtitulo || 'NaIA · BuscoEdu · Simulación interna'}</p>
+      <header className="flex items-center gap-3 bg-[#075e54] px-4 py-3 text-white">
+        <WhatsAppMark className="h-7 w-7 shrink-0" />
+        <div><p className="font-semibold">{titulo}</p>
+        <p className="text-xs text-green-100">{subtitulo || 'NaIA · BuscoEdu · Simulación interna'}</p></div>
       </header>
 
       <div className="flex-1 space-y-2 overflow-y-auto p-4">
