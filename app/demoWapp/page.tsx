@@ -34,9 +34,9 @@ export default function DemoWappPage() {
     }
   };
 
-  const loadDetail = async (oportunidadId: string) => {
+  const loadDetail = async (oportunidadId: string, silent = false) => {
     setSelectedId(oportunidadId);
-    setLoadingDetail(true);
+    if (!silent) setLoadingDetail(true);
     try {
       const res = await fetch(`/api/demowapp/sesiones/${oportunidadId}`, { cache: 'no-store' });
       const data = await res.json();
@@ -48,7 +48,7 @@ export default function DemoWappPage() {
     } catch {
       setError('Error de red al cargar el detalle.');
     } finally {
-      setLoadingDetail(false);
+      if (!silent) setLoadingDetail(false);
     }
   };
 
@@ -92,7 +92,7 @@ export default function DemoWappPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ oportunidadId: selectedId })
         });
-        await loadDetail(selectedId);
+        await loadDetail(selectedId, true);
         await loadSessions();
       })();
     }, 5000);
