@@ -62,6 +62,59 @@ export async function POST(req: NextRequest) {
   try {
     const db = getServiceRoleClient();
 
+    // --- Garantizar integridad del visitante antes de crear/actualizar la persona ---
+    // El UUID puede existir en localStorage aunque su alta pública en visitantes
+    // haya fallado por RLS o conectividad. El servidor (service role) repara esa
+    // relación antes de enviarla a la RPC.
+    let visitanteIdValidado: string | null = null;
+    const visitanteTexto = typeof visitanteId === 'string' ? visitanteId.trim() : '';
+    const esUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      visitanteTexto
+    );
+
+    if (esUuid) {
+      const { data: visitanteExistente, error: visitanteConsultaError } = await db
+        .from('visitantes')
+        .select('id')
+        .eq('id', visitanteTexto)
+        .maybeSingle();
+
+      if (visitanteConsultaError) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'visitante_query_error',
+            mensaje: 'No se pudo comprobar el identificador de navegación.',
+            detalle: visitanteConsultaError.message
+          },
+          { status: 500 }
+        );
+      }
+
+      if (!visitanteExistente) {
+        const ahora = new Date().toISOString();
+        const { error: visitanteInsertError } = await db.from('visitantes').insert({
+          id: visitanteTexto,
+          fecha_primera_visita: ahora,
+          fecha_ultima_actividad: ahora
+        });
+
+        if (visitanteInsertError) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: 'visitante_create_error',
+              mensaje: 'No se pudo registrar el identificador de navegación.',
+              detalle: visitanteInsertError.message
+            },
+            { status: 500 }
+          );
+        }
+      }
+
+      visitanteIdValidado = visitanteTexto;
+    }
+
     // --- Verificación previa de titularidad del celular (OTP) ---
     const hace15min = new Date(Date.now() - 15 * 60_000).toISOString();
     let { data: reto, error: retoError } = await db
@@ -126,7 +179,7 @@ export async function POST(req: NextRequest) {
       apellidos,
       nombre_completo: nombreCompleto,
       correo: correo || null,
-      visitante_id: visitanteId || null,
+      visitante_id: visitanteIdValidado,
       oferta_id: ofertaId,
       ip_origen: obtenerIp(req),
       consentimientos: Array.isArray(consentimientos)
