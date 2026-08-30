@@ -141,9 +141,12 @@ export async function scheduleSilenceReminderPush(
 }
 
 export async function cancelPendingSilencePushes(db: SupabaseClient, conversacionId: string) {
+  // La restricción actual de la tabla no contempla un estado `cancelado`.
+  // Eliminar únicamente recordatorios aún pendientes equivale a cancelarlos
+  // y evita que un mensaje válido del estudiante interrumpa el turno de NaIA.
   const { error } = await db
     .from('comunicaciones_transaccionales')
-    .update({ estado_envio: 'cancelado', actualizado_en: nowIso() })
+    .delete()
     .eq('conversacion_id', conversacionId)
     .eq('canal', DEMOWAPP_CANAL)
     .in('plantilla', ['recordatorio_silencio_3_min', 'cierre_inactividad_5_min'])
