@@ -43,8 +43,9 @@ export async function getOrCreateVisitorId(): Promise<string> {
   try {
     const { error } = await supabase.from('visitantes').insert({
       id: visitorId,
-      fecha_primera_visita: new Date().toISOString(),
-      fecha_ultima_actividad: new Date().toISOString(),
+      identificador_navegacion: visitorId,
+      primer_acceso_en: new Date().toISOString(),
+      ultimo_acceso_en: new Date().toISOString(),
     });
 
     if (error) {
@@ -67,7 +68,7 @@ export async function updateVisitorActivity(visitorId: string): Promise<void> {
   try {
     await supabase
       .from('visitantes')
-      .update({ fecha_ultima_actividad: new Date().toISOString() })
+      .update({ ultimo_acceso_en: new Date().toISOString() })
       .eq('id', visitorId);
   } catch (err) {
     console.warn('Error actualizando actividad visitante:', err);
