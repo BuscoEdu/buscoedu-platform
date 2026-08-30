@@ -50,6 +50,13 @@ export default function DemoWappModal({ token, abierto, autoOpenDelayMs = 5000, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto, token, autoOpenDelayMs]);
 
+  useEffect(() => {
+    if (!visible) return;
+    const interval = window.setInterval(() => void cargar(), 5000);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, token]);
+
   const enviar = async (texto: string, clientMessageId: string) => {
     const res = await fetch(`/api/demowapp/estudiante/${encodeURIComponent(token)}`, {
       method: 'POST',
