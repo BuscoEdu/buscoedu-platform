@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase } from '@/src/lib/supabase-server';
+import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 import { processInboundStudentMessage } from '@/src/lib/demowapp/mensaje-service';
 
@@ -38,7 +38,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ opo
   }
 
   try {
-    const db = await getServerSupabase();
+    // La autorización ya se validó arriba con la sesión super_admin. Las tablas
+    // de conversaciones y mensajes no exponen políticas RLS de INSERT para el
+    // cliente autenticado, por lo que la persistencia se hace desde servidor
+    // con service role, sin exponer esa clave al navegador.
+    const db = getServiceRoleClient();
 
     const { data: app, error: appError } = await db
       .from('aplicaciones')
