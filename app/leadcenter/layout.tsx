@@ -46,3 +46,4 @@ export default async function LeadCenterLayout({ children }: { children: ReactNo
     </div>
   );
 }
+
