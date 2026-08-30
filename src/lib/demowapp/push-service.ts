@@ -32,7 +32,7 @@ async function schedulePush(
   const existing = await db
     .from('comunicaciones_transaccionales')
     .select('id, estado_envio')
-    .eq('referencia_externa', input.idempotencyKey)
+    .eq('metadatos->>idempotency_key', input.idempotencyKey)
     .limit(1)
     .maybeSingle();
 
@@ -49,10 +49,10 @@ async function schedulePush(
     plantilla: input.code,
     estado_envio: 'pendiente',
     fecha_programada: input.fechaProgramada,
-    referencia_externa: input.idempotencyKey,
     metadatos: {
       ...(input.metadatos || {}),
       origen: 'demowapp_push',
+      idempotency_key: input.idempotencyKey,
       mensaje_renderizado: input.mensajeRenderizado
     }
   };
@@ -205,25 +205,46 @@ async function logPushSideEffects(
     estado: 'enviado' | 'cancelado';
   }
 ) {
-  await db.from('notas_crm').insert({
-    oportunidad_id: input.oportunidadId,
-    persona_id: input.personaId,
-    autor_id: null,
-    contenido: `[demowapp:${input.referencia}] Push ${input.plantilla} ${input.estado}.`,
-    es_privada: true
-  });
+  const contenido = `[demowapp:${input.referencia}] Push ${input.plantilla} ${input.estado}.`;
+  const notaExistente = await db
+    .from('notas_crm')
+    .select('id')
+    .eq('oportunidad_id', input.oportunidadId)
+    .eq('persona_id', input.personaId)
+    .eq('contenido', contenido)
+    .maybeSingle();
 
-  await db.from('eventos_negocio').insert({
-    evento: `demowapp_push_${input.estado}`,
-    metadatos: {
-      referencia: input.referencia,
-      plantilla: input.plantilla,
+  if (!notaExistente.data) {
+    await db.from('notas_crm').insert({
       oportunidad_id: input.oportunidadId,
-      persona_id: input.personaId
-    },
-    generado_por: 'demowapp_push_processor',
-    creado_en: nowIso()
-  } as any);
+      persona_id: input.personaId,
+      autor_id: null,
+      contenido,
+      es_privada: true
+    });
+  }
+
+  const evento = `demowapp_push_${input.estado}`;
+  const eventoExistente = await db
+    .from('eventos_negocio')
+    .select('creado_en')
+    .eq('evento', evento)
+    .eq('metadatos->>idempotency_key', input.referencia)
+    .maybeSingle();
+
+  if (!eventoExistente.data) {
+    await db.from('eventos_negocio').insert({
+      evento,
+      metadatos: {
+        idempotency_key: input.referencia,
+        plantilla: input.plantilla,
+        oportunidad_id: input.oportunidadId,
+        persona_id: input.personaId
+      },
+      generado_por: 'demowapp_push_processor',
+      creado_en: nowIso()
+    } as any);
+  }
 }
 
 async function scheduleCloseAfterReminder(
@@ -231,7 +252,9 @@ async function scheduleCloseAfterReminder(
   row: any,
   contenidoBase: string
 ) {
-  const idempotencyKey = `demowapp:cierre:${row.referencia_externa}`;
+  const reminderKey = row?.metadatos?.idempotency_key;
+  if (!reminderKey) throw new Error('Push de recordatorio sin clave de idempotencia');
+  const idempotencyKey = `demowapp:cierre:${reminderKey}`;
   await schedulePush(db, {
     code: 'cierre_inactividad_5_min',
     oportunidadId: row.oportunidad_id,
@@ -242,7 +265,7 @@ async function scheduleCloseAfterReminder(
     idempotencyKey,
     metadatos: {
       disparado_por: row.id,
-      recordatorio_base: row.referencia_externa
+      recordatorio_base: reminderKey
     },
     mensajeRenderizado: contenidoBase
   });
@@ -255,7 +278,7 @@ async function deliverPushRow(db: SupabaseClient, row: any) {
 
   await appendPushMessage(db, {
     conversacionId: row.conversacion_id,
-    referenciaExterna: row.referencia_externa,
+    referenciaExterna: row?.metadatos?.idempotency_key,
     contenido,
     plantilla: row.plantilla
   });
@@ -281,21 +304,28 @@ async function deliverPushRow(db: SupabaseClient, row: any) {
   await logPushSideEffects(db, {
     oportunidadId: row.oportunidad_id,
     personaId: row.persona_id,
-    referencia: row.referencia_externa,
+    referencia: row?.metadatos?.idempotency_key,
     plantilla: row.plantilla,
     estado: 'enviado'
   });
 }
 
-export async function processDuePushes(db: SupabaseClient, limit = 50) {
-  const { data, error } = await db
+export async function processDuePushes(
+  db: SupabaseClient,
+  limit = 50,
+  scope?: { oportunidadId?: string; conversacionId?: string }
+) {
+  let query = db
     .from('comunicaciones_transaccionales')
     .select('*')
     .eq('canal', DEMOWAPP_CANAL)
     .eq('estado_envio', 'pendiente')
-    .lte('fecha_programada', nowIso())
-    .order('fecha_programada', { ascending: true })
-    .limit(limit);
+    .lte('fecha_programada', nowIso());
+
+  if (scope?.oportunidadId) query = query.eq('oportunidad_id', scope.oportunidadId);
+  if (scope?.conversacionId) query = query.eq('conversacion_id', scope.conversacionId);
+
+  const { data, error } = await query.order('fecha_programada', { ascending: true }).limit(limit);
 
   if (error) {
     throw new Error(`No se pudieron cargar pushes pendientes: ${error.message}`);
