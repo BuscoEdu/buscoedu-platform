@@ -98,6 +98,33 @@ function parseNaiaStructuredResponse(text: string) {
   }
 }
 
+/** Recupera `mensaje` aun cuando el resto del JSON del modelo esté incompleto. */
+function extractNaiaMessage(text: string) {
+  const marker = /["']mensaje["']\s*:\s*["']/i.exec(text);
+  if (!marker || marker.index === undefined) return '';
+
+  let output = '';
+  let escaped = false;
+  const start = marker.index + marker[0].length;
+
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (escaped) {
+      output += char === 'n' ? '\n' : char;
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '"' || char === "'") break;
+    output += char;
+  }
+
+  return normalizeText(output);
+}
+
 async function findMessageByReference(
   db: SupabaseClient,
   conversacionId: string,
@@ -277,6 +304,10 @@ async function callNaiaFromServer(input: {
     if (!botText.trim()) throw new Error('abacus_sin_mensaje');
     const parsed = parseNaiaStructuredResponse(botText);
     if (!parsed) {
+      const recoveredMessage = extractNaiaMessage(botText);
+      if (recoveredMessage) {
+        return { mensaje: recoveredMessage, espera_respuesta: true };
+      }
       // La integración existente también puede responder texto plano. En ese caso
       // se conserva la respuesta comercial de NaIA en lugar de descartarla.
       return { mensaje: botText.trim(), espera_respuesta: true };
@@ -458,3 +489,5 @@ export async function processInboundStudentMessage(
     inbound,
     outbound,
     estadoConversacion: naia.espera_respuesta === false ? CONVERSACION_ESTADO_CERRADA : CONVERSACION_ESTADO_ACTIVA
+  };
+}
