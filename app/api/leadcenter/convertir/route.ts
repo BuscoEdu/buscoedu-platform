@@ -225,7 +225,7 @@ export async function POST(req: NextRequest) {
           destinatario: persona?.celular_e164 || norm.e164
         });
 
-        const demoToken = createDemoWappToken({
+        const demoSession = createDemoWappToken({
           personaId: resultado.persona_id,
           oportunidadId: resultado.oportunidad_id,
           aplicacionId: resultado.aplicacion_id,
@@ -233,11 +233,11 @@ export async function POST(req: NextRequest) {
           celularVerificado: norm.e164
         });
 
-        return NextResponse.json(
+        const response = NextResponse.json(
           {
             ...resultado,
             demowapp: {
-              token: demoToken,
+              token: demoSession.token,
               delayMs: 5000,
               expiresInSeconds: getDemoWappTokenTtlSeconds(),
               oportunidadId: resultado.oportunidad_id,
@@ -246,6 +246,14 @@ export async function POST(req: NextRequest) {
           },
           { status: 200 }
         );
+        response.cookies.set('demowapp_session', demoSession.nonce, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          path: '/api/demowapp/estudiante',
+          maxAge: getDemoWappTokenTtlSeconds()
+        });
+        return response;
       } catch (pushErr: any) {
         console.error('[convertir] Error no bloqueante al preparar DemoWapp:', pushErr);
         return NextResponse.json(
