@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // La condición de simulación se conserva en metadatos y referencias con
 // `demo_wapp`, sin inventar un valor adicional para el catálogo de canales.
 export const DEMOWAPP_CANAL = 'whatsapp';
-export const DEMOWAPP_TIPO = 'seguimiento_aplicacion';
+export const DEMOWAPP_TIPO = 'seguimiento';
 export const CONVERSACION_ESTADO_ACTIVA = 'activa';
 export const CONVERSACION_ESTADO_CERRADA = 'cerrada';
 
