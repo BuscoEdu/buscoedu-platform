@@ -116,6 +116,8 @@ Procesamiento en `processDuePushes`:
 
 * en cierre, marca conversación `cerrada` y `cierre_en`.
 
+El modal del estudiante y la sesión privada consultan su propia oportunidad cada cinco segundos. El procesador global queda reservado para `super_admin` o un cron futuro.
+
 ---
 
 ## 4\. Seguridad
@@ -124,9 +126,11 @@ Procesamiento en `processDuePushes`:
 
 2. **APIs privadas** `/api/demowapp/*`: validan sesión y rol servidor (`getSesionLeadCenter`).
 
-3. **Canal público estudiante**: token firmado HMAC, TTL corto, validación de titularidad exacta persona/oportunidad/aplicación.
+3. **Canal público estudiante**: token firmado HMAC, TTL corto y cookie `HttpOnly` vinculada al navegador que completó la aplicación. Se valida la coincidencia de persona, oportunidad, aplicación y nonce.
 
 4. **Escrituras sensibles**: solo servidor (`getServerSupabase` o `getServiceRoleClient`).
+
+5. **Secreto dedicado**: configurar `DEMOWAPP_TOKEN_SECRET`. No se reutilizan secretos de Supabase ni de Abacás para firmar sesiones de estudiantes.
 
 ---
 
@@ -134,7 +138,7 @@ Procesamiento en `processDuePushes`:
 
 1. Mensajes inbound por `clientMessageId` → `referencia_externa`.
 
-2. Push bienvenida por `demowapp:bienvenida:{aplicacionId}`.
+2. Push bienvenida por `demowapp:bienvenida:{aplicacionId}`, almacenada en `comunicaciones_transaccionales.metadatos.idempotency_key`.
 
 3. Recordatorio por `demowapp:recordatorio:{mensajeNaiaId}`.
 
@@ -146,7 +150,7 @@ Procesamiento en `processDuePushes`:
 
 ## 6\. Tablas usadas
 
-Sin crear tablas nuevas.
+Sin crear tablas nuevas. La migración `20260830130000_demowapp_idempotency_indexes.sql` añade únicamente índices únicos parciales para proteger la idempotencia frente a polling y reintentos concurrentes.
 
 * `personas`
 
