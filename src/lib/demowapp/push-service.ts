@@ -142,17 +142,44 @@ export async function scheduleSilenceReminderPush(
 }
 
 export async function cancelPendingSilencePushes(db: SupabaseClient, conversacionId: string) {
-  const { error } = await db
+  // El catálogo CRM de `estado_envio` no contempla necesariamente un estado
+  // "cancelado". Para no romper una respuesta entrante, los pushes pendientes
+  // se conservan como evidencia pero se retiran de la cola (fecha futura) y se
+  // marcan en sus metadatos. El procesador solo toma registros vencidos.
+  const { data: pushesPendientes, error: readError } = await db
     .from('comunicaciones_transaccionales')
-    .update({ estado_envio: 'cancelado', actualizado_en: nowIso() })
+    .select('id, metadatos')
     .eq('conversacion_id', conversacionId)
     .eq('canal', DEMOWAPP_CANAL)
     .eq('metadatos->>origen', 'demowapp_push')
     .in('plantilla', ['recordatorio_silencio_3_min', 'cierre_inactividad_5_min'])
     .eq('estado_envio', 'pendiente');
 
-  if (error) {
-    throw new Error(`No se pudieron cancelar pushes pendientes: ${error.message}`);
+  if (readError) {
+    throw new Error(`No se pudieron consultar pushes pendientes: ${readError.message}`);
+  }
+
+  const canceladoEn = nowIso();
+  const fechaRetiradaDeCola = plusSeconds(60 * 60 * 24 * 365 * 10);
+
+  for (const push of pushesPendientes || []) {
+    const { error } = await db
+      .from('comunicaciones_transaccionales')
+      .update({
+        fecha_programada: fechaRetiradaDeCola,
+        metadatos: {
+          ...(push.metadatos || {}),
+          cancelado_en: canceladoEn,
+          cancelado_por: 'respuesta_estudiante'
+        },
+        actualizado_en: canceladoEn
+      })
+      .eq('id', push.id)
+      .eq('estado_envio', 'pendiente');
+
+    if (error) {
+      throw new Error(`No se pudieron cancelar pushes pendientes: ${error.message}`);
+    }
   }
 }
 
