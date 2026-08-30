@@ -663,7 +663,7 @@ export async function processInboundStudentMessage(
     }
   });
 
-  const studentMessages = (historyRes.data || []).filter((m: any) => m.remitente_tipo === 'estudiante').length;
+  const studentMessages = (historyRes.data || []).filter((m: any) => m.remitente_tipo === 'persona' || m.remitente_tipo === 'estudiante').length;
   const firstStudentMessage = studentMessages === 1;
 
   const funnelAdvance = await advanceFunnelIfNeeded(db, {

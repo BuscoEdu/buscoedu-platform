@@ -65,22 +65,46 @@ export default function DemoWappPage() {
 
   const onSend = async (texto: string, clientMessageId: string) => {
     if (!selectedId) return;
+    const oportunidadId = selectedId;
     try {
-      const res = await fetch(`/api/demowapp/sesiones/${selectedId}/mensaje`, {
+      const res = await fetch(`/api/demowapp/sesiones/${oportunidadId}/mensaje`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ texto, clientMessageId })
       });
 
       const data = await res.json();
-      if (!data.ok) throw new Error(data.error || 'No se pudo enviar');
+      if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo enviar');
 
-      await fetch('/api/demowapp/push/procesar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ oportunidadId: selectedId })
-      });
-      await Promise.all([loadDetail(selectedId, { silent: true }), loadSessions({ silent: true })]);
+      // El turno de NaIA llega en la respuesta. Se muestra de inmediato sin
+      // esperar el procesador de recordatorios ni el refresco periódico.
+      const nuevos = [data.result?.inbound, data.result?.outbound].filter(Boolean);
+      if (nuevos.length) {
+        setDetail((actual: any) => {
+          if (!actual) return actual;
+          const porId = new Map<string, any>();
+          [...(actual.mensajes || []), ...nuevos].forEach((mensaje: any) => porId.set(mensaje.id, mensaje));
+          return { ...actual, mensajes: Array.from(porId.values()) };
+        });
+      }
+
+      // Los recordatorios y la sincronización son secundarios: si fallan no
+      // bloquean el mensaje ni vuelven a dejar el texto en el campo.
+      void (async () => {
+        try {
+          await fetch('/api/demowapp/push/procesar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ oportunidadId })
+          });
+        } catch {
+          // El siguiente ciclo de sincronización reintentará los recordatorios.
+        }
+        await Promise.allSettled([
+          loadDetail(oportunidadId, { silent: true }),
+          loadSessions({ silent: true })
+        ]);
+      })();
     } catch (e: any) {
       const message = e?.message || 'No se pudo enviar el mensaje.';
       setError(message);
