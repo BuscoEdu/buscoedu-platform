@@ -18,6 +18,9 @@ const navItems = [
   { label: 'Precios', href: '/admin/precios' },
   { label: 'Periodos', href: '/admin/periodos' },
   { label: 'Funnel', href: '/admin/funnel' },
+  { label: 'Usuarios', href: '/admin/usuarios' },
+  { label: 'Roles', href: '/admin/roles' },
+  { label: 'Contexto NaIA', href: '/admin/contexto-naia' },
   { label: 'Catálogos', href: '/admin/catalogos' }
 ];
 

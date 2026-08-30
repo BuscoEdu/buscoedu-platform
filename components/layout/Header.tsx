@@ -18,6 +18,7 @@ const navItems = [
 
 export default function Header() {
   const pathname = usePathname();
+  const isPrivateArea = pathname.startsWith('/admin') || pathname.startsWith('/leadcenter') || pathname.startsWith('/demoWapp');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { myList } = useMyList();
@@ -47,6 +48,10 @@ export default function Header() {
   }, [isMobileMenuOpen]);
 
   const count = mounted ? myList.length : 0;
+
+  if (isPrivateArea) {
+    return null;
+  }
 
   return (
     <>

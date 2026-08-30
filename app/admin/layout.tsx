@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import AdminSidebar from '@/components/admin/AdminSidebar';
-import AdminTopBar from '@/components/admin/AdminTopBar';
+import AdminNav from '@/components/admin/AdminNav';
 import { getSupabaseClient } from '@/src/lib/supabase';
 
 type AdminLayoutProps = {
@@ -18,10 +18,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     return getSupabaseClient();
   }, []);
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(pathname !== '/admin/login');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [userName, setUserName] = useState('Usuario interno');
+  const [roleCode, setRoleCode] = useState('super_admin');
 
   useEffect(() => {
     if (pathname === '/admin/login') {
@@ -29,9 +29,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       return;
     }
 
-    if (!supabase) {
-      return;
-    }
+    if (!supabase) return;
 
     async function validateSession() {
       setIsLoading(true);
@@ -62,24 +60,18 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         return;
       }
 
-      const fullName = [internalUser.nombres, internalUser.apellidos]
-        .filter(Boolean)
-        .join(' ')
-        .trim();
-
-      if (fullName) {
-        setUserName(fullName);
-      }
+      const fullName = [internalUser.nombres, internalUser.apellidos].filter(Boolean).join(' ').trim();
+      if (fullName) setUserName(fullName);
+      setRoleCode((internalUser as any)?.roles?.codigo || 'super_admin');
 
       setIsLoading(false);
     }
 
-    validateSession();
+    void validateSession();
   }, [pathname, router, supabase]);
 
   async function handleLogout() {
     if (!supabase) return;
-
     setIsLoggingOut(true);
     await supabase.auth.signOut();
     setIsLoggingOut(false);
@@ -102,21 +94,42 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   return (
     <div className="min-h-[70vh] bg-buscoedu-bg text-buscoedu-text">
-      <div className="flex">
-        <AdminSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <header className="sticky top-0 z-40 border-b border-buscoedu-border bg-white/95 backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-buscoedu-muted">Administración</p>
+            <h1 className="text-lg font-bold text-buscoedu-blue">BuscoEdu Admin</h1>
+          </div>
 
-        <div className="flex min-h-[70vh] flex-1 flex-col md:ml-0">
-          <AdminTopBar
-            userName={userName}
-            role="super_admin"
-            onMenuClick={() => setIsSidebarOpen(true)}
-            onLogout={handleLogout}
-            isLoggingOut={isLoggingOut}
-          />
-
-          <main className="flex-1 p-4 md:p-6">{children}</main>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden text-right sm:block">
+              <p className="text-xs text-buscoedu-muted">Usuario</p>
+              <p className="text-sm font-semibold text-buscoedu-text">{userName}</p>
+            </div>
+            <span className="rounded-full bg-buscoedu-bg px-3 py-1 text-xs font-medium text-buscoedu-blue">
+              {roleCode}
+            </span>
+            <Link
+              href="/"
+              className="rounded-md border border-buscoedu-border px-3 py-2 text-xs font-semibold text-buscoedu-text hover:bg-buscoedu-bg sm:text-sm"
+            >
+              Volver al portal
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="rounded-md bg-buscoedu-teal px-3 py-2 text-xs font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70 sm:text-sm"
+            >
+              {isLoggingOut ? 'Cerrando...' : 'Cerrar sesión'}
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
+
+      <AdminNav roleCode={roleCode} />
+
+      <main className="p-4 md:p-6">{children}</main>
     </div>
   );
 }
