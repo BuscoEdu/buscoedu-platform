@@ -32,7 +32,7 @@ export async function getSesionLeadCenter(): Promise<SesionLeadCenter> {
     const service = getServiceRoleClient();
     const { data: interno, error: internoError } = await service
       .from('usuarios_internos')
-      .select('id, nombre, nombres, activo, rol_id, roles(codigo)')
+      .select('id, nombres, activo, rol_id, roles(codigo)')
       .eq('auth_user_id', user.id)
       .eq('activo', true)
       .single();
@@ -47,7 +47,7 @@ export async function getSesionLeadCenter(): Promise<SesionLeadCenter> {
       autenticado: true,
       authUserId: user.id,
       usuarioInternoId: (interno as any).id,
-      nombre: (interno as any).nombre || (interno as any).nombres || user.email || 'Usuario',
+      nombre: (interno as any).nombres || user.email || 'Usuario',
       roleCode,
       esSuper: roleCode === 'super_admin',
       esAsesor: roleCode === 'asesor'
