@@ -205,9 +205,17 @@ async function callNaiaFromServer(input: {
       ? [...messages].reverse().find((m: any) => !(m?.is_user ?? m?.isUser))?.text || ''
       : '';
 
+    if (!botText.trim()) throw new Error('abacus_sin_mensaje');
     const match = botText.match(/```(?:json)?\s*([\s\S]*?)```/i);
     const jsonText = match?.[1] || botText;
-    const parsed = JSON.parse(jsonText);
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch {
+      // La integración existente también puede responder texto plano. En ese caso
+      // se conserva la respuesta comercial de NaIA en lugar de descartarla.
+      return { mensaje: botText.trim(), espera_respuesta: true };
+    }
 
     return {
       mensaje:
@@ -265,15 +273,60 @@ export async function processInboundStudentMessage(
 
   await cancelPendingSilencePushes(db, conversacion.id);
 
+  const [personaRes, aplicacionRes, oportunidadRes, mensajesRes] = await Promise.all([
+    db
+      .from('personas')
+      .select('nombres, apellidos, correo_principal, celular_e164')
+      .eq('id', input.personaId)
+      .maybeSingle(),
+    db
+      .from('aplicaciones')
+      .select('estado, fecha_aplicacion, oferta_id, periodo_academico_id')
+      .eq('id', input.aplicacionId)
+      .eq('oportunidad_id', input.oportunidadId)
+      .maybeSingle(),
+    db
+      .from('oportunidades')
+      .select('estado, temperatura, puntaje, etapa_id, subestado_id, notas_internas')
+      .eq('id', input.oportunidadId)
+      .maybeSingle(),
+    db
+      .from('mensajes_conversacion')
+      .select('remitente_tipo, contenido, creado_en')
+      .eq('conversacion_id', conversacion.id)
+      .order('creado_en', { ascending: false })
+      .limit(12)
+  ]);
+
+  const ofertaId = aplicacionRes.data?.oferta_id;
+  const oportunidad = oportunidadRes.data;
+  const [ofertaRes, etapaRes, subestadoRes] = await Promise.all([
+    ofertaId
+      ? db.from('ofertas_academicas').select('nombre, universidad_id, programa_id, sede_id').eq('id', ofertaId).maybeSingle()
+      : Promise.resolve({ data: null } as any),
+    oportunidad?.etapa_id
+      ? db.from('etapas_embudo').select('nombre').eq('id', oportunidad.etapa_id).maybeSingle()
+      : Promise.resolve({ data: null } as any),
+    oportunidad?.subestado_id
+      ? db.from('subestados_oportunidad').select('nombre').eq('id', oportunidad.subestado_id).maybeSingle()
+      : Promise.resolve({ data: null } as any)
+  ]);
+
   const contexto = {
-    oportunidadId: input.oportunidadId,
-    personaId: input.personaId,
-    aplicacionId: input.aplicacionId,
+    estudiante: personaRes.data || null,
+    aplicacion: aplicacionRes.data || null,
+    oferta: ofertaRes.data || null,
+    oportunidad: {
+      ...(oportunidad || {}),
+      etapa: etapaRes.data?.nombre || null,
+      subestado: subestadoRes.data?.nombre || null
+    },
     visitanteId: input.visitanteId,
     celularVerificado: input.celularVerificado,
     mensajeEntrante: input.texto,
     resumenPrevio: (conversacion as any).resumen || null,
-    contextoResumidoPrevio: (conversacion as any).contexto_resumido || null
+    contextoResumidoPrevio: (conversacion as any).contexto_resumido || null,
+    mensajesRecientes: (mensajesRes.data || []).reverse()
   };
 
   const naia = await callNaiaFromServer({
