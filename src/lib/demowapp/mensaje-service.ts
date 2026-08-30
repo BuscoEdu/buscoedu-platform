@@ -7,7 +7,7 @@ import {
 import { scheduleSilenceReminderPush, cancelPendingSilencePushes } from './push-service';
 import { DEMOWAPP_CAPTURE_ORDER, type DemoWappCaptureKey } from './config';
 
-type MensajeRemitente = 'estudiante' | 'naia';
+type MensajeRemitente = 'persona' | 'naia';
 
 type CapturedFacts = Partial<Record<DemoWappCaptureKey, string>>;
 
@@ -561,7 +561,7 @@ export async function processInboundStudentMessage(
 
   const inbound = await appendConversationMessage(db, {
     conversacionId: conversacion.id,
-    remitenteTipo: 'estudiante',
+    remitenteTipo: 'persona',
     remitenteId: input.personaId,
     contenido: input.texto,
     referenciaExterna: inboundRef,
