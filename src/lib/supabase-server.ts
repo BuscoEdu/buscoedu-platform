@@ -20,9 +20,11 @@ export function getServiceRoleClient(): SupabaseClient {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !serviceKey) {
-    throw new Error(
-      'Faltan variables de entorno del servidor: NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY'
-    );
+    const missing = [
+      !url ? 'NEXT_PUBLIC_SUPABASE_URL' : null,
+      !serviceKey ? 'SUPABASE_SERVICE_ROLE_KEY' : null
+    ].filter(Boolean);
+    throw new Error(`Faltan variables de entorno del servidor: ${missing.join(', ')}`);
   }
 
   return createClient(url, serviceKey, {
