@@ -7,6 +7,96 @@ import {
 import { scheduleSilenceReminderPush, cancelPendingSilencePushes } from './push-service';
 import { DEMOWAPP_CAPTURE_ORDER, type DemoWappCaptureKey } from './config';
 
+const ABACUS_ENDPOINT = 'https://api.abacus.ai/api/v0/getConversationResponse';
+
+interface NaiaStructuredResponse {
+  mensaje: string;
+  resumen_actualizado?: string;
+  intencion_detectada?: string;
+  siguiente_accion_sugerida?: string;
+  requiere_escalamiento?: boolean;
+  espera_respuesta?: boolean;
+  conversationId?: string;
+}
+
+function safeString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function extractJson(text: string): any | null {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced?.[1] || text.trim();
+  try { return JSON.parse(candidate); } catch {
+    const start = candidate.indexOf('{');
+    const end = candidate.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      try { return JSON.parse(candidate.slice(start, end + 1)); } catch { return null; }
+    }
+    return null;
+  }
+}
+
+async function callNaiaFromServer(input: {
+  mensaje: string;
+  conversationId?: string;
+  contexto: Record<string, unknown>;
+}): Promise<NaiaStructuredResponse> {
+  const deploymentId = process.env.ABACUS_NAIA_DEPLOYMENT_ID;
+  const deploymentToken = process.env.ABACUS_NAIA_DEPLOYMENT_TOKEN;
+  const fallback = 'No pude procesar tu mensaje en este momento. ¿Podrías contarme de otra forma qué necesitas para avanzar con tu proceso?';
+
+  if (!deploymentId || !deploymentToken) {
+    return { mensaje: fallback, espera_respuesta: true, conversationId: input.conversationId };
+  }
+
+  const instructions = [
+    'Eres NaIA, asesora de admisiones de BuscoEdu.',
+    'Responde en español, de manera tranquila, directa y útil; no seas aduladora.',
+    'Usa el contexto CRM y el historial para responder al mensaje real del estudiante.',
+    'No repitas preguntas si el estudiante ya respondió ni uses un guion fijo.',
+    'No inventes condiciones de oferta, admisión, becas o cupos.',
+    'Devuelve exclusivamente JSON válido con: mensaje, resumen_actualizado, intencion_detectada, siguiente_accion_sugerida, requiere_escalamiento, espera_respuesta.'
+  ].join(' ');
+
+  try {
+    const body: Record<string, unknown> = {
+      deploymentId,
+      deploymentToken,
+      message: `${instructions}\n\nContexto CRM: ${JSON.stringify(input.contexto)}\n\nMensaje actual del estudiante: ${input.mensaje}`
+    };
+    if (input.conversationId) body.deploymentConversationId = input.conversationId;
+    const response = await fetch(ABACUS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) throw new Error(`abacus_${response.status}`);
+
+    const raw = await response.json();
+    const result = raw?.result ?? raw;
+    const conversationId = result?.deploymentConversationId || result?.deployment_conversation_id || input.conversationId;
+    const messages = Array.isArray(result?.messages) ? result.messages : [];
+    const bot = [...messages].reverse().find((m: any) => !(m?.is_user ?? m?.isUser));
+    const text = safeString(bot?.text ?? bot?.content);
+    if (!text) throw new Error('abacus_sin_mensaje');
+
+    const parsed = extractJson(text);
+    if (!parsed) return { mensaje: text, espera_respuesta: true, conversationId };
+    return {
+      mensaje: safeString(parsed.mensaje) || safeString(parsed.respuesta) || fallback,
+      resumen_actualizado: safeString(parsed.resumen_actualizado) || undefined,
+      intencion_detectada: safeString(parsed.intencion_detectada) || undefined,
+      siguiente_accion_sugerida: safeString(parsed.siguiente_accion_sugerida) || undefined,
+      requiere_escalamiento: Boolean(parsed.requiere_escalamiento),
+      espera_respuesta: parsed.espera_respuesta !== false,
+      conversationId
+    };
+  } catch {
+    return { mensaje: fallback, espera_respuesta: true, conversationId: input.conversationId };
+  }
+}
+
+
 type MensajeRemitente = 'persona' | 'naia';
 
 type CapturedFacts = Partial<Record<DemoWappCaptureKey, string>>;
@@ -593,7 +683,7 @@ export async function processInboundStudentMessage(
       .maybeSingle(),
     db
       .from('mensajes_conversacion')
-      .select('id, remitente_tipo')
+      .select('id, remitente_tipo, contenido, creado_en')
       .eq('conversacion_id', conversacion.id)
       .order('creado_en', { ascending: true })
       .limit(400)
@@ -643,11 +733,31 @@ export async function processInboundStudentMessage(
     } as ProgressiveState;
   })();
 
-  const reply = buildProgressiveReply({
-    state: stateAfterCapture,
-    newFacts: persistedFacts,
-    ofertaNombre: oferta?.nombre_oferta || null
+  const contextoNaia = {
+    estudiante: persona,
+    aplicacion: aplicacionRes.data || null,
+    oferta: oferta || null,
+    oportunidad,
+    mensajeEntrante: input.texto,
+    resumenPrevio: (conversacion as any).resumen || null,
+    contextoResumidoPrevio: (conversacion as any).contexto_resumido || null,
+    mensajesRecientes: (historyRes.data || []).slice(-12),
+    capturaProgresiva: { known: stateAfterCapture.known, missing: stateAfterCapture.missing }
+  };
+  const naia = await callNaiaFromServer({
+    mensaje: input.texto,
+    conversationId: (conversacion as any).referencia_externa || undefined,
+    contexto: contextoNaia
   });
+  const reply = {
+    mensaje: naia.mensaje,
+    esperaRespuesta: naia.espera_respuesta !== false,
+    perfilMinimoCompleto: stateAfterCapture.missing.length === 0
+  };
+
+  if (naia.conversationId && naia.conversationId !== (conversacion as any).referencia_externa) {
+    await db.from('conversaciones').update({ referencia_externa: naia.conversationId, actualizado_en: nowIso() }).eq('id', conversacion.id);
+  }
 
   const naiaRef = makeIdempotencyRef('naia', input.clientMessageId);
   const outbound = await appendConversationMessage(db, {
@@ -656,8 +766,11 @@ export async function processInboundStudentMessage(
     contenido: reply.mensaje,
     referenciaExterna: naiaRef,
     metadatos: {
-      origen: 'naia_progressive_capture',
-      espera_respuesta: true,
+      origen: 'naia_abacus',
+      espera_respuesta: reply.esperaRespuesta,
+      intencion_detectada: naia.intencion_detectada || null,
+      siguiente_accion_sugerida: naia.siguiente_accion_sugerida || null,
+      requiere_escalamiento: Boolean(naia.requiere_escalamiento),
       faltantes: stateAfterCapture.missing,
       capturados_turno: Object.keys(persistedFacts)
     }
@@ -678,11 +791,14 @@ export async function processInboundStudentMessage(
 
   await updateConversationContext(db, conversacion.id, {
     estado: CONVERSACION_ESTADO_ACTIVA,
-    resumen: `Captura progresiva Demowapp (${Object.keys(stateAfterCapture.known).length}/${DEMOWAPP_CAPTURE_ORDER.length})`,
+    resumen: naia.resumen_actualizado || (conversacion as any).resumen || 'Conversación NaIA Demowapp',
     contextoResumido: JSON.stringify({
-      origen: 'demowapp',
+      origen: 'demowapp_abacus',
       known: stateAfterCapture.known,
       missing: stateAfterCapture.missing,
+      intencion: naia.intencion_detectada || null,
+      siguiente_accion: naia.siguiente_accion_sugerida || null,
+      requiere_escalamiento: Boolean(naia.requiere_escalamiento),
       funnel_advance_trigger: funnelAdvance.trigger,
       updated_at: nowIso()
     })
