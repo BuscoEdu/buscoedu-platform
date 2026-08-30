@@ -208,15 +208,37 @@ export class SimulatedOtpProvider implements OtpProvider {
       };
     }
 
-    // Éxito.
-    await db
+    // Éxito. Persistir y comprobar la verificación antes de informar ok:true.
+    // Algunas instalaciones anteriores de desafios_otp no tienen verificado_en;
+    // actualizado_en mantiene una marca temporal compatible para esos esquemas.
+    const verificadoEn = new Date().toISOString();
+    let { error: updateError } = await db
       .from('desafios_otp')
       .update({
         estado: 'verificado',
-        verificado_en: new Date().toISOString(),
-        actualizado_en: new Date().toISOString()
+        verificado_en: verificadoEn,
+        actualizado_en: verificadoEn
       })
       .eq('id', desafio.id);
+
+    if (updateError && /verificado_en/i.test(updateError.message || '')) {
+      const fallback = await db
+        .from('desafios_otp')
+        .update({
+          estado: 'verificado',
+          actualizado_en: verificadoEn
+        })
+        .eq('id', desafio.id);
+      updateError = fallback.error;
+    }
+
+    if (updateError) {
+      return {
+        ok: false,
+        error: 'db_error',
+        mensaje: 'No se pudo registrar la verificación del celular.'
+      };
+    }
 
     return {
       ok: true,
