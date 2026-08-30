@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase } from '@/src/lib/supabase-server';
+import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 import { DEMOWAPP_CANAL, getLatestConversationByOpportunity } from '@/src/lib/demowapp/conversacion-service';
 
@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ opo
   }
 
   try {
-    const db = await getServerSupabase();
+    const db = getServiceRoleClient();
 
     const { data: app, error: appError } = await db
       .from('aplicaciones')
@@ -46,7 +46,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ opo
           .select('id, nombres, apellidos, celular_e164, telefono_principal, correo_principal')
           .eq('id', app.persona_id)
           .single(),
-        db.from('ofertas_academicas').select('id, nombre').eq('id', app.oferta_id).maybeSingle(),
+        db.from('ofertas_academicas').select('id, nombre_oferta').eq('id', app.oferta_id).maybeSingle(),
         db
           .from('notas_crm')
           .select('id, contenido, creado_en')

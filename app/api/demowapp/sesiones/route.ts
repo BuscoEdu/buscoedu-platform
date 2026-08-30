@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase } from '@/src/lib/supabase-server';
+import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 import { DEMOWAPP_CANAL } from '@/src/lib/demowapp/conversacion-service';
 
@@ -17,7 +17,10 @@ export async function GET(_req: NextRequest) {
   }
 
   try {
-    const db = await getServerSupabase();
+    // DemoWapp es una consola exclusiva de super_admin. Tras validar esa sesión
+    // arriba, se usa la credencial de servidor para poder leer y operar el
+    // historial CRM (las políticas RLS de estas tablas son solo de lectura).
+    const db = getServiceRoleClient();
 
     const { data: aplicaciones, error: appError } = await db
       .from('aplicaciones')
@@ -42,7 +45,7 @@ export async function GET(_req: NextRequest) {
         .from('personas')
         .select('id, nombres, apellidos, celular_e164, telefono_principal, correo_principal')
         .in('id', personaIds),
-      db.from('ofertas_academicas').select('id, nombre').in('id', ofertaIds),
+      db.from('ofertas_academicas').select('id, nombre_oferta').in('id', ofertaIds),
       db
         .from('conversaciones')
         .select('id, oportunidad_id, estado, ultima_actividad_en')
@@ -71,7 +74,7 @@ export async function GET(_req: NextRequest) {
         nombre: nombreCompleto(persona),
         celular: persona.celular_e164 || persona.telefono_principal || '—',
         correo: persona.correo_principal || '—',
-        oferta: oferta.nombre || 'Oferta',
+        oferta: oferta.nombre_oferta || 'Oferta',
         estadoAplicacion: a.estado,
         etapa: etapas[oportunidad.etapa_id] || '—',
         subestado: subestados[oportunidad.subestado_id] || '—',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import SessionList from '@/components/demowapp/SessionList';
 import DemoWappPanel from '@/components/demowapp/DemoWappPanel';
 import ContextPanel from '@/components/demowapp/ContextPanel';
@@ -15,28 +15,34 @@ export default function DemoWappPage() {
   const [detail, setDetail] = useState<any>(null);
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
+  const refreshInFlight = useRef(false);
 
-  const loadSessions = async () => {
-    setLoading(true);
-    setError('');
+  const loadSessions = async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const res = await fetch('/api/demowapp/sesiones', { cache: 'no-store' });
       const data = await res.json();
       if (!data.ok) {
-        setError('No fue posible cargar sesiones. Verifica permisos de super_admin.');
+        setError(data.error || 'No fue posible cargar sesiones.');
         return;
       }
       setSessions(data.items || []);
     } catch {
       setError('Error de red al cargar sesiones.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  const loadDetail = async (oportunidadId: string) => {
-    setSelectedId(oportunidadId);
-    setLoadingDetail(true);
+  const loadDetail = async (oportunidadId: string, { silent = false } = {}) => {
+    if (!silent) {
+      setSelectedId(oportunidadId);
+      setLoadingDetail(true);
+      setError('');
+    }
     try {
       const res = await fetch(`/api/demowapp/sesiones/${oportunidadId}`, { cache: 'no-store' });
       const data = await res.json();
@@ -48,7 +54,7 @@ export default function DemoWappPage() {
     } catch {
       setError('Error de red al cargar el detalle.');
     } finally {
-      setLoadingDetail(false);
+      if (!silent) setLoadingDetail(false);
     }
   };
 
@@ -59,35 +65,45 @@ export default function DemoWappPage() {
 
   const onSend = async (texto: string, clientMessageId: string) => {
     if (!selectedId) return;
-    const res = await fetch(`/api/demowapp/sesiones/${selectedId}/mensaje`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texto, clientMessageId })
-    });
+    try {
+      const res = await fetch(`/api/demowapp/sesiones/${selectedId}/mensaje`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto, clientMessageId })
+      });
 
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'No se pudo enviar');
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'No se pudo enviar');
 
-    await fetch('/api/demowapp/push/procesar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ oportunidadId: selectedId })
-    });
-    await loadDetail(selectedId);
-    await loadSessions();
+      await fetch('/api/demowapp/push/procesar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oportunidadId: selectedId })
+      });
+      await Promise.all([loadDetail(selectedId, { silent: true }), loadSessions({ silent: true })]);
+    } catch (e: any) {
+      const message = e?.message || 'No se pudo enviar el mensaje.';
+      setError(message);
+      throw e;
+    }
   };
 
   useEffect(() => {
     if (!selectedId) return;
     const interval = window.setInterval(() => {
       void (async () => {
-        await fetch('/api/demowapp/push/procesar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ oportunidadId: selectedId })
-        });
-        await loadDetail(selectedId);
-        await loadSessions();
+        if (refreshInFlight.current) return;
+        refreshInFlight.current = true;
+        try {
+          await fetch('/api/demowapp/push/procesar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ oportunidadId: selectedId })
+          });
+          await loadDetail(selectedId, { silent: true });
+        } finally {
+          refreshInFlight.current = false;
+        }
       })();
     }, 5000);
     return () => window.clearInterval(interval);
@@ -159,7 +175,7 @@ export default function DemoWappPage() {
           {detail && (
             <DemoWappPanel
               titulo={[detail.persona?.nombres, detail.persona?.apellidos].filter(Boolean).join(' ') || 'Estudiante'}
-              subtitulo={`NaIA · ${detail.oferta?.nombre || 'Oferta'} · ${detail.contexto?.etapa || 'Etapa'}`}
+              subtitulo={`NaIA · ${detail.oferta?.nombre_oferta || 'Oferta'} · ${detail.contexto?.etapa || 'Etapa'}`}
               mensajes={detail.mensajes || []}
               onEnviar={onSend}
             />
