@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getServerSupabase } from '@/src/lib/supabase-server';
+import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 import AccionesOportunidad from '@/components/leadcenter/AccionesOportunidad';
 import PanelCopiloto from '@/components/leadcenter/PanelCopiloto';
+import ComentariosNotaPanel from '@/components/leadcenter/ComentariosNotaPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,12 +27,9 @@ export default async function FichaOportunidadPage({
 }) {
   const { id } = await params;
   const supabase = await getServerSupabase();
+  const sesion = await getSesionLeadCenter();
 
-  const { data: op, error } = await supabase
-    .from('oportunidades')
-    .select('*')
-    .eq('id', id)
-    .single();
+  const { data: op, error } = await supabase.from('oportunidades').select('*').eq('id', id).single();
 
   if (error || !op) notFound();
 
@@ -38,6 +37,9 @@ export default async function FichaOportunidadPage({
 
   const [
     { data: persona },
+    { data: universidad },
+    { data: programa },
+    { data: oferta },
     { data: etapas },
     { data: subestados },
     { data: etapaActual },
@@ -49,6 +51,23 @@ export default async function FichaOportunidadPage({
     { data: transferencias }
   ] = await Promise.all([
     supabase.from('personas').select('*').eq('id', o.persona_id).single(),
+    o.universidad_id
+      ? supabase
+          .from('universidades')
+          .select('id, nombre_oficial, nombre_corto, sigla')
+          .eq('id', o.universidad_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as any),
+    o.programa_id
+      ? supabase
+          .from('programas_academicos')
+          .select('id, nombre_oficial, nombre_corto')
+          .eq('id', o.programa_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as any),
+    o.oferta_id
+      ? supabase.from('ofertas_academicas').select('id, nombre_oferta').eq('id', o.oferta_id).maybeSingle()
+      : Promise.resolve({ data: null } as any),
     supabase.from('etapas_embudo').select('id, nombre, orden').order('orden'),
     supabase.from('subestados_oportunidad').select('id, nombre, etapa_id, orden').order('orden'),
     supabase.from('etapas_embudo').select('nombre, color').eq('id', o.etapa_id).single(),
@@ -72,7 +91,9 @@ export default async function FichaOportunidadPage({
       .limit(50),
     supabase
       .from('consentimientos_persona')
-      .select('id, tipo_consentimiento_id, estado, autoriza_contacto, autoriza_whatsapp, autoriza_transferencia, fecha_otorgamiento')
+      .select(
+        'id, tipo_consentimiento_id, estado, autoriza_contacto, autoriza_whatsapp, autoriza_transferencia, fecha_otorgamiento'
+      )
       .eq('persona_id', o.persona_id),
     supabase
       .from('propuestas_comerciales')
@@ -86,12 +107,41 @@ export default async function FichaOportunidadPage({
       .order('creado_en', { ascending: false })
   ]);
 
+  const autoresIds = Array.from(new Set(((notas as any[]) || []).map((n) => n.autor_id).filter(Boolean)));
+  const autoresRes = autoresIds.length
+    ? await supabase
+        .from('usuarios_internos')
+        .select('id, nombres, apellidos, correo')
+        .in('id', autoresIds)
+    : ({ data: [] } as any);
+
+  const autores = Object.fromEntries(
+    ((autoresRes.data as any[]) || []).map((u) => [
+      u.id,
+      [u.nombres, u.apellidos].filter(Boolean).join(' ') || u.correo || 'Usuario interno'
+    ])
+  );
+
   const p = (persona as any) || {};
   const nombrePersona = [p.nombres, p.apellidos].filter(Boolean).join(' ') || 'Persona';
-  const nombreEtapaPorId = (eid: string) =>
-    (etapas as any[])?.find((e) => e.id === eid)?.nombre || '—';
+  const nombreUniversidad =
+    (universidad as any)?.nombre_corto ||
+    (universidad as any)?.nombre_oficial ||
+    (universidad as any)?.sigla ||
+    'Universidad no definida';
+  const nombrePrograma =
+    (programa as any)?.nombre_corto || (programa as any)?.nombre_oficial || 'Programa no definido';
+  const nombreOferta = (oferta as any)?.nombre_oferta || 'Oferta no definida';
 
-  // Timeline combinada (historial + notas + tareas).
+  const nombreEtapaPorId = (eid: string) => (etapas as any[])?.find((e) => e.id === eid)?.nombre || '—';
+
+  const comentarios = ((notas as any[]) || []).map((n) => ({
+    id: n.id,
+    contenido: n.contenido,
+    creado_en: n.creado_en,
+    autor_nombre: autores[n.autor_id] || 'Usuario interno'
+  }));
+
   type Item = { ts: string; tipo: string; texto: string };
   const timeline: Item[] = [];
   (historial as any[])?.forEach((h) =>
@@ -101,8 +151,8 @@ export default async function FichaOportunidadPage({
       texto: `Movida a "${nombreEtapaPorId(h.etapa_nueva_id)}"${h.motivo ? ` · ${h.motivo}` : ''}`
     })
   );
-  (notas as any[])?.forEach((n) =>
-    timeline.push({ ts: n.creado_en, tipo: 'Nota', texto: n.contenido })
+  comentarios.forEach((n) =>
+    timeline.push({ ts: n.creado_en, tipo: 'Comentario', texto: `${n.autor_nombre}: ${n.contenido}` })
   );
   (tareas as any[])?.forEach((t) =>
     timeline.push({
@@ -119,12 +169,20 @@ export default async function FichaOportunidadPage({
         ← Volver a oportunidades
       </Link>
 
-      {/* Encabezado */}
+      {/* Copiloto al inicio */}
+      <PanelCopiloto oportunidadId={id} personaId={o.persona_id} />
+
+      {/* Encabezado con campos prioritarios */}
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">{o.nombre || 'Oportunidad'}</h1>
-            <p className="mt-0.5 text-sm text-gray-500">
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Persona</p>
+            <h1 className="text-xl font-bold text-gray-900">{nombrePersona}</h1>
+            <p className="text-sm text-gray-600">{nombreUniversidad}</p>
+            <p className="text-sm text-gray-500">
+              {nombrePrograma} · {nombreOferta}
+            </p>
+            <p className="text-xs text-gray-500">
               {(etapaActual as any)?.nombre || '—'} · {o.estado}
             </p>
           </div>
@@ -156,121 +214,126 @@ export default async function FichaOportunidadPage({
         </div>
       </div>
 
-      {/* Persona */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
-        <h2 className="mb-2 text-base font-semibold text-gray-900">Persona</h2>
-        <Link
-          href={`/leadcenter/personas/${o.persona_id}`}
-          className="text-sm font-medium text-blue-600"
-        >
-          {nombrePersona} →
-        </Link>
-        <div className="mt-2 grid grid-cols-1 gap-1 text-sm text-gray-600 sm:grid-cols-2">
-          <span>Correo: {p.correo_principal || '—'}</span>
-          <span>Celular: {p.celular_e164 || p.telefono_principal || '—'}</span>
-          <span>Verificado: {p.telefono_verificado ? 'Sí' : 'No'}</span>
-          <span>Estado: {p.estado_relacion || '—'}</span>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.25fr_1fr]">
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <h2 className="mb-2 text-base font-semibold text-gray-900">Persona</h2>
+            <Link
+              href={`/leadcenter/personas/${o.persona_id}`}
+              className="text-sm font-medium text-blue-600"
+            >
+              {nombrePersona} →
+            </Link>
+            <div className="mt-2 grid grid-cols-1 gap-1 text-sm text-gray-600 sm:grid-cols-2">
+              <span>Correo: {p.correo_principal || '—'}</span>
+              <span>Celular: {p.celular_e164 || p.telefono_principal || '—'}</span>
+              <span>Verificado: {p.telefono_verificado ? 'Sí' : 'No'}</span>
+              <span>Estado: {p.estado_relacion || '—'}</span>
+            </div>
+          </div>
+
+          <ComentariosNotaPanel
+            oportunidadId={id}
+            personaId={o.persona_id}
+            notaInicial={o.notas_internas}
+            comentariosIniciales={comentarios}
+            puedeEditarNota={Boolean(sesion.esSuper || sesion.esAsesor)}
+          />
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <h2 className="mb-3 text-base font-semibold text-gray-900">Historial</h2>
+            {timeline.length === 0 ? (
+              <p className="text-sm text-gray-500">Aún no hay actividad registrada.</p>
+            ) : (
+              <ol className="space-y-3">
+                {timeline.slice(0, 60).map((it, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span className="mt-0.5 shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                      {it.tipo}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="whitespace-pre-line text-sm text-gray-700">{it.texto}</p>
+                      <p className="text-xs text-gray-400">{fecha(it.ts)}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Consentimientos */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
-        <h2 className="mb-2 text-base font-semibold text-gray-900">Consentimientos</h2>
-        {(consentimientos as any[])?.length ? (
-          <ul className="space-y-1 text-sm text-gray-600">
-            {(consentimientos as any[]).map((c) => (
-              <li key={c.id} className="flex items-center justify-between">
-                <span>
-                  {c.autoriza_transferencia
-                    ? 'Transferencia a universidad'
-                    : c.autoriza_whatsapp
-                    ? 'Contacto por WhatsApp'
-                    : c.autoriza_contacto
-                    ? 'Contacto'
-                    : 'Tratamiento de datos'}
-                </span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs ${
-                    c.estado === 'otorgado'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
-                  {c.estado}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-gray-500">Sin consentimientos registrados.</p>
-        )}
-      </div>
+        <div className="space-y-4">
+          <AccionesOportunidad
+            oportunidadId={id}
+            personaId={o.persona_id}
+            etapaActualId={o.etapa_id}
+            etapas={(etapas as any[]) || []}
+            subestados={(subestados as any[]) || []}
+          />
 
-      {/* Propuestas y transferencias */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-gray-200 bg-white p-4">
-          <h2 className="mb-2 text-base font-semibold text-gray-900">Propuestas</h2>
-          {(propuestas as any[])?.length ? (
-            <ul className="space-y-1 text-sm text-gray-600">
-              {(propuestas as any[]).map((pr) => (
-                <li key={pr.id}>
-                  v{pr.version_actual} · {pr.estado} · {fecha(pr.fecha_emision)}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-gray-500">Sin propuestas.</p>
-          )}
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <h2 className="mb-2 text-base font-semibold text-gray-900">Consentimientos</h2>
+            {(consentimientos as any[])?.length ? (
+              <ul className="space-y-1 text-sm text-gray-600">
+                {(consentimientos as any[]).map((c) => (
+                  <li key={c.id} className="flex items-center justify-between gap-2">
+                    <span>
+                      {c.autoriza_transferencia
+                        ? 'Transferencia a universidad'
+                        : c.autoriza_whatsapp
+                        ? 'Contacto por WhatsApp'
+                        : c.autoriza_contacto
+                        ? 'Contacto'
+                        : 'Tratamiento de datos'}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs ${
+                        c.estado === 'otorgado'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      {c.estado}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500">Sin consentimientos registrados.</p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <h2 className="mb-2 text-base font-semibold text-gray-900">Propuestas</h2>
+            {(propuestas as any[])?.length ? (
+              <ul className="space-y-1 text-sm text-gray-600">
+                {(propuestas as any[]).map((pr) => (
+                  <li key={pr.id}>
+                    v{pr.version_actual} · {pr.estado} · {fecha(pr.fecha_emision)}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500">Sin propuestas.</p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <h2 className="mb-2 text-base font-semibold text-gray-900">Transferencias</h2>
+            {(transferencias as any[])?.length ? (
+              <ul className="space-y-1 text-sm text-gray-600">
+                {(transferencias as any[]).map((t) => (
+                  <li key={t.id}>
+                    {t.estado} · {t.metodo_entrega || '—'}
+                    {t.es_facturable ? ' · facturable' : ''}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500">Sin transferencias.</p>
+            )}
+          </div>
         </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-4">
-          <h2 className="mb-2 text-base font-semibold text-gray-900">Transferencias</h2>
-          {(transferencias as any[])?.length ? (
-            <ul className="space-y-1 text-sm text-gray-600">
-              {(transferencias as any[]).map((t) => (
-                <li key={t.id}>
-                  {t.estado} · {t.metodo_entrega || '—'}
-                  {t.es_facturable ? ' · facturable' : ''}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-gray-500">Sin transferencias.</p>
-          )}
-        </div>
-      </div>
-
-      {/* Copiloto */}
-      <PanelCopiloto oportunidadId={id} personaId={o.persona_id} />
-
-      {/* Acciones */}
-      <AccionesOportunidad
-        oportunidadId={id}
-        personaId={o.persona_id}
-        etapaActualId={o.etapa_id}
-        etapas={(etapas as any[]) || []}
-        subestados={(subestados as any[]) || []}
-      />
-
-      {/* Timeline */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
-        <h2 className="mb-3 text-base font-semibold text-gray-900">Historial</h2>
-        {timeline.length === 0 ? (
-          <p className="text-sm text-gray-500">Aún no hay actividad registrada.</p>
-        ) : (
-          <ol className="space-y-3">
-            {timeline.slice(0, 60).map((it, i) => (
-              <li key={i} className="flex gap-3">
-                <span className="mt-0.5 shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
-                  {it.tipo}
-                </span>
-                <div className="min-w-0">
-                  <p className="whitespace-pre-line text-sm text-gray-700">{it.texto}</p>
-                  <p className="text-xs text-gray-400">{fecha(it.ts)}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
       </div>
     </div>
   );

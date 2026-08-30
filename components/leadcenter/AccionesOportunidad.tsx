@@ -169,13 +169,13 @@ export default function AccionesOportunidad({
             </label>
           </div>
           <label className="block text-sm">
-            <span className="mb-1 block text-gray-600">Nota</span>
+            <span className="mb-1 block text-gray-600">Comentario de gestión</span>
             <textarea
               value={nota}
               onChange={(e) => setNota(e.target.value)}
               rows={2}
               className={inputCls}
-              placeholder="Resumen de la conversación…"
+              placeholder="Comentario de gestión del contacto…"
             />
           </label>
           <label className="flex items-center gap-2 text-sm text-gray-700">
