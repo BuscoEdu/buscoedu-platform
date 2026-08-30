@@ -8,16 +8,26 @@ import { getLatestConversationByOpportunity } from '@/src/lib/demowapp/conversac
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function validarSesionPublica(req: NextRequest, token: string) {
+  const valid = verifyDemoWappToken(token);
+  if (!valid.ok) return valid;
+  const nonceCookie = req.cookies.get('demowapp_session')?.value;
+  if (!nonceCookie || nonceCookie !== valid.payload.nonce) {
+    return { ok: false as const, error: 'sesion_navegador_invalida' };
+  }
+  return valid;
+}
+
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const valid = verifyDemoWappToken(token);
+  const valid = validarSesionPublica(_req, token);
   if (valid.ok === false) {
     return NextResponse.json({ ok: false, error: valid.error }, { status: 401 });
   }
 
   try {
     const db = getServiceRoleClient();
-    await processDuePushes(db, 20);
+    await processDuePushes(db, 20, { oportunidadId: valid.payload.oportunidadId });
 
     const payload = valid.payload;
 
@@ -73,7 +83,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const valid = verifyDemoWappToken(token);
+  const valid = validarSesionPublica(req, token);
   if (valid.ok === false) {
     return NextResponse.json({ ok: false, error: valid.error }, { status: 401 });
   }
