@@ -1,0 +1,331 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  CONVERSACION_ESTADO_CERRADA,
+  DEMOWAPP_CANAL,
+  getOrCreateActiveConversation,
+  updateConversationContext
+} from './conversacion-service';
+import { DEMOWAPP_PUSH_CATALOG, type DemoWappPushCode, renderPushTemplate } from './push-catalog';
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function plusSeconds(seconds: number) {
+  return new Date(Date.now() + seconds * 1000).toISOString();
+}
+
+async function schedulePush(
+  db: SupabaseClient,
+  input: {
+    code: DemoWappPushCode;
+    oportunidadId: string;
+    personaId: string;
+    conversacionId: string;
+    destinatario: string;
+    fechaProgramada: string;
+    idempotencyKey: string;
+    metadatos?: Record<string, unknown>;
+    mensajeRenderizado: string;
+  }
+) {
+  const existing = await db
+    .from('comunicaciones_transaccionales')
+    .select('id, estado_envio')
+    .eq('referencia_externa', input.idempotencyKey)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing.data) {
+    return existing.data;
+  }
+
+  const payload = {
+    persona_id: input.personaId,
+    oportunidad_id: input.oportunidadId,
+    conversacion_id: input.conversacionId,
+    canal: DEMOWAPP_CANAL,
+    destinatario: input.destinatario,
+    plantilla: input.code,
+    estado_envio: 'pendiente',
+    fecha_programada: input.fechaProgramada,
+    referencia_externa: input.idempotencyKey,
+    metadatos: {
+      ...(input.metadatos || {}),
+      origen: 'demowapp_push',
+      mensaje_renderizado: input.mensajeRenderizado
+    }
+  };
+
+  const { data, error } = await db
+    .from('comunicaciones_transaccionales')
+    .insert(payload)
+    .select('id, estado_envio')
+    .single();
+
+  if (error || !data) {
+    throw new Error(`No se pudo programar push ${input.code}: ${error?.message || 'sin datos'}`);
+  }
+
+  return data;
+}
+
+export async function scheduleWelcomePushFromConversion(
+  db: SupabaseClient,
+  input: {
+    oportunidadId: string;
+    personaId: string;
+    aplicacionId: string;
+    nombre: string;
+    ofertaNombre: string;
+    destinatario: string;
+  }
+) {
+  const conversacion = await getOrCreateActiveConversation(db, {
+    oportunidadId: input.oportunidadId,
+    personaId: input.personaId,
+    reopenIfClosed: false,
+    tipoInicio: 'aplicacion_exitosa'
+  });
+
+  const code: DemoWappPushCode = 'bienvenida_aplicacion_exitosa';
+  const idempotencyKey = `demowapp:bienvenida:${input.aplicacionId}`;
+  const message = renderPushTemplate(code, {
+    nombre: input.nombre,
+    oferta: input.ofertaNombre
+  });
+
+  return schedulePush(db, {
+    code,
+    oportunidadId: input.oportunidadId,
+    personaId: input.personaId,
+    conversacionId: conversacion.id,
+    destinatario: input.destinatario,
+    fechaProgramada: plusSeconds(5),
+    idempotencyKey,
+    metadatos: {
+      aplicacion_id: input.aplicacionId,
+      tipo_inicio: 'aplicacion_exitosa'
+    },
+    mensajeRenderizado: message
+  });
+}
+
+export async function scheduleSilenceReminderPush(
+  db: SupabaseClient,
+  input: {
+    conversacionId: string;
+    oportunidadId: string;
+    personaId: string;
+    baseMessageId: string;
+  }
+) {
+  const code: DemoWappPushCode = 'recordatorio_silencio_3_min';
+  const idempotencyKey = `demowapp:recordatorio:${input.baseMessageId}`;
+
+  return schedulePush(db, {
+    code,
+    oportunidadId: input.oportunidadId,
+    personaId: input.personaId,
+    conversacionId: input.conversacionId,
+    destinatario: 'estudiante',
+    fechaProgramada: plusSeconds(180),
+    idempotencyKey,
+    metadatos: {
+      base_message_id: input.baseMessageId,
+      tipo_control: 'silencio_3_min'
+    },
+    mensajeRenderizado: DEMOWAPP_PUSH_CATALOG[code].mensajeBase
+  });
+}
+
+export async function cancelPendingSilencePushes(db: SupabaseClient, conversacionId: string) {
+  const { error } = await db
+    .from('comunicaciones_transaccionales')
+    .update({ estado_envio: 'cancelado', actualizado_en: nowIso() })
+    .eq('conversacion_id', conversacionId)
+    .eq('canal', DEMOWAPP_CANAL)
+    .in('plantilla', ['recordatorio_silencio_3_min', 'cierre_inactividad_5_min'])
+    .eq('estado_envio', 'pendiente');
+
+  if (error) {
+    throw new Error(`No se pudieron cancelar pushes pendientes: ${error.message}`);
+  }
+}
+
+async function appendPushMessage(
+  db: SupabaseClient,
+  input: {
+    conversacionId: string;
+    referenciaExterna: string;
+    contenido: string;
+    plantilla: string;
+  }
+) {
+  const existing = await db
+    .from('mensajes_conversacion')
+    .select('id')
+    .eq('conversacion_id', input.conversacionId)
+    .eq('referencia_externa', input.referenciaExterna)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing.data) {
+    return existing.data;
+  }
+
+  const { data, error } = await db
+    .from('mensajes_conversacion')
+    .insert({
+      conversacion_id: input.conversacionId,
+      remitente_tipo: 'naia',
+      tipo_contenido: 'texto',
+      contenido: input.contenido,
+      referencia_externa: input.referenciaExterna,
+      metadatos: {
+        origen: 'push_automatico',
+        plantilla: input.plantilla
+      },
+      enviado_en: nowIso()
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) throw new Error(`No se pudo persistir mensaje push: ${error?.message || 'sin datos'}`);
+  return data;
+}
+
+async function logPushSideEffects(
+  db: SupabaseClient,
+  input: {
+    oportunidadId: string;
+    personaId: string;
+    referencia: string;
+    plantilla: string;
+    estado: 'enviado' | 'cancelado';
+  }
+) {
+  await db.from('notas_crm').insert({
+    oportunidad_id: input.oportunidadId,
+    persona_id: input.personaId,
+    autor_id: null,
+    contenido: `[demowapp:${input.referencia}] Push ${input.plantilla} ${input.estado}.`,
+    es_privada: true
+  });
+
+  await db.from('eventos_negocio').insert({
+    evento: `demowapp_push_${input.estado}`,
+    metadatos: {
+      referencia: input.referencia,
+      plantilla: input.plantilla,
+      oportunidad_id: input.oportunidadId,
+      persona_id: input.personaId
+    },
+    generado_por: 'demowapp_push_processor',
+    creado_en: nowIso()
+  } as any);
+}
+
+async function scheduleCloseAfterReminder(
+  db: SupabaseClient,
+  row: any,
+  contenidoBase: string
+) {
+  const idempotencyKey = `demowapp:cierre:${row.referencia_externa}`;
+  await schedulePush(db, {
+    code: 'cierre_inactividad_5_min',
+    oportunidadId: row.oportunidad_id,
+    personaId: row.persona_id,
+    conversacionId: row.conversacion_id,
+    destinatario: row.destinatario || 'estudiante',
+    fechaProgramada: plusSeconds(120),
+    idempotencyKey,
+    metadatos: {
+      disparado_por: row.id,
+      recordatorio_base: row.referencia_externa
+    },
+    mensajeRenderizado: contenidoBase
+  });
+}
+
+async function deliverPushRow(db: SupabaseClient, row: any) {
+  const contenido =
+    row?.metadatos?.mensaje_renderizado || DEMOWAPP_PUSH_CATALOG[row.plantilla as DemoWappPushCode]?.mensajeBase;
+  if (!contenido) return;
+
+  await appendPushMessage(db, {
+    conversacionId: row.conversacion_id,
+    referenciaExterna: row.referencia_externa,
+    contenido,
+    plantilla: row.plantilla
+  });
+
+  await db
+    .from('comunicaciones_transaccionales')
+    .update({ estado_envio: 'enviado', fecha_enviada: nowIso(), actualizado_en: nowIso() })
+    .eq('id', row.id)
+    .eq('estado_envio', 'pendiente');
+
+  if (row.plantilla === 'recordatorio_silencio_3_min') {
+    await scheduleCloseAfterReminder(db, row, DEMOWAPP_PUSH_CATALOG.cierre_inactividad_5_min.mensajeBase);
+  }
+
+  if (row.plantilla === 'cierre_inactividad_5_min') {
+    await updateConversationContext(db, row.conversacion_id, {
+      estado: CONVERSACION_ESTADO_CERRADA,
+      cierreEn: nowIso(),
+      contextoResumido: JSON.stringify({ motivo_cierre: 'inactividad_estudiante', cerrado_en: nowIso() })
+    });
+  }
+
+  await logPushSideEffects(db, {
+    oportunidadId: row.oportunidad_id,
+    personaId: row.persona_id,
+    referencia: row.referencia_externa,
+    plantilla: row.plantilla,
+    estado: 'enviado'
+  });
+}
+
+export async function processDuePushes(db: SupabaseClient, limit = 50) {
+  const { data, error } = await db
+    .from('comunicaciones_transaccionales')
+    .select('*')
+    .eq('canal', DEMOWAPP_CANAL)
+    .eq('estado_envio', 'pendiente')
+    .lte('fecha_programada', nowIso())
+    .order('fecha_programada', { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(`No se pudieron cargar pushes pendientes: ${error.message}`);
+  }
+
+  let processed = 0;
+  const failed: string[] = [];
+
+  for (const row of data || []) {
+    try {
+      await deliverPushRow(db, row);
+      processed += 1;
+    } catch (e: any) {
+      failed.push(row.id);
+      await db
+        .from('comunicaciones_transaccionales')
+        .update({
+          estado_envio: 'error',
+          error_envio: e?.message || 'error_desconocido',
+          actualizado_en: nowIso()
+        })
+        .eq('id', row.id)
+        .eq('estado_envio', 'pendiente');
+    }
+  }
+
+  return {
+    ok: true,
+    procesadas: processed,
+    fallidas: failed.length,
+    ids_fallidas: failed
+  };
+}

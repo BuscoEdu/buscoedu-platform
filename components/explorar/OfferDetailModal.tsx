@@ -5,6 +5,7 @@ import type { OfertaAcademica } from '@/src/lib/ofertas';
 import { useMyList } from '@/src/contexts/MyListContext';
 import { trackOfferOpened, trackOfferClosed, trackApplyAttempt } from '@/src/lib/events';
 import AplicacionConsentimientoModal from '@/components/leadcenter/AplicacionConsentimientoModal';
+import DemoWappModal from '@/components/demowapp/DemoWappModal';
 
 interface OfferDetailModalProps {
   oferta: OfertaAcademica | null;
@@ -14,6 +15,8 @@ interface OfferDetailModalProps {
 export default function OfferDetailModal({ oferta, onClose }: OfferDetailModalProps) {
   const { isInMyList, addToMyList, removeFromMyList } = useMyList();
   const [mostrarAplicacion, setMostrarAplicacion] = useState(false);
+  const [demoToken, setDemoToken] = useState<string | null>(null);
+  const [mostrarDemoWapp, setMostrarDemoWapp] = useState(false);
 
   // Prevenir scroll del body cuando el modal está abierto y registrar eventos
   useEffect(() => {
@@ -226,9 +229,22 @@ export default function OfferDetailModal({ oferta, onClose }: OfferDetailModalPr
           ofertaNombre={oferta.nombre || (oferta as any).nombre_oferta || 'Oferta'}
           modeloNegocio={(oferta as any).modelo_negocio ?? null}
           onCerrar={() => setMostrarAplicacion(false)}
-          onConvertido={() => {
-            /* La confirmación se muestra dentro del modal. */
+          onConvertido={(resultado) => {
+            const token = resultado?.demowapp?.token;
+            if (typeof token === 'string' && token.length > 20) {
+              setDemoToken(token);
+              setMostrarDemoWapp(true);
+            }
           }}
+        />
+      )}
+
+      {demoToken && (
+        <DemoWappModal
+          token={demoToken}
+          abierto={mostrarDemoWapp}
+          autoOpenDelayMs={5000}
+          onCerrar={() => setMostrarDemoWapp(false)}
         />
       )}
     </>

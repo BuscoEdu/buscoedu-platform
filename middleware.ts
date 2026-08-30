@@ -14,9 +14,10 @@ export async function middleware(request: NextRequest) {
 
   const esAdmin = pathname.startsWith('/admin');
   const esLeadCenter = pathname.startsWith('/leadcenter');
+  const esDemoWapp = pathname.startsWith('/demowapp');
 
-  // Solo protegemos /admin y /leadcenter. El resto pasa sin cambios.
-  if (!esAdmin && !esLeadCenter) {
+  // Solo protegemos /admin, /leadcenter y /demowapp. El resto pasa sin cambios.
+  if (!esAdmin && !esLeadCenter && !esDemoWapp) {
     return NextResponse.next();
   }
 
@@ -25,8 +26,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const loginPath = esLeadCenter ? '/leadcenter/login' : '/admin/login';
-  // El Lead Center permite asesor Y super_admin; /admin solo super_admin.
+  const loginPath = esLeadCenter || esDemoWapp ? '/leadcenter/login' : '/admin/login';
+  // El Lead Center permite asesor y super_admin; DemoWapp y /admin solo super_admin.
   const rolesPermitidos = esLeadCenter ? ['super_admin', 'asesor'] : ['super_admin'];
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -81,5 +82,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/leadcenter/:path*']
+  matcher: ['/admin/:path*', '/leadcenter/:path*', '/demowapp/:path*']
 };
