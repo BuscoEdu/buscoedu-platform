@@ -1,4 +1,4 @@
-import { getServerSupabase } from '@/src/lib/supabase-server';
+import { getServerSupabase, getServiceRoleClient } from '@/src/lib/supabase-server';
 import { resolveRoleCode } from '@/src/lib/admin/resolve-role-code';
 
 export interface SesionLeadCenter {
@@ -12,9 +12,10 @@ export interface SesionLeadCenter {
 }
 
 /**
- * Resuelve la sesión del Lead Center desde las cookies (respeta RLS).
- * Devuelve el usuario interno y su rol. El middleware ya bloquea el acceso a
- * usuarios no autorizados; esto complementa dentro de los Server Components.
+ * Resuelve la sesión del Lead Center desde las cookies.
+ * La identidad procede siempre de Supabase Auth. El perfil interno se resuelve
+ * desde el servidor para no confundir una política RLS administrativa con una
+ * falta de autenticación del asesor.
  */
 export async function getSesionLeadCenter(): Promise<SesionLeadCenter> {
   try {
@@ -25,20 +26,28 @@ export async function getSesionLeadCenter(): Promise<SesionLeadCenter> {
 
     if (!user) return { autenticado: false, esSuper: false, esAsesor: false };
 
-    const { data: interno } = await supabase
+    // RLS en usuarios_internos está reservada a la administración. Tras validar
+    // la sesión del navegador, el servidor resuelve únicamente el perfil de ese
+    // usuario con la service role; la clave nunca llega al cliente.
+    const service = getServiceRoleClient();
+    const { data: interno, error: internoError } = await service
       .from('usuarios_internos')
       .select('id, nombre, nombres, activo, rol_id, roles(codigo)')
       .eq('auth_user_id', user.id)
       .eq('activo', true)
       .single();
 
-    const roleCode = resolveRoleCode((interno as any)?.roles);
+    if (internoError || !interno) {
+      return { autenticado: false, esSuper: false, esAsesor: false };
+    }
+
+    const roleCode = resolveRoleCode((interno as any).roles);
 
     return {
-      autenticado: !!interno,
+      autenticado: true,
       authUserId: user.id,
-      usuarioInternoId: (interno as any)?.id,
-      nombre: (interno as any)?.nombre || (interno as any)?.nombres || user.email || 'Usuario',
+      usuarioInternoId: (interno as any).id,
+      nombre: (interno as any).nombre || (interno as any).nombres || user.email || 'Usuario',
       roleCode,
       esSuper: roleCode === 'super_admin',
       esAsesor: roleCode === 'asesor'
