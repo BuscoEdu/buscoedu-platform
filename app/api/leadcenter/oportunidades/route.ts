@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
+import { calcularEstadoEstancamiento } from '@/src/lib/leadcenter/estancamiento';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from('oportunidades')
       .select(
-        'id, nombre, estado, temperatura, puntaje, fecha_proxima_accion, etapa_id, persona_id, universidad_id, programa_id, oferta_id, actualizado_en',
+        'id, nombre, estado, temperatura, puntaje, fecha_proxima_accion, etapa_id, subestado_id, persona_id, universidad_id, programa_id, oferta_id, actualizado_en',
         { count: 'exact' }
       );
 
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
     const ofertaIds = Array.from(new Set((baseRows || []).map((r: any) => r.oferta_id).filter(Boolean)));
     const etapaIds = Array.from(new Set((baseRows || []).map((r: any) => r.etapa_id).filter(Boolean)));
 
-    const [personasRes, universidadesRes, programasRes, ofertasRes, etapasRes] = await Promise.all([
+    const [personasRes, universidadesRes, programasRes, ofertasRes, etapasRes, reglasRes] = await Promise.all([
       personaIds.length
         ? supabase.from('personas').select('id, nombres, apellidos').in('id', personaIds)
         : Promise.resolve({ data: [] as any[] } as any),
@@ -90,7 +91,11 @@ export async function GET(req: NextRequest) {
         : Promise.resolve({ data: [] as any[] } as any),
       etapaIds.length
         ? supabase.from('etapas_embudo').select('id, nombre').in('id', etapaIds)
-        : Promise.resolve({ data: [] as any[] } as any)
+        : Promise.resolve({ data: [] as any[] } as any),
+      supabase
+        .from('reglas_estancamiento')
+        .select('id, etapa_id, subestado_id, tiempo_maximo_horas, accion_recomendada, activo')
+        .eq('activo', true)
     ]);
 
     const personas = Object.fromEntries((personasRes.data || []).map((p: any) => [p.id, p]));
@@ -99,11 +104,20 @@ export async function GET(req: NextRequest) {
     const ofertas = Object.fromEntries((ofertasRes.data || []).map((o: any) => [o.id, o]));
     const etapas = Object.fromEntries((etapasRes.data || []).map((e: any) => [e.id, e.nombre]));
 
+    const reglasActivas = (reglasRes.data as any[]) || [];
+
     const items = (baseRows || []).map((row: any) => {
       const persona = personas[row.persona_id] || {};
       const uni = universidades[row.universidad_id] || {};
       const programa = programas[row.programa_id] || {};
       const oferta = ofertas[row.oferta_id] || {};
+
+      const estancamiento = calcularEstadoEstancamiento({
+        reglas: reglasActivas,
+        etapa_id: row.etapa_id,
+        subestado_id: row.subestado_id,
+        actualizado_en: row.actualizado_en
+      });
 
       return {
         id: row.id,
@@ -128,7 +142,8 @@ export async function GET(req: NextRequest) {
         oferta: {
           id: row.oferta_id,
           nombre: oferta.nombre_oferta || '—'
-        }
+        },
+        estancamiento
       };
     });
 
@@ -137,9 +152,6 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, items, total, hasMore, limit, offset });
   } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: e?.message || 'server_error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });
   }
 }

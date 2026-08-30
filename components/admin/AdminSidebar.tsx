@@ -17,6 +17,7 @@ const navItems = [
   { label: 'Beneficios', href: '/admin/beneficios' },
   { label: 'Precios', href: '/admin/precios' },
   { label: 'Periodos', href: '/admin/periodos' },
+  { label: 'Funnel', href: '/admin/funnel' },
   { label: 'Catálogos', href: '/admin/catalogos' }
 ];
 

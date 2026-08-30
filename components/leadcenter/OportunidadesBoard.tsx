@@ -25,6 +25,11 @@ type Item = {
   universidad: { id?: string; nombre: string };
   programa: { id?: string; nombre: string };
   oferta: { id?: string; nombre: string };
+  estancamiento?: {
+    estado: 'normal' | 'proximo_a_vencer' | 'estancado';
+    tiempo_legible: string;
+    accion_recomendada?: string | null;
+  };
 };
 
 interface ApiResponse {
@@ -40,6 +45,12 @@ interface ApiResponse {
 function fecha(iso?: string | null) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('es-CO');
+}
+
+function badgeEstancamiento(estado?: 'normal' | 'proximo_a_vencer' | 'estancado') {
+  if (estado === 'estancado') return { label: '🔴 Estancado', cls: 'bg-red-100 text-red-700' };
+  if (estado === 'proximo_a_vencer') return { label: '🟡 Próximo a vencer', cls: 'bg-amber-100 text-amber-700' };
+  return { label: '🟢 Normal', cls: 'bg-emerald-100 text-emerald-700' };
 }
 
 export default function OportunidadesBoard({ etapas }: { etapas: Option[] }) {
@@ -199,37 +210,49 @@ export default function OportunidadesBoard({ etapas }: { etapas: Option[] }) {
             No hay oportunidades con estos filtros.
           </p>
         )}
-        {items.map((o) => (
-          <Link
-            key={o.id}
-            href={`/leadcenter/oportunidades/${o.id}`}
-            className="block rounded-2xl border border-gray-200 bg-white p-4 hover:border-blue-300 hover:shadow-sm"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 space-y-0.5">
-                <p className="truncate font-semibold text-gray-900">{o.persona.nombre_completo}</p>
-                <p className="truncate text-xs text-gray-500">{o.universidad.nombre}</p>
-                <p className="truncate text-xs text-gray-500">
-                  {o.programa.nombre} · {o.oferta.nombre}
-                </p>
-                <p className="truncate text-xs text-gray-500">
-                  {o.etapa} · {o.estado}
-                </p>
+        {items.map((o) => {
+          const est = badgeEstancamiento(o.estancamiento?.estado);
+          return (
+            <Link
+              key={o.id}
+              href={`/leadcenter/oportunidades/${o.id}`}
+              className="block rounded-2xl border border-gray-200 bg-white p-4 hover:border-blue-300 hover:shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <p className="truncate font-semibold text-gray-900">{o.persona.nombre_completo}</p>
+                  <p className="truncate text-xs text-gray-500">{o.universidad.nombre}</p>
+                  <p className="truncate text-xs text-gray-500">
+                    {o.programa.nombre} · {o.oferta.nombre}
+                  </p>
+                  <p className="truncate text-xs text-gray-500">
+                    {o.etapa} · {o.estado}
+                  </p>
+                  <p className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${est.cls}`}>
+                    {est.label}
+                  </p>
+                  <p className="truncate text-[11px] text-gray-500">
+                    {o.estancamiento?.tiempo_legible || '0 horas'} en esta etapa
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium ${
+                    TEMP_BADGE[o.temperatura] || 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {(o.temperatura || '—').replace('_', ' ')}
+                </span>
               </div>
-              <span
-                className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium ${
-                  TEMP_BADGE[o.temperatura] || 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {(o.temperatura || '—').replace('_', ' ')}
-              </span>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-              <span>Puntaje: {o.puntaje ?? 0}</span>
-              <span>Próx. acción: {fecha(o.fecha_proxima_accion)}</span>
-            </div>
-          </Link>
-        ))}
+              <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                <span>Puntaje: {o.puntaje ?? 0}</span>
+                <span>Próx. acción: {fecha(o.fecha_proxima_accion)}</span>
+              </div>
+              {o.estancamiento?.accion_recomendada && o.estancamiento.estado !== 'normal' && (
+                <p className="mt-2 text-xs text-amber-700">Acción sugerida: {o.estancamiento.accion_recomendada}</p>
+              )}
+            </Link>
+          );
+        })}
       </div>
 
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">

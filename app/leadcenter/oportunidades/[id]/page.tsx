@@ -5,6 +5,7 @@ import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 import AccionesOportunidad from '@/components/leadcenter/AccionesOportunidad';
 import PanelCopiloto from '@/components/leadcenter/PanelCopiloto';
 import ComentariosNotaPanel from '@/components/leadcenter/ComentariosNotaPanel';
+import { calcularEstadoEstancamiento } from '@/src/lib/leadcenter/estancamiento';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,7 @@ export default async function FichaOportunidadPage({
     { data: etapas },
     { data: subestados },
     { data: etapaActual },
+    { data: reglasEstancamiento },
     { data: historial },
     { data: notas },
     { data: tareas },
@@ -69,8 +71,15 @@ export default async function FichaOportunidadPage({
       ? supabase.from('ofertas_academicas').select('id, nombre_oferta').eq('id', o.oferta_id).maybeSingle()
       : Promise.resolve({ data: null } as any),
     supabase.from('etapas_embudo').select('id, nombre, orden').order('orden'),
-    supabase.from('subestados_oportunidad').select('id, nombre, etapa_id, orden').order('orden'),
+    supabase
+      .from('subestados_oportunidad')
+      .select('id, nombre, etapa_id, orden, activo')
+      .order('orden'),
     supabase.from('etapas_embudo').select('nombre, color').eq('id', o.etapa_id).single(),
+    supabase
+      .from('reglas_estancamiento')
+      .select('id, etapa_id, subestado_id, tiempo_maximo_horas, accion_recomendada, activo')
+      .eq('activo', true),
     supabase
       .from('historial_etapas_oportunidad')
       .select('id, etapa_nueva_id, motivo, canal, creado_en')
@@ -134,6 +143,20 @@ export default async function FichaOportunidadPage({
   const nombreOferta = (oferta as any)?.nombre_oferta || 'Oferta no definida';
 
   const nombreEtapaPorId = (eid: string) => (etapas as any[])?.find((e) => e.id === eid)?.nombre || '—';
+
+  const estancamiento = calcularEstadoEstancamiento({
+    reglas: (reglasEstancamiento as any[]) || [],
+    etapa_id: o.etapa_id,
+    subestado_id: o.subestado_id,
+    actualizado_en: o.actualizado_en
+  });
+
+  const badgeEstancamiento =
+    estancamiento.estado === 'estancado'
+      ? { label: '🔴 Estancado', cls: 'bg-red-100 text-red-700' }
+      : estancamiento.estado === 'proximo_a_vencer'
+      ? { label: '🟡 Próximo a vencer', cls: 'bg-amber-100 text-amber-700' }
+      : { label: '🟢 Normal', cls: 'bg-emerald-100 text-emerald-700' };
 
   const comentarios = ((notas as any[]) || []).map((n) => ({
     id: n.id,
@@ -214,6 +237,24 @@ export default async function FichaOportunidadPage({
         </div>
       </div>
 
+      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+        <h2 className="mb-2 text-base font-semibold text-gray-900">Estado de estancamiento</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${badgeEstancamiento.cls}`}>
+            {badgeEstancamiento.label}
+          </span>
+          <span className="text-sm text-gray-600">{estancamiento.tiempo_legible} en la etapa/subestado actual</span>
+          {estancamiento.tiempo_maximo_horas ? (
+            <span className="text-xs text-gray-500">Umbral: {estancamiento.tiempo_maximo_horas} horas</span>
+          ) : null}
+        </div>
+        {estancamiento.accion_recomendada && estancamiento.estado !== 'normal' && (
+          <p className="mt-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">
+            Acción recomendada: {estancamiento.accion_recomendada}
+          </p>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.25fr_1fr]">
         <div className="space-y-4">
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
@@ -268,7 +309,7 @@ export default async function FichaOportunidadPage({
             personaId={o.persona_id}
             etapaActualId={o.etapa_id}
             etapas={(etapas as any[]) || []}
-            subestados={(subestados as any[]) || []}
+            subestados={((subestados as any[]) || []).filter((s: any) => s.activo !== false)}
           />
 
           <div className="rounded-2xl border border-gray-200 bg-white p-4">

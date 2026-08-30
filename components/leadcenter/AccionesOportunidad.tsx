@@ -72,7 +72,15 @@ export default function AccionesOportunidad({
         setMotivo('');
         router.refresh();
       } else {
-        setMsgEtapa(d.error === 'no_autorizado' ? 'No tienes permiso sobre esta oportunidad.' : 'No se pudo actualizar.');
+        if (d.error === 'no_autorizado') {
+          setMsgEtapa('No tienes permiso sobre esta oportunidad.');
+        } else if (d.error === 'subestado_invalido_para_etapa') {
+          setMsgEtapa('El subestado seleccionado no pertenece a la etapa elegida.');
+        } else if (d.error === 'etapa_invalida') {
+          setMsgEtapa('La etapa seleccionada no está disponible.');
+        } else {
+          setMsgEtapa('No se pudo actualizar.');
+        }
       }
     } catch {
       setMsgEtapa('Error de red.');
