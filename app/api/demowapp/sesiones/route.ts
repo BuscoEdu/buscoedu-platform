@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
-import { DEMOWAPP_CANAL } from '@/src/lib/demowapp/conversacion-service';
+import { DEMOWAPP_CANAL, DEMOWAPP_META_CHANNEL } from '@/src/lib/demowapp/conversacion-service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,6 +47,7 @@ export async function GET(_req: NextRequest) {
         .from('conversaciones')
         .select('id, oportunidad_id, estado, ultima_actividad_en')
         .eq('canal', DEMOWAPP_CANAL)
+        .eq('metadatos->>canal_simulado', DEMOWAPP_META_CHANNEL)
         .in('oportunidad_id', oportunidadIds),
       db.from('etapas_embudo').select('id, nombre'),
       db.from('subestados_oportunidad').select('id, nombre')
