@@ -205,71 +205,95 @@ export async function POST(req: NextRequest) {
 
     const resultado = data as any;
 
-    if (resultado?.ok) {
-      try {
-        const [{ data: persona }, { data: oferta }] = await Promise.all([
-          db
-            .from('personas')
-            .select('id, nombres, apellidos, celular_e164')
-            .eq('id', resultado.persona_id)
-            .maybeSingle(),
-          db.from('ofertas_academicas').select('id, nombre').eq('id', ofertaId).maybeSingle()
-        ]);
-
-        await scheduleWelcomePushFromConversion(db, {
-          oportunidadId: resultado.oportunidad_id,
-          personaId: resultado.persona_id,
-          aplicacionId: resultado.aplicacion_id,
-          nombre: [persona?.nombres, persona?.apellidos].filter(Boolean).join(' ') || 'estudiante',
-          ofertaNombre: oferta?.nombre || ofertaId,
-          destinatario: persona?.celular_e164 || norm.e164
-        });
-
-        const demoSession = createDemoWappToken({
-          personaId: resultado.persona_id,
-          oportunidadId: resultado.oportunidad_id,
-          aplicacionId: resultado.aplicacion_id,
-          visitanteId: visitanteIdValidado,
-          celularVerificado: norm.e164
-        });
-
-        const response = NextResponse.json(
-          {
-            ...resultado,
-            demowapp: {
-              token: demoSession.token,
-              delayMs: 5000,
-              expiresInSeconds: getDemoWappTokenTtlSeconds(),
-              oportunidadId: resultado.oportunidad_id,
-              aplicacionId: resultado.aplicacion_id
-            }
-          },
-          { status: 200 }
-        );
-        response.cookies.set('demowapp_session', demoSession.nonce, {
-          httpOnly: true,
-          sameSite: 'lax',
-          secure: process.env.NODE_ENV === 'production',
-          path: '/api/demowapp/estudiante',
-          maxAge: getDemoWappTokenTtlSeconds()
-        });
-        return response;
-      } catch (pushErr: any) {
-        console.error('[convertir] Error no bloqueante al preparar DemoWapp:', pushErr);
+    if (!resultado?.ok) {
+      if (resultado?.error === 'duplicada') {
         return NextResponse.json(
           {
-            ...resultado,
-            demowapp: {
-              error: 'no_se_pudo_preparar_demowapp',
-              detalle: pushErr?.message || null
-            }
+            ok: false,
+            error: 'duplicada',
+            mensaje: 'Esta solicitud ya estaba creada.',
+            aplicacion_id: resultado?.aplicacion_id || null
           },
-          { status: 200 }
+          { status: 400 }
         );
       }
+
+      if (resultado?.error === 'limite_alcanzado') {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'limite_alcanzado',
+            mensaje:
+              'Solo puedes tener hasta 3 aplicaciones activas. Debes cerrar tu solicitud con la universidad o con BuscoEdu antes de crear otra.'
+          },
+          { status: 400 }
+        );
+      }
+
+      return NextResponse.json(resultado, { status: 400 });
     }
 
-    return NextResponse.json(resultado, { status: 400 });
+    try {
+      const [{ data: persona }, { data: oferta }] = await Promise.all([
+        db
+          .from('personas')
+          .select('id, nombres, apellidos, celular_e164')
+          .eq('id', resultado.persona_id)
+          .maybeSingle(),
+        db.from('ofertas_academicas').select('id, nombre').eq('id', ofertaId).maybeSingle()
+      ]);
+
+      await scheduleWelcomePushFromConversion(db, {
+        oportunidadId: resultado.oportunidad_id,
+        personaId: resultado.persona_id,
+        aplicacionId: resultado.aplicacion_id,
+        nombre: [persona?.nombres, persona?.apellidos].filter(Boolean).join(' ') || 'estudiante',
+        ofertaNombre: oferta?.nombre || ofertaId,
+        destinatario: persona?.celular_e164 || norm.e164
+      });
+
+      const demoSession = createDemoWappToken({
+        personaId: resultado.persona_id,
+        oportunidadId: resultado.oportunidad_id,
+        aplicacionId: resultado.aplicacion_id,
+        visitanteId: visitanteIdValidado,
+        celularVerificado: norm.e164
+      });
+
+      const response = NextResponse.json(
+        {
+          ...resultado,
+          demowapp: {
+            token: demoSession.token,
+            delayMs: 5000,
+            expiresInSeconds: getDemoWappTokenTtlSeconds(),
+            oportunidadId: resultado.oportunidad_id,
+            aplicacionId: resultado.aplicacion_id
+          }
+        },
+        { status: 200 }
+      );
+      response.cookies.set('demowapp_session', demoSession.nonce, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/api/demowapp/estudiante',
+        maxAge: getDemoWappTokenTtlSeconds()
+      });
+      return response;
+    } catch (pushErr: any) {
+      console.error('[convertir] Error no bloqueante al preparar DemoWapp:', pushErr);
+      return NextResponse.json(
+        {
+          ...resultado,
+          demowapp: {
+            error: 'no_se_pudo_preparar_demowapp',
+            detalle: pushErr?.message || null
+          }
+        },
+        { status: 200 }
+      );
+    }
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, error: 'server_error', mensaje: e?.message },

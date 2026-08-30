@@ -8,6 +8,7 @@ import ActiveFilterTags from '@/components/explorar/ActiveFilterTags';
 import SortControl from '@/components/explorar/SortControl';
 import OfferCard from '@/components/explorar/OfferCard';
 import OfferDetailModal from '@/components/explorar/OfferDetailModal';
+import DemoWappModal from '@/components/demowapp/DemoWappModal';
 import { useMyList } from '@/src/contexts/MyListContext';
 import { obtenerOfertas, verificarDatosDemo, type FiltrosOferta, type OfertaAcademica } from '@/src/lib/ofertas';
 import type { NaiaMockResponse } from '@/src/lib/naia-mock';
@@ -156,6 +157,8 @@ function ExplorarPageContent() {
   const [hayDatos, setHayDatos] = useState(false);
   const [sortBy, setSortBy] = useState('relevancia');
   const [selectedOferta, setSelectedOferta] = useState<OfertaAcademica | null>(null);
+  const [demoToken, setDemoToken] = useState<string | null>(null);
+  const [mostrarDemoWapp, setMostrarDemoWapp] = useState(false);
 
   // Verificar datos y cargar ofertas iniciales
   useEffect(() => {
@@ -246,6 +249,14 @@ function ExplorarPageContent() {
       removeFromMyList(ofertaId);
     } else {
       addToMyList(ofertaId);
+    }
+  };
+
+  const handleAplicacionCompletada = (resultado: any) => {
+    const token = resultado?.demowapp?.token;
+    if (typeof token === 'string' && token.length > 20) {
+      setDemoToken(token);
+      setMostrarDemoWapp(true);
     }
   };
 
@@ -446,7 +457,20 @@ function ExplorarPageContent() {
       </div>
 
       {/* Modal de detalle de oferta */}
-      <OfferDetailModal oferta={selectedOferta} onClose={() => setSelectedOferta(null)} />
+      <OfferDetailModal
+        oferta={selectedOferta}
+        onClose={() => setSelectedOferta(null)}
+        onAplicacionCompletada={handleAplicacionCompletada}
+      />
+
+      {demoToken && (
+        <DemoWappModal
+          token={demoToken}
+          abierto={mostrarDemoWapp}
+          autoOpenDelayMs={5000}
+          onCerrar={() => setMostrarDemoWapp(false)}
+        />
+      )}
     </div>
   );
 }

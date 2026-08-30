@@ -51,6 +51,7 @@ export default function AplicacionConsentimientoModal({
   const [seleccion, setSeleccion] = useState<Record<string, boolean>>({});
   const [visitanteId, setVisitanteId] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [enviandoConversion, setEnviandoConversion] = useState(false);
   const [error, setError] = useState('');
   const [resultado, setResultado] = useState<any>(null);
 
@@ -120,6 +121,8 @@ export default function AplicacionConsentimientoModal({
   };
 
   const convertir = async () => {
+    if (enviandoConversion) return;
+
     // Validación: el consentimiento obligatorio (tratamiento de datos) debe estar.
     const obligatorios = tipos.filter((t) => t.es_obligatorio);
     for (const o of obligatorios) {
@@ -128,9 +131,12 @@ export default function AplicacionConsentimientoModal({
         return;
       }
     }
+
     setError('');
     setPaso('enviando');
     setCargando(true);
+    setEnviandoConversion(true);
+
     try {
       const claveIdempotencia = `${visitanteId || 'anon'}:${ofertaId}:${celularNorm}`;
       const consentimientos = tipos.map((t) => ({
@@ -152,20 +158,36 @@ export default function AplicacionConsentimientoModal({
           consentimientos
         })
       });
+
       const d = await res.json();
       if (!d.ok) {
+        if (d.error === 'duplicada') {
+          setError('Esta solicitud ya estaba creada.');
+          setPaso('consentimientos');
+          return;
+        }
+        if (d.error === 'limite_alcanzado') {
+          setError(
+            'Solo puedes tener hasta 3 aplicaciones activas. Debes cerrar tu solicitud con la universidad o con BuscoEdu antes de crear otra.'
+          );
+          setPaso('consentimientos');
+          return;
+        }
+
         setError(d.mensaje || 'No se pudo completar la aplicación.');
         setPaso('consentimientos');
         return;
       }
+
       setResultado(d);
-      setPaso('listo');
       onConvertido(d);
+      onCerrar();
     } catch {
       setError('Error de red. Intenta de nuevo.');
       setPaso('consentimientos');
     } finally {
       setCargando(false);
+      setEnviandoConversion(false);
     }
   };
 
@@ -301,10 +323,10 @@ export default function AplicacionConsentimientoModal({
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button
               onClick={convertir}
-              disabled={cargando}
+              disabled={cargando || enviandoConversion}
               className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {cargando ? 'Procesando…' : 'Confirmar aplicación'}
+              {cargando || enviandoConversion ? 'Procesando…' : 'Confirmar aplicación'}
             </button>
           </div>
         )}
