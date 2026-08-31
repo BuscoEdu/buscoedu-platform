@@ -127,9 +127,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
       </header>
 
-      <AdminNav roleCode={roleCode} />
-
-      <main className="p-4 md:p-6">{children}</main>
+      <div className="md:flex md:items-start">
+        <AdminNav roleCode={roleCode} />
+        <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
+      </div>
     </div>
   );
 }

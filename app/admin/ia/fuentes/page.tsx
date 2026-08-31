@@ -1,10 +1,20 @@
 'use client';
 
 import PaginaCatalogo from '@/components/admin/ia/PaginaCatalogo';
+import CajaAyuda from '@/components/admin/CajaAyuda';
 
 export default function FuentesPage() {
   return (
-    <PaginaCatalogo
+    <>
+      <CajaAyuda titulo="¿Qué son las fuentes de contexto?">
+        <p>
+          Las fuentes son las tablas de la base de datos que el agente puede
+          consultar. Por ejemplo, &quot;ofertas_publicadas&quot; le permite a NaIA
+          saber qué programas están disponibles. El agente SOLO puede ver datos de
+          las fuentes que tengan estado &quot;activo&quot;.
+        </p>
+      </CajaAyuda>
+      <PaginaCatalogo
       titulo="Fuentes de contexto"
       descripcion="Fuentes de datos que alimentan el contexto dinámico de los agentes."
       endpoint="/api/admin/ia/fuentes"
@@ -29,6 +39,7 @@ export default function FuentesPage() {
         { clave: 'reglas_filtro', etiqueta: 'Reglas de filtro', tipo: 'textarea' },
         { clave: 'estado', etiqueta: 'Estado', tipo: 'texto' }
       ]}
-    />
+      />
+    </>
   );
 }

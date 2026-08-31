@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import EstadoBadge from '@/components/admin/ia/EstadoBadge';
+import CajaAyuda from '@/components/admin/CajaAyuda';
 
 interface AgenteItem {
   id: string;
@@ -65,6 +66,83 @@ export default function AgentesPage() {
 
   return (
     <section className="space-y-5">
+      <CajaAyuda titulo="🤖 ¿Cómo crear o actualizar un agente? — Guía paso a paso">
+        <div className="space-y-3">
+          <div>
+            <p className="font-semibold text-sky-900">Paso 1 — Entiende qué es un agente</p>
+            <p>
+              Un agente es el asistente virtual. NaIA ya es el primer agente. Si
+              quieres un segundo asistente (por ejemplo, uno para soporte técnico),
+              creas uno nuevo aquí.
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-sky-900">Paso 2 — Crea el agente</p>
+            <p>
+              Haz clic en &quot;Nuevo Agente&quot;, ponle un nombre, describe para
+              qué sirve y guárdalo. El agente nace en estado &quot;Borrador&quot; —
+              todavía no hace nada.
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-sky-900">Paso 3 — Crea una versión</p>
+            <p>
+              Un agente puede tener varias versiones (como las actualizaciones de una
+              app). Ve al detalle del agente y crea la &quot;Versión 1.0&quot;. Aquí
+              defines exactamente cómo se comporta.
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-sky-900">
+              Paso 4 — Agrega los contextos (la personalidad y las reglas)
+            </p>
+            <p>
+              En la versión, ve a la pestaña &quot;Contextos&quot; y agrega los
+              bloques de texto que definen:
+            </p>
+            <ul className="ml-5 list-disc">
+              <li>Quién es el agente (identidad)</li>
+              <li>Cómo habla (personalidad)</li>
+              <li>Qué puede hacer (objetivos y herramientas)</li>
+              <li>Qué NO puede hacer (reglas de seguridad)</li>
+            </ul>
+          </div>
+          <div>
+            <p className="font-semibold text-sky-900">Paso 5 — Configura el canal</p>
+            <p>
+              En la pestaña &quot;Canales&quot;, activa el canal &quot;Web&quot; (o
+              WhatsApp si ya está disponible). Esto le dice al agente por dónde va a
+              hablar con los usuarios.
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-sky-900">Paso 6 — Conecta el proveedor de IA</p>
+            <p>
+              En la pestaña &quot;Proveedor&quot;, selecciona Abacus.AI y el
+              despliegue &quot;NaIA Producción&quot;. Esto es el motor de inteligencia
+              artificial que hace que el agente &quot;piense&quot;.
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-sky-900">Paso 7 — Prueba antes de publicar</p>
+            <p>
+              En la pestaña &quot;Pruebas&quot;, escribe un mensaje de prueba y revisa
+              que la respuesta tenga el formato correcto y sea coherente.
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-sky-900">Paso 8 — Publica</p>
+            <p>
+              Cuando todo esté listo, haz clic en &quot;Publicar versión&quot;.
+              ¡Listo! El agente quedará activo y empezará a funcionar.
+            </p>
+          </div>
+          <p className="rounded-md bg-amber-100 px-3 py-2 font-semibold text-amber-900">
+            ⚠️ Importante: Una vez publicada, una versión no se puede editar. Si
+            necesitas cambiar algo, crea una nueva versión.
+          </p>
+        </div>
+      </CajaAyuda>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-buscoedu-blue">Agentes IA</h1>

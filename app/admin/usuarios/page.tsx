@@ -7,6 +7,7 @@ import Modal from '@/components/admin/Modal';
 import ErrorToast from '@/components/admin/ErrorToast';
 import SuccessToast from '@/components/admin/SuccessToast';
 import { isValidEmail } from '@/src/lib/admin/validation';
+import CajaAyuda from '@/components/admin/CajaAyuda';
 
 type Role = {
   id: string;
@@ -232,6 +233,13 @@ export default function AdminUsuariosPage() {
 
   return (
     <section className="space-y-5">
+      <CajaAyuda titulo="Usuarios del panel administrativo">
+        <p>
+          Aquí puedes gestionar quién tiene acceso al panel de administración de
+          BuscoEdu. Existen diferentes roles con diferentes permisos. Nunca elimines
+          un usuario — usa el campo &quot;activo&quot; para desactivarlo.
+        </p>
+      </CajaAyuda>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-buscoedu-blue">Usuarios internos</h1>

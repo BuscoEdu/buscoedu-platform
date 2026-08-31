@@ -397,7 +397,11 @@ function ExplorarPageContent() {
   };
 
   const handleCerrarOferta = () => {
+    // Limpiar también el id persistido: de lo contrario el efecto de
+    // restitución (selectedOfertaId sin selectedOferta) vuelve a abrir la
+    // ficha en un bucle que impide cerrarla.
     setSelectedOferta(null);
+    setSelectedOfertaId(null);
   };
 
   const handleAplicacionCompletada = (resultado: any) => {

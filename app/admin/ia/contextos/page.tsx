@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import EstadoBadge from '@/components/admin/ia/EstadoBadge';
 import FormularioContexto, { ContextoFormValores } from '@/components/admin/ia/FormularioContexto';
+import CajaAyuda from '@/components/admin/CajaAyuda';
 
 interface ContextoItem extends ContextoFormValores {
   id: string;
@@ -81,6 +82,16 @@ export default function ContextosPage() {
 
   return (
     <section className="space-y-5">
+      <CajaAyuda titulo="¿Qué son los contextos?">
+        <p>
+          Los contextos son los &quot;bloques de personalidad&quot; del agente.
+          Piénsalo como las instrucciones que le das a un empleado nuevo antes de su
+          primer día. Hay contextos de identidad (quién es), personalidad (cómo
+          habla), reglas de negocio (qué puede ofrecer) y formato (cómo debe
+          responder). Puedes editar el texto de cada contexto aquí y luego asignarlo
+          a una versión del agente.
+        </p>
+      </CajaAyuda>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-buscoedu-blue">Componentes de contexto</h1>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import TablaEjecuciones, { EjecucionItem } from '@/components/admin/ia/TablaEjecuciones';
+import CajaAyuda from '@/components/admin/CajaAyuda';
 
 async function getJson(url: string) {
   const res = await fetch(url, { cache: 'no-store' });
@@ -53,6 +54,14 @@ export default function EjecucionesPage() {
 
   return (
     <section className="space-y-5">
+      <CajaAyuda titulo="Historial de ejecuciones">
+        <p>
+          Cada vez que un usuario le escribe a NaIA, se registra una
+          &quot;ejecución&quot; aquí. Puedes ver si fue exitosa o si hubo un error,
+          cuánto tardó en responder y qué respondió exactamente. Úsalo para detectar
+          problemas o medir el desempeño.
+        </p>
+      </CajaAyuda>
       <div>
         <h1 className="text-2xl font-bold text-buscoedu-blue">Ejecuciones</h1>
         <p className="text-sm text-buscoedu-muted">Historial de ejecuciones de los agentes (solo lectura).</p>

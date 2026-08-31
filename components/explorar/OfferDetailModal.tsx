@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { OfertaAcademica } from '@/src/lib/ofertas';
 import { useMyList } from '@/src/contexts/MyListContext';
 import { trackOfferOpened, trackOfferClosed, trackApplyAttempt } from '@/src/lib/events';
@@ -20,6 +20,41 @@ interface OfferDetailModalProps {
 export default function OfferDetailModal({ oferta, onClose, onAplicacionCompletada }: OfferDetailModalProps) {
   const { isInMyList, addToMyList, removeFromMyList } = useMyList();
   const [mostrarAplicacion, setMostrarAplicacion] = useState(false);
+
+  // Overlay de "solicitud enviada" con cuenta regresiva de cierre automático.
+  const SEGUNDOS_CIERRE = 10;
+  const [mostrarExito, setMostrarExito] = useState(false);
+  const [segundosRestantes, setSegundosRestantes] = useState(SEGUNDOS_CIERRE);
+  const resultadoAplicacionRef = useRef<any>(null);
+
+  // Cierra el overlay de éxito y también la ficha de la oferta, notificando
+  // al componente padre con el resultado de la aplicación.
+  const cerrarConExito = () => {
+    setMostrarExito(false);
+    setSegundosRestantes(SEGUNDOS_CIERRE);
+    onAplicacionCompletada?.(resultadoAplicacionRef.current);
+    resultadoAplicacionRef.current = null;
+    onClose();
+  };
+
+  // Cuenta regresiva: decrementa cada segundo mientras el overlay está visible.
+  useEffect(() => {
+    if (!mostrarExito) return;
+    setSegundosRestantes(SEGUNDOS_CIERRE);
+    const intervalo = setInterval(() => {
+      setSegundosRestantes((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    // Limpieza obligatoria para evitar fugas de memoria (memory leaks).
+    return () => clearInterval(intervalo);
+  }, [mostrarExito]);
+
+  // Cuando la cuenta llega a cero, cierra automáticamente el overlay y la ficha.
+  useEffect(() => {
+    if (mostrarExito && segundosRestantes === 0) {
+      cerrarConExito();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mostrarExito, segundosRestantes]);
 
   // Prevenir scroll del body cuando el modal está abierto y registrar eventos
   useEffect(() => {
@@ -43,12 +78,17 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && oferta) {
-        onClose();
+        if (mostrarExito) {
+          cerrarConExito();
+        } else {
+          onClose();
+        }
       }
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [oferta, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [oferta, onClose, mostrarExito]);
 
   if (!oferta) return null;
 
@@ -252,11 +292,70 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
           modeloNegocio={(oferta as any).modelo_negocio ?? null}
           onCerrar={() => setMostrarAplicacion(false)}
           onConvertido={(resultado) => {
+            // No cerramos la ficha de inmediato: mostramos el overlay de éxito
+            // con cuenta regresiva. El cierre real ocurre en cerrarConExito().
             setMostrarAplicacion(false);
-            onAplicacionCompletada?.(resultado);
-            onClose();
+            resultadoAplicacionRef.current = resultado;
+            setMostrarExito(true);
           }}
         />
+      )}
+
+      {/* Overlay de solicitud enviada con cuenta regresiva */}
+      {mostrarExito && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="exito-titulo"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full px-8 py-10 text-center">
+            {/* Ícono de check verde grande */}
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
+              <svg
+                className="h-12 w-12 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2.5}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+
+            <h2 id="exito-titulo" className="text-2xl font-bold text-buscoedu-blue mb-2">
+              ¡Tu solicitud fue enviada exitosamente!
+            </h2>
+            <p className="text-buscoedu-muted mb-6">
+              {oferta.programa?.nombre || oferta.nombre}
+            </p>
+
+            {/* Barra de progreso que se reduce en 10 segundos */}
+            <div className="w-full h-2 bg-buscoedu-bg rounded-full overflow-hidden mb-3">
+              <div
+                className="h-full bg-buscoedu-teal rounded-full transition-all duration-1000 ease-linear"
+                style={{ width: `${(segundosRestantes / SEGUNDOS_CIERRE) * 100}%` }}
+              />
+            </div>
+
+            {/* Contador regresivo visible */}
+            <p className="text-sm text-buscoedu-muted mb-6">
+              Cerrando en {segundosRestantes} segundo{segundosRestantes === 1 ? '' : 's'}...
+            </p>
+
+            <button
+              onClick={cerrarConExito}
+              className="w-full bg-buscoedu-teal text-white px-6 py-3 rounded-lg font-semibold hover:bg-buscoedu-teal/90 transition-colors"
+            >
+              Cerrar ahora
+            </button>
+          </div>
+        </div>
       )}
     </>
   );

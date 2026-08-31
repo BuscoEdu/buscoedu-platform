@@ -12,6 +12,7 @@ import ErrorToast from '@/components/admin/ErrorToast';
 import { getSupabaseClient } from '@/src/lib/supabase';
 import { ESTADOS_PUBLICACION_OPTIONS } from '@/src/lib/admin/constants';
 import type { SelectOption } from '@/src/lib/admin/types';
+import CajaAyuda from '@/components/admin/CajaAyuda';
 
 type OfertaRow = {
   id: string;
@@ -250,6 +251,14 @@ export default function AdminOfertasPage() {
 
   return (
     <section className="space-y-5">
+      <CajaAyuda titulo="Ofertas académicas">
+        <p>
+          Una oferta es una combinación específica de programa + precio + beneficio +
+          periodo. Es lo que el usuario ve en la página de exploración. Para que
+          aparezca en el portal público, la oferta debe estar en estado
+          &quot;publicada&quot; y activa.
+        </p>
+      </CajaAyuda>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-buscoedu-blue">Ofertas Académicas</h1>

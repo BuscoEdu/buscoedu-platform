@@ -12,6 +12,7 @@ import ErrorToast from '@/components/admin/ErrorToast';
 import { getSupabaseClient } from '@/src/lib/supabase';
 import { ESTADOS_PUBLICACION_OPTIONS } from '@/src/lib/admin/constants';
 import type { SelectOption } from '@/src/lib/admin/types';
+import CajaAyuda from '@/components/admin/CajaAyuda';
 
 type ProgramaRow = {
   id: string;
@@ -268,6 +269,14 @@ export default function AdminProgramasPage() {
 
   return (
     <section className="space-y-5">
+      <CajaAyuda titulo="Programas académicos">
+        <p>
+          Los programas son las carreras, diplomados o cursos que ofrecen las
+          universidades. Cada programa pertenece a una universidad y puede tener
+          múltiples ofertas con precios y beneficios. Un programa debe estar vinculado
+          a una universidad antes de poder crear ofertas para él.
+        </p>
+      </CajaAyuda>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-buscoedu-blue">Programas Académicos</h1>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import TarjetaResumen from '@/components/admin/ia/TarjetaResumen';
 import TablaEjecuciones, { EjecucionItem } from '@/components/admin/ia/TablaEjecuciones';
 import EstadoBadge from '@/components/admin/ia/EstadoBadge';
+import CajaAyuda from '@/components/admin/CajaAyuda';
 
 async function getJson(url: string) {
   const res = await fetch(url, { cache: 'no-store' });
@@ -67,6 +68,14 @@ export default function CentroAgentesDashboard() {
 
   return (
     <section className="space-y-6">
+      <CajaAyuda titulo="¿Qué es el Centro de Agentes IA?">
+        <p>
+          Aquí puedes administrar los &quot;cerebros&quot; de NaIA y futuros
+          asistentes virtuales de BuscoEdu. Un agente es como un empleado virtual:
+          tiene una personalidad, sabe qué puede y qué no puede hacer, y trabaja a
+          través de diferentes canales (web, WhatsApp, etc.).
+        </p>
+      </CajaAyuda>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-buscoedu-blue">Centro de Agentes IA</h1>

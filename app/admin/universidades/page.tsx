@@ -12,6 +12,7 @@ import ErrorToast from '@/components/admin/ErrorToast';
 import { getSupabaseClient } from '@/src/lib/supabase';
 import { ESTADOS_PUBLICACION_OPTIONS } from '@/src/lib/admin/constants';
 import type { SelectOption } from '@/src/lib/admin/types';
+import CajaAyuda from '@/components/admin/CajaAyuda';
 
 type UniversidadRow = {
   id: string;
@@ -203,6 +204,15 @@ export default function AdminUniversidadesPage() {
 
   return (
     <section className="space-y-5">
+      <CajaAyuda titulo="Universidades aliadas">
+        <p>
+          Aquí están todas las universidades con las que BuscoEdu tiene convenio.
+          Solo las universidades en estado &quot;publicado&quot; son visibles para
+          los usuarios en el portal público. Para agregar una nueva, usa el botón
+          &quot;Nueva Universidad&quot; y completa toda la información antes de
+          publicarla.
+        </p>
+      </CajaAyuda>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-buscoedu-blue">Universidades</h1>

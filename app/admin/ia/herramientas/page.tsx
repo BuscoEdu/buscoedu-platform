@@ -1,10 +1,21 @@
 'use client';
 
 import PaginaCatalogo from '@/components/admin/ia/PaginaCatalogo';
+import CajaAyuda from '@/components/admin/CajaAyuda';
 
 export default function HerramientasPage() {
   return (
-    <PaginaCatalogo
+    <>
+      <CajaAyuda titulo="¿Qué son las herramientas?">
+        <p>
+          Las herramientas son las acciones que el agente puede ejecutar.
+          Por ejemplo: &quot;buscar ofertas&quot;, &quot;actualizar el perfil del
+          usuario&quot; o &quot;escalar a un humano&quot;. Las herramientas que
+          requieren consentimiento no se pueden ejecutar sin que el usuario lo
+          autorice primero.
+        </p>
+      </CajaAyuda>
+      <PaginaCatalogo
       titulo="Herramientas"
       descripcion="Herramientas y acciones que los agentes pueden ejecutar."
       endpoint="/api/admin/ia/herramientas"
@@ -27,6 +38,7 @@ export default function HerramientasPage() {
         { clave: 'requiere_confirmacion', etiqueta: 'Requiere confirmación', tipo: 'checkbox' },
         { clave: 'requiere_consentimiento', etiqueta: 'Requiere consentimiento', tipo: 'checkbox' }
       ]}
-    />
+      />
+    </>
   );
 }
