@@ -16,6 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Usuarios', href: '/admin/usuarios' },
   { label: 'Roles', href: '/admin/roles' },
   { label: 'Contexto NaIA', href: '/admin/contexto-naia' },
+  { label: 'Centro de Agentes IA', href: '/admin/ia' },
   { label: 'Universidades', href: '/admin/universidades' },
   { label: 'Sedes', href: '/admin/sedes' },
   { label: 'Programas', href: '/admin/programas' },
