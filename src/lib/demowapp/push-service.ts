@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   CONVERSACION_ESTADO_CERRADA,
   DEMOWAPP_CANAL,
+  DEMOWAPP_META_CHANNEL,
   getOrCreateActiveConversation,
   updateConversationContext
 } from './conversacion-service';
@@ -53,6 +54,7 @@ async function schedulePush(
     metadatos: {
       ...(input.metadatos || {}),
       origen: 'demowapp_push',
+      canal_simulado: DEMOWAPP_META_CHANNEL,
       idempotency_key: input.idempotencyKey,
       mensaje_renderizado: input.mensajeRenderizado
     }
@@ -149,6 +151,7 @@ export async function cancelPendingSilencePushes(db: SupabaseClient, conversacio
     .delete()
     .eq('conversacion_id', conversacionId)
     .eq('canal', DEMOWAPP_CANAL)
+    .eq('metadatos->>origen', 'demowapp_push')
     .in('plantilla', ['recordatorio_silencio_3_min', 'cierre_inactividad_5_min'])
     .eq('estado_envio', 'pendiente');
 
@@ -289,7 +292,7 @@ async function deliverPushRow(db: SupabaseClient, row: any) {
 
   await db
     .from('comunicaciones_transaccionales')
-    .update({ estado_envio: 'enviado', fecha_enviada: nowIso(), actualizado_en: nowIso() })
+    .update({ estado_envio: 'enviada', fecha_enviada: nowIso(), actualizado_en: nowIso() })
     .eq('id', row.id)
     .eq('estado_envio', 'pendiente');
 
@@ -323,6 +326,7 @@ export async function processDuePushes(
     .from('comunicaciones_transaccionales')
     .select('*')
     .eq('canal', DEMOWAPP_CANAL)
+    .eq('metadatos->>origen', 'demowapp_push')
     .eq('estado_envio', 'pendiente')
     .lte('fecha_programada', nowIso());
 
@@ -347,7 +351,7 @@ export async function processDuePushes(
       await db
         .from('comunicaciones_transaccionales')
         .update({
-          estado_envio: 'error',
+          estado_envio: 'fallida',
           error_envio: e?.message || 'error_desconocido',
           actualizado_en: nowIso()
         })

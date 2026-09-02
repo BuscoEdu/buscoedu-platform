@@ -23,14 +23,57 @@ function safeString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+// Algunos despliegues devuelven JSON con saltos de línea literales dentro de
+// cadenas. Lo normalizamos antes de descartarlo para no convertir una respuesta
+// válida de NaIA en un fallback genérico.
+function repairJsonText(text: string) {
+  let output = '';
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (escaped) {
+      output += char;
+      escaped = false;
+      continue;
+    }
+    if (char === '\\' && inString) {
+      output += char;
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      output += char;
+      continue;
+    }
+    if (char === '\r' || char === '\n') {
+      if (char === '\r' && text[index + 1] === '\n') index += 1;
+      output += inString ? '\\n' : ' ';
+      continue;
+    }
+    output += char;
+  }
+  return output;
+}
+
 function extractJson(text: string): any | null {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = fenced?.[1] || text.trim();
-  try { return JSON.parse(candidate); } catch {
+  const parse = (value: string) => {
+    try { return JSON.parse(value); } catch { return null; }
+  };
+
+  const direct = parse(candidate) || parse(repairJsonText(candidate));
+  if (direct) return direct;
+
+  {
     const start = candidate.indexOf('{');
     const end = candidate.lastIndexOf('}');
     if (start >= 0 && end > start) {
-      try { return JSON.parse(candidate.slice(start, end + 1)); } catch { return null; }
+      const objectCandidate = candidate.slice(start, end + 1);
+      return parse(objectCandidate) || parse(repairJsonText(objectCandidate));
     }
     return null;
   }

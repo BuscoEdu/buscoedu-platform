@@ -4,7 +4,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // La condición de simulación se conserva en metadatos y referencias con
 // `demo_wapp`, sin inventar un valor adicional para el catálogo de canales.
 export const DEMOWAPP_CANAL = 'whatsapp';
-export const DEMOWAPP_TIPO = 'seguimiento';
+export const DEMOWAPP_META_CHANNEL = 'demo_wapp';
+export const DEMOWAPP_TIPO = 'mixta';
 export const CONVERSACION_ESTADO_ACTIVA = 'activa';
 export const CONVERSACION_ESTADO_CERRADA = 'cerrada';
 
@@ -32,6 +33,7 @@ export async function getLatestConversationByOpportunity(
     .select('*')
     .eq('oportunidad_id', oportunidadId)
     .eq('canal', DEMOWAPP_CANAL)
+    .eq('metadatos->>canal_simulado', DEMOWAPP_META_CHANNEL)
     .order('creado_en', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -69,7 +71,7 @@ export async function getOrCreateActiveConversation(
         metadatos: {
           ...(found as any).metadatos,
           reabierta_en: nowIso(),
-          canal_simulado: DEMOWAPP_CANAL,
+          canal_simulado: DEMOWAPP_META_CHANNEL,
           tipo_inicio: input.tipoInicio || 'estudiante_inbound'
         }
       })
@@ -99,7 +101,7 @@ export async function getOrCreateActiveConversation(
       ultima_actividad_en: nowIso(),
       metadatos: {
         version: 'v1',
-        canal_simulado: DEMOWAPP_CANAL,
+        canal_simulado: DEMOWAPP_META_CHANNEL,
         tipo_inicio: input.tipoInicio || 'estudiante_inbound'
       }
     })
