@@ -6,6 +6,7 @@ import InterestForm from "@/components/forms/InterestForm";
 import SectionHeading from "@/components/ui/SectionHeading";
 import InfoCard from "@/components/ui/InfoCard";
 import NaiaEntryModal from "@/components/naia/NaiaEntryModal";
+import NaiaHomeHero from "@/components/naia/NaiaHomeHero";
 
 const beneficios = [
   {
@@ -52,53 +53,28 @@ export default function HomePage() {
   return (
     <>
       <div className="mx-auto w-full max-w-6xl space-y-14 px-4 py-10 sm:px-6 lg:px-8">
-        <section className="rounded-2xl bg-gradient-to-br from-buscoedu-blue to-[#1d4d88] px-6 py-12 text-white sm:px-10">
-          <div className="max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-widest text-buscoedu-yellow">Orientación educativa</p>
-            <h1 className="mt-4 text-3xl font-bold leading-tight sm:text-5xl">
-              Encuentra opciones educativas con orientación inteligente.
-            </h1>
-            <p className="mt-5 text-base leading-relaxed text-slate-100 sm:text-lg">
-              BuscoEdu te ayuda a explorar alternativas de estudio, aclarar tu perfil educativo y, solo si lo
-              autorizas, conectarte con universidades aliadas.
-            </p>
+        <NaiaHomeHero />
 
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="inline-flex items-center rounded-md bg-buscoedu-teal px-5 py-2.5 font-semibold text-white transition hover:brightness-95"
-              >
-                Hablar con NaIA
-              </button>
+        <section className="rounded-xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8">
+          <SectionHeading
+            title="¿Prefieres explorar por tu cuenta?"
+            description="Revisa las ofertas académicas vigentes con filtros por área, nivel, modalidad, ciudad y beneficio. Puedes volver a hablar con NaIA en cualquier momento."
+          />
+          <div className="flex flex-wrap gap-3">
             <Link
-              href="/programas"
-              className="inline-flex items-center rounded-md border border-white px-5 py-2.5 font-semibold text-white transition hover:bg-white/10"
+              href="/explorar"
+              className="inline-flex items-center rounded-md bg-buscoedu-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95"
             >
-              Explorar opciones
+              Explorar ofertas vigentes
             </Link>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center rounded-md border border-buscoedu-blue px-5 py-2.5 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-blue/5"
+            >
+              Empezar con NaIA
+            </button>
           </div>
-          <p className="mt-4 text-sm text-slate-100">No compartimos tus datos con universidades sin tu autorización.</p>
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8">
-        <SectionHeading
-          title="Buscador inicial"
-          description="Visualiza cómo podrás filtrar opciones educativas por área y contexto. En esta fase aún no ejecuta búsqueda real."
-        />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <VisualField label="¿Qué quieres estudiar?" placeholder="Ej. Tecnología" />
-          <VisualField label="Nivel académico" placeholder="Ej. Técnico, pregrado" />
-          <VisualField label="Modalidad" placeholder="Ej. Virtual" />
-          <VisualField label="Ciudad" placeholder="Ej. Bogotá" />
-        </div>
-        <Link
-          href="/programas"
-          className="mt-5 inline-flex items-center rounded-md bg-buscoedu-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95"
-        >
-          Ver opciones
-        </Link>
-      </section>
+        </section>
 
       <section>
         <SectionHeading
@@ -171,18 +147,5 @@ export default function HomePage() {
     {/* Modal de NaIA */}
     <NaiaEntryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </>
-  );
-}
-
-function VisualField({ label, placeholder }: { label: string; placeholder: string }) {
-  return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium text-buscoedu-text">{label}</label>
-      <input
-        disabled
-        placeholder={placeholder}
-        className="w-full rounded-md border border-buscoedu-border bg-slate-50 px-3 py-2 text-sm text-buscoedu-muted"
-      />
-    </div>
   );
 }

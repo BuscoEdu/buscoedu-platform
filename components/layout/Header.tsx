@@ -102,6 +102,34 @@ export default function Header() {
           </nav>
 
           <div className="flex items-center gap-2 md:gap-3">
+            {/* Mi lista visible directamente en el header móvil (no oculta en el
+                menú hamburguesa). En desktop ya aparece en la navegación. */}
+            <Link
+              href="/mi-lista"
+              className="relative inline-flex h-10 w-10 items-center justify-center rounded-md border border-buscoedu-border text-buscoedu-blue transition hover:bg-buscoedu-bg md:hidden"
+              aria-label={`Mi lista${count > 0 ? ` (${count} guardadas)` : ""}`}
+            >
+              <svg
+                className="h-5 w-5"
+                fill={count > 0 ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                />
+              </svg>
+              {count > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-buscoedu-teal px-1.5 py-0.5 text-xs font-semibold text-white">
+                  {count}
+                </span>
+              )}
+            </Link>
+
             <button
               onClick={() => setIsModalOpen(true)}
               className="inline-flex items-center rounded-md bg-buscoedu-teal px-3 py-2 text-sm font-semibold text-white transition hover:brightness-95 md:px-4"
