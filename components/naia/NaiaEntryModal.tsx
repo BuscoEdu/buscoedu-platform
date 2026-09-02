@@ -57,11 +57,11 @@ export default function NaiaEntryModal({ isOpen, onClose }: NaiaEntryModalProps)
     // Registrar evento de búsqueda
     trackSearchIntention(trimmedIntention);
 
-    // Redirigir a /explorar con la intención como query param
-    router.push(`/explorar?q=${encodeURIComponent(trimmedIntention)}`);
+    // La intención abre la experiencia única de NaIA con el contexto inicial.
+    router.push(`/naia?q=${encodeURIComponent(trimmedIntention)}`);
 
     // Cerrar el modal y limpiar el estado. Sin esto, si el usuario ya está en
-    // /explorar la URL cambia pero el modal permanece abierto (parece que "no
+    // /naia la URL cambia pero el modal permanece abierto (parece que "no
     // pasa nada" hasta dar clic en la X).
     setIntention('');
     setShowWarning(false);

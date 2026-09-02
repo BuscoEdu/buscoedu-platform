@@ -132,7 +132,7 @@ export default function Header() {
 
             <button
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center rounded-md bg-buscoedu-teal px-3 py-2 text-sm font-semibold text-white transition hover:brightness-95 md:px-4"
+              className="hidden items-center rounded-md bg-buscoedu-teal px-3 py-2 text-sm font-semibold text-white transition hover:brightness-95 md:inline-flex md:px-4"
             >
               Hablar con NaIA
             </button>
@@ -234,6 +234,17 @@ export default function Header() {
           </nav>
         </div>
       </aside>
+
+      {!pathname.startsWith('/naia') && !pathname.startsWith('/explorar') && (
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className="fixed bottom-5 right-5 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-buscoedu-teal text-lg font-bold text-white shadow-lg transition hover:scale-105 hover:brightness-95 md:hidden"
+          aria-label="Hablar con NaIA"
+        >
+          N
+        </button>
+      )}
 
       {/* Modal de NaIA */}
       <NaiaEntryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />

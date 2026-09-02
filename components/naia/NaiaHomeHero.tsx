@@ -10,8 +10,8 @@ import { trackNaiaModalOpened, trackSearchIntention } from "@/src/lib/events";
  *
  * IMPORTANTE: no crea una segunda instancia de chat de NaIA. Reutiliza la
  * MISMA conexión/experiencia: al enviar el mensaje inicial (o elegir una
- * sugerencia) enruta a `/explorar?q=...`, donde vive el chat real de NaIA
- * (NaiaChatPanel) y la ejecución del agente. De esta forma la conversación
+ * sugerencia) enruta a `/naia?q=...`, donde vive el chat real de NaIA
+ * (la experiencia NaIA) y la ejecución del agente. De esta forma la conversación
  * continúa sin duplicar el agente ni su estado.
  */
 
@@ -43,7 +43,7 @@ export default function NaiaHomeHero() {
       })
       .catch(() => undefined);
 
-    router.push(`/explorar?q=${encodeURIComponent(valor)}`);
+    router.push(`/naia?q=${encodeURIComponent(valor)}`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
