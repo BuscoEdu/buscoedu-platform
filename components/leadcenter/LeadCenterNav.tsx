@@ -21,12 +21,13 @@ export default function LeadCenterNav({ esSuper }: LeadCenterNavProps) {
   const items: NavItem[] = [
     { href: '/leadcenter', label: 'Panel', icon: '📊', exact: true },
     { href: '/leadcenter/oportunidades', label: 'Oportunidades', icon: '🎯' },
+    { href: '/leadcenter/personas', label: 'Personas', icon: '👤' },
     { href: '/leadcenter/aplicaciones', label: 'Aplicaciones', icon: '🗂️' },
     { href: '/leadcenter/tareas', label: 'Tareas', icon: '✅' }
   ];
 
   if (esSuper) {
-    items.push({ href: '/admin', label: 'Configuración', icon: '⚙️' });
+    items.push({ href: '/admin', label: 'Administración CRM', icon: '⚙️' });
   }
 
   const esActivo = (href: string, exact?: boolean) =>
@@ -80,4 +81,3 @@ export default function LeadCenterNav({ esSuper }: LeadCenterNavProps) {
     </>
   );
 }
-

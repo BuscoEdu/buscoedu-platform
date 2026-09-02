@@ -212,25 +212,6 @@ async function logPushSideEffects(
     estado: 'enviado' | 'cancelado';
   }
 ) {
-  const contenido = `[demowapp:${input.referencia}] Push ${input.plantilla} ${input.estado}.`;
-  const notaExistente = await db
-    .from('notas_crm')
-    .select('id')
-    .eq('oportunidad_id', input.oportunidadId)
-    .eq('persona_id', input.personaId)
-    .eq('contenido', contenido)
-    .maybeSingle();
-
-  if (!notaExistente.data) {
-    await db.from('notas_crm').insert({
-      oportunidad_id: input.oportunidadId,
-      persona_id: input.personaId,
-      autor_id: null,
-      contenido,
-      es_privada: true
-    });
-  }
-
   const evento = `demowapp_push_${input.estado}`;
   const eventoExistente = await db
     .from('eventos_negocio')
@@ -246,7 +227,8 @@ async function logPushSideEffects(
         idempotency_key: input.referencia,
         plantilla: input.plantilla,
         oportunidad_id: input.oportunidadId,
-        persona_id: input.personaId
+        persona_id: input.personaId,
+        resumen_legible: `Mensaje automático ${input.estado}: ${input.plantilla.replaceAll('_', ' ')}`
       },
       generado_por: 'demowapp_push_processor',
       creado_en: nowIso()

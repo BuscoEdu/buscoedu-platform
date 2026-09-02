@@ -5,6 +5,7 @@ import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 import AccionesOportunidad from '@/components/leadcenter/AccionesOportunidad';
 import PanelCopiloto from '@/components/leadcenter/PanelCopiloto';
 import ComentariosNotaPanel from '@/components/leadcenter/ComentariosNotaPanel';
+import OpportunityWappPanel from '@/components/leadcenter/OpportunityWappPanel';
 import { calcularEstadoEstancamiento } from '@/src/lib/leadcenter/estancamiento';
 
 export const dynamic = 'force-dynamic';
@@ -47,6 +48,7 @@ export default async function FichaOportunidadPage({
     { data: reglasEstancamiento },
     { data: historial },
     { data: notas },
+    { data: eventos },
     { data: tareas },
     { data: consentimientos },
     { data: propuestas },
@@ -89,6 +91,12 @@ export default async function FichaOportunidadPage({
     supabase
       .from('notas_crm')
       .select('id, contenido, es_privada, autor_id, creado_en')
+      .eq('oportunidad_id', id)
+      .order('creado_en', { ascending: false })
+      .limit(50),
+    supabase
+      .from('eventos_negocio')
+      .select('id, evento, metadatos, generado_por, creado_en')
       .eq('oportunidad_id', id)
       .order('creado_en', { ascending: false })
       .limit(50),
@@ -165,25 +173,46 @@ export default async function FichaOportunidadPage({
     autor_nombre: autores[n.autor_id] || 'Usuario interno'
   }));
 
-  type Item = { ts: string; tipo: string; texto: string };
+  type Item = { ts: string; tipo: string; texto: string; icono: string; tono: string };
   const timeline: Item[] = [];
   (historial as any[])?.forEach((h) =>
     timeline.push({
       ts: h.creado_en,
       tipo: 'Etapa',
-      texto: `Movida a "${nombreEtapaPorId(h.etapa_nueva_id)}"${h.motivo ? ` · ${h.motivo}` : ''}`
+      texto: `Movida a "${nombreEtapaPorId(h.etapa_nueva_id)}"${h.motivo ? ` · ${h.motivo}` : ''}`,
+      icono: '↔️',
+      tono: 'bg-blue-100 text-blue-700'
     })
   );
   comentarios.forEach((n) =>
-    timeline.push({ ts: n.creado_en, tipo: 'Comentario', texto: `${n.autor_nombre}: ${n.contenido}` })
+    timeline.push({ ts: n.creado_en, tipo: 'Comentario', texto: `${n.autor_nombre}: ${n.contenido}`, icono: '💬', tono: 'bg-violet-100 text-violet-700' })
   );
   (tareas as any[])?.forEach((t) =>
     timeline.push({
       ts: t.creado_en,
       tipo: 'Tarea',
-      texto: `${t.titulo} · ${t.estado}${t.fecha_vencimiento ? ` · vence ${fecha(t.fecha_vencimiento)}` : ''}`
+      texto: `${t.titulo} · ${t.estado}${t.fecha_vencimiento ? ` · vence ${fecha(t.fecha_vencimiento)}` : ''}`,
+      icono: '✅',
+      tono: 'bg-emerald-100 text-emerald-700'
     })
   );
+  (eventos as any[])?.forEach((evento) => {
+    const metadata = evento.metadatos || {};
+    const push = String(evento.evento || '').startsWith('demowapp_push_');
+    const captura = String(evento.evento || '').includes('captura');
+    const texto = metadata.resumen_legible || (push
+      ? `Mensaje automático ${String(evento.evento).replace('demowapp_push_', '')}.`
+      : captura
+      ? 'Información de interés actualizada por NaIA.'
+      : 'Actividad automática de NaIA registrada.');
+    timeline.push({
+      ts: evento.creado_en,
+      tipo: push ? 'WhatsApp' : 'NaIA',
+      texto,
+      icono: push ? '📱' : '🤖',
+      tono: push ? 'bg-green-100 text-green-700' : 'bg-cyan-100 text-cyan-700'
+    });
+  });
   timeline.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
 
   return (
@@ -289,8 +318,8 @@ export default async function FichaOportunidadPage({
               <ol className="space-y-3">
                 {timeline.slice(0, 60).map((it, i) => (
                   <li key={i} className="flex gap-3">
-                    <span className="mt-0.5 shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
-                      {it.tipo}
+                    <span className={`mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${it.tono}`}>
+                      <span aria-hidden="true">{it.icono}</span>{it.tipo}
                     </span>
                     <div className="min-w-0">
                       <p className="whitespace-pre-line text-sm text-gray-700">{it.texto}</p>
@@ -304,6 +333,8 @@ export default async function FichaOportunidadPage({
         </div>
 
         <div className="space-y-4">
+          <OpportunityWappPanel oportunidadId={id} />
+
           <AccionesOportunidad
             oportunidadId={id}
             personaId={o.persona_id}

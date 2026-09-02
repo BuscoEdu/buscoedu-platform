@@ -251,27 +251,18 @@ async function appendEventAndNote(
     metadatos?: Record<string, unknown>;
   }
 ) {
-  const marker = `[demowapp:${input.idempotencyKey}]`;
-  const contenidoNota = `${marker} ${input.nota}`;
-
-  const existingNote = await db
-    .from('notas_crm')
+  // Los eventos automáticos se almacenan en eventos_negocio. No son notas de
+  // gestión y, por tanto, no deben contaminar el historial legible con claves
+  // técnicas como "[demowapp:…]".
+  const eventoExistente = await db
+    .from('eventos_negocio')
     .select('id')
-    .eq('oportunidad_id', input.oportunidadId)
-    .eq('persona_id', input.personaId)
-    .eq('contenido', contenidoNota)
+    .eq('evento', input.evento)
+    .eq('metadatos->>idempotency_key', input.idempotencyKey)
     .limit(1)
     .maybeSingle();
 
-  if (!existingNote.data) {
-    await db.from('notas_crm').insert({
-      oportunidad_id: input.oportunidadId,
-      persona_id: input.personaId,
-      autor_id: null,
-      contenido: contenidoNota,
-      es_privada: true
-    });
-  }
+  if (eventoExistente.data) return;
 
   await db.from('eventos_negocio').insert({
     evento: input.evento,
@@ -280,7 +271,8 @@ async function appendEventAndNote(
     metadatos: {
       ...(input.metadatos || {}),
       idempotency_key: input.idempotencyKey,
-      origen: 'demowapp'
+      origen: 'demowapp',
+      resumen_legible: input.nota
     },
     generado_por: input.generadoPor,
     creado_en: nowIso()
