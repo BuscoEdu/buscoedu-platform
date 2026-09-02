@@ -32,9 +32,21 @@ export async function GET(_req: NextRequest) {
       return NextResponse.json({ ok: false, error: appError.message }, { status: 500 });
     }
 
-    const oportunidadIds = Array.from(new Set((aplicaciones || []).map((a: any) => a.oportunidad_id).filter(Boolean)));
-    const personaIds = Array.from(new Set((aplicaciones || []).map((a: any) => a.persona_id).filter(Boolean)));
-    const ofertaIds = Array.from(new Set((aplicaciones || []).map((a: any) => a.oferta_id).filter(Boolean)));
+    // La consola representa conversaciones de oportunidades, no un historial de
+    // aplicaciones. Una misma oportunidad puede conservar varias aplicaciones
+    // (reintentos, cambios de oferta o importaciones) y antes generaba una
+    // tarjeta idéntica por cada una. Se conserva la aplicación más reciente
+    // para el contexto del chat y se muestra una sola sesión por oportunidad.
+    const aplicacionesPorOportunidad = new Map<string, any>();
+    for (const aplicacion of aplicaciones || []) {
+      if (!aplicacion.oportunidad_id || aplicacionesPorOportunidad.has(aplicacion.oportunidad_id)) continue;
+      aplicacionesPorOportunidad.set(aplicacion.oportunidad_id, aplicacion);
+    }
+    const aplicacionesCanonicas = Array.from(aplicacionesPorOportunidad.values());
+
+    const oportunidadIds = Array.from(new Set(aplicacionesCanonicas.map((a: any) => a.oportunidad_id).filter(Boolean)));
+    const personaIds = Array.from(new Set(aplicacionesCanonicas.map((a: any) => a.persona_id).filter(Boolean)));
+    const ofertaIds = Array.from(new Set(aplicacionesCanonicas.map((a: any) => a.oferta_id).filter(Boolean)));
 
     const [oportunidadesRes, personasRes, ofertasRes, convRes, etapasRes, subestadosRes] = await Promise.all([
       db
@@ -63,7 +75,7 @@ export async function GET(_req: NextRequest) {
     const etapas = Object.fromEntries((etapasRes.data || []).map((e: any) => [e.id, e.nombre]));
     const subestados = Object.fromEntries((subestadosRes.data || []).map((s: any) => [s.id, s.nombre]));
 
-    const items = (aplicaciones || []).map((a: any) => {
+    const items = aplicacionesCanonicas.map((a: any) => {
       const oportunidad = oportunidades[a.oportunidad_id] || {};
       const persona = personas[a.persona_id] || {};
       const oferta = ofertas[a.oferta_id] || {};

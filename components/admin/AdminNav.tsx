@@ -39,8 +39,10 @@ const CATEGORIAS: Categoria[] = [
     label: 'CRM y Funnel',
     icono: '📊',
     items: [
+      { label: 'Lead Center', href: '/leadcenter' },
+      { label: 'Personas', href: '/leadcenter/personas' },
       { label: 'Pipeline / Funnel', href: '/admin/funnel' },
-      { label: 'Contexto NaIA', href: '/admin/contexto-naia' }
+      { label: 'Contexto NaIA (legacy)', href: '/admin/contexto-naia' }
     ]
   },
   {
