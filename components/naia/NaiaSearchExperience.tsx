@@ -11,6 +11,10 @@ import {
   type FiltrosOferta,
   type OfertaAcademica,
 } from "@/src/lib/ofertas";
+import {
+  getUniversityColor,
+  getUniversityTextColor,
+} from "@/src/lib/university-colors";
 
 type EstadoBusqueda = "inicio" | "interpretando" | "consultando" | "listo" | "error";
 type Orden = "recomendado" | "virtual" | "beneficio" | "universidad";
@@ -175,8 +179,15 @@ export default function NaiaSearchExperience() {
             <h2 className="mt-2 text-2xl font-bold text-buscoedu-blue">{mostrarResultados ? (estaCargando ? "Preparando opciones…" : `${total} opciones encontradas`) : "Tus opciones aparecerán aquí"}</h2>
             <p className="mt-2 text-sm leading-relaxed text-buscoedu-muted">{mostrarResultados ? "Abre una ficha para ver requisitos, beneficios y cómo aplicar." : "Cuando hables con NaIA, podrás comparar alternativas vigentes sin salir de la conversación."}</p>
             {estaCargando ? <ResultSkeleton /> : ofertasOrdenadas.length > 0 ? (
-              <div className="mt-6 grid gap-4">
-                {ofertasOrdenadas.map((oferta) => <OfferCard key={oferta.id} oferta={oferta} onCardClick={() => setSeleccionada(oferta)} isInMyList={isInMyList(oferta.id)} onToggleMyList={() => alternarLista(oferta)} />)}
+              <div className="mt-6">
+                <div className="divide-y divide-buscoedu-border overflow-hidden rounded-xl border border-buscoedu-border bg-white lg:hidden">
+                  {ofertasOrdenadas.map((oferta) => (
+                    <MobileOfferRow key={oferta.id} oferta={oferta} onOpen={() => setSeleccionada(oferta)} />
+                  ))}
+                </div>
+                <div className="hidden gap-4 lg:grid">
+                  {ofertasOrdenadas.map((oferta) => <OfferCard key={oferta.id} oferta={oferta} onCardClick={() => setSeleccionada(oferta)} isInMyList={isInMyList(oferta.id)} onToggleMyList={() => alternarLista(oferta)} />)}
+                </div>
               </div>
             ) : mostrarResultados && estado === "listo" ? (
               <div className="mt-6 rounded-2xl border border-dashed border-buscoedu-border bg-white p-6 text-sm leading-relaxed text-buscoedu-muted">No encontramos una coincidencia exacta todavía. Cuéntale a NaIA otra alternativa de área, ciudad, modalidad o nivel para ampliar la búsqueda.</div>
@@ -199,4 +210,70 @@ function ResultSkeleton() {
 
 function EmptyResults() {
   return <div className="mt-8 rounded-2xl border border-dashed border-buscoedu-border bg-white p-7"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-buscoedu-teal/10 font-bold text-buscoedu-teal">N</div><p className="mt-4 font-semibold text-buscoedu-blue">Una conversación, resultados organizados.</p><p className="mt-2 text-sm leading-relaxed text-buscoedu-muted">NaIA interpretará tu búsqueda y traerá aquí las ofertas que puedes abrir, guardar y comparar.</p></div>;
+}
+
+function MobileOfferRow({ oferta, onOpen }: { oferta: OfertaAcademica; onOpen: () => void }) {
+  const universityName = oferta.universidad?.nombre ?? "Institución educativa";
+  const universityColor = getUniversityColor(oferta.universidad_id, universityName);
+  const universityTextColor = getUniversityTextColor(oferta.universidad_id, universityName);
+  const summary = [
+    nombreUniversidadCorto(universityName),
+    modalidadCorta(oferta.programa?.modalidad),
+    beneficioOCiudad(oferta),
+  ].filter(Boolean);
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-center gap-3 px-3 py-3 text-left transition hover:bg-buscoedu-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-buscoedu-blue focus-visible:ring-inset"
+      aria-label={`Abrir ${oferta.programa?.nombre || oferta.nombre}, ${universityName}`}
+    >
+      <span
+        className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-bold"
+        style={{ backgroundColor: universityColor, color: universityTextColor }}
+        aria-hidden="true"
+      >
+        {universityName.charAt(0).toUpperCase()}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-bold text-buscoedu-blue">{oferta.programa?.nombre || oferta.nombre}</span>
+        <span className="mt-1 block truncate text-xs font-medium text-buscoedu-muted">{summary.join(" | ")}</span>
+      </span>
+      <span className="shrink-0 text-lg text-buscoedu-teal" aria-hidden="true">›</span>
+    </button>
+  );
+}
+
+function nombreUniversidadCorto(nombre: string): string {
+  const simplificado = nombre
+    .replace(/^fundaci[oó]n\s+universitaria\s+/i, "")
+    .replace(/^instituci[oó]n\s+universitaria\s+/i, "")
+    .replace(/^corporaci[oó]n\s+universitaria\s+/i, "")
+    .replace(/^instituci[oó]n\s+de\s+educaci[oó]n\s+superior\s+/i, "")
+    .replace(/^universidad\s+/i, "")
+    .trim();
+  return simplificado || nombre;
+}
+
+function modalidadCorta(modalidad?: string): string | null {
+  if (!modalidad) return null;
+  const normalizada = modalidad.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (normalizada.includes("virtual")) return "VIR";
+  if (normalizada.includes("presencial")) return "PRES";
+  if (normalizada.includes("hibrid") || normalizada.includes("semipresencial") || normalizada.includes("mixta")) return "HIB";
+  if (normalizada.includes("distancia")) return "DIS";
+  return modalidad.slice(0, 8).toUpperCase();
+}
+
+function beneficioOCiudad(oferta: OfertaAcademica): string | null {
+  const beneficio = oferta.beneficios?.[0];
+  if (beneficio) {
+    const detalle = [beneficio.tipo, beneficio.descripcion].filter(Boolean).join(" ");
+    const porcentaje = detalle.match(/\d{1,3}(?:[.,]\d+)?\s*%/)?.[0]?.replace(/\s/g, "");
+    if (/descuent|dto/i.test(detalle)) return porcentaje ? `${porcentaje} DTO.` : "DTO.";
+    if (/beca/i.test(detalle)) return porcentaje ? `${porcentaje} BECA` : "BECA";
+    return beneficio.tipo.slice(0, 16).toUpperCase();
+  }
+  return oferta.sede?.ciudad ?? null;
 }
