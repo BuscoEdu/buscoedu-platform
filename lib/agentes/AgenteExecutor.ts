@@ -147,7 +147,9 @@ export class AgenteExecutor {
    */
   async resolverConfiguracion(
     codigoAgente: string,
-    codigoCanal: string
+    codigoCanal: string,
+    versionForzadaId?: string,
+    permitirBorrador = false
   ): Promise<ConfiguracionAgente> {
     const db = getServiceRoleClient();
 
@@ -161,18 +163,27 @@ export class AgenteExecutor {
     if (agenteError || !agente) {
       throw new AgenteEjecucionError(`Agente no encontrado: ${codigoAgente}`, 'agente_no_encontrado');
     }
-    if (!agente.version_activa_id) {
+    if (!agente.version_activa_id && !versionForzadaId) {
       throw new AgenteEjecucionError(`El agente ${codigoAgente} no tiene versión activa`, 'sin_version_activa');
+    }
+    if (agente.estado !== 'activo' && !permitirBorrador) {
+      throw new AgenteEjecucionError(`El agente ${codigoAgente} no está activo`, 'agente_inactivo');
     }
 
     const { data: version, error: versionError } = await db
       .from('versiones_agente_ia')
-      .select('id, numero_version, estado, configuracion_snapshot')
-      .eq('id', agente.version_activa_id)
+      .select('id, agente_id, numero_version, estado, configuracion_snapshot')
+      .eq('id', versionForzadaId || agente.version_activa_id)
       .maybeSingle();
 
     if (versionError || !version) {
       throw new AgenteEjecucionError('Versión activa no encontrada', 'version_no_encontrada');
+    }
+    if (version.agente_id !== agente.id) {
+      throw new AgenteEjecucionError('La versión no pertenece al agente solicitado', 'version_no_pertenece');
+    }
+    if (version.estado !== 'publicada' && !permitirBorrador) {
+      throw new AgenteEjecucionError('La versión activa no está publicada', 'version_no_publicada');
     }
 
     // Canal
@@ -184,6 +195,21 @@ export class AgenteExecutor {
 
     if (canalError || !canal) {
       throw new AgenteEjecucionError(`Canal no encontrado: ${codigoCanal}`, 'canal_no_encontrado');
+    }
+
+    const { data: configuracionCanal, error: configuracionCanalError } = await db
+      .from('configuraciones_agente_canal')
+      .select('tono, reglas_especificas, plantilla_respuesta')
+      .eq('version_agente_id', version.id)
+      .eq('canal_id', canal.id)
+      .eq('activo', true)
+      .maybeSingle();
+
+    if (configuracionCanalError || !configuracionCanal) {
+      throw new AgenteEjecucionError(
+        `La versión no tiene configuración activa para el canal ${codigoCanal}`,
+        'canal_no_configurado'
+      );
     }
 
     // Contextos asociados a la versión
@@ -208,6 +234,17 @@ export class AgenteExecutor {
       .filter((c) => c.activo && c.contenido.trim())
       .map(({ orden, rol_contexto, contenido }) => ({ orden, rol_contexto, contenido }));
 
+    if (contextos.length === 0) {
+      throw new AgenteEjecucionError('La versión no tiene contexto activo asociado', 'sin_contexto_activo');
+    }
+
+    const reglasCanal = [
+      configuracionCanal.tono ? `Tono para este canal: ${configuracionCanal.tono}` : '',
+      configuracionCanal.reglas_especificas ? `Reglas del canal: ${configuracionCanal.reglas_especificas}` : '',
+      configuracionCanal.plantilla_respuesta ? `Formato de respuesta: ${configuracionCanal.plantilla_respuesta}` : ''
+    ].filter(Boolean).join('\n');
+    if (reglasCanal) contextos.push({ orden: 100000, rol_contexto: 'canal', contenido: reglasCanal });
+
     // Herramientas habilitadas para la versión
     const { data: herramientasRows } = await db
       .from('agente_herramientas')
@@ -221,19 +258,20 @@ export class AgenteExecutor {
       habilitada: row.habilitada !== false
     }));
 
-    // Despliegue: preferir el indicado en el snapshot; si no, el primero activo.
+    // El despliegue es explícito por versión: nunca se escoge uno oculto por defecto.
     const despliegueIdSnapshot =
       (version.configuracion_snapshot as Record<string, unknown> | null)?.['despliegue_id'];
 
-    let despliegueQuery = db
+    if (typeof despliegueIdSnapshot !== 'string' || !despliegueIdSnapshot) {
+      throw new AgenteEjecucionError('La versión no tiene despliegue seleccionado', 'sin_despliegue_asignado');
+    }
+
+    const despliegueQuery = db
       .from('despliegues_ia')
       .select('id, identificador_externo, referencia_secreto, configuracion_tecnica')
       .eq('activo', true)
-      .eq('estado', 'activo');
-
-    if (typeof despliegueIdSnapshot === 'string' && despliegueIdSnapshot) {
-      despliegueQuery = despliegueQuery.eq('id', despliegueIdSnapshot);
-    }
+      .eq('estado', 'activo')
+      .eq('id', despliegueIdSnapshot);
 
     const { data: despliegue, error: despliegueError } = await despliegueQuery
       .limit(1)
@@ -318,7 +356,12 @@ export class AgenteExecutor {
    */
   async ejecutar(entrada: EntradaEjecucion): Promise<SalidaEjecucion> {
     const inicio = Date.now();
-    const config = await this.resolverConfiguracion(entrada.codigo_agente, entrada.codigo_canal);
+    const config = await this.resolverConfiguracion(
+      entrada.codigo_agente,
+      entrada.codigo_canal,
+      entrada.version_agente_id,
+      entrada.modo_simulacion === true
+    );
     const promptSistema = construirPromptSistema(config.contextos);
 
     let resultadoAdaptador;
@@ -331,13 +374,15 @@ export class AgenteExecutor {
         referencia_secreto: config.despliegue.referencia_secreto
       });
     } catch (err) {
-      await this.registrarEjecucion({
-        config,
-        entrada,
-        estado: 'error',
-        duracion_ms: Date.now() - inicio,
-        error: err instanceof Error ? err.message : 'error_desconocido'
-      });
+      if (!entrada.modo_simulacion) {
+        await this.registrarEjecucion({
+          config,
+          entrada,
+          estado: 'error',
+          duracion_ms: Date.now() - inicio,
+          error: err instanceof Error ? err.message : 'error_desconocido'
+        });
+      }
       throw new AgenteEjecucionError(
         err instanceof Error ? err.message : 'Error al invocar el proveedor',
         'error_proveedor'
@@ -382,13 +427,15 @@ export class AgenteExecutor {
       };
     }
 
-    const ejecucionId = await this.registrarEjecucion({
-      config,
-      entrada,
-      estado: 'exitoso',
-      duracion_ms: Date.now() - inicio,
-      respuesta: salida as unknown as Record<string, unknown>
-    });
+    const ejecucionId = entrada.modo_simulacion
+      ? undefined
+      : await this.registrarEjecucion({
+          config,
+          entrada,
+          estado: 'exitoso',
+          duracion_ms: Date.now() - inicio,
+          respuesta: salida as unknown as Record<string, unknown>
+        });
 
     salida.ejecucion_id = ejecucionId;
     return salida;

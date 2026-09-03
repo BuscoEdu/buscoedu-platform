@@ -48,6 +48,9 @@ export interface EntradaEjecucion {
   codigo_agente: string;
   contexto_persona?: Record<string, unknown>;
   contexto_conversacion?: string;
+  /** Solo para el simulador administrativo: ejecuta una versión borrador concreta. */
+  version_agente_id?: string;
+  modo_simulacion?: boolean;
 }
 
 /**

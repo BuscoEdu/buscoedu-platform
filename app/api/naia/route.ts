@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { agenteExecutor } from '@/lib/agentes';
+import { getServiceRoleClient } from '@/src/lib/supabase-server';
 
 /**
  * API Route del servidor para NaIA.
@@ -16,7 +17,6 @@ import { agenteExecutor } from '@/lib/agentes';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const CODIGO_AGENTE = 'naia_asesora_educativa';
 const CODIGO_CANAL = 'web';
 
 interface NaiaPayload {
@@ -40,6 +40,21 @@ function fallback(conversationId?: string, mensaje?: string): NaiaPayload {
   };
 }
 
+async function resolverAgenteDelCanal(codigoCanal: string): Promise<string> {
+  const { data: canal, error } = await getServiceRoleClient()
+    .from('canales_ia')
+    .select('codigo, agente_predeterminado_id, agentes_ia:agente_predeterminado_id(codigo, activo, estado)')
+    .eq('codigo', codigoCanal)
+    .eq('activo', true)
+    .maybeSingle();
+
+  const agente = (canal?.agentes_ia as any);
+  if (error || !canal?.agente_predeterminado_id || !agente?.codigo || agente.activo === false || agente.estado !== 'activo') {
+    throw new Error(`El canal ${codigoCanal} no tiene un agente activo asignado.`);
+  }
+  return agente.codigo;
+}
+
 export async function POST(req: NextRequest) {
   let mensaje = '';
   let conversationId: string | undefined;
@@ -57,8 +72,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const codigoAgente = await resolverAgenteDelCanal(CODIGO_CANAL);
     const salida = await agenteExecutor.ejecutar({
-      codigo_agente: CODIGO_AGENTE,
+      codigo_agente: codigoAgente,
       codigo_canal: CODIGO_CANAL,
       mensaje_usuario: mensaje,
       conversation_id: conversationId

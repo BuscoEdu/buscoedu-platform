@@ -43,7 +43,6 @@ const CATEGORIAS: Categoria[] = [
       { label: 'Lead Center', href: '/leadcenter' },
       { label: 'Personas', href: '/leadcenter/personas' },
       { label: 'Pipeline / Funnel', href: '/admin/funnel' },
-      { label: 'Contexto NaIA (legacy)', href: '/admin/contexto-naia' }
     ]
   },
   {
@@ -53,6 +52,7 @@ const CATEGORIAS: Categoria[] = [
     items: [
       { label: 'Dashboard IA', href: '/admin/ia' },
       { label: 'Agentes', href: '/admin/ia/agentes' },
+      { label: 'Guía de gobierno', href: '/admin/ia/guia' },
       { label: 'Contextos', href: '/admin/ia/contextos' },
       { label: 'Proveedores', href: '/admin/ia/proveedores' },
       { label: 'Canales', href: '/admin/ia/canales' },
