@@ -289,6 +289,12 @@ export default function AdminProgramasPage() {
         >
           Nuevo Programa
         </Link>
+        <Link
+          href="/admin/cargas-catalogo"
+          className="inline-flex items-center justify-center rounded-lg border border-buscoedu-blue px-4 py-2.5 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-bg"
+        >
+          Carga masiva
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-3 rounded-xl border border-buscoedu-border bg-white p-4 shadow-card md:grid-cols-2 xl:grid-cols-5">
