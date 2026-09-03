@@ -28,6 +28,7 @@ const CATEGORIAS: Categoria[] = [
       { label: 'Sedes', href: '/admin/sedes' },
       { label: 'Programas', href: '/admin/programas' },
       { label: 'Ofertas', href: '/admin/ofertas' },
+      { label: 'Carga masiva', href: '/admin/cargas-catalogo' },
       { label: 'Beneficios', href: '/admin/beneficios' },
       { label: 'Precios', href: '/admin/precios' },
       { label: 'Periodos', href: '/admin/periodos' },
