@@ -25,9 +25,10 @@ interface Version {
   objetivo_version: string | null;
   notas_cambio: string | null;
   publicada_en: string | null;
+  configuracion_snapshot?: { despliegue_id?: string } | null;
 }
 
-const PESTANAS = ['Identidad', 'Contextos', 'Herramientas', 'Canales', 'Fuentes', 'Pruebas', 'Publicación'] as const;
+const PESTANAS = ['Identidad', 'Contextos', 'Herramientas', 'Canales', 'Fuentes', 'Despliegue', 'Simulación', 'Pruebas', 'Publicación'] as const;
 type Pestana = (typeof PESTANAS)[number];
 
 export default function VersionEditorPage({ params }: { params: Promise<{ id: string }> }) {
@@ -146,10 +147,35 @@ export default function VersionEditorPage({ params }: { params: Promise<{ id: st
           camposExtra={[{ clave: 'prioridad', etiqueta: 'Prioridad', tipo: 'number', valor: 100 }]}
         />
       ) : null}
+      {pestana === 'Despliegue' ? <TabDespliegue version={version} esBorrador={esBorrador} onGuardado={cargarVersion} /> : null}
+      {pestana === 'Simulación' ? <TabSimulacion version={version} /> : null}
       {pestana === 'Pruebas' ? <TabPruebas versionId={id} /> : null}
       {pestana === 'Publicación' ? <TabPublicacion version={version} esBorrador={esBorrador} onPublicado={cargarVersion} /> : null}
     </section>
   );
+}
+
+function TabDespliegue({ version, esBorrador, onGuardado }: { version: Version; esBorrador: boolean; onGuardado: () => void }) {
+  const [despliegues, setDespliegues] = useState<any[]>([]);
+  const [seleccion, setSeleccion] = useState(version.configuracion_snapshot?.despliegue_id || '');
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+  useEffect(() => { void pedirJson('/api/admin/ia/despliegues').then(({ data }) => setDespliegues((data?.items || []).filter((x: any) => x.activo !== false && x.estado === 'activo'))); }, []);
+  async function guardar() {
+    if (!seleccion) return;
+    setGuardando(true);
+    const { ok, data } = await pedirJson(`/api/admin/ia/versiones/${version.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ configuracion_snapshot: { ...(version.configuracion_snapshot || {}), despliegue_id: seleccion } }) });
+    setGuardando(false); setMensaje(ok && data?.ok ? 'Despliegue guardado para esta versión.' : data?.error || 'No se pudo guardar el despliegue.'); if (ok && data?.ok) onGuardado();
+  }
+  return <div className="max-w-2xl space-y-4 rounded-xl border border-buscoedu-border bg-white p-5 shadow-card"><p className="text-sm leading-relaxed text-buscoedu-muted">Selecciona el proveedor/modelo que ejecutará esta versión. Producción no usará un despliegue por defecto.</p>{mensaje ? <p className="rounded-md bg-buscoedu-bg px-3 py-2 text-sm">{mensaje}</p> : null}<select disabled={!esBorrador} value={seleccion} onChange={(e) => setSeleccion(e.target.value)} className="w-full rounded-lg border border-buscoedu-border px-3 py-2 disabled:bg-buscoedu-bg"><option value="">Seleccionar despliegue activo...</option>{despliegues.map((d) => <option key={d.id} value={d.id}>{d.nombre} — {d.modelo || d.proveedores_ia?.nombre || 'modelo sin nombre'}</option>)}</select>{esBorrador ? <button onClick={guardar} disabled={guardando || !seleccion} className="rounded-md bg-buscoedu-blue px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar despliegue'}</button> : null}</div>;
+}
+
+function TabSimulacion({ version }: { version: Version }) {
+  const [mensaje, setMensaje] = useState(''); const [canal, setCanal] = useState('web'); const [versiones, setVersiones] = useState<any[]>([]); const [compararCon, setCompararCon] = useState(''); const [resultado, setResultado] = useState<any>(null); const [ejecutando, setEjecutando] = useState(false); const [error, setError] = useState('');
+  useEffect(() => { void pedirJson(`/api/admin/ia/versiones?agente_id=${version.agente_id}`).then(({ data }) => setVersiones((data?.items || []).filter((v: any) => v.id !== version.id))); }, [version.agente_id, version.id]);
+  async function simular(e: FormEvent) { e.preventDefault(); setEjecutando(true); setError(''); setResultado(null); const { ok, data } = await pedirJson(`/api/admin/ia/versiones/${version.id}/simular`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mensaje, codigo_canal: canal, comparar_con_version_id: compararCon || undefined }) }); setEjecutando(false); if (!ok || !data?.ok) { setError(data?.error || 'No fue posible ejecutar la simulación.'); return; } setResultado(data); }
+  const Respuesta = ({ titulo, item }: { titulo: string; item: any }) => <div className="rounded-xl border border-buscoedu-border bg-white p-4 shadow-card"><h4 className="font-semibold text-buscoedu-blue">{titulo}</h4><p className="mt-2 whitespace-pre-wrap text-sm text-buscoedu-text">{item?.mensaje || 'Sin respuesta'}</p><p className="mt-3 text-xs text-buscoedu-muted">Filtros: {Object.keys(item?.filtros || {}).length ? JSON.stringify(item.filtros) : 'ninguno'}</p></div>;
+  return <div className="space-y-4"><form onSubmit={simular} className="space-y-3 rounded-xl border border-buscoedu-border bg-white p-5 shadow-card"><p className="text-sm text-buscoedu-muted">Prueba esta versión, incluso si es borrador, sin modificar producción.</p>{error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}<textarea required rows={3} value={mensaje} onChange={(e) => setMensaje(e.target.value)} placeholder="Escribe el mensaje que probarás..." className="w-full rounded-lg border border-buscoedu-border px-3 py-2"/><div className="grid gap-3 sm:grid-cols-2"><label className="text-sm">Canal<select value={canal} onChange={(e) => setCanal(e.target.value)} className="mt-1 w-full rounded-lg border border-buscoedu-border px-3 py-2"><option value="web">Web</option><option value="whatsapp">WhatsApp</option></select></label><label className="text-sm">Comparar con<select value={compararCon} onChange={(e) => setCompararCon(e.target.value)} className="mt-1 w-full rounded-lg border border-buscoedu-border px-3 py-2"><option value="">No comparar</option>{versiones.map((v) => <option key={v.id} value={v.id}>v{v.numero_version} — {v.nombre_version || v.estado}</option>)}</select></label></div><button disabled={ejecutando} className="rounded-md bg-buscoedu-blue px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{ejecutando ? 'Simulando...' : 'Simular versión'}</button></form>{resultado ? <div className="grid gap-4 md:grid-cols-2"><Respuesta titulo={`Versión v${version.numero_version}`} item={resultado.principal}/>{resultado.comparacion ? <Respuesta titulo="Versión comparada" item={resultado.comparacion}/> : null}</div> : null}</div>;
 }
 
 /* ============ Identidad ============ */

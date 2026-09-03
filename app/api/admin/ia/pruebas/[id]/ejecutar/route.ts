@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { protegerYObtenerServicio } from '@/lib/agentes/admin-crud';
-import { AbacusAdapter } from '@/lib/agentes';
+import { agenteExecutor } from '@/lib/agentes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,10 +9,8 @@ const COLUMNAS =
   'id, version_agente_id, nombre_prueba, mensaje_entrada, contexto_prueba, respuesta_esperada, respuesta_obtenida, resultado, observaciones, ejecutada_por, ejecutada_en';
 
 /**
- * Ejecuta una prueba contra la VERSIÓN ESPECÍFICA asociada a la prueba
- * (no necesariamente la versión activa), construyendo el prompt a partir de
- * los contextos de esa versión y llamando al despliegue activo.
- * Guarda la respuesta obtenida y el resultado (exitosa/fallida).
+ * Ejecuta exactamente el mismo camino que producción contra la versión
+ * asociada a la prueba, sin activarla ni contaminar el historial operativo.
  */
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const guard = await protegerYObtenerServicio();
@@ -29,30 +27,27 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (pruebaError) return NextResponse.json({ ok: false, error: pruebaError.message }, { status: 500 });
   if (!prueba) return NextResponse.json({ ok: false, error: 'no_encontrado' }, { status: 404 });
 
-  // Contextos de la versión (ordenados).
-  const { data: contextosRows } = await db
-    .from('versiones_agente_contextos')
-    .select('orden, componentes_contexto_ia:componente_contexto_id(contenido, activo)')
-    .eq('version_agente_id', prueba.version_agente_id)
-    .eq('activo', true)
-    .order('orden', { ascending: true });
+  const { data: version, error: versionError } = await db
+    .from('versiones_agente_ia')
+    .select('id, agente_id, agentes_ia:agente_id(codigo)')
+    .eq('id', prueba.version_agente_id)
+    .maybeSingle();
+  if (versionError || !version) {
+    return NextResponse.json({ ok: false, error: 'version_no_encontrada' }, { status: 404 });
+  }
 
-  const promptSistema = (contextosRows || [])
-    .map((r: any) => (r.componentes_contexto_ia?.activo !== false ? r.componentes_contexto_ia?.contenido : ''))
-    .filter((c: string) => typeof c === 'string' && c.trim())
-    .join('\n\n');
-
-  // Despliegue activo.
-  const { data: despliegue } = await db
-    .from('despliegues_ia')
-    .select('identificador_externo, referencia_secreto')
+  const { data: configuracionCanal } = await db
+    .from('configuraciones_agente_canal')
+    .select('canales_ia:canal_id(codigo)')
+    .eq('version_agente_id', version.id)
     .eq('activo', true)
-    .eq('estado', 'activo')
     .limit(1)
     .maybeSingle();
 
-  if (!despliegue?.identificador_externo || !despliegue?.referencia_secreto) {
-    return NextResponse.json({ ok: false, error: 'sin_despliegue_activo' }, { status: 409 });
+  const codigoAgente = (version.agentes_ia as any)?.codigo;
+  const codigoCanal = (configuracionCanal?.canales_ia as any)?.codigo;
+  if (!codigoAgente || !codigoCanal) {
+    return NextResponse.json({ ok: false, error: 'version_sin_canal_configurado' }, { status: 409 });
   }
 
   const ahora = new Date().toISOString();
@@ -61,14 +56,14 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   let observaciones: string | null = null;
 
   try {
-    const adaptador = new AbacusAdapter();
-    const res = await adaptador.ejecutar({
-      prompt_sistema: promptSistema,
+    const res = await agenteExecutor.ejecutar({
+      codigo_agente: codigoAgente,
+      codigo_canal: codigoCanal,
       mensaje_usuario: prueba.mensaje_entrada,
-      identificador_externo: despliegue.identificador_externo,
-      referencia_secreto: despliegue.referencia_secreto
+      version_agente_id: version.id,
+      modo_simulacion: true
     });
-    respuestaObtenida = res.respuesta_texto || '';
+    respuestaObtenida = res.mensaje || '';
     resultado = respuestaObtenida.trim() ? 'exitosa' : 'fallida';
     if (!respuestaObtenida.trim()) observaciones = 'El proveedor no devolvió respuesta.';
   } catch (err) {

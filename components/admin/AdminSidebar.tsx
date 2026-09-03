@@ -21,7 +21,7 @@ const navItems = [
   { label: 'Funnel', href: '/admin/funnel' },
   { label: 'Usuarios', href: '/admin/usuarios' },
   { label: 'Roles', href: '/admin/roles' },
-  { label: 'Contexto NaIA', href: '/admin/contexto-naia' },
+  { label: 'Centro de Agentes IA', href: '/admin/ia/agentes' },
   { label: 'Catálogos', href: '/admin/catalogos' }
 ];
 
