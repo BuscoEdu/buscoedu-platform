@@ -3,7 +3,7 @@ import { crearHandlersElemento } from '@/lib/agentes/admin-crud';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const COLUMNAS = 'id, codigo, nombre, tipo, descripcion, activo, creado_en';
+const COLUMNAS = 'id, codigo, nombre, tipo, descripcion, agente_predeterminado_id, agentes_ia:agente_predeterminado_id(id, nombre, codigo), activo, creado_en';
 
 const handlers = crearHandlersElemento({
   tabla: 'canales_ia',
@@ -11,7 +11,8 @@ const handlers = crearHandlersElemento({
   campos: [
     { nombre: 'nombre', tipo: 'texto' },
     { nombre: 'tipo', tipo: 'texto' },
-    { nombre: 'descripcion', tipo: 'texto' }
+    { nombre: 'descripcion', tipo: 'texto' },
+    { nombre: 'agente_predeterminado_id', tipo: 'texto' }
   ]
 });
 

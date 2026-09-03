@@ -1,10 +1,10 @@
 import Link from 'next/link';
 
 const pasosAgente = [
-  'Crear el agente con un código técnico estable. Ese código es el que usa cada canal para invocarlo.',
+  'Crear el agente con un código técnico estable. El código identifica el agente; no se escribe en el chat ni en rutas públicas.',
   'Crear una versión borrador desde el detalle del agente. Nunca se edita una versión publicada.',
   'Asociar los componentes de contexto y definir su orden: identidad, reglas, seguridad, conocimiento y formato.',
-  'Configurar cada canal que podrá usar la versión (Web, WhatsApp u otros), incluyendo tono y reglas propias.',
+  'Configurar cada canal que podrá usar la versión (Web, WhatsApp u otros), incluyendo tono y reglas propias; después, en Canales, asignar cuál agente atiende cada canal público.',
   'Elegir el despliegue/modelo específico para la versión. No existen selecciones automáticas u ocultas.',
   'Simular una conversación y comparar el borrador con otra versión del mismo agente.',
   'Guardar y ejecutar al menos una prueba exitosa. Solo después se habilita la publicación.',
@@ -43,6 +43,7 @@ export default function GuiaGobiernoAgentesPage() {
       <div className="flex flex-wrap gap-3">
         <Link href="/admin/ia/agentes" className="rounded-lg bg-buscoedu-blue px-4 py-2.5 text-sm font-semibold text-white">Ir a agentes</Link>
         <Link href="/admin/ia/contextos" className="rounded-lg border border-buscoedu-blue px-4 py-2.5 text-sm font-semibold text-buscoedu-blue">Gestionar componentes</Link>
+        <Link href="/admin/ia/canales" className="rounded-lg border border-buscoedu-blue px-4 py-2.5 text-sm font-semibold text-buscoedu-blue">Asignar agentes a canales</Link>
       </div>
     </section>
   );

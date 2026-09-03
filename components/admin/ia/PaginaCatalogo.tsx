@@ -14,6 +14,7 @@ export interface CampoCatalogo {
   etiqueta: string;
   tipo?: 'texto' | 'textarea' | 'select' | 'checkbox' | 'json';
   opciones?: { valor: string; etiqueta: string }[];
+  opcionesRemotas?: { endpoint: string; valor: string; etiqueta: string };
   requerido?: boolean;
   ayuda?: string;
   valorPorDefecto?: any;
@@ -55,6 +56,7 @@ export default function PaginaCatalogo({
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
+  const [opcionesRemotas, setOpcionesRemotas] = useState<Record<string, { valor: string; etiqueta: string }[]>>({});
 
   function formularioVacio() {
     const base: Record<string, any> = {};
@@ -75,6 +77,19 @@ export default function PaginaCatalogo({
 
   useEffect(() => {
     void cargar();
+    const cargarOpciones = async () => {
+      const remotas = campos.filter((campo) => campo.opcionesRemotas);
+      const resultados = await Promise.all(remotas.map(async (campo) => {
+        const config = campo.opcionesRemotas!;
+        const { data } = await pedirJson(config.endpoint);
+        return [campo.clave, (data?.items || []).filter((item: any) => item.activo !== false).map((item: any) => ({
+          valor: String(item[config.valor]),
+          etiqueta: String(item[config.etiqueta])
+        }))] as const;
+      }));
+      setOpcionesRemotas(Object.fromEntries(resultados));
+    };
+    void cargarOpciones();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -244,7 +259,7 @@ export default function PaginaCatalogo({
                           className="w-full rounded-lg border border-buscoedu-border px-3 py-2"
                         >
                           <option value="">Seleccionar...</option>
-                          {(campo.opciones || []).map((o) => (
+                          {[...(campo.opciones || []), ...(opcionesRemotas[campo.clave] || [])].map((o) => (
                             <option key={o.valor} value={o.valor}>
                               {o.etiqueta}
                             </option>
