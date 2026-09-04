@@ -89,7 +89,9 @@ export default function NaiaSearchExperience() {
         resultado.ofertas.forEach((oferta) => porId.set(oferta.id, oferta));
         return Array.from(porId.values());
       });
-      setTotal(resultado.total);
+      // La paginación no debe degradar el total ya mostrado si una respuesta
+      // posterior llega sin count (PostgREST puede omitirlo en reintentos).
+      setTotal((totalActual) => resultado.total > 0 ? resultado.total : totalActual);
     } catch {
       setEstado("error");
     }
@@ -197,7 +199,7 @@ export default function NaiaSearchExperience() {
 
         <aside className="bg-[#f7f9fc] px-5 py-8 sm:px-8 lg:h-full lg:overflow-y-auto lg:px-6 lg:py-10">
           <div className="mx-auto max-w-xl">
-            <div className="sticky top-0 z-10 -mx-2 bg-[#f7f9fc] px-2 pb-3 pt-1">
+            <div className="sticky top-0 z-20 -mx-5 border-b border-buscoedu-border bg-[#f7f9fc] px-5 pb-4 pt-8 sm:-mx-8 sm:px-8 lg:-mx-6 lg:px-6 lg:pt-10">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">RESULTADOS</p>
             <h2 className="mt-2 text-2xl font-bold text-buscoedu-blue">{mostrarResultados ? (estaCargando ? "Preparando opciones…" : `${total} opciones encontradas`) : "Tus opciones aparecerán aquí"}</h2>
             <p className="mt-2 text-sm leading-relaxed text-buscoedu-muted">{mostrarResultados ? "Abre una ficha para ver requisitos, beneficios y cómo aplicar." : "Cuando hables con NaIA, podrás comparar alternativas vigentes sin salir de la conversación."}</p>
