@@ -15,6 +15,8 @@ type Option = { id: string; nombre: string };
 
 type Item = {
   id: string;
+  codigo?: string;
+  tipo_oportunidad?: 'estudiante' | 'universidad';
   estado: string;
   temperatura: string;
   puntaje: number;
@@ -62,6 +64,7 @@ export default function OportunidadesBoard({ etapas }: { etapas: Option[] }) {
   const [etapa, setEtapa] = useState(searchParams.get('etapa') || '');
   const [temp, setTemp] = useState(searchParams.get('temp') || '');
   const [estado, setEstado] = useState(searchParams.get('estado') || '');
+  const [tipo, setTipo] = useState(searchParams.get('tipo') || '');
   const [limit, setLimit] = useState<number>(Number(searchParams.get('limit') || 20));
 
   const [items, setItems] = useState<Item[]>([]);
@@ -77,9 +80,10 @@ export default function OportunidadesBoard({ etapas }: { etapas: Option[] }) {
     if (etapa) p.set('etapa', etapa);
     if (temp) p.set('temp', temp);
     if (estado) p.set('estado', estado);
+    if (tipo) p.set('tipo', tipo);
     p.set('limit', String(limit));
     return p.toString();
-  }, [q, etapa, temp, estado, limit]);
+  }, [q, etapa, temp, estado, tipo, limit]);
 
   const syncUrl = useCallback(
     (extra?: Record<string, string>) => {
@@ -171,6 +175,7 @@ export default function OportunidadesBoard({ etapas }: { etapas: Option[] }) {
             </option>
           ))}
         </select>
+        <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="rounded-xl border border-gray-300 px-3 py-2 text-sm"><option value="">Estudiantes y universidades</option><option value="estudiante">Estudiantes</option><option value="universidad">Universidades</option></select>
         <select
           value={temp}
           onChange={(e) => setTemp(e.target.value)}
@@ -220,7 +225,8 @@ export default function OportunidadesBoard({ etapas }: { etapas: Option[] }) {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
-                  <p className="truncate font-semibold text-gray-900">{o.persona.nombre_completo}</p>
+                  <p className="truncate font-semibold text-gray-900">{o.codigo || `OP-${o.id.slice(0, 8)}`}</p>
+                  <p className="truncate text-sm font-medium text-gray-800">{o.tipo_oportunidad === 'universidad' ? o.universidad.nombre : o.persona.nombre_completo}</p>
                   <p className="truncate text-xs text-gray-500">{o.universidad.nombre}</p>
                   <p className="truncate text-xs text-gray-500">
                     {o.programa.nombre} · {o.oferta.nombre}
@@ -228,6 +234,7 @@ export default function OportunidadesBoard({ etapas }: { etapas: Option[] }) {
                   <p className="truncate text-xs text-gray-500">
                     {o.etapa} · {o.estado}
                   </p>
+                  <p className="inline-flex w-fit rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{o.tipo_oportunidad === 'universidad' ? 'Universidad' : 'Estudiante'}</p>
                   <p className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${est.cls}`}>
                     {est.label}
                   </p>

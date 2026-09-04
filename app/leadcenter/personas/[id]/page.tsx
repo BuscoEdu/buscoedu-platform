@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getServerSupabase } from '@/src/lib/supabase-server';
+import PersonEditor from '@/components/leadcenter/PersonEditor';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,19 +44,7 @@ export default async function FichaPersonaPage({ params }: { params: Promise<{ i
         ← Volver a personas
       </Link>
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
-        <h1 className="text-xl font-bold text-gray-900">{nombre}</h1>
-        <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-gray-600 sm:grid-cols-2">
-          <span>Correo: {p.correo_principal || '—'}</span>
-          <span>Celular: {p.celular_e164 || p.telefono_principal || '—'}</span>
-          <span>WhatsApp: {p.whatsapp || '—'}</span>
-          <span>Teléfono verificado: {p.telefono_verificado ? 'Sí' : 'No'}</span>
-          <span>Método verificación: {p.metodo_verificacion || '—'}</span>
-          <span>Estado relación: {p.estado_relacion || '—'}</span>
-          <span>Canal origen: {p.canal_origen || '—'}</span>
-          <span>Actualizada: {fecha(p.actualizado_en)}</span>
-        </div>
-      </div>
+      <PersonEditor persona={p} />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <h2 className="mb-2 text-base font-semibold text-gray-900">Oportunidades</h2>

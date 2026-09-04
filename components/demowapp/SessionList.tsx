@@ -3,6 +3,7 @@
 interface DemoSessionItem {
   aplicacionId: string;
   oportunidadId: string;
+  codigoOportunidad?: string;
   nombre: string;
   celular: string;
   oferta: string;
@@ -35,7 +36,7 @@ export default function SessionList({ sessions, selectedId, onSelect }: Props) {
     <div className="space-y-2">
       {sessions.map((s) => (
         <button
-          key={s.aplicacionId}
+          key={s.oportunidadId}
           onClick={() => onSelect(s.oportunidadId)}
           className={`w-full rounded-xl border p-3 text-left transition ${
             selectedId === s.oportunidadId
@@ -45,7 +46,8 @@ export default function SessionList({ sessions, selectedId, onSelect }: Props) {
         >
           <div className="flex items-start justify-between gap-2">
             <div>
-              <p className="font-semibold text-gray-900">{s.nombre}</p>
+              <p className="font-semibold text-gray-900">{s.codigoOportunidad || `OP-${s.oportunidadId.slice(0, 8)}`}</p>
+              <p className="text-sm font-medium text-gray-700">{s.nombre}</p>
               <p className="text-xs text-gray-500">{s.celular}</p>
               <p className="mt-1 text-sm text-gray-700">{s.oferta}</p>
             </div>

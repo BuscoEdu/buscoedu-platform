@@ -29,7 +29,12 @@ export default function DemoWappPage() {
         setError(data.error || 'No fue posible cargar sesiones.');
         return;
       }
-      setSessions(data.items || []);
+      // Defensa adicional: una oportunidad solo puede tener una sesión visible.
+      const porOportunidad = new Map<string, any>();
+      (data.items || []).forEach((item: any) => {
+        if (item?.oportunidadId && !porOportunidad.has(item.oportunidadId)) porOportunidad.set(item.oportunidadId, item);
+      });
+      setSessions(Array.from(porOportunidad.values()));
     } catch {
       setError('Error de red al cargar sesiones.');
     } finally {
@@ -66,6 +71,8 @@ export default function DemoWappPage() {
   const onSend = async (texto: string, clientMessageId: string) => {
     if (!selectedId) return;
     const oportunidadId = selectedId;
+    const optimista = { id: clientMessageId, remitente_tipo: 'persona', contenido: texto, enviado_en: new Date().toISOString(), creado_en: new Date().toISOString() };
+    setDetail((actual: any) => actual ? { ...actual, mensajes: [...(actual.mensajes || []), optimista] } : actual);
     try {
       const res = await fetch(`/api/demowapp/sesiones/${oportunidadId}/mensaje`, {
         method: 'POST',
@@ -83,7 +90,7 @@ export default function DemoWappPage() {
         setDetail((actual: any) => {
           if (!actual) return actual;
           const porId = new Map<string, any>();
-          [...(actual.mensajes || []), ...nuevos].forEach((mensaje: any) => porId.set(mensaje.id, mensaje));
+          [...(actual.mensajes || []).filter((mensaje: any) => mensaje.id !== clientMessageId), ...nuevos].forEach((mensaje: any) => porId.set(mensaje.id, mensaje));
           return { ...actual, mensajes: Array.from(porId.values()) };
         });
       }
@@ -106,6 +113,7 @@ export default function DemoWappPage() {
         ]);
       })();
     } catch (e: any) {
+      setDetail((actual: any) => actual ? { ...actual, mensajes: (actual.mensajes || []).filter((mensaje: any) => mensaje.id !== clientMessageId) } : actual);
       const message = e?.message || 'No se pudo enviar el mensaje.';
       setError(message);
       throw e;
@@ -198,7 +206,8 @@ export default function DemoWappPage() {
           {loadingDetail && <p className="text-sm text-gray-500">Cargando conversación...</p>}
           {detail && (
             <DemoWappPanel
-              titulo={[detail.persona?.nombres, detail.persona?.apellidos].filter(Boolean).join(' ') || 'Estudiante'}
+              titulo={detail.oportunidad?.codigo || detail.oportunidad?.id?.slice(0, 8) || 'Oportunidad'}
+              nombreContacto={[detail.persona?.nombres, detail.persona?.apellidos].filter(Boolean).join(' ') || 'Estudiante'}
               subtitulo={`NaIA · ${detail.oferta?.nombre_oferta || 'Oferta'} · ${detail.contexto?.etapa || 'Etapa'}`}
               mensajes={detail.mensajes || []}
               onEnviar={onSend}

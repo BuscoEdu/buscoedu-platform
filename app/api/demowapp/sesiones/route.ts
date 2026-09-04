@@ -51,7 +51,7 @@ export async function GET(_req: NextRequest) {
     const [oportunidadesRes, personasRes, ofertasRes, convRes, etapasRes, subestadosRes] = await Promise.all([
       db
         .from('oportunidades')
-        .select('id, estado, temperatura, etapa_id, subestado_id, puntaje, actualizado_en')
+        .select('id, codigo, estado, temperatura, etapa_id, subestado_id, puntaje, actualizado_en')
         .in('id', oportunidadIds),
       db
         .from('personas')
@@ -83,6 +83,7 @@ export async function GET(_req: NextRequest) {
       return {
         aplicacionId: a.id,
         oportunidadId: a.oportunidad_id,
+        codigoOportunidad: oportunidad.codigo || `OP-${String(a.oportunidad_id).slice(0, 8)}`,
         personaId: a.persona_id,
         nombre: nombreCompleto(persona),
         celular: persona.celular_e164 || persona.telefono_principal || '—',

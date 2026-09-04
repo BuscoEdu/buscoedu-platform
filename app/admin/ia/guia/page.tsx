@@ -1,14 +1,14 @@
 import Link from 'next/link';
 
 const pasosAgente = [
-  'Crear el agente con un código técnico estable. El código identifica el agente; no se escribe en el chat ni en rutas públicas.',
-  'Crear una versión borrador desde el detalle del agente. Nunca se edita una versión publicada.',
-  'Asociar los componentes de contexto y definir su orden: identidad, reglas, seguridad, conocimiento y formato.',
-  'Configurar cada canal que podrá usar la versión (Web, WhatsApp u otros), incluyendo tono y reglas propias; después, en Canales, asignar cuál agente atiende cada canal público.',
-  'Elegir el despliegue/modelo específico para la versión. No existen selecciones automáticas u ocultas.',
-  'Simular una conversación y comparar el borrador con otra versión del mismo agente.',
-  'Guardar y ejecutar al menos una prueba exitosa. Solo después se habilita la publicación.',
-  'Publicar: la nueva versión queda activa, la anterior se desactiva y queda inmutable como respaldo.'
+  { texto: 'Crear el agente con un código técnico estable. El código identifica el agente; no se escribe en el chat ni en rutas públicas.', href: '/admin/ia/agentes', accion: 'Abrir Agentes' },
+  { texto: 'Crear una versión borrador desde el detalle del agente. Nunca se edita una versión publicada.', href: '/admin/ia/agentes', accion: 'Crear versión desde Agentes' },
+  { texto: 'Asociar los componentes de contexto y definir su orden: identidad, reglas, seguridad, conocimiento y formato.', href: '/admin/ia/contextos', accion: 'Gestionar Contextos' },
+  { texto: 'Configurar cada canal que podrá usar la versión (Web, WhatsApp u otros), incluyendo tono y reglas propias; después, en Canales, asignar cuál agente atiende cada canal público.', href: '/admin/ia/canales', accion: 'Configurar Canales' },
+  { texto: 'Elegir el despliegue/modelo específico para la versión. No existen selecciones automáticas u ocultas.', href: '/admin/ia/proveedores', accion: 'Configurar Proveedores' },
+  { texto: 'Simular una conversación y comparar el borrador con otra versión del mismo agente.', href: '/admin/ia/agentes', accion: 'Abrir Simulación de versión' },
+  { texto: 'Guardar y ejecutar al menos una prueba exitosa. Solo después se habilita la publicación.', href: '/admin/ia/agentes', accion: 'Probar versión' },
+  { texto: 'Publicar: la nueva versión queda activa, la anterior se desactiva y queda inmutable como respaldo.', href: '/admin/ia/agentes', accion: 'Publicar versión' }
 ];
 
 export default function GuiaGobiernoAgentesPage() {
@@ -25,7 +25,7 @@ export default function GuiaGobiernoAgentesPage() {
       <div className="rounded-xl border border-buscoedu-border bg-white p-5 shadow-card">
         <h2 className="font-bold text-buscoedu-blue">Ruta para crear o evolucionar un agente</h2>
         <ol className="mt-4 space-y-3 text-sm leading-relaxed text-buscoedu-text">
-          {pasosAgente.map((paso, indice) => <li key={paso} className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-buscoedu-blue text-xs font-bold text-white">{indice + 1}</span><span>{paso}</span></li>)}
+          {pasosAgente.map((paso, indice) => <li key={paso.accion} className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-buscoedu-blue text-xs font-bold text-white">{indice + 1}</span><span>{paso.texto} <Link href={paso.href} className="ml-1 inline-flex font-semibold text-buscoedu-teal underline underline-offset-2">{paso.accion} →</Link></span></li>)}
         </ol>
       </div>
 
