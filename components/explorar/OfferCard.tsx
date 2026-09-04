@@ -15,12 +15,24 @@ interface OfferCardProps {
   onToggleMyList: () => void;
 }
 
+function tituloSinDuplicado(valor?: string): string {
+  const titulo = (valor || '').trim().replace(/\s+/g, ' ');
+  if (!titulo) return 'Programa académico';
+  const palabras = titulo.split(' ');
+  if (palabras.length % 2 !== 0) return titulo;
+  const mitad = palabras.length / 2;
+  const primera = palabras.slice(0, mitad).join(' ');
+  const segunda = palabras.slice(mitad).join(' ');
+  return primera.localeCompare(segunda, 'es', { sensitivity: 'base' }) === 0 ? primera : titulo;
+}
+
 export default function OfferCard({ oferta, onCardClick, isInMyList = false, onToggleMyList }: OfferCardProps) {
   const [imageError, setImageError] = useState(false);
   const universityNameOrSlug = oferta.universidad?.nombre ?? '';
   const universityColor = getUniversityColor(oferta.universidad_id, universityNameOrSlug);
   const universityBorderColor = getUniversityBorderColor(oferta.universidad_id, universityNameOrSlug);
   const universityTextColor = getUniversityTextColor(oferta.universidad_id, universityNameOrSlug);
+  const tituloPrograma = tituloSinDuplicado(oferta.programa?.nombre || oferta.nombre);
 
   // Información para mostrar (máximo 5 campos)
   const fields = [
@@ -93,7 +105,7 @@ export default function OfferCard({ oferta, onCardClick, isInMyList = false, onT
       <div className="p-4" onClick={onCardClick}>
         {/* Título */}
         <h3 className="font-bold text-buscoedu-blue mb-1 line-clamp-2 text-base">
-          {oferta.programa?.nombre || oferta.nombre}
+          {tituloPrograma}
         </h3>
         
         <p className="text-sm text-buscoedu-muted mb-3">
