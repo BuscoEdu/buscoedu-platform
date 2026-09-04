@@ -18,6 +18,9 @@ import {
 
 type EstadoBusqueda = "inicio" | "interpretando" | "consultando" | "listo" | "error";
 type Orden = "recomendado" | "virtual" | "beneficio" | "universidad";
+type MensajeChat = { id: string; autor: "estudiante" | "naia"; contenido: string };
+
+const NAIA_CHAT_STATE_KEY = "buscoedu_naia_chat_v1";
 
 const PROMPTS_INICIALES = [
   "Quiero encontrar una carrera.",
@@ -56,17 +59,40 @@ export default function NaiaSearchExperience() {
   const [filtrosActuales, setFiltrosActuales] = useState<FiltrosOferta>({});
   const [orden, setOrden] = useState<Orden>("recomendado");
   const [seleccionada, setSeleccionada] = useState<OfertaAcademica | null>(null);
+  const [mensajes, setMensajes] = useState<MensajeChat[]>([]);
+  const historialRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      const guardado = sessionStorage.getItem(NAIA_CHAT_STATE_KEY);
+      if (!guardado) return;
+      const estadoGuardado = JSON.parse(guardado) as { conversationId?: string; mensajes?: MensajeChat[] };
+      if (estadoGuardado.conversationId) setConversationId(estadoGuardado.conversationId);
+      if (Array.isArray(estadoGuardado.mensajes)) setMensajes(estadoGuardado.mensajes);
+    } catch { /* Un estado local corrupto no debe bloquear el chat. */ }
+  }, []);
+
+  useEffect(() => {
+    if (!mensajes.length) return;
+    sessionStorage.setItem(NAIA_CHAT_STATE_KEY, JSON.stringify({ conversationId, mensajes }));
+    historialRef.current?.scrollTo({ top: historialRef.current.scrollHeight, behavior: "smooth" });
+  }, [conversationId, mensajes]);
 
   const buscar = async (mensaje: string) => {
     const texto = mensaje.trim();
     if (!texto) return;
 
     setInput("");
+    setMensajes((actuales) => [...actuales, { id: `estudiante-${Date.now()}`, autor: "estudiante", contenido: texto }]);
     setEstado("interpretando");
     try {
       const siguienteRespuesta = await callNaia(texto, conversationId);
       setRespuesta(siguienteRespuesta);
       setConversationId(siguienteRespuesta.conversationId);
+      const respuestaCompleta = [siguienteRespuesta.mensaje, siguienteRespuesta.pregunta_seguimiento]
+        .filter(Boolean)
+        .join("\n\n");
+      setMensajes((actuales) => [...actuales, { id: `naia-${Date.now()}`, autor: "naia", contenido: respuestaCompleta }]);
 
       setEstado("consultando");
       const filtros = filtrosConValor(siguienteRespuesta.filtros);
@@ -77,6 +103,7 @@ export default function NaiaSearchExperience() {
       setEstado("listo");
     } catch {
       setEstado("error");
+      setMensajes((actuales) => [...actuales, { id: `naia-error-${Date.now()}`, autor: "naia", contenido: "Tuve un inconveniente para responder. Inténtalo de nuevo, por favor." }]);
     }
   };
 
@@ -129,46 +156,34 @@ export default function NaiaSearchExperience() {
   return (
     <div className="bg-[#f7f9fc] lg:h-[calc(100vh-73px)] lg:overflow-hidden">
       <div className="mx-auto grid w-full max-w-[1600px] lg:h-full lg:grid-cols-[minmax(0,1.65fr)_minmax(360px,0.85fr)]">
-        <main className="relative min-h-[calc(100vh-73px)] border-b border-buscoedu-border bg-white px-5 pb-36 pt-8 sm:px-8 lg:h-full lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-12 lg:pb-40 lg:pt-12">
+        <main className="relative min-h-[calc(100vh-73px)] border-b border-buscoedu-border bg-white px-5 pb-28 pt-6 sm:px-8 lg:h-full lg:overflow-hidden lg:border-b-0 lg:border-r lg:px-12 lg:pb-24 lg:pt-8">
           {mostrarResultados ? (
-            <section className="mx-auto max-w-3xl pb-8">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">NaIA analizó tu búsqueda</p>
-              <h1 className="mt-3 text-3xl font-bold tracking-tight text-buscoedu-blue sm:text-4xl">Opciones para avanzar con claridad</h1>
-
-              <div className="mt-6 rounded-2xl border border-buscoedu-border bg-buscoedu-bg/60 p-5 shadow-sm">
-                {estaCargando ? (
-                  <div className="flex items-center gap-3 text-buscoedu-text" role="status" aria-live="polite">
-                    <span className="h-3 w-3 animate-pulse rounded-full bg-buscoedu-teal" />
-                    <span>{estado === "interpretando" ? "Entendiendo lo que buscas…" : "Consultando opciones vigentes…"}</span>
-                  </div>
-                ) : (
-                  <>
-                    <TypedText texto={respuesta?.mensaje || ""} />
-                    {respuesta?.pregunta_seguimiento && <p className="mt-3 text-sm font-medium text-buscoedu-blue">{respuesta.pregunta_seguimiento}</p>}
-                  </>
-                )}
+            <section className="mx-auto flex h-[calc(100vh-150px)] max-w-3xl flex-col lg:h-full">
+              <div className="mb-4 shrink-0">
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">Conversación con NaIA</p>
+                <h1 className="mt-1 text-2xl font-bold tracking-tight text-buscoedu-blue">Tu búsqueda educativa</h1>
               </div>
-
-              {!!respuesta?.opciones_sugeridas?.length && (
-                <div className="mt-5 flex flex-wrap gap-2" aria-label="Opciones para continuar">
+              <div ref={historialRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-5 pr-1" aria-live="polite">
+                {mensajes.map((mensaje) => (
+                  <div key={mensaje.id} className={mensaje.autor === "estudiante" ? "ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-buscoedu-blue px-4 py-3 text-white" : "max-w-[92%] rounded-2xl rounded-bl-md border border-buscoedu-border bg-buscoedu-bg/60 px-4 py-3 text-buscoedu-text"}>
+                    {mensaje.autor === "naia" && <p className="mb-1 text-xs font-semibold text-buscoedu-teal">NaIA</p>}
+                    <p className="whitespace-pre-line text-base leading-relaxed">{mensaje.contenido}</p>
+                  </div>
+                ))}
+                {estaCargando && <div className="flex items-center gap-3 rounded-2xl border border-buscoedu-border bg-buscoedu-bg/60 px-4 py-3 text-sm text-buscoedu-text"><span className="h-2.5 w-2.5 animate-pulse rounded-full bg-buscoedu-teal" />{estado === "interpretando" ? "NaIA está entendiendo tu búsqueda…" : "NaIA está consultando opciones vigentes…"}</div>}
+              </div>
+              {!!respuesta?.opciones_sugeridas?.length && !estaCargando && (
+                <div className="shrink-0 border-t border-buscoedu-border pt-4" aria-label="Opciones para continuar">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-buscoedu-muted">Puedes continuar con</p>
+                  <div className="flex flex-wrap gap-2">
                   {respuesta.opciones_sugeridas.slice(0, 3).map((opcion) => (
                     <button key={opcion} type="button" onClick={() => void buscar(opcion)} disabled={estaCargando} className="rounded-full border border-buscoedu-teal/40 bg-white px-3 py-2 text-sm font-medium text-buscoedu-blue transition hover:bg-buscoedu-teal/5 disabled:opacity-50">
                       {opcion}
                     </button>
                   ))}
                 </div>
-              )}
-
-              <div className="mt-8">
-                <h2 className="text-sm font-semibold text-buscoedu-text">Ordena los resultados</h2>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {ORDENES.map((opcion) => (
-                    <button key={opcion.id} type="button" onClick={() => setOrden(opcion.id)} className={`rounded-full border px-3 py-2 text-sm font-medium transition ${orden === opcion.id ? "border-buscoedu-blue bg-buscoedu-blue text-white" : "border-buscoedu-border bg-white text-buscoedu-text hover:border-buscoedu-blue"}`}>
-                      {opcion.etiqueta}
-                    </button>
-                  ))}
                 </div>
-              </div>
+              )}
             </section>
           ) : (
             <section className="mx-auto flex min-h-[calc(100vh-250px)] max-w-3xl flex-col justify-center pb-8">
@@ -187,7 +202,7 @@ export default function NaiaSearchExperience() {
             </section>
           )}
 
-          <form onSubmit={enviar} className="absolute bottom-0 left-0 right-0 z-20 border-t border-buscoedu-border bg-white/95 px-5 py-4 backdrop-blur sm:px-8 lg:px-12">
+          <form onSubmit={enviar} className="absolute bottom-0 left-0 right-0 z-20 border-t border-buscoedu-border bg-white/95 px-5 py-3 backdrop-blur sm:px-8 lg:px-12">
             <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-2xl border border-buscoedu-border bg-white p-2 shadow-[0_10px_30px_rgba(17,45,84,0.12)]">
               <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void buscar(input); } }} rows={1} placeholder="Cuéntale a NaIA qué estás buscando…" className="min-h-[48px] flex-1 resize-none bg-transparent px-3 py-3 text-base text-buscoedu-text outline-none placeholder:text-slate-400" aria-label="Mensaje para NaIA" />
               <button type="submit" disabled={!input.trim() || estaCargando} className="inline-flex h-11 items-center gap-2 rounded-xl bg-buscoedu-blue px-4 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50">
