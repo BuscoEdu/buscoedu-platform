@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
   const etapa = sp.get('etapa') || '';
   const estado = sp.get('estado') || '';
   const temp = sp.get('temp') || '';
+  const tipo = sp.get('tipo') || '';
   const qText = (sp.get('q') || '').trim();
 
   try {
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from('oportunidades')
       .select(
-        'id, nombre, estado, temperatura, puntaje, fecha_proxima_accion, etapa_id, subestado_id, persona_id, universidad_id, programa_id, oferta_id, actualizado_en',
+        'id, codigo, tipo_oportunidad, nombre, estado, temperatura, puntaje, fecha_proxima_accion, etapa_id, subestado_id, persona_id, universidad_id, programa_id, oferta_id, actualizado_en',
         { count: 'exact' }
       );
 
@@ -54,6 +55,7 @@ export async function GET(req: NextRequest) {
     if (estado) query = query.eq('estado', estado);
     else query = query.neq('estado', 'archivada');
     if (temp) query = query.eq('temperatura', temp);
+    if (tipo) query = query.eq('tipo_oportunidad', tipo);
 
     if (qText) {
       query = query.ilike('nombre', `%${qText}%`);
@@ -121,6 +123,8 @@ export async function GET(req: NextRequest) {
 
       return {
         id: row.id,
+        codigo: row.codigo || `OP-${String(row.id).slice(0, 8)}`,
+        tipo_oportunidad: row.tipo_oportunidad || 'estudiante',
         estado: row.estado,
         temperatura: row.temperatura,
         puntaje: row.puntaje,

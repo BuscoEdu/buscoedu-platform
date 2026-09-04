@@ -53,6 +53,7 @@ export default function NaiaSearchExperience() {
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [ofertas, setOfertas] = useState<OfertaAcademica[]>([]);
   const [total, setTotal] = useState(0);
+  const [filtrosActuales, setFiltrosActuales] = useState<FiltrosOferta>({});
   const [orden, setOrden] = useState<Orden>("recomendado");
   const [seleccionada, setSeleccionada] = useState<OfertaAcademica | null>(null);
 
@@ -68,10 +69,27 @@ export default function NaiaSearchExperience() {
       setConversationId(siguienteRespuesta.conversationId);
 
       setEstado("consultando");
-      const resultado = await obtenerOfertas(filtrosConValor(siguienteRespuesta.filtros), 0, 24);
+      const filtros = filtrosConValor(siguienteRespuesta.filtros);
+      const resultado = await obtenerOfertas(filtros, 0, 10);
+      setFiltrosActuales(filtros);
       setOfertas(resultado.ofertas);
       setTotal(resultado.total);
       setEstado("listo");
+    } catch {
+      setEstado("error");
+    }
+  };
+
+  const cargarMasResultados = async () => {
+    if (estaCargando || ofertas.length >= total) return;
+    try {
+      const resultado = await obtenerOfertas(filtrosActuales, ofertas.length, 10);
+      setOfertas((actuales) => {
+        const porId = new Map(actuales.map((oferta) => [oferta.id, oferta]));
+        resultado.ofertas.forEach((oferta) => porId.set(oferta.id, oferta));
+        return Array.from(porId.values());
+      });
+      setTotal(resultado.total);
     } catch {
       setEstado("error");
     }
@@ -123,17 +141,21 @@ export default function NaiaSearchExperience() {
                   </div>
                 ) : (
                   <>
-                    <p className="text-base leading-relaxed text-buscoedu-text">{respuesta?.mensaje}</p>
+                    <TypedText texto={respuesta?.mensaje || ""} />
                     {respuesta?.pregunta_seguimiento && <p className="mt-3 text-sm font-medium text-buscoedu-blue">{respuesta.pregunta_seguimiento}</p>}
                   </>
                 )}
               </div>
 
-              <div className="mt-7 grid gap-3 sm:grid-cols-3">
-                <InsightCard title="Enfoque académico" text="Revisa que el programa, nivel y duración correspondan con la meta que describes." />
-                <InsightCard title="Flexibilidad" text="Compara modalidad, ciudad y horarios antes de decidir a qué opción aplicar." />
-                <InsightCard title="Inversión y beneficios" text="Prioriza las alternativas con beneficios vigentes y valida sus condiciones en la ficha." />
-              </div>
+              {!!respuesta?.opciones_sugeridas?.length && (
+                <div className="mt-5 flex flex-wrap gap-2" aria-label="Opciones para continuar">
+                  {respuesta.opciones_sugeridas.slice(0, 3).map((opcion) => (
+                    <button key={opcion} type="button" onClick={() => void buscar(opcion)} disabled={estaCargando} className="rounded-full border border-buscoedu-teal/40 bg-white px-3 py-2 text-sm font-medium text-buscoedu-blue transition hover:bg-buscoedu-teal/5 disabled:opacity-50">
+                      {opcion}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div className="mt-8">
                 <h2 className="text-sm font-semibold text-buscoedu-text">Ordena los resultados</h2>
@@ -165,7 +187,7 @@ export default function NaiaSearchExperience() {
 
           <form onSubmit={enviar} className="absolute bottom-0 left-0 right-0 z-20 border-t border-buscoedu-border bg-white/95 px-5 py-4 backdrop-blur sm:px-8 lg:px-12">
             <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-2xl border border-buscoedu-border bg-white p-2 shadow-[0_10px_30px_rgba(17,45,84,0.12)]">
-              <textarea value={input} onChange={(event) => setInput(event.target.value)} rows={1} placeholder="Cuéntale a NaIA qué estás buscando…" className="min-h-[48px] flex-1 resize-none bg-transparent px-3 py-3 text-base text-buscoedu-text outline-none placeholder:text-slate-400" aria-label="Mensaje para NaIA" />
+              <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void buscar(input); } }} rows={1} placeholder="Cuéntale a NaIA qué estás buscando…" className="min-h-[48px] flex-1 resize-none bg-transparent px-3 py-3 text-base text-buscoedu-text outline-none placeholder:text-slate-400" aria-label="Mensaje para NaIA" />
               <button type="submit" disabled={!input.trim() || estaCargando} className="inline-flex h-11 items-center gap-2 rounded-xl bg-buscoedu-blue px-4 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50">
                 {estaCargando ? "Buscando" : "Enviar"}<span aria-hidden="true">→</span>
               </button>
@@ -175,9 +197,11 @@ export default function NaiaSearchExperience() {
 
         <aside className="bg-[#f7f9fc] px-5 py-8 sm:px-8 lg:h-full lg:overflow-y-auto lg:px-6 lg:py-10">
           <div className="mx-auto max-w-xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">Resultados</p>
+            <div className="sticky top-0 z-10 -mx-2 bg-[#f7f9fc] px-2 pb-3 pt-1">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">RESULTADOS</p>
             <h2 className="mt-2 text-2xl font-bold text-buscoedu-blue">{mostrarResultados ? (estaCargando ? "Preparando opciones…" : `${total} opciones encontradas`) : "Tus opciones aparecerán aquí"}</h2>
             <p className="mt-2 text-sm leading-relaxed text-buscoedu-muted">{mostrarResultados ? "Abre una ficha para ver requisitos, beneficios y cómo aplicar." : "Cuando hables con NaIA, podrás comparar alternativas vigentes sin salir de la conversación."}</p>
+            </div>
             {estaCargando ? <ResultSkeleton /> : ofertasOrdenadas.length > 0 ? (
               <div className="mt-6">
                 <div className="divide-y divide-buscoedu-border overflow-hidden rounded-xl border border-buscoedu-border bg-white lg:hidden">
@@ -188,6 +212,7 @@ export default function NaiaSearchExperience() {
                 <div className="hidden gap-4 lg:grid">
                   {ofertasOrdenadas.map((oferta) => <OfferCard key={oferta.id} oferta={oferta} onCardClick={() => setSeleccionada(oferta)} isInMyList={isInMyList(oferta.id)} onToggleMyList={() => alternarLista(oferta)} />)}
                 </div>
+                {ofertas.length < total && <button type="button" onClick={() => void cargarMasResultados()} className="mt-5 w-full rounded-xl border border-buscoedu-blue bg-white px-4 py-3 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-blue hover:text-white">Mostrar 10 resultados más</button>}
               </div>
             ) : mostrarResultados && estado === "listo" ? (
               <div className="mt-6 rounded-2xl border border-dashed border-buscoedu-border bg-white p-6 text-sm leading-relaxed text-buscoedu-muted">No encontramos una coincidencia exacta todavía. Cuéntale a NaIA otra alternativa de área, ciudad, modalidad o nivel para ampliar la búsqueda.</div>
@@ -200,8 +225,20 @@ export default function NaiaSearchExperience() {
   );
 }
 
-function InsightCard({ title, text }: { title: string; text: string }) {
-  return <article className="rounded-xl border border-buscoedu-border bg-white p-4"><h3 className="font-semibold text-buscoedu-blue">{title}</h3><p className="mt-2 text-sm leading-relaxed text-buscoedu-muted">{text}</p></article>;
+function TypedText({ texto }: { texto: string }) {
+  const [visible, setVisible] = useState("");
+  useEffect(() => {
+    setVisible("");
+    if (!texto) return;
+    let indice = 0;
+    const intervalo = window.setInterval(() => {
+      indice = Math.min(texto.length, indice + 3);
+      setVisible(texto.slice(0, indice));
+      if (indice >= texto.length) window.clearInterval(intervalo);
+    }, 14);
+    return () => window.clearInterval(intervalo);
+  }, [texto]);
+  return <p className="text-base leading-relaxed text-buscoedu-text" aria-live="polite">{visible}<span className={visible.length < texto.length ? "ml-0.5 inline-block h-4 border-l border-buscoedu-teal align-[-2px] animate-pulse" : ""} /></p>;
 }
 
 function ResultSkeleton() {

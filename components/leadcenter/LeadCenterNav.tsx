@@ -28,6 +28,7 @@ export default function LeadCenterNav({ esSuper }: LeadCenterNavProps) {
 
   if (esSuper) {
     items.push({ href: '/admin', label: 'Administración CRM', icon: '⚙️' });
+    items.push({ href: '/admin/funnel', label: 'Configurar funnel', icon: '🔧' });
   }
 
   const esActivo = (href: string, exact?: boolean) =>

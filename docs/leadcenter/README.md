@@ -8,6 +8,12 @@ automatizaciones de estancamiento.
 
 ## Alcance por fases
 
+## Estado actual — 4 de septiembre de 2026
+
+El Lead Center conserva un único modelo de oportunidades con dos tipos: `estudiante` (admisiones B2C) y `universidad` (gestión institucional B2B). La universidad se registra desde CRUD y la base crea una oportunidad institucional sin duplicar personas, aplicaciones ni embudos. Las automatizaciones de estancamiento vigentes operan únicamente sobre estudiantes; las oportunidades institucionales quedan visibles y diferenciadas para gestión comercial específica.
+
+La migración necesaria es `supabase/migrations/20260904010000_tipos_oportunidad_universidad.sql`. Añade el código visible de oportunidad y el disparador de creación institucional. No ejecutar SQL parcial ni crear manualmente oportunidades de universidad: el trigger asegura idempotencia por universidad activa.
+
 * **Fase 0 — Auditoría** (`FASE_0_AUDITORIA.md`): inventario del esquema y del\
   código reutilizable; qué existe y qué falta.
 
@@ -37,6 +43,8 @@ automatizaciones de estancamiento.
 * `/leadcenter/oportunidades` y `/leadcenter/oportunidades/[id]` — lista y ficha.
 
 * `/leadcenter/personas` y `/leadcenter/personas/[id]`.
+
+  La ficha permite a `super_admin` editar datos básicos de contacto mediante `PATCH /api/leadcenter/personas/[id]`.
 
 * `/leadcenter/tareas` — bandeja de tareas.
 

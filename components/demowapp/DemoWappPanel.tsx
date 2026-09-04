@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import WhatsAppMark from './WhatsAppMark';
 
 interface ChatMessage {
@@ -13,6 +13,7 @@ interface ChatMessage {
 
 interface Props {
   titulo: string;
+  nombreContacto?: string;
   subtitulo?: string;
   mensajes: ChatMessage[];
   onEnviar: (texto: string, clientMessageId: string) => Promise<void>;
@@ -24,22 +25,29 @@ function hora(iso?: string) {
   return new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function DemoWappPanel({ titulo, subtitulo, mensajes, onEnviar, disabled }: Props) {
+export default function DemoWappPanel({ titulo, nombreContacto, subtitulo, mensajes, onEnviar, disabled }: Props) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const mensajesRef = useRef<HTMLDivElement>(null);
 
   const sortedMessages = useMemo(
     () => [...(mensajes || [])].sort((a, b) => new Date(a.creado_en || 0).getTime() - new Date(b.creado_en || 0).getTime()),
     [mensajes]
   );
+  useEffect(() => {
+    const panel = mensajesRef.current;
+    if (panel) panel.scrollTop = panel.scrollHeight;
+  }, [sortedMessages.length, sortedMessages.at(-1)?.id]);
 
   const submit = async () => {
     const text = input.trim();
     if (!text || sending || disabled) return;
     setSending(true);
+    setInput('');
     try {
       await onEnviar(text, crypto.randomUUID());
-      setInput('');
+    } catch {
+      setInput(text);
     } finally {
       setSending(false);
     }
@@ -50,10 +58,10 @@ export default function DemoWappPanel({ titulo, subtitulo, mensajes, onEnviar, d
       <header className="flex items-center gap-3 bg-[#075e54] px-4 py-3 text-white">
         <WhatsAppMark className="h-7 w-7 shrink-0" />
         <div><p className="font-semibold">{titulo}</p>
-        <p className="text-xs text-green-100">{subtitulo || 'NaIA · BuscoEdu · Simulación interna'}</p></div>
+        <p className="text-xs text-green-100">{nombreContacto ? `${nombreContacto} · ` : ''}{subtitulo || 'NaIA · BuscoEdu · Simulación interna'}</p></div>
       </header>
 
-      <div className="flex-1 space-y-2 overflow-y-auto p-4">
+      <div ref={mensajesRef} className="flex-1 space-y-2 overflow-y-auto p-4">
         {sortedMessages.map((m) => {
           // Soporta `estudiante` en historiales previos y `persona` como valor
           // canónico para los nuevos mensajes.
