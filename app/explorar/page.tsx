@@ -434,9 +434,9 @@ function ExplorarPageContent() {
   return (
     <div className="min-h-screen bg-buscoedu-bg">
       {/* Desktop */}
-      <div className="hidden h-[calc(100vh-64px)] md:grid md:grid-cols-[400px_1fr]">
+      <div className="hidden h-[calc(100vh-64px)] md:grid md:grid-cols-[minmax(340px,0.9fr)_minmax(0,1.7fr)]">
         <div className="overflow-y-auto border-r border-buscoedu-border bg-white">
-          <div className="h-[60%] border-b border-buscoedu-border">
+          <div className="h-[68%] min-h-[410px] border-b border-buscoedu-border">
             <NaiaChatPanel
               initialMessage={intention || undefined}
               initialState={chatState}
@@ -461,12 +461,11 @@ function ExplorarPageContent() {
           />
 
           <div className="flex-1 p-6">
-            <div className="mb-6">
+            <div className="sticky top-0 z-20 -mx-6 -mt-6 mb-6 border-b border-buscoedu-border bg-buscoedu-bg px-6 pb-4 pt-6">
               <div className="mb-4 flex items-start justify-between">
                 <div>
-                  <h1 className="mb-2 text-2xl font-bold text-buscoedu-blue">
-                    Opciones que coinciden con tu búsqueda
-                  </h1>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">Resultados</p>
+                  <h1 className="mb-2 text-2xl font-bold text-buscoedu-blue">Opciones que coinciden con tu búsqueda</h1>
                   <p className="text-sm text-buscoedu-muted">
                     {loading
                       ? 'Cargando resultados...'
@@ -508,7 +507,7 @@ function ExplorarPageContent() {
                     {resumenEjecutivo}
                   </p>
                 )}
-                <div className="grid auto-rows-max content-start items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid auto-rows-max content-start items-start gap-4 md:grid-cols-3">
                   {ofertas.map((oferta) => (
                     <OfferCard
                       key={oferta.id}
