@@ -73,7 +73,7 @@ export default function NaiaSearchExperience() {
       const resultado = await obtenerOfertas(filtros, 0, 10);
       setFiltrosActuales(filtros);
       setOfertas(resultado.ofertas);
-      setTotal(resultado.total);
+      setTotal(Math.max(resultado.total, resultado.ofertas.length));
       setEstado("listo");
     } catch {
       setEstado("error");
@@ -91,7 +91,7 @@ export default function NaiaSearchExperience() {
       });
       // La paginación no debe degradar el total ya mostrado si una respuesta
       // posterior llega sin count (PostgREST puede omitirlo en reintentos).
-      setTotal((totalActual) => resultado.total > 0 ? resultado.total : totalActual);
+      setTotal((totalActual) => Math.max(totalActual, resultado.total, resultado.ofertas.length));
     } catch {
       setEstado("error");
     }
@@ -197,9 +197,9 @@ export default function NaiaSearchExperience() {
           </form>
         </main>
 
-        <aside className="bg-[#f7f9fc] px-5 py-8 sm:px-8 lg:h-full lg:overflow-y-auto lg:px-6 lg:py-10">
+        <aside className="bg-[#f7f9fc] px-5 py-0 sm:px-8 lg:h-full lg:overflow-y-auto lg:px-6">
           <div className="mx-auto max-w-xl">
-            <div className="sticky top-0 z-20 -mx-5 border-b border-buscoedu-border bg-[#f7f9fc] px-5 pb-4 pt-8 sm:-mx-8 sm:px-8 lg:-mx-6 lg:px-6 lg:pt-10">
+            <div className="sticky top-0 z-20 -mx-5 border-b border-buscoedu-border bg-[#f7f9fc] px-5 py-4 sm:-mx-8 sm:px-8 lg:-mx-6 lg:px-6">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">RESULTADOS</p>
             <h2 className="mt-2 text-2xl font-bold text-buscoedu-blue">{mostrarResultados ? (estaCargando ? "Preparando opciones…" : `${total} opciones encontradas`) : "Tus opciones aparecerán aquí"}</h2>
             <p className="mt-2 text-sm leading-relaxed text-buscoedu-muted">{mostrarResultados ? "Abre una ficha para ver requisitos, beneficios y cómo aplicar." : "Cuando hables con NaIA, podrás comparar alternativas vigentes sin salir de la conversación."}</p>
