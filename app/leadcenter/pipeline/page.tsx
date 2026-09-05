@@ -1,12 +1,9 @@
-import Link from 'next/link';
-import { getServerSupabase } from '@/src/lib/supabase-server';
-import { calcularEstadoEstancamiento } from '@/src/lib/leadcenter/estancamiento';
+import { redirect } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
-
-type SearchParams = { vista?: string; etapa?: string };
-
-export default async function PipelineYFunnelPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+export default function PipelineYFunnelPage() {
+  redirect('/admin/funnel');
+}
+/*
   const { vista = 'panorama', etapa: etapaSeleccionada } = await searchParams;
   const supabase = await getServerSupabase();
 
@@ -80,4 +77,4 @@ export default async function PipelineYFunnelPage({ searchParams }: { searchPara
       </>
     </div>
   );
-}
+} */
