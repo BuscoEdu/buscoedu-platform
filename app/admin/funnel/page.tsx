@@ -350,6 +350,33 @@ export default function AdminFunnelPage() {
   const etapasActivas = etapas.filter((etapa) => etapa.activo).sort((a, b) => a.orden - b.orden);
   const subestadosActivos = subestados.filter((subestado) => subestado.activo);
   const reglasActivas = reglas.filter((regla) => regla.activo);
+  const etapaActual = etapasActivas.find((etapa) => etapa.id === etapaSeleccionada) || null;
+  const subestadosEtapaActual = subestados.filter((s) => s.etapa_id === etapaSeleccionada).sort((a, b) => a.orden - b.orden);
+  const reglaEtapaActual = reglas.find((r) => r.etapa_id === etapaSeleccionada && !r.subestado_id && r.activo) || null;
+  const [etapaEditando, setEtapaEditando] = useState(false);
+  const [etapaDraft, setEtapaDraft] = useState({ nombre: '', descripcion: '' });
+  const [reglaEtapaEditando, setReglaEtapaEditando] = useState(false);
+  const [reglaEtapaDraft, setReglaEtapaDraft] = useState({ lenta: '24', estancada: '48', accion: '' });
+  const [subEditando, setSubEditando] = useState<string | null>(null);
+  const [subDraft, setSubDraft] = useState({ nombre: '', descripcion: '', maximo: '' });
+  const [subReglaEditando, setSubReglaEditando] = useState<string | null>(null);
+  const [subReglaDraft, setSubReglaDraft] = useState({ lenta: '24', estancada: '48', accion: '' });
+
+  useEffect(() => {
+    if (!etapaActual) return;
+    setEtapaDraft({ nombre: etapaActual.nombre, descripcion: etapaActual.descripcion || '' });
+    setReglaEtapaDraft({ lenta: String(reglaEtapaActual?.horas_lenta ?? 24), estancada: String(reglaEtapaActual?.horas_estancada ?? reglaEtapaActual?.tiempo_maximo_horas ?? 48), accion: reglaEtapaActual?.accion_recomendada || '' });
+  }, [etapaActual?.id, etapaActual?.nombre, etapaActual?.descripcion, reglaEtapaActual?.id, reglaEtapaActual?.horas_lenta, reglaEtapaActual?.horas_estancada]);
+
+  async function guardarRegla(etapaId: string, subestadoId: string | null, draft: { lenta: string; estancada: string; accion: string }, existente: Regla | null) {
+    const lenta = Number(draft.lenta); const estancada = Number(draft.estancada);
+    if (!Number.isFinite(lenta) || !Number.isFinite(estancada) || lenta <= 0 || estancada <= lenta) { setErrorMessage('La regla debe tener horas válidas y Estancada debe ser mayor que Lenta.'); return; }
+    const payload = { etapa_id: subestadoId ? null : etapaId, subestado_id: subestadoId, tiempo_maximo_horas: estancada, horas_lenta: lenta, horas_estancada: estancada, accion_recomendada: draft.accion, activo: true };
+    const res = await fetch(existente ? `/api/admin/funnel/reglas-estancamiento/${existente.id}` : '/api/admin/funnel/reglas-estancamiento', { method: existente ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const data = await parseJson(res);
+    if (!res.ok || !data?.ok) { setErrorMessage(data?.error || 'No se pudo guardar la regla.'); return; }
+    setSuccessMessage('Regla guardada.'); await cargar();
+  }
 
   function abrirNuevaSubetapa(etapaId: string) {
     setSubestadoForm({ ...emptySubestado, etapa_id: etapaId });
@@ -386,7 +413,7 @@ export default function AdminFunnelPage() {
                     <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Etapa {etapa.orden}</p><h2 className="text-xl font-bold text-buscoedu-text">{etapa.nombre}</h2><p className="text-xs text-gray-500">{etapa.descripcion || 'Configuración operativa de la etapa'}</p></div>
                     <span className="h-4 w-4 rounded-full" style={{ backgroundColor: etapa.color || '#94a3b8' }} aria-label={`Color ${etapa.nombre}`} />
                   </div>
-                  {etapaSeleccionada ? <div className="space-y-3">
+                  {false && etapaSeleccionada ? <div className="space-y-3">
                     <h3 className="text-sm font-semibold text-buscoedu-text">Subetapas</h3>
                     {hijos.map((row) => (
                       <div key={row.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
@@ -416,7 +443,16 @@ export default function AdminFunnelPage() {
             </div>
           </section>
 
-          {etapaSeleccionada ? <details open id="administracion-avanzada" className="rounded-xl border border-gray-200 bg-white p-4"><summary className="cursor-pointer text-sm font-semibold text-buscoedu-text">Administración de {etapasActivas.find((e) => e.id === etapaSeleccionada)?.nombre || 'la etapa'}</summary><div className="mt-4 space-y-4"><p className="text-xs text-gray-500">Aquí se administra exclusivamente esta etapa: subetapas, activación, desactivación y reglas de estancamiento.</p>
+          {etapaActual ? <section id="administracion-etapa" className="space-y-5 rounded-2xl border border-blue-200 bg-white p-5 shadow-card">
+            <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Administración única de la etapa</p><h2 className="text-2xl font-bold text-buscoedu-text">{etapaActual.nombre}</h2></div><button type="button" onClick={() => { window.location.href = '/admin/funnel'; }} className="rounded-lg border px-3 py-2 text-sm">← Volver a etapas</button></div>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+              <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-buscoedu-text">1. Nombre y descripción</h3>{!etapaEditando && <button type="button" onClick={() => setEtapaEditando(true)} className="rounded-lg border px-3 py-1.5 text-xs font-semibold">Editar</button>}</div>
+              {etapaEditando ? <div className="space-y-2"><input value={etapaDraft.nombre} onChange={(e) => setEtapaDraft({ ...etapaDraft, nombre: e.target.value })} className="w-full rounded-lg border px-3 py-2" /><textarea value={etapaDraft.descripcion} onChange={(e) => setEtapaDraft({ ...etapaDraft, descripcion: e.target.value })} className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} /><div className="flex gap-2"><button type="button" onClick={async () => { await actualizarEtapa(etapaActual.id, etapaDraft); setEtapaEditando(false); }} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white">Guardar</button><button type="button" onClick={() => { setEtapaDraft({ nombre: etapaActual.nombre, descripcion: etapaActual.descripcion || '' }); setEtapaEditando(false); }} className="rounded-lg border px-3 py-2 text-xs">Cancelar</button></div></div> : <><p className="font-medium">{etapaActual.nombre}</p><p className="text-sm text-gray-500">{etapaActual.descripcion || 'Sin descripción'}</p></>}
+            </div>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><div className="mb-3 flex items-center justify-between"><div><h3 className="font-semibold text-amber-900">2. Regla de estancamiento de la etapa</h3><p className="text-xs text-amber-800">Una única regla general para esta etapa.</p></div>{!reglaEtapaEditando && <button type="button" onClick={() => setReglaEtapaEditando(true)} className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold">Editar</button>}</div>{reglaEtapaEditando ? <div className="space-y-2"><div className="grid gap-2 sm:grid-cols-2"><FormField label="Lenta desde (horas)" value={reglaEtapaDraft.lenta} onChange={(e) => setReglaEtapaDraft({ ...reglaEtapaDraft, lenta: e.target.value })} type="number" /><FormField label="Estancada desde (horas)" value={reglaEtapaDraft.estancada} onChange={(e) => setReglaEtapaDraft({ ...reglaEtapaDraft, estancada: e.target.value })} type="number" /></div><FormTextarea label="Acción recomendada" value={reglaEtapaDraft.accion} onChange={(e) => setReglaEtapaDraft({ ...reglaEtapaDraft, accion: e.target.value })} /><div className="flex gap-2"><button type="button" onClick={async () => { await guardarRegla(etapaActual.id, null, reglaEtapaDraft, reglaEtapaActual); setReglaEtapaEditando(false); }} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white">Guardar</button><button type="button" onClick={() => setReglaEtapaEditando(false)} className="rounded-lg border px-3 py-2 text-xs">Cancelar</button></div></div> : <p className="text-sm text-amber-900">Lenta: {reglaEtapaActual?.horas_lenta ?? '—'} h · Estancada: {reglaEtapaActual?.horas_estancada ?? '—'} h</p>}</div>
+            <div className="rounded-xl border border-gray-200 p-4"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-buscoedu-text">3. Subetapas</h3><button type="button" onClick={() => abrirNuevaSubetapa(etapaActual.id)} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white">+ Nueva subetapa</button></div><div className="space-y-3">{subestadosEtapaActual.map((row, index) => { const regla = reglas.find((r) => r.subestado_id === row.id && r.activo) || null; return <div key={row.id} className={`rounded-xl border p-3 ${row.activo ? 'bg-white' : 'bg-gray-50 text-gray-400'}`}><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{row.orden}. {row.nombre}</p><p className="text-xs">Regla: lenta {regla?.horas_lenta ?? '—'} h · estancada {regla?.horas_estancada ?? '—'} h</p></div><div className="flex gap-1"><button type="button" disabled={index === 0} onClick={() => moverSubestado(row, 'up')} className="rounded border px-2 py-1 text-xs disabled:opacity-30">↑</button><button type="button" disabled={index === subestadosEtapaActual.length - 1} onClick={() => moverSubestado(row, 'down')} className="rounded border px-2 py-1 text-xs disabled:opacity-30">↓</button>{row.activo ? <button type="button" onClick={() => { setSubEditando(row.id); setSubDraft({ nombre: row.nombre, descripcion: row.descripcion || '', maximo: String(row.tiempo_maximo_horas ?? '') }); }} className="rounded border px-2 py-1 text-xs">Editar</button> : <button type="button" onClick={() => actualizarSubestado(row.id, { activo: true })} className="rounded border px-2 py-1 text-xs">Activar</button>}</div></div>{subEditando === row.id && <div className="mt-3 space-y-2 border-t pt-3"><input value={subDraft.nombre} onChange={(e) => setSubDraft({ ...subDraft, nombre: e.target.value })} className="w-full rounded border px-2 py-1 text-sm" /><textarea value={subDraft.descripcion} onChange={(e) => setSubDraft({ ...subDraft, descripcion: e.target.value })} className="w-full rounded border px-2 py-1 text-sm" rows={2} /><div className="flex gap-2"><button type="button" onClick={async () => { await actualizarSubestado(row.id, { nombre: subDraft.nombre, descripcion: subDraft.descripcion, tiempo_maximo_horas: Number(subDraft.maximo) || null }); setSubEditando(null); }} className="rounded bg-blue-600 px-3 py-1.5 text-xs text-white">Guardar</button><button type="button" onClick={() => setSubEditando(null)} className="rounded border px-3 py-1.5 text-xs">Cancelar</button></div></div>}<div className="mt-3 border-t pt-3">{subReglaEditando === row.id ? <div className="space-y-2"><div className="grid gap-2 sm:grid-cols-2"><FormField label="Lenta (horas)" value={subReglaDraft.lenta} onChange={(e) => setSubReglaDraft({ ...subReglaDraft, lenta: e.target.value })} type="number" /><FormField label="Estancada (horas)" value={subReglaDraft.estancada} onChange={(e) => setSubReglaDraft({ ...subReglaDraft, estancada: e.target.value })} type="number" /></div><FormTextarea label="Acción recomendada" value={subReglaDraft.accion} onChange={(e) => setSubReglaDraft({ ...subReglaDraft, accion: e.target.value })} /><div className="flex gap-2"><button type="button" onClick={async () => { await guardarRegla(etapaActual.id, row.id, subReglaDraft, regla); setSubReglaEditando(null); }} className="rounded bg-amber-600 px-3 py-1.5 text-xs text-white">Guardar</button><button type="button" onClick={() => setSubReglaEditando(null)} className="rounded border px-3 py-1.5 text-xs">Cancelar</button></div></div> : <button type="button" onClick={() => { setSubReglaEditando(row.id); setSubReglaDraft({ lenta: String(regla?.horas_lenta ?? 24), estancada: String(regla?.horas_estancada ?? row.tiempo_maximo_horas ?? 48), accion: regla?.accion_recomendada || '' }); }} className="text-xs font-semibold text-amber-700">Editar regla de esta subetapa</button>}</div></div>; })}</div></div>
+          </section> : null}
+          {false && <>
               <form onSubmit={crearSubestado} className="space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
                 <label className="block text-sm">
                   <span className="mb-1 block text-buscoedu-text">Etapa padre</span>
@@ -613,7 +649,7 @@ export default function AdminFunnelPage() {
                 ))
               )}
             </div>
-              </div></div></details> : null}
+              </div></>}
         </>
       )}
 
