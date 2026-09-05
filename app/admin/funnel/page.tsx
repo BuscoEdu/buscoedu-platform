@@ -199,8 +199,9 @@ export default function AdminFunnelPage() {
 
     const actual = etapas[index];
     const otra = etapas[destino];
-    await actualizarEtapa(actual.id, { orden: otra.orden });
+    await actualizarEtapa(actual.id, { orden: -Date.now() });
     await actualizarEtapa(otra.id, { orden: actual.orden });
+    await actualizarEtapa(actual.id, { orden: otra.orden });
   }
 
   async function crearSubestado(e: FormEvent) {
@@ -258,8 +259,9 @@ export default function AdminFunnelPage() {
 
     const actual = delMismoGrupo[index];
     const otro = delMismoGrupo[destino];
-    await actualizarSubestado(actual.id, { orden: otro.orden });
+    await actualizarSubestado(actual.id, { orden: -Date.now() });
     await actualizarSubestado(otro.id, { orden: actual.orden });
+    await actualizarSubestado(actual.id, { orden: otro.orden });
   }
 
   async function crearRegla(e: FormEvent) {
@@ -403,7 +405,7 @@ export default function AdminFunnelPage() {
         <>
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">Las etapas se mantienen protegidas para conservar el historial. Solo se muestran etapas activas; dentro de cada ficha puedes editar subetapas y reglas.</div>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3">
             {etapasActivas.filter((etapa) => !etapaSeleccionada || etapa.id === etapaSeleccionada).map((etapa) => {
               const hijos = subestadosActivos.filter((s) => s.etapa_id === etapa.id).sort((a, b) => a.orden - b.orden);
               const reglasEtapa = reglasActivas.filter((r) => r.etapa_id === etapa.id || hijos.some((s) => s.id === r.subestado_id));
@@ -411,7 +413,7 @@ export default function AdminFunnelPage() {
                 <article id={`etapa-${etapa.id}`} key={etapa.id} onClick={() => { if (!etapaSeleccionada) window.location.href = `/admin/funnel?etapa=${etapa.id}`; }} className={`rounded-2xl border bg-white p-5 shadow-card ${etapaSeleccionada === etapa.id ? 'border-blue-500 ring-2 ring-blue-100' : 'border-buscoedu-border'} ${!etapaSeleccionada ? 'cursor-pointer transition hover:border-blue-400 hover:shadow-lg' : ''}`}>
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Etapa {etapa.orden}</p><h2 className="text-xl font-bold text-buscoedu-text">{etapa.nombre}</h2><p className="text-xs text-gray-500">{etapa.descripcion || 'Configuración operativa de la etapa'}</p></div>
-                    <span className="h-4 w-4 rounded-full" style={{ backgroundColor: etapa.color || '#94a3b8' }} aria-label={`Color ${etapa.nombre}`} />
+                    <div className="flex items-center gap-1"><button type="button" disabled={etapasActivas.findIndex((e) => e.id === etapa.id) === 0} onClick={(e) => { e.stopPropagation(); void moverEtapa(etapasActivas.findIndex((x) => x.id === etapa.id), 'up'); }} className="rounded border px-2 py-1 text-xs disabled:opacity-30">↑</button><button type="button" disabled={etapasActivas.findIndex((e) => e.id === etapa.id) === etapasActivas.length - 1} onClick={(e) => { e.stopPropagation(); void moverEtapa(etapasActivas.findIndex((x) => x.id === etapa.id), 'down'); }} className="rounded border px-2 py-1 text-xs disabled:opacity-30">↓</button><span className="ml-2 h-4 w-4 rounded-full" style={{ backgroundColor: etapa.color || '#94a3b8' }} aria-label={`Color ${etapa.nombre}`} /></div>
                   </div>
                   {false && etapaSeleccionada ? <div className="space-y-3">
                     <h3 className="text-sm font-semibold text-buscoedu-text">Subetapas</h3>
@@ -424,13 +426,13 @@ export default function AdminFunnelPage() {
                     {subestados.filter((s) => s.etapa_id === etapa.id && !s.activo).length > 0 && <div className="border-t border-gray-200 pt-3"><p className="mb-2 text-xs font-semibold text-gray-400">Subetapas desactivadas</p><div className="flex flex-wrap gap-2">{subestados.filter((s) => s.etapa_id === etapa.id && !s.activo).sort((a, b) => a.orden - b.orden).map((row) => <button key={row.id} type="button" onClick={() => actualizarSubestado(row.id, { activo: true })} className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-400 hover:text-blue-700">{row.nombre} · Activar</button>)}</div></div>}
                   <div className="mt-5 space-y-3 border-t border-gray-100 pt-4"><h3 className="text-sm font-semibold text-buscoedu-text">Reglas de estancamiento</h3>{reglasEtapa.length ? reglasEtapa.map((r) => <div key={r.id} className="rounded-xl border border-amber-100 bg-amber-50 p-3"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-semibold text-amber-900">{r.subestado_id ? hijos.find((s) => s.id === r.subestado_id)?.nombre || 'Subetapa' : 'Regla de etapa'}</p><p className="text-xs text-amber-800">Lenta: {r.horas_lenta ?? Math.floor(r.tiempo_maximo_horas / 2)} h · Estancada: {r.horas_estancada ?? r.tiempo_maximo_horas} h</p>{r.accion_recomendada && <p className="mt-1 text-xs text-amber-900">{r.accion_recomendada}</p>}</div><button type="button" onClick={() => toggleRegla(r.id, r.activo)} className="rounded-lg border border-amber-200 bg-white px-2 py-1 text-xs">Desactivar</button></div></div>) : <p className="text-xs text-gray-500">No hay reglas activas configuradas para esta etapa.</p>}</div>
                   <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => abrirNuevaSubetapa(etapa.id)} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white">+ Nueva subetapa</button><button type="button" onClick={() => abrirNuevaRegla(etapa.id)} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">+ Nueva regla</button></div>
-                  </div> : <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-4"><span className="text-sm text-gray-500">Administrar esta etapa</span><span className="font-semibold text-blue-600">Abrir ficha →</span></div>}
+                  </div> : <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3 text-sm text-gray-600"><span>Regla: lenta {reglasEtapa.find((r) => !r.subestado_id)?.horas_lenta ?? '—'} h · estancada {reglasEtapa.find((r) => !r.subestado_id)?.horas_estancada ?? '—'} h</span><span className="text-blue-600">Seleccionar etapa →</span></div>}
                 </article>
               );
             })}
           </div>
 
-          <section className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+          {false && <section className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="text-sm font-semibold text-gray-500">Etapas desactivadas</h2>
             <p className="mt-1 text-xs text-gray-500">Se conservan únicamente para proteger el historial. Puedes abrirlas y volver a activarlas.</p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -441,10 +443,10 @@ export default function AdminFunnelPage() {
               ))}
               {!etapas.some((etapa) => !etapa.activo) && <p className="text-xs text-gray-400">No hay etapas desactivadas.</p>}
             </div>
-          </section>
+          </section>}
 
           {etapaActual ? <section id="administracion-etapa" className="space-y-5 rounded-2xl border border-blue-200 bg-white p-5 shadow-card">
-            <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Administración única de la etapa</p><h2 className="text-2xl font-bold text-buscoedu-text">{etapaActual.nombre}</h2></div><button type="button" onClick={() => { window.location.href = '/admin/funnel'; }} className="rounded-lg border px-3 py-2 text-sm">← Volver a etapas</button></div>
+            <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Administración única de la etapa</p><h2 className="text-2xl font-bold text-buscoedu-text">{etapaActual.nombre}</h2></div><div className="flex gap-2"><button type="button" onClick={() => actualizarEtapa(etapaActual.id, { activo: false })} className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700">Desactivar etapa</button><button type="button" onClick={() => { window.location.href = '/admin/funnel'; }} className="rounded-lg border px-3 py-2 text-sm">← Volver</button></div></div>
             <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
               <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-buscoedu-text">1. Nombre y descripción</h3>{!etapaEditando && <button type="button" onClick={() => setEtapaEditando(true)} className="rounded-lg border px-3 py-1.5 text-xs font-semibold">Editar</button>}</div>
               {etapaEditando ? <div className="space-y-2"><input value={etapaDraft.nombre} onChange={(e) => setEtapaDraft({ ...etapaDraft, nombre: e.target.value })} className="w-full rounded-lg border px-3 py-2" /><textarea value={etapaDraft.descripcion} onChange={(e) => setEtapaDraft({ ...etapaDraft, descripcion: e.target.value })} className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} /><div className="flex gap-2"><button type="button" onClick={async () => { await actualizarEtapa(etapaActual.id, etapaDraft); setEtapaEditando(false); }} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white">Guardar</button><button type="button" onClick={() => { setEtapaDraft({ nombre: etapaActual.nombre, descripcion: etapaActual.descripcion || '' }); setEtapaEditando(false); }} className="rounded-lg border px-3 py-2 text-xs">Cancelar</button></div></div> : <><p className="font-medium">{etapaActual.nombre}</p><p className="text-sm text-gray-500">{etapaActual.descripcion || 'Sin descripción'}</p></>}
