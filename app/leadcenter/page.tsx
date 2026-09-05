@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { getServerSupabase } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 
@@ -20,30 +19,12 @@ export default async function DashboardPage() {
   const sesion = await getSesionLeadCenter();
 
   // RLS filtra automáticamente por el asesor; super_admin ve todo.
-  const [activas, calientes, tareasPend, transfPend, etapas] = await Promise.all([
+  const [activas, calientes, tareasPend, transfPend] = await Promise.all([
     contar('oportunidades', (q) => q.eq('estado', 'activa')),
     contar('oportunidades', (q) => q.in('temperatura', ['caliente', 'muy_caliente']).eq('estado', 'activa')),
     contar('tareas_crm', (q) => q.eq('estado', 'pendiente')),
-    contar('transferencias_universidad', (q) => q.eq('estado', 'pendiente')),
-    (async () => {
-      try {
-        const supabase = await getServerSupabase();
-        const { data } = await supabase
-          .from('etapas_embudo')
-          .select('id, nombre, orden, color')
-          .order('orden');
-        return data || [];
-      } catch {
-        return [];
-      }
-    })()
+    contar('transferencias_universidad', (q) => q.eq('estado', 'pendiente'))
   ]);
-
-  const conteosEtapa = await Promise.all(
-    (etapas as any[]).map((e) =>
-      contar('oportunidades', (q) => q.eq('etapa_id', e.id).eq('estado', 'activa'))
-    )
-  );
 
   const kpis = [
     { label: 'Oportunidades activas', valor: activas, color: 'bg-blue-50 text-blue-700' },
@@ -76,38 +57,6 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-gray-900">Pipeline y Funnel</h2>
-            <p className="text-xs text-gray-500">Avance, alertas y gestión en un mismo contexto.</p>
-          </div>
-          <Link href="/leadcenter/pipeline" className="text-sm font-medium text-blue-600">
-            Abrir panorama →
-          </Link>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-          {(etapas as any[]).length === 0 && (
-            <p className="text-sm text-gray-500">No hay etapas configuradas todavía.</p>
-          )}
-          {(etapas as any[]).map((e, i) => (
-            <Link
-              key={e.id}
-              href={`/leadcenter/pipeline?vista=gestion&etapa=${e.id}`}
-              className="rounded-xl border border-gray-100 px-3 py-2.5 hover:bg-gray-50"
-            >
-              <span className="flex items-center gap-2 text-sm text-gray-700">
-                <span
-                  className="inline-block h-3 w-3 rounded-full"
-                  style={{ backgroundColor: e.color || '#9CA3AF' }}
-                />
-                {e.nombre}
-              </span>
-              <span className="mt-2 block text-2xl font-semibold text-gray-900">{conteosEtapa[i]}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
