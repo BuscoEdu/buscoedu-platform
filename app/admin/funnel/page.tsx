@@ -329,13 +329,30 @@ export default function AdminFunnelPage() {
     await cargar();
   }
 
+  async function actualizarRegla(id: string, patch: Partial<Regla>) {
+    const res = await fetch(`/api/admin/funnel/reglas-estancamiento/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch)
+    });
+    const data = await parseJson(res);
+    if (!res.ok || !data?.ok) {
+      setErrorMessage(data?.error || 'No se pudo actualizar la regla.');
+      return;
+    }
+    setSuccessMessage('Regla actualizada.');
+    await cargar();
+  }
+
+  const etapasActivas = etapas.filter((etapa) => etapa.activo).sort((a, b) => a.orden - b.orden);
+  const subestadosActivos = subestados.filter((subestado) => subestado.activo);
+  const reglasActivas = reglas.filter((regla) => regla.activo);
+
   return (
     <section className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-buscoedu-blue">Configuración de Funnel</h1>
-        <p className="text-sm text-buscoedu-muted">
-          Gestiona etapas, subestados y reglas de estancamiento. Acceso exclusivo para super_admin.
-        </p>
+        <p className="text-sm text-buscoedu-muted">Administra las subetapas y reglas operativas del funnel activo. Las etapas históricas inactivas no se muestran.</p>
       </div>
 
       {loading ? (
@@ -344,84 +361,34 @@ export default function AdminFunnelPage() {
         </div>
       ) : (
         <>
-          <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-            Esta es la fuente de verdad del funnel: aquí editas nombre, orden y estado de cada etapa/subetapa, y los umbrales de salud. Precedencia: primero subetapa y luego etapa.
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">Las etapas se mantienen protegidas para conservar el historial. Solo se muestran etapas activas; dentro de cada ficha puedes editar subetapas y reglas.</div>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            {etapasActivas.map((etapa) => {
+              const hijos = subestadosActivos.filter((s) => s.etapa_id === etapa.id).sort((a, b) => a.orden - b.orden);
+              const reglasEtapa = reglasActivas.filter((r) => r.etapa_id === etapa.id || hijos.some((s) => s.id === r.subestado_id));
+              return (
+                <article key={etapa.id} className="rounded-2xl border border-buscoedu-border bg-white p-5 shadow-card">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Etapa {etapa.orden}</p><h2 className="text-xl font-bold text-buscoedu-text">{etapa.nombre}</h2><p className="text-xs text-gray-500">{etapa.descripcion || 'Configuración operativa de la etapa'}</p></div>
+                    <span className="h-4 w-4 rounded-full" style={{ backgroundColor: etapa.color || '#94a3b8' }} aria-label={`Color ${etapa.nombre}`} />
+                  </div>
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-buscoedu-text">Subetapas</h3>
+                    {hijos.map((row) => (
+                      <div key={row.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                        {edicion?.tipo === 'subestado' && edicion.id === row.id ? <div className="space-y-2"><input defaultValue={row.nombre} id={`nombre-subestado-${row.id}`} className="w-full rounded border px-2 py-1 text-sm" /><input defaultValue={row.descripcion || ''} id={`descripcion-subestado-${row.id}`} className="w-full rounded border px-2 py-1 text-xs" placeholder="Descripción" /><input defaultValue={row.tiempo_maximo_horas ?? ''} id={`horas-subestado-${row.id}`} type="number" className="w-full rounded border px-2 py-1 text-xs" placeholder="Horas máximas" /><div className="flex gap-2"><button type="button" onClick={() => { const nombre = (document.getElementById(`nombre-subestado-${row.id}`) as HTMLInputElement)?.value; const descripcion = (document.getElementById(`descripcion-subestado-${row.id}`) as HTMLInputElement)?.value; const tiempo_maximo_horas = Number((document.getElementById(`horas-subestado-${row.id}`) as HTMLInputElement)?.value || 0); void actualizarSubestado(row.id, { nombre, descripcion, tiempo_maximo_horas }); setEdicion(null); }} className="rounded-lg bg-buscoedu-blue px-3 py-1 text-xs font-semibold text-white">Guardar</button><button type="button" onClick={() => setEdicion(null)} className="rounded-lg border px-3 py-1 text-xs">Cancelar</button></div></div> : <div className="flex items-center justify-between gap-2"><div><p className="text-sm font-semibold text-buscoedu-text">{row.orden}. {row.nombre}</p><p className="text-xs text-gray-500">Lenta/estancamiento se configura en sus reglas · máximo histórico: {row.tiempo_maximo_horas ?? '—'} h</p></div><button type="button" onClick={() => setEdicion({ tipo: 'subestado', id: row.id })} className="rounded-lg border px-3 py-1 text-xs font-semibold">Editar</button></div>}
+                      </div>
+                    ))}
+                    {hijos.length === 0 && <p className="text-xs text-gray-500">No hay subetapas activas.</p>}
+                  </div>
+                  <div className="mt-5 space-y-3 border-t border-gray-100 pt-4"><h3 className="text-sm font-semibold text-buscoedu-text">Reglas de estancamiento</h3>{reglasEtapa.length ? reglasEtapa.map((r) => <div key={r.id} className="rounded-xl border border-amber-100 bg-amber-50 p-3"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-semibold text-amber-900">{r.subestado_id ? hijos.find((s) => s.id === r.subestado_id)?.nombre || 'Subetapa' : 'Regla de etapa'}</p><p className="text-xs text-amber-800">Lenta: {r.horas_lenta ?? Math.floor(r.tiempo_maximo_horas / 2)} h · Estancada: {r.horas_estancada ?? r.tiempo_maximo_horas} h</p>{r.accion_recomendada && <p className="mt-1 text-xs text-amber-900">{r.accion_recomendada}</p>}</div><button type="button" onClick={() => toggleRegla(r.id, r.activo)} className="rounded-lg border border-amber-200 bg-white px-2 py-1 text-xs">Desactivar</button></div></div>) : <p className="text-xs text-gray-500">No hay reglas activas configuradas para esta etapa.</p>}</div>
+                </article>
+              );
+            })}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_1fr]">
-            <div className="space-y-4 rounded-xl border border-buscoedu-border bg-white p-4 shadow-card">
-              <h2 className="text-lg font-semibold text-buscoedu-text">A) Gestión de Etapas</h2>
-              <form onSubmit={crearEtapa} className="space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
-                <FormField
-                  label="Nombre"
-                  value={etapaForm.nombre}
-                  onChange={(e) => setEtapaForm((prev) => ({ ...prev, nombre: e.target.value }))}
-                  requiredMark
-                />
-                <FormTextarea
-                  label="Descripción"
-                  value={etapaForm.descripcion}
-                  onChange={(e) => setEtapaForm((prev) => ({ ...prev, descripcion: e.target.value }))}
-                />
-                <FormField
-                  label="Color (hex)"
-                  value={etapaForm.color}
-                  onChange={(e) => setEtapaForm((prev) => ({ ...prev, color: e.target.value }))}
-                />
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <FormToggle
-                    label="Final ganada"
-                    checked={etapaForm.es_etapa_final_ganada}
-                    onChange={(checked) => setEtapaForm((prev) => ({ ...prev, es_etapa_final_ganada: checked }))}
-                  />
-                  <FormToggle
-                    label="Final perdida"
-                    checked={etapaForm.es_etapa_final_perdida}
-                    onChange={(checked) => setEtapaForm((prev) => ({ ...prev, es_etapa_final_perdida: checked }))}
-                  />
-                  <FormToggle
-                    label="Activa"
-                    checked={etapaForm.activo}
-                    onChange={(checked) => setEtapaForm((prev) => ({ ...prev, activo: checked }))}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={guardando}
-                  className="rounded-lg bg-buscoedu-blue px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                >
-                  Crear etapa
-                </button>
-              </form>
-
-              <div className="space-y-2">
-                {etapas.map((etapa, index) => (
-                  <div key={etapa.id} className="rounded-lg border border-gray-200 p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        {edicion?.tipo === 'etapa' && edicion.id === etapa.id ? <div className="space-y-2"><input defaultValue={etapa.nombre} id={`nombre-etapa-${etapa.id}`} className="w-full rounded border px-2 py-1 text-sm" /><input defaultValue={etapa.descripcion || ''} id={`descripcion-etapa-${etapa.id}`} className="w-full rounded border px-2 py-1 text-xs" placeholder="Descripción" /></div> : <><p className="font-semibold text-buscoedu-text">{etapa.nombre}</p><p className="text-xs text-gray-500">Orden {etapa.orden} · {etapa.descripcion || 'Sin descripción'}</p></>}
-                        <p className="text-xs text-gray-500">{etapa.activo ? 'Activa' : 'Inactiva'}</p>
-                      </div>
-                      <div className="flex gap-1">
-                        <button type="button" onClick={() => moverEtapa(index, 'up')} className="rounded border px-2 py-1 text-xs">↑</button>
-                        <button type="button" onClick={() => moverEtapa(index, 'down')} className="rounded border px-2 py-1 text-xs">↓</button>
-                        {edicion?.tipo === 'etapa' && edicion.id === etapa.id ? <button type="button" onClick={() => { const nombre = (document.getElementById(`nombre-etapa-${etapa.id}`) as HTMLInputElement)?.value; const descripcion = (document.getElementById(`descripcion-etapa-${etapa.id}`) as HTMLInputElement)?.value; void actualizarEtapa(etapa.id, { nombre, descripcion }); setEdicion(null); }} className="rounded border px-2 py-1 text-xs">Guardar</button> : <button type="button" onClick={() => setEdicion({ tipo: 'etapa', id: etapa.id })} className="rounded border px-2 py-1 text-xs">Editar</button>}
-                        <button
-                          type="button"
-                          onClick={() => actualizarEtapa(etapa.id, { activo: !etapa.activo })}
-                          className="rounded border px-2 py-1 text-xs"
-                        >
-                          {etapa.activo ? 'Desactivar' : 'Activar'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-4 rounded-xl border border-buscoedu-border bg-white p-4 shadow-card">
-              <h2 className="text-lg font-semibold text-buscoedu-text">B) Gestión de Subestados</h2>
+          <details className="rounded-xl border border-gray-200 bg-white p-4"><summary className="cursor-pointer text-sm font-semibold text-buscoedu-text">Administración avanzada</summary><div className="mt-4 space-y-4"><p className="text-xs text-gray-500">Usa esta sección solo para crear una nueva subetapa o regla. Las etapas no se eliminan físicamente para proteger el historial.</p>
               <form onSubmit={crearSubestado} className="space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
                 <label className="block text-sm">
                   <span className="mb-1 block text-buscoedu-text">Etapa padre</span>
@@ -431,7 +398,7 @@ export default function AdminFunnelPage() {
                     className="w-full rounded-md border border-buscoedu-border px-3 py-2"
                   >
                     <option value="">Seleccionar etapa</option>
-                    {etapas.map((e) => (
+                    {etapasActivas.map((e) => (
                       <option key={e.id} value={e.id}>{e.nombre}</option>
                     ))}
                   </select>
@@ -503,9 +470,6 @@ export default function AdminFunnelPage() {
                   );
                 })}
               </div>
-            </div>
-          </div>
-
           <div className="space-y-4 rounded-xl border border-buscoedu-border bg-white p-4 shadow-card">
             <h2 className="text-lg font-semibold text-buscoedu-text">C) Reglas de Estancamiento</h2>
 
@@ -596,7 +560,7 @@ export default function AdminFunnelPage() {
               {reglas.length === 0 ? (
                 <p className="text-sm text-gray-500">No hay reglas configuradas.</p>
               ) : (
-                reglas.map((r) => (
+                  reglas.map((r) => (
                   <div key={r.id} className="rounded-lg border border-gray-200 p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -621,7 +585,7 @@ export default function AdminFunnelPage() {
                 ))
               )}
             </div>
-          </div>
+          </div></div></details>
         </>
       )}
 
