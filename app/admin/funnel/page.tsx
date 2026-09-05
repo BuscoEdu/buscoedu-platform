@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import FormField from '@/components/admin/FormField';
 import FormTextarea from '@/components/admin/FormTextarea';
 import ErrorToast from '@/components/admin/ErrorToast';
@@ -50,6 +50,7 @@ async function parseJson(res: Response) {
 }
 
 export default function AdminFunnelPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const etapaSeleccionada = searchParams.get('etapa');
 
@@ -272,7 +273,9 @@ export default function AdminFunnelPage() {
   );
   const subestadosActivos = subestados.filter((subestado) => subestado.activo);
   const reglasActivas = reglas.filter((regla) => regla.activo);
-  const etapaActual = etapasActivas.find((etapa) => etapa.id === etapaSeleccionada) || null;
+  // Buscar en TODAS las etapas (activas e inactivas) para que la ficha funcione
+  // incluso cuando se navega a una etapa desactivada.
+  const etapaActual = etapas.find((etapa) => etapa.id === etapaSeleccionada) || null;
   const subestadosEtapaActual = subestados
     .filter((s) => s.etapa_id === etapaSeleccionada)
     .sort((a, b) => a.orden - b.orden);
@@ -319,27 +322,58 @@ export default function AdminFunnelPage() {
         // general.
         <section
           id="administracion-etapa"
-          className="space-y-5 rounded-2xl border border-blue-200 bg-white p-5 shadow-card"
+          className={`space-y-5 rounded-2xl border p-5 shadow-card ${
+            etapaActual.activo
+              ? 'border-blue-200 bg-white'
+              : 'border-gray-300 bg-gray-50'
+          }`}
         >
+          {/* Banner de etapa desactivada */}
+          {!etapaActual.activo && (
+            <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+              <span>⚠️</span>
+              <span>
+                Esta etapa está <strong>desactivada</strong>. No aparece en el funnel activo pero sus
+                datos se conservan para proteger el historial. Usa el botón{' '}
+                <strong>Reactivar etapa</strong> para volver a incluirla.
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Administración de la etapa
               </p>
-              <h2 className="text-2xl font-bold text-buscoedu-text">{etapaActual.nombre}</h2>
+              <h2 className={`text-2xl font-bold ${etapaActual.activo ? 'text-buscoedu-text' : 'text-gray-400'}`}>
+                {etapaActual.nombre}
+                {!etapaActual.activo && (
+                  <span className="ml-2 text-xs font-normal text-gray-400">(desactivada)</span>
+                )}
+              </h2>
             </div>
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => actualizarEtapa(etapaActual.id, { activo: false })}
-                className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700"
-              >
-                Desactivar etapa
-              </button>
+              {/* Mostrar Reactivar si la etapa está desactivada, o Desactivar si está activa */}
+              {etapaActual.activo ? (
+                <button
+                  type="button"
+                  onClick={() => actualizarEtapa(etapaActual.id, { activo: false })}
+                  className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+                >
+                  Desactivar etapa
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => actualizarEtapa(etapaActual.id, { activo: true })}
+                  className="rounded-lg border border-green-400 bg-green-50 px-3 py-2 text-sm font-semibold text-green-800 hover:bg-green-100"
+                >
+                  ✓ Reactivar etapa
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
-                  window.location.href = '/admin/funnel';
+                  router.push('/admin/funnel');
                 }}
                 className="rounded-lg border px-3 py-2 text-sm"
               >
@@ -760,7 +794,7 @@ export default function AdminFunnelPage() {
                   id={`etapa-${etapa.id}`}
                   key={etapa.id}
                   onClick={() => {
-                    window.location.href = `/admin/funnel?etapa=${etapa.id}`;
+                    router.push(`/admin/funnel?etapa=${etapa.id}`);
                   }}
                   className="cursor-pointer rounded-2xl border border-buscoedu-border bg-white p-5 shadow-card transition hover:border-blue-400 hover:shadow-lg"
                 >
@@ -821,21 +855,23 @@ export default function AdminFunnelPage() {
           </div>
 
           {/* BUG 2: sección de etapas desactivadas (solo en la lista general).
-              Sin flechas de orden; se pueden reactivar con un clic. */}
+              Al hacer clic se navega a la ficha; desde ahí se puede reactivar.
+              Sin flechas de orden ni botón de activación directa. */}
           <section className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="text-sm font-semibold text-gray-500">Etapas desactivadas</h2>
             <p className="mt-1 text-xs text-gray-500">
-              Se conservan para proteger el historial. Puedes volver a activarlas con un clic.
+              Se conservan para proteger el historial. Haz clic en una etapa para ver su ficha y reactivarla.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {etapasInactivas.map((etapa) => (
                 <button
                   key={etapa.id}
                   type="button"
-                  onClick={() => actualizarEtapa(etapa.id, { activo: true })}
-                  className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-700"
+                  onClick={() => router.push(`/admin/funnel?etapa=${etapa.id}`)}
+                  className="rounded-xl border border-gray-300 bg-gray-100 px-3 py-2 text-xs text-gray-400 hover:border-gray-400 hover:bg-gray-200 hover:text-gray-600"
                 >
-                  {etapa.nombre} · Activar
+                  {etapa.nombre}
+                  <span className="ml-1 text-gray-300">· Ver ficha →</span>
                 </button>
               ))}
               {etapasInactivas.length === 0 && (
