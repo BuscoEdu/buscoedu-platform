@@ -313,6 +313,22 @@ echo $PREVIEW_URL
 # Puertos: $PREVIEW_URL-<port>.na110.preview.abacusai.app
 ```
 
+## 🧭 Actualización CRM — Pipeline y Funnel (2026-09-05)
+
+La actualización consolida la operación del Lead Center sin sustituir sus fuentes de datos actuales.
+
+- **Pipeline y Funnel:** nueva ruta `/leadcenter/pipeline` con vistas de Panorama, Gestión y Configuración. El panel deja de enviar una etapa a una lista sin contexto; conserva el filtro de etapa dentro del módulo.
+- **Tareas:** `/leadcenter/tareas` ofrece `Radar` como vista predeterminada y `Detalle` para trabajo operativo. El radar ordena por vencimiento y usa estados accesibles de tiempo, vencimiento y finalización.
+- **Ficha de oportunidad:** incorpora dashboard enlazable a Persona, ruta visual de funnel, tareas contextualizadas, notas/comentarios en dos columnas, historial con altura controlada y consentimientos con scroll interno.
+- **Modelo de datos:** la migración `20260905200000_funnel_salud_versionada.sql` añade versión de funnel, transiciones configurables, salud/prioridad, eventos de scoring idempotentes y fechas operativas. Debe ejecutarse en Supabase antes de activar configuraciones nuevas.
+
+### Ejecutar migraciones y validar
+
+1. Ejecuta las migraciones pendientes en orden cronológico, incluida `supabase/migrations/20260905200000_funnel_salud_versionada.sql`.
+2. Revisa el `NOTICE` de la migración: si existen oportunidades activas duplicadas para la misma persona y oferta, resuélvelas antes de activar la unicidad.
+3. Configura reglas de transición y salud desde administración antes de convertirlas en obligatorias para operación.
+4. Ejecuta `npm run build` antes de desplegar.
+
 ## 🐛 Troubleshooting
 
 ### "No hay datos demo en Supabase"

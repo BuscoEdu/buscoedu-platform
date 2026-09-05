@@ -97,7 +97,7 @@ export default function ComentariosNotaPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <h2 className="mb-2 text-base font-semibold text-gray-900">Nota interna</h2>
         <p className="mb-2 text-xs text-gray-500">

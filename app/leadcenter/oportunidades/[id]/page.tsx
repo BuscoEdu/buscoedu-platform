@@ -151,6 +151,8 @@ export default async function FichaOportunidadPage({
   const nombreOferta = (oferta as any)?.nombre_oferta || 'Oferta no definida';
 
   const nombreEtapaPorId = (eid: string) => (etapas as any[])?.find((e) => e.id === eid)?.nombre || '—';
+  const subestadoActual = ((subestados as any[]) || []).find((s: any) => s.id === o.subestado_id);
+  const etapaActualOrden = ((etapas as any[]) || []).findIndex((e: any) => e.id === o.etapa_id);
 
   const estancamiento = calcularEstadoEstancamiento({
     reglas: (reglasEstancamiento as any[]) || [],
@@ -221,30 +223,19 @@ export default async function FichaOportunidadPage({
         ← Volver a oportunidades
       </Link>
 
-      {/* Copiloto al inicio */}
-      <PanelCopiloto oportunidadId={id} personaId={o.persona_id} />
-
-      {/* Encabezado con campos prioritarios */}
+      {/* Dashboard operativo: resume datos de una sola oportunidad sin duplicar la ficha de persona. */}
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Persona</p>
-            <h1 className="text-xl font-bold text-gray-900">{nombrePersona}</h1>
+            <Link href={`/leadcenter/personas/${o.persona_id}`} className="text-xl font-bold text-gray-900 hover:text-blue-600 hover:underline">{nombrePersona}</Link>
             <p className="text-sm text-gray-600">{nombreUniversidad}</p>
             <p className="text-sm text-gray-500">
               {nombrePrograma} · {nombreOferta}
             </p>
-            <p className="text-xs text-gray-500">
-              {(etapaActual as any)?.nombre || '—'} · {o.estado}
-            </p>
+            <p className="text-xs text-gray-500">{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</p>
           </div>
-          <span
-            className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
-              TEMP_BADGE[o.temperatura] || 'bg-gray-100 text-gray-600'
-            }`}
-          >
-            {(o.temperatura || '—').replace('_', ' ')}
-          </span>
+          <div className="flex flex-col items-end gap-2"><span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</span><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${TEMP_BADGE[o.temperatura] || 'bg-gray-100 text-gray-600'}`}>{(o.temperatura || '—').replace('_', ' ')}</span></div>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
           <div>
@@ -264,7 +255,18 @@ export default async function FichaOportunidadPage({
             <p className="font-semibold text-gray-900">{fecha(o.actualizado_en)}</p>
           </div>
         </div>
+        <div className="mt-5 overflow-x-auto border-t border-gray-100 pt-4" aria-label="Ruta del funnel">
+          <div className="flex min-w-[620px] items-start justify-between gap-2">
+            {((etapas as any[]) || []).map((etapa: any, index: number) => {
+              const actual = etapa.id === o.etapa_id;
+              const completada = etapaActualOrden > index || ['ganada', 'perdida'].includes(o.estado) && etapaActualOrden >= index;
+              return <div key={etapa.id} className="relative flex flex-1 flex-col items-center text-center"><span className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${actual ? 'bg-blue-600 text-white ring-4 ring-blue-100' : completada ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{completada && !actual ? '✓' : index + 1}</span>{index < ((etapas as any[]) || []).length - 1 && <span aria-hidden="true" className={`absolute left-1/2 top-3.5 h-0.5 w-full ${completada ? 'bg-emerald-400' : 'bg-gray-200'}`} />}<p className={`mt-2 text-xs font-medium ${actual ? 'text-blue-700' : 'text-gray-600'}`}>{etapa.nombre}</p>{actual && <p className="mt-0.5 text-[11px] text-blue-600">Actual: {subestadoActual?.nombre || 'sin subestado'}</p>}</div>;
+            })}
+          </div>
+        </div>
       </div>
+
+      <PanelCopiloto oportunidadId={id} personaId={o.persona_id} />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <h2 className="mb-2 text-base font-semibold text-gray-900">Estado de estancamiento</h2>
@@ -302,24 +304,17 @@ export default async function FichaOportunidadPage({
             </div>
           </div>
 
-          <ComentariosNotaPanel
-            oportunidadId={id}
-            personaId={o.persona_id}
-            notaInicial={o.notas_internas}
-            comentariosIniciales={comentarios}
-            puedeEditarNota={Boolean(sesion.esSuper || sesion.esAsesor)}
-          />
-
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             <h2 className="mb-3 text-base font-semibold text-gray-900">Historial</h2>
             {timeline.length === 0 ? (
               <p className="text-sm text-gray-500">Aún no hay actividad registrada.</p>
             ) : (
-              <ol className="space-y-3">
+              <ol className="max-h-[34rem] space-y-3 overflow-y-auto pr-2">
                 {timeline.slice(0, 60).map((it, i) => (
-                  <li key={i} className="flex gap-3">
-                    <span className={`mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${it.tono}`}>
-                      <span aria-hidden="true">{it.icono}</span>{it.tipo}
+                  <li key={i} className="relative flex gap-3 pb-1">
+                    {i < timeline.slice(0, 60).length - 1 && <span aria-hidden="true" className="absolute left-4 top-8 h-[calc(100%+0.25rem)] border-l-2 border-dotted border-gray-200" />}
+                    <span className={`relative z-10 mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${it.tono}`} title={it.tipo}>
+                      <span aria-hidden="true">{it.icono}</span><span className="sr-only">{it.tipo}</span>
                     </span>
                     <div className="min-w-0">
                       <p className="whitespace-pre-line text-sm text-gray-700">{it.texto}</p>
@@ -345,8 +340,9 @@ export default async function FichaOportunidadPage({
 
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             <h2 className="mb-2 text-base font-semibold text-gray-900">Consentimientos</h2>
+            <p className="mb-3 text-xs text-gray-500">{(consentimientos as any[])?.filter((c) => c.estado === 'otorgado').length || 0} otorgados · {(consentimientos as any[])?.filter((c) => c.estado !== 'otorgado').length || 0} pendientes u otros estados</p>
             {(consentimientos as any[])?.length ? (
-              <ul className="space-y-1 text-sm text-gray-600">
+              <ul className="max-h-52 space-y-1 overflow-y-auto pr-1 text-sm text-gray-600">
                 {(consentimientos as any[]).map((c) => (
                   <li key={c.id} className="flex items-center justify-between gap-2">
                     <span>
@@ -407,6 +403,22 @@ export default async function FichaOportunidadPage({
           </div>
         </div>
       </div>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="text-base font-semibold text-gray-900">Tareas de la oportunidad</h2><p className="text-sm text-gray-500">Pendientes, futuras e histórico de seguimiento en una única fuente de verdad.</p></div>
+          <Link href="/leadcenter/tareas" className="text-sm font-semibold text-blue-600">Abrir centro de tareas →</Link>
+        </div>
+        {(tareas as any[])?.length ? <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">{(tareas as any[]).slice(0, 9).map((t) => <article key={t.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3"><p className="font-medium text-gray-900">{t.titulo || 'Tarea'}</p><p className="mt-1 text-xs text-gray-600">{t.estado} · {t.prioridad || 'sin prioridad'} · {fecha(t.fecha_vencimiento)}</p></article>)}</div> : <p className="mt-3 text-sm text-gray-500">Aún no hay tareas asociadas.</p>}
+      </section>
+
+      <ComentariosNotaPanel
+        oportunidadId={id}
+        personaId={o.persona_id}
+        notaInicial={o.notas_internas}
+        comentariosIniciales={comentarios}
+        puedeEditarNota={Boolean(sesion.esSuper || sesion.esAsesor)}
+      />
     </div>
   );
 }

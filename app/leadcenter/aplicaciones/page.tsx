@@ -144,8 +144,8 @@ export default async function AplicacionesPage({
         <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMsg}</p>
       )}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.35fr_1fr]">
-        <section className="space-y-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <section className="grid content-start gap-3 xl:col-span-2 xl:grid-cols-3">
           {items.length === 0 && !errorMsg && (
             <p className="rounded-xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
               No hay aplicaciones para este filtro.

@@ -55,6 +55,22 @@ function badgeEstancamiento(estado?: 'normal' | 'proximo_a_vencer' | 'estancado'
   return { label: '🟢 Normal', cls: 'bg-emerald-100 text-emerald-700' };
 }
 
+function normalizarTitulo(valor?: string) {
+  return (valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function descripcionAcademica(programa?: string, oferta?: string) {
+  const programaLimpio = (programa || '').trim();
+  const ofertaLimpia = (oferta || '').trim();
+  if (!ofertaLimpia || normalizarTitulo(programaLimpio) === normalizarTitulo(ofertaLimpia)) return programaLimpio || ofertaLimpia || '—';
+  return programaLimpio ? `${programaLimpio} · ${ofertaLimpia}` : ofertaLimpia;
+}
+
 export default function OportunidadesBoard({ etapas }: { etapas: Option[] }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -208,7 +224,7 @@ export default function OportunidadesBoard({ etapas }: { etapas: Option[] }) {
         <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMsg}</p>
       )}
 
-      <div className="space-y-2">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
         {loading && <p className="text-sm text-gray-500">Cargando oportunidades...</p>}
         {!loading && items.length === 0 && !errorMsg && (
           <p className="rounded-xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
@@ -229,7 +245,7 @@ export default function OportunidadesBoard({ etapas }: { etapas: Option[] }) {
                   <p className="truncate text-sm font-medium text-gray-800">{o.tipo_oportunidad === 'universidad' ? o.universidad.nombre : o.persona.nombre_completo}</p>
                   <p className="truncate text-xs text-gray-500">{o.universidad.nombre}</p>
                   <p className="truncate text-xs text-gray-500">
-                    {o.programa.nombre} · {o.oferta.nombre}
+                    {descripcionAcademica(o.programa.nombre, o.oferta.nombre)}
                   </p>
                   <p className="truncate text-xs text-gray-500">
                     {o.etapa} · {o.estado}

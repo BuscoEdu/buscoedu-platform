@@ -78,20 +78,23 @@ export default async function DashboardPage() {
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-gray-900">Pipeline por etapa</h2>
-          <Link href="/leadcenter/oportunidades" className="text-sm font-medium text-blue-600">
-            Ver todas →
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">Pipeline y Funnel</h2>
+            <p className="text-xs text-gray-500">Avance, alertas y gestión en un mismo contexto.</p>
+          </div>
+          <Link href="/leadcenter/pipeline" className="text-sm font-medium text-blue-600">
+            Abrir panorama →
           </Link>
         </div>
-        <div className="space-y-2">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
           {(etapas as any[]).length === 0 && (
             <p className="text-sm text-gray-500">No hay etapas configuradas todavía.</p>
           )}
           {(etapas as any[]).map((e, i) => (
             <Link
               key={e.id}
-              href={`/leadcenter/oportunidades?etapa=${e.id}`}
-              className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2.5 hover:bg-gray-50"
+              href={`/leadcenter/pipeline?vista=gestion&etapa=${e.id}`}
+              className="rounded-xl border border-gray-100 px-3 py-2.5 hover:bg-gray-50"
             >
               <span className="flex items-center gap-2 text-sm text-gray-700">
                 <span
@@ -100,7 +103,7 @@ export default async function DashboardPage() {
                 />
                 {e.nombre}
               </span>
-              <span className="text-sm font-semibold text-gray-900">{conteosEtapa[i]}</span>
+              <span className="mt-2 block text-2xl font-semibold text-gray-900">{conteosEtapa[i]}</span>
             </Link>
           ))}
         </div>
