@@ -334,6 +334,13 @@ La actualización consolida la operación del Lead Center sin sustituir sus fuen
 3. Configura reglas de transición y salud desde administración antes de convertirlas en obligatorias para operación.
 4. Ejecuta `npm run build` antes de desplegar.
 
+### Corrección posterior a validación en producción
+
+- El dashboard toma el reloj de la subetapa para el estancamiento, presenta esa señal bajo la temperatura y evita duplicar programa/oferta.
+- La ruta comercial muestra etapas y subetapas; el módulo Pipeline expone las subetapas y sus conteos.
+- WhatsApp opera desde **Canales** en una ventana única, centrada y minimizable; no permanece como panel fijo.
+- La tarjeta duplicada de Persona fue retirada de la oportunidad: la ficha se abre desde el nombre superior.
+
 ## 🐛 Troubleshooting
 
 ### "No hay datos demo en Supabase"

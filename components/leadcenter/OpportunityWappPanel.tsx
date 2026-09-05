@@ -3,10 +3,20 @@
 import { useEffect, useRef, useState } from 'react';
 import DemoWappPanel from '@/components/demowapp/DemoWappPanel';
 
-export default function OpportunityWappPanel({ oportunidadId }: { oportunidadId: string }) {
+export default function OpportunityWappPanel({
+  oportunidadId,
+  celular,
+  correo
+}: {
+  oportunidadId: string;
+  celular?: string | null;
+  correo?: string | null;
+}) {
   const [detail, setDetail] = useState<any>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [abierta, setAbierta] = useState(false);
+  const [minimizada, setMinimizada] = useState(false);
   const polling = useRef(false);
 
   const load = async (silent = false) => {
@@ -29,6 +39,7 @@ export default function OpportunityWappPanel({ oportunidadId }: { oportunidadId:
   };
 
   useEffect(() => {
+    if (!abierta) return;
     void load();
     const interval = window.setInterval(() => {
       if (polling.current) return;
@@ -48,7 +59,7 @@ export default function OpportunityWappPanel({ oportunidadId }: { oportunidadId:
     }, 5000);
     return () => window.clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [oportunidadId]);
+  }, [oportunidadId, abierta]);
 
   const onSend = async (texto: string, clientMessageId: string) => {
     const response = await fetch(`/api/demowapp/sesiones/${oportunidadId}/mensaje`, {
@@ -70,22 +81,27 @@ export default function OpportunityWappPanel({ oportunidadId }: { oportunidadId:
     void load(true);
   };
 
-  return (
+  const abrirWhatsApp = () => {
+    setMinimizada(false);
+    setAbierta(true);
+  };
+
+  return <>
     <section className="rounded-2xl border border-gray-200 bg-white p-4">
-      <div className="mb-3">
-        <h2 className="text-base font-semibold text-gray-900">Conversación WhatsApp</h2>
-        <p className="text-xs text-gray-500">Simulación interna de NaIA; no envía mensajes reales.</p>
+      <div className="mb-3"><h2 className="text-base font-semibold text-gray-900">Canales</h2><p className="text-xs text-gray-500">Abre el canal de trabajo sin salir de la oportunidad.</p></div>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={abrirWhatsApp} className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">WhatsApp</button>
+        {celular ? <a href={`tel:${celular}`} className="rounded-xl border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Llamada</a> : <button disabled className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-400">Llamada</button>}
+        {correo ? <a href={`mailto:${correo}`} className="rounded-xl border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Email</a> : <button disabled className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-400">Email</button>}
       </div>
-      {loading ? <p className="text-sm text-gray-500">Cargando conversación…</p> : null}
-      {!loading && error ? <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">{error}</p> : null}
-      {!loading && detail ? (
-        <DemoWappPanel
-          titulo={[detail.persona?.nombres, detail.persona?.apellidos].filter(Boolean).join(' ') || 'Estudiante'}
-          subtitulo={`NaIA · ${detail.oferta?.nombre_oferta || 'Oferta'} · ${detail.contexto?.etapa || 'Etapa'}`}
-          mensajes={detail.mensajes || []}
-          onEnviar={onSend}
-        />
-      ) : null}
     </section>
-  );
+
+    {abierta && !minimizada && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 p-4" role="dialog" aria-modal="true" aria-label="Conversación de WhatsApp">
+      <section className="flex h-[min(720px,calc(100vh-4rem))] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+        <header className="flex items-center justify-between border-b border-gray-200 px-4 py-3"><div><h2 className="font-semibold text-gray-900">Conversación WhatsApp</h2><p className="text-xs text-gray-500">Simulación interna de NaIA; no envía mensajes reales.</p></div><div className="flex gap-2"><button type="button" onClick={() => setMinimizada(true)} className="rounded-lg border border-gray-300 px-2.5 py-1 text-sm text-gray-600">Minimizar</button><button type="button" onClick={() => { setAbierta(false); setMinimizada(false); }} className="rounded-lg border border-gray-300 px-2.5 py-1 text-sm text-gray-600">Cerrar</button></div></header>
+        <div className="min-h-0 flex-1 overflow-hidden p-4">{loading ? <p className="text-sm text-gray-500">Cargando conversación…</p> : null}{!loading && error ? <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">{error}</p> : null}{!loading && detail ? <DemoWappPanel titulo={[detail.persona?.nombres, detail.persona?.apellidos].filter(Boolean).join(' ') || 'Estudiante'} subtitulo={`NaIA · ${detail.oferta?.nombre_oferta || 'Oferta'} · ${detail.contexto?.etapa || 'Etapa'}`} mensajes={detail.mensajes || []} onEnviar={onSend} /> : null}</div>
+      </section>
+    </div>}
+    {abierta && minimizada && <button type="button" onClick={abrirWhatsApp} className="fixed bottom-5 right-5 z-50 rounded-full bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-emerald-700">WhatsApp · volver a abrir</button>}
+  </>;
 }

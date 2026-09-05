@@ -62,3 +62,12 @@ La unicidad de oportunidad activa por persona/oferta se crea únicamente si no e
 - La configuración visual existente de `/admin/funnel` debe evolucionar posteriormente para editar versiones, transiciones y pesos de salud completos; el modelo de datos ya queda preparado.
 - La señal definitiva de `Lenta`/`Estancada` debe consumir la regla por subetapa configurada. El panorama inicial utiliza la antigüedad de actualización como señal visual hasta que esas reglas estén activas.
 - La integración real de WhatsApp y la automatización de NaIA permanecen sujetas a los proveedores y políticas de gobierno existentes; esta entrega no envía mensajes reales.
+# Corrección de validación en producción — 2026-09-05
+
+- El Radar de tareas usa convenciones con círculos de color reales, no texto monocromático.
+- El dashboard no repite programa y oferta cuando ambos campos contienen el mismo nombre.
+- El estancamiento usa `fecha_entrada_subestado` como reloj base y se muestra bajo la temperatura en el dashboard.
+- La ruta de la oportunidad representa etapas y subetapas configuradas; el paso actual es azul, los recorridos verdes y los próximos grises.
+- La ficha elimina la tarjeta duplicada de Persona: el nombre superior conserva el enlace a la ficha administrativa.
+- WhatsApp deja de ocupar una columna fija. Está dentro de Canales y abre una única ventana centrada, minimizable y ligada al ciclo de vida de la oportunidad.
+- Pipeline usa el mismo reloj de subestado para señales lenta/estancada y muestra las subetapas configuradas con su conteo.

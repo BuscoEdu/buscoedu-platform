@@ -149,6 +149,7 @@ export default async function FichaOportunidadPage({
   const nombrePrograma =
     (programa as any)?.nombre_corto || (programa as any)?.nombre_oficial || 'Programa no definido';
   const nombreOferta = (oferta as any)?.nombre_oferta || 'Oferta no definida';
+  const programaOferta = nombreOferta === nombrePrograma ? nombrePrograma : `${nombrePrograma} · ${nombreOferta}`;
 
   const nombreEtapaPorId = (eid: string) => (etapas as any[])?.find((e) => e.id === eid)?.nombre || '—';
   const subestadoActual = ((subestados as any[]) || []).find((s: any) => s.id === o.subestado_id);
@@ -158,7 +159,7 @@ export default async function FichaOportunidadPage({
     reglas: (reglasEstancamiento as any[]) || [],
     etapa_id: o.etapa_id,
     subestado_id: o.subestado_id,
-    actualizado_en: o.actualizado_en
+    actualizado_en: o.fecha_entrada_subestado || o.actualizado_en
   });
 
   const badgeEstancamiento =
@@ -167,6 +168,18 @@ export default async function FichaOportunidadPage({
       : estancamiento.estado === 'proximo_a_vencer'
       ? { label: '🟡 Próximo a vencer', cls: 'bg-amber-100 text-amber-700' }
       : { label: '🟢 Normal', cls: 'bg-emerald-100 text-emerald-700' };
+
+  // La ruta usa las subetapas configuradas; una etapa también se representa
+  // como estación para que una oportunidad sin subestado no se marque mal.
+  const funnelStops = ((etapas as any[]) || []).flatMap((etapa: any) => [
+    { id: `etapa-${etapa.id}`, tipo: 'etapa', etapaId: etapa.id, subestadoId: null, nombre: etapa.nombre },
+    ...((subestados as any[]) || [])
+      .filter((sub: any) => sub.activo !== false && sub.etapa_id === etapa.id)
+      .map((sub: any) => ({ id: `subestado-${sub.id}`, tipo: 'subestado', etapaId: etapa.id, subestadoId: sub.id, nombre: sub.nombre }))
+  ]);
+  const indiceActualFunnel = funnelStops.findIndex((stop: any) =>
+    o.subestado_id ? stop.subestadoId === o.subestado_id : stop.tipo === 'etapa' && stop.etapaId === o.etapa_id
+  );
 
   const comentarios = ((notas as any[]) || []).map((n) => ({
     id: n.id,
@@ -230,12 +243,14 @@ export default async function FichaOportunidadPage({
             <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Persona</p>
             <Link href={`/leadcenter/personas/${o.persona_id}`} className="text-xl font-bold text-gray-900 hover:text-blue-600 hover:underline">{nombrePersona}</Link>
             <p className="text-sm text-gray-600">{nombreUniversidad}</p>
-            <p className="text-sm text-gray-500">
-              {nombrePrograma} · {nombreOferta}
-            </p>
+            <p className="text-sm text-gray-500">{programaOferta}</p>
             <p className="text-xs text-gray-500">{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</p>
           </div>
-          <div className="flex flex-col items-end gap-2"><span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</span><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${TEMP_BADGE[o.temperatura] || 'bg-gray-100 text-gray-600'}`}>{(o.temperatura || '—').replace('_', ' ')}</span></div>
+          <div className="flex max-w-sm flex-col items-end gap-2 text-right">
+            <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</span>
+            <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${TEMP_BADGE[o.temperatura] || 'bg-gray-100 text-gray-600'}`}>{(o.temperatura || '—').replace('_', ' ')}</span>
+            <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badgeEstancamiento.cls}`}>{badgeEstancamiento.label} · {estancamiento.tiempo_legible}</span>
+          </div>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
           <div>
@@ -256,11 +271,11 @@ export default async function FichaOportunidadPage({
           </div>
         </div>
         <div className="mt-5 overflow-x-auto border-t border-gray-100 pt-4" aria-label="Ruta del funnel">
-          <div className="flex min-w-[620px] items-start justify-between gap-2">
-            {((etapas as any[]) || []).map((etapa: any, index: number) => {
-              const actual = etapa.id === o.etapa_id;
-              const completada = etapaActualOrden > index || ['ganada', 'perdida'].includes(o.estado) && etapaActualOrden >= index;
-              return <div key={etapa.id} className="relative flex flex-1 flex-col items-center text-center"><span className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${actual ? 'bg-blue-600 text-white ring-4 ring-blue-100' : completada ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{completada && !actual ? '✓' : index + 1}</span>{index < ((etapas as any[]) || []).length - 1 && <span aria-hidden="true" className={`absolute left-1/2 top-3.5 h-0.5 w-full ${completada ? 'bg-emerald-400' : 'bg-gray-200'}`} />}<p className={`mt-2 text-xs font-medium ${actual ? 'text-blue-700' : 'text-gray-600'}`}>{etapa.nombre}</p>{actual && <p className="mt-0.5 text-[11px] text-blue-600">Actual: {subestadoActual?.nombre || 'sin subestado'}</p>}</div>;
+          <div className="flex min-w-[760px] items-start justify-between gap-2">
+            {funnelStops.map((stop: any, index: number) => {
+              const actual = index === indiceActualFunnel;
+              const completada = indiceActualFunnel > index;
+              return <div key={stop.id} className="relative flex min-w-24 flex-1 flex-col items-center text-center"><span className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${actual ? 'bg-blue-600 text-white ring-4 ring-blue-100' : completada ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{completada ? '✓' : index + 1}</span>{index < funnelStops.length - 1 && <span aria-hidden="true" className={`absolute left-1/2 top-3.5 h-0.5 w-full ${completada ? 'bg-emerald-400' : 'bg-gray-200'}`} />}<p className={`mt-2 text-xs font-medium ${actual ? 'text-blue-700' : 'text-gray-600'}`}>{stop.nombre}</p><p className="mt-0.5 text-[10px] uppercase tracking-wide text-gray-400">{stop.tipo === 'etapa' ? 'Etapa' : 'Subetapa'}</p>{actual && <p className="mt-0.5 text-[11px] text-blue-600">Actual</p>}</div>;
             })}
           </div>
         </div>
@@ -268,42 +283,8 @@ export default async function FichaOportunidadPage({
 
       <PanelCopiloto oportunidadId={id} personaId={o.persona_id} />
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
-        <h2 className="mb-2 text-base font-semibold text-gray-900">Estado de estancamiento</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${badgeEstancamiento.cls}`}>
-            {badgeEstancamiento.label}
-          </span>
-          <span className="text-sm text-gray-600">{estancamiento.tiempo_legible} en la etapa/subestado actual</span>
-          {estancamiento.tiempo_maximo_horas ? (
-            <span className="text-xs text-gray-500">Umbral: {estancamiento.tiempo_maximo_horas} horas</span>
-          ) : null}
-        </div>
-        {estancamiento.accion_recomendada && estancamiento.estado !== 'normal' && (
-          <p className="mt-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">
-            Acción recomendada: {estancamiento.accion_recomendada}
-          </p>
-        )}
-      </div>
-
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.25fr_1fr]">
         <div className="space-y-4">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4">
-            <h2 className="mb-2 text-base font-semibold text-gray-900">Persona</h2>
-            <Link
-              href={`/leadcenter/personas/${o.persona_id}`}
-              className="text-sm font-medium text-blue-600"
-            >
-              {nombrePersona} →
-            </Link>
-            <div className="mt-2 grid grid-cols-1 gap-1 text-sm text-gray-600 sm:grid-cols-2">
-              <span>Correo: {p.correo_principal || '—'}</span>
-              <span>Celular: {p.celular_e164 || p.telefono_principal || '—'}</span>
-              <span>Verificado: {p.telefono_verificado ? 'Sí' : 'No'}</span>
-              <span>Estado: {p.estado_relacion || '—'}</span>
-            </div>
-          </div>
-
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             <h2 className="mb-3 text-base font-semibold text-gray-900">Historial</h2>
             {timeline.length === 0 ? (
@@ -328,7 +309,11 @@ export default async function FichaOportunidadPage({
         </div>
 
         <div className="space-y-4">
-          <OpportunityWappPanel oportunidadId={id} />
+          <OpportunityWappPanel
+            oportunidadId={id}
+            celular={p.celular_e164 || p.telefono_principal || null}
+            correo={p.correo_principal || null}
+          />
 
           <AccionesOportunidad
             oportunidadId={id}
