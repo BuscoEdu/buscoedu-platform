@@ -15,9 +15,14 @@ export interface ContextoCopiloto {
   fechaProximaAccion?: string | null; // ISO
   actualizadoEn?: string | null; // ISO
   etapaNombre?: string | null;
+  subestadoNombre?: string | null;
   modeloNegocio?: string | null;
   requiereConsentimientoTransferencia?: boolean;
   tieneTareaPendiente?: boolean;
+  estadoEstancamiento?: 'normal' | 'lenta' | 'estancada';
+  tiempoEnSubestado?: string | null;
+  consentimientosOtorgados?: number;
+  interaccionesRecientes?: number;
 }
 
 export interface AccionSugerida {
@@ -42,6 +47,26 @@ export function generarSugerencia(ctx: ContextoCopiloto): SugerenciaCopiloto {
   const diasInactivo = diasDesde(ctx.actualizadoEn);
   const proximaVencida =
     ctx.fechaProximaAccion && new Date(ctx.fechaProximaAccion).getTime() < Date.now();
+
+  // La salud configurada es una lectura estratégica del dashboard y prevalece
+  // sobre la heurística antigua de días sin actualización.
+  if (ctx.estadoEstancamiento === 'estancada') {
+    return {
+      titulo: 'Oportunidad estancada: recuperación prioritaria',
+      mensaje: `Lleva ${ctx.tiempoEnSubestado || 'un tiempo prolongado'} en ${ctx.subestadoNombre || ctx.etapaNombre || 'la etapa actual'}. Revisa el último contacto, define el bloqueo y ejecuta un seguimiento concreto hoy.`,
+      prioridad: 'alta',
+      acciones: [{ codigo: 'registrar_contacto', etiqueta: 'Registrar contacto' }, { codigo: 'reprogramar', etiqueta: 'Reprogramar seguimiento' }, { codigo: 'ignorar', etiqueta: 'Ignorar' }]
+    };
+  }
+
+  if (ctx.estadoEstancamiento === 'lenta') {
+    return {
+      titulo: 'Oportunidad lenta: protege el siguiente paso',
+      mensaje: `La oportunidad se acerca al límite operativo en ${ctx.subestadoNombre || ctx.etapaNombre || 'su etapa'}. Valida interés, despeja una objeción y deja una fecha de acción específica.`,
+      prioridad: 'media',
+      acciones: [{ codigo: 'registrar_contacto', etiqueta: 'Registrar contacto' }, { codigo: 'crear_tarea', etiqueta: 'Registrar tarea de seguimiento' }, { codigo: 'ignorar', etiqueta: 'Ignorar' }]
+    };
+  }
 
   // Regla 1: falta consentimiento de transferencia (bloqueante de negocio).
   if (ctx.modeloNegocio === 'por_lead' && ctx.requiereConsentimientoTransferencia) {
@@ -103,8 +128,7 @@ export function generarSugerencia(ctx: ContextoCopiloto): SugerenciaCopiloto {
   // Regla 5: por defecto, avanzar en el embudo.
   return {
     titulo: 'Siguiente mejor paso',
-    mensaje:
-      'La oportunidad está al día. Cuando tengas novedades, registra el contacto o avanza de etapa.',
+    mensaje: `La oportunidad está al día en ${ctx.subestadoNombre || ctx.etapaNombre || 'su etapa actual'}${ctx.interaccionesRecientes ? ` y tiene ${ctx.interaccionesRecientes} actividad(es) reciente(s)` : ''}. Registra el siguiente contacto o avanza cuando haya evidencia.`,
     prioridad: 'baja',
     acciones: [
       { codigo: 'registrar_contacto', etiqueta: 'Registrar contacto' },

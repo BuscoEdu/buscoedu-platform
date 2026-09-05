@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import TablaEjecuciones, { EjecucionItem } from '@/components/admin/ia/TablaEjecuciones';
 import CajaAyuda from '@/components/admin/CajaAyuda';
+import Link from 'next/link';
 
 async function getJson(url: string) {
   const res = await fetch(url, { cache: 'no-store' });
@@ -63,9 +64,10 @@ export default function EjecucionesPage() {
         </p>
       </CajaAyuda>
       <div>
-        <h1 className="text-2xl font-bold text-buscoedu-blue">Ejecuciones</h1>
-        <p className="text-sm text-buscoedu-muted">Historial de ejecuciones de los agentes (solo lectura).</p>
+        <h1 className="text-2xl font-bold text-buscoedu-blue">Ejecuciones y pruebas</h1>
+        <p className="text-sm text-buscoedu-muted">Historial operativo y acceso al banco de pruebas por versión.</p>
       </div>
+      <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">Para probar un agente: abre <Link className="font-semibold underline" href="/admin/ia/agentes">Agentes</Link> → detalle → versión borrador → Pruebas o Simulación. Las pruebas no modifican producción.</div>
 
       <div className="rounded-xl border border-buscoedu-border bg-white p-4 shadow-card">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">

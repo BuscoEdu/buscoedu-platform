@@ -7,15 +7,9 @@ import PanelCopiloto from '@/components/leadcenter/PanelCopiloto';
 import ComentariosNotaPanel from '@/components/leadcenter/ComentariosNotaPanel';
 import OpportunityWappPanel from '@/components/leadcenter/OpportunityWappPanel';
 import { calcularEstadoEstancamiento } from '@/src/lib/leadcenter/estancamiento';
+import { TEMPERATURA_META, temperaturaDesdePuntaje } from '@/src/lib/leadcenter/salud';
 
 export const dynamic = 'force-dynamic';
-
-const TEMP_BADGE: Record<string, string> = {
-  frio: 'bg-sky-100 text-sky-700',
-  tibio: 'bg-amber-100 text-amber-700',
-  caliente: 'bg-orange-100 text-orange-700',
-  muy_caliente: 'bg-red-100 text-red-700'
-};
 
 function fecha(iso?: string | null) {
   if (!iso) return '—';
@@ -150,6 +144,7 @@ export default async function FichaOportunidadPage({
     (programa as any)?.nombre_corto || (programa as any)?.nombre_oficial || 'Programa no definido';
   const nombreOferta = (oferta as any)?.nombre_oferta || 'Oferta no definida';
   const programaOferta = nombreOferta === nombrePrograma ? nombrePrograma : `${nombrePrograma} · ${nombreOferta}`;
+  const temperatura = TEMPERATURA_META[temperaturaDesdePuntaje(o.puntaje)];
 
   const nombreEtapaPorId = (eid: string) => (etapas as any[])?.find((e) => e.id === eid)?.nombre || '—';
   const subestadoActual = ((subestados as any[]) || []).find((s: any) => s.id === o.subestado_id);
@@ -163,20 +158,20 @@ export default async function FichaOportunidadPage({
   });
 
   const badgeEstancamiento =
-    estancamiento.estado === 'estancado'
-      ? { label: '🔴 Estancado', cls: 'bg-red-100 text-red-700' }
-      : estancamiento.estado === 'proximo_a_vencer'
-      ? { label: '🟡 Próximo a vencer', cls: 'bg-amber-100 text-amber-700' }
+    estancamiento.estado === 'estancada'
+      ? { label: '🔴 Estancada', cls: 'bg-red-100 text-red-700' }
+      : estancamiento.estado === 'lenta'
+      ? { label: '🟡 Lenta', cls: 'bg-amber-100 text-amber-700' }
       : { label: '🟢 Normal', cls: 'bg-emerald-100 text-emerald-700' };
 
-  // La ruta usa las subetapas configuradas; una etapa también se representa
-  // como estación para que una oportunidad sin subestado no se marque mal.
-  const funnelStops = ((etapas as any[]) || []).flatMap((etapa: any) => [
-    { id: `etapa-${etapa.id}`, tipo: 'etapa', etapaId: etapa.id, subestadoId: null, nombre: etapa.nombre },
-    ...((subestados as any[]) || [])
-      .filter((sub: any) => sub.activo !== false && sub.etapa_id === etapa.id)
-      .map((sub: any) => ({ id: `subestado-${sub.id}`, tipo: 'subestado', etapaId: etapa.id, subestadoId: sub.id, nombre: sub.nombre }))
-  ]);
+  // La ruta refleja la definición del embudo: una estación por subetapa. Solo
+  // muestra una etapa como estación cuando esa etapa aún no tiene subetapas.
+  const funnelStops = ((etapas as any[]) || []).flatMap((etapa: any) => {
+    const hijos = ((subestados as any[]) || []).filter((sub: any) => sub.activo !== false && sub.etapa_id === etapa.id);
+    return hijos.length
+      ? hijos.map((sub: any) => ({ id: `subestado-${sub.id}`, tipo: 'subestado', etapaId: etapa.id, subestadoId: sub.id, nombre: sub.nombre }))
+      : [{ id: `etapa-${etapa.id}`, tipo: 'etapa', etapaId: etapa.id, subestadoId: null, nombre: etapa.nombre }];
+  });
   const indiceActualFunnel = funnelStops.findIndex((stop: any) =>
     o.subestado_id ? stop.subestadoId === o.subestado_id : stop.tipo === 'etapa' && stop.etapaId === o.etapa_id
   );
@@ -248,8 +243,9 @@ export default async function FichaOportunidadPage({
           </div>
           <div className="flex max-w-sm flex-col items-end gap-2 text-right">
             <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</span>
-            <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${TEMP_BADGE[o.temperatura] || 'bg-gray-100 text-gray-600'}`}>{(o.temperatura || '—').replace('_', ' ')}</span>
+            <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${temperatura.clase}`}>{temperatura.etiqueta} · {o.puntaje ?? 0}/110</span>
             <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badgeEstancamiento.cls}`}>{badgeEstancamiento.label} · {estancamiento.tiempo_legible}</span>
+            {estancamiento.accion_recomendada ? <p className="max-w-sm text-xs text-gray-500">Siguiente acción: {estancamiento.accion_recomendada}</p> : null}
           </div>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">

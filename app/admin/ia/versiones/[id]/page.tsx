@@ -28,7 +28,8 @@ interface Version {
   configuracion_snapshot?: { despliegue_id?: string } | null;
 }
 
-const PESTANAS = ['Identidad', 'Contextos', 'Herramientas', 'Canales', 'Fuentes', 'Despliegue', 'Simulación', 'Pruebas', 'Publicación'] as const;
+// El orden replica el flujo obligatorio de creación/actualización de un agente.
+const PESTANAS = ['Identidad', 'Contextos', 'Fuentes', 'Herramientas', 'Canales', 'Despliegue', 'Simulación', 'Pruebas', 'Publicación'] as const;
 type Pestana = (typeof PESTANAS)[number];
 
 export default function VersionEditorPage({ params }: { params: Promise<{ id: string }> }) {

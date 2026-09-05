@@ -55,6 +55,22 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     patch.tiempo_maximo_horas = tiempo;
   }
 
+  const horasLenta = body?.horas_lenta !== undefined ? Number(body.horas_lenta) : undefined;
+  const horasEstancada = body?.horas_estancada !== undefined ? Number(body.horas_estancada) : undefined;
+  if ((horasLenta !== undefined && (!Number.isFinite(horasLenta) || horasLenta <= 0)) ||
+      (horasEstancada !== undefined && (!Number.isFinite(horasEstancada) || horasEstancada <= 0))) {
+    return NextResponse.json({ ok: false, error: 'umbrales_estancamiento_invalidos' }, { status: 400 });
+  }
+  if (horasLenta !== undefined) patch.horas_lenta = horasLenta;
+  if (horasEstancada !== undefined) patch.horas_estancada = horasEstancada;
+  for (const campo of ['bloque_recurrente_horas', 'descuento_lenta', 'descuento_estancada_por_bloque', 'limite_descuento_total']) {
+    if (body?.[campo] !== undefined) {
+      const valor = Number(body[campo]);
+      if (!Number.isFinite(valor) || valor < 0) return NextResponse.json({ ok: false, error: 'valor_regla_invalido' }, { status: 400 });
+      patch[campo] = campo === 'bloque_recurrente_horas' && valor === 0 ? null : valor;
+    }
+  }
+
   if (typeof body?.accion_recomendada === 'string' || body?.accion_recomendada === null) patch.accion_recomendada = body.accion_recomendada?.trim() || null;
   if (body?.reduce_score !== undefined) patch.reduce_score = !!body.reduce_score;
   if (body?.escalar_a_humano !== undefined) patch.escalar_a_humano = !!body.escalar_a_humano;
@@ -66,7 +82,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     .from('reglas_estancamiento')
     .update(patch)
     .eq('id', id)
-    .select('id, etapa_id, subestado_id, tiempo_maximo_horas, accion_recomendada, reduce_score, escalar_a_humano, crear_tarea, mover_a_nurturing, activo, creado_en, actualizado_en')
+    .select('id, etapa_id, subestado_id, tiempo_maximo_horas, horas_lenta, horas_estancada, bloque_recurrente_horas, descuento_lenta, descuento_estancada_por_bloque, limite_descuento_total, accion_recomendada, reduce_score, escalar_a_humano, crear_tarea, mover_a_nurturing, activo, creado_en, actualizado_en')
     .single();
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

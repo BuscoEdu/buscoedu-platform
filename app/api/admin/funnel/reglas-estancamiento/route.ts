@@ -17,7 +17,7 @@ export async function GET() {
   const { supabase } = auth.ctx;
   const { data, error } = await supabase
     .from('reglas_estancamiento')
-    .select('id, etapa_id, subestado_id, tiempo_maximo_horas, accion_recomendada, reduce_score, escalar_a_humano, crear_tarea, mover_a_nurturing, activo, creado_en, actualizado_en')
+    .select('id, etapa_id, subestado_id, tiempo_maximo_horas, horas_lenta, horas_estancada, bloque_recurrente_horas, descuento_lenta, descuento_estancada_por_bloque, limite_descuento_total, accion_recomendada, reduce_score, escalar_a_humano, crear_tarea, mover_a_nurturing, activo, creado_en, actualizado_en')
     .order('creado_en', { ascending: false });
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -38,9 +38,14 @@ export async function POST(req: NextRequest) {
   const etapaId = body?.etapa_id ? String(body.etapa_id).trim() : null;
   const subestadoId = body?.subestado_id ? String(body.subestado_id).trim() : null;
   const tiempoMaximo = Number(body?.tiempo_maximo_horas);
+  const horasLenta = Number(body?.horas_lenta ?? Math.max(1, Math.floor(tiempoMaximo * 0.5)));
+  const horasEstancada = Number(body?.horas_estancada ?? tiempoMaximo);
 
   if (!Number.isFinite(tiempoMaximo) || tiempoMaximo <= 0) {
     return NextResponse.json({ ok: false, error: 'tiempo_maximo_invalido' }, { status: 400 });
+  }
+  if (!Number.isFinite(horasLenta) || !Number.isFinite(horasEstancada) || horasLenta <= 0 || horasEstancada <= horasLenta) {
+    return NextResponse.json({ ok: false, error: 'umbrales_estancamiento_invalidos' }, { status: 400 });
   }
 
   if (!validarNivel(etapaId, subestadoId)) {
@@ -67,6 +72,12 @@ export async function POST(req: NextRequest) {
     etapa_id: etapaId,
     subestado_id: subestadoId,
     tiempo_maximo_horas: tiempoMaximo,
+    horas_lenta: horasLenta,
+    horas_estancada: horasEstancada,
+    bloque_recurrente_horas: body?.bloque_recurrente_horas ? Number(body.bloque_recurrente_horas) : null,
+    descuento_lenta: Math.max(0, Number(body?.descuento_lenta || 0)),
+    descuento_estancada_por_bloque: Math.max(0, Number(body?.descuento_estancada_por_bloque || 0)),
+    limite_descuento_total: Math.max(0, Number(body?.limite_descuento_total || 0)),
     accion_recomendada: body?.accion_recomendada?.trim() || null,
     reduce_score: !!body?.reduce_score,
     escalar_a_humano: !!body?.escalar_a_humano,
@@ -78,7 +89,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from('reglas_estancamiento')
     .insert(payload)
-    .select('id, etapa_id, subestado_id, tiempo_maximo_horas, accion_recomendada, reduce_score, escalar_a_humano, crear_tarea, mover_a_nurturing, activo, creado_en, actualizado_en')
+    .select('id, etapa_id, subestado_id, tiempo_maximo_horas, horas_lenta, horas_estancada, bloque_recurrente_horas, descuento_lenta, descuento_estancada_por_bloque, limite_descuento_total, accion_recomendada, reduce_score, escalar_a_humano, crear_tarea, mover_a_nurturing, activo, creado_en, actualizado_en')
     .single();
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

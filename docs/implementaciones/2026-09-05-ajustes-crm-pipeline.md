@@ -71,3 +71,11 @@ La unicidad de oportunidad activa por persona/oferta se crea únicamente si no e
 - La ficha elimina la tarjeta duplicada de Persona: el nombre superior conserva el enlace a la ficha administrativa.
 - WhatsApp deja de ocupar una columna fija. Está dentro de Canales y abre una única ventana centrada, minimizable y ligada al ciclo de vida de la oportunidad.
 - Pipeline usa el mismo reloj de subestado para señales lenta/estancada y muestra las subetapas configuradas con su conteo.
+
+## Complemento de implementación: salud configurable y operación
+
+1. **Administración → Funnel** es la fuente de verdad para editar etapas, subetapas y las reglas de salud: `Lenta`, `Estancada`, bloque recurrente y descuentos.
+2. La precedencia es determinista: primero subetapa y después etapa; sin una regla activa la oportunidad se muestra `Normal`.
+3. El mapa de la oportunidad no agrega una estación genérica cuando existen subetapas: la ruta representa la configuración real.
+4. El copiloto utiliza el mismo cálculo y añade estado/subetapa, actividad reciente, tareas y consentimientos a su recomendación; nunca hace cambios por sí solo.
+5. El Centro de Agentes IA sigue la secuencia de configuración y deja el acceso de pruebas asociado a una versión, fuera de producción.

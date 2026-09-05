@@ -1,28 +1,25 @@
 import Link from 'next/link';
 import { getServerSupabase } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
+import { calcularEstadoEstancamiento } from '@/src/lib/leadcenter/estancamiento';
 
 export const dynamic = 'force-dynamic';
 
 type SearchParams = { vista?: string; etapa?: string };
-
-function hoursSince(value?: string | null) {
-  if (!value) return 0;
-  return Math.max(0, (Date.now() - new Date(value).getTime()) / 3_600_000);
-}
 
 export default async function PipelineYFunnelPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const { vista = 'panorama', etapa: etapaSeleccionada } = await searchParams;
   const sesion = await getSesionLeadCenter();
   const supabase = await getServerSupabase();
 
-  const [{ data: etapas }, { data: oportunidades }, { data: subestados }] = await Promise.all([
+  const [{ data: etapas }, { data: oportunidades }, { data: subestados }, { data: reglas }] = await Promise.all([
     supabase.from('etapas_embudo').select('id, nombre, orden, color, activo').eq('activo', true).order('orden'),
     supabase
       .from('oportunidades')
       .select('id, etapa_id, subestado_id, estado, actualizado_en, fecha_entrada_subestado')
       .eq('estado', 'activa'),
-    supabase.from('subestados_oportunidad').select('id, etapa_id, nombre, orden, activo').eq('activo', true).order('orden')
+    supabase.from('subestados_oportunidad').select('id, etapa_id, nombre, orden, activo').eq('activo', true).order('orden'),
+    supabase.from('reglas_estancamiento').select('id, etapa_id, subestado_id, tiempo_maximo_horas, horas_lenta, horas_estancada, bloque_recurrente_horas, descuento_lenta, descuento_estancada_por_bloque, limite_descuento_total, accion_recomendada, activo').eq('activo', true)
   ]);
 
   const tabs = [
@@ -33,6 +30,7 @@ export default async function PipelineYFunnelPage({ searchParams }: { searchPara
   const etapasActivas = (etapas || []) as any[];
   const oportunidadesActivas = (oportunidades || []) as any[];
   const subestadosActivos = (subestados || []) as any[];
+  const reglasActivas = (reglas || []) as any[];
 
   return (
     <div className="space-y-5">
@@ -75,8 +73,9 @@ export default async function PipelineYFunnelPage({ searchParams }: { searchPara
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             {etapasActivas.map((etapa, index) => {
               const items = oportunidadesActivas.filter((o) => o.etapa_id === etapa.id);
-              const lentas = items.filter((o) => hoursSince(o.fecha_entrada_subestado || o.actualizado_en) >= 24 && hoursSince(o.fecha_entrada_subestado || o.actualizado_en) < 48).length;
-              const estancadas = items.filter((o) => hoursSince(o.fecha_entrada_subestado || o.actualizado_en) >= 48).length;
+              const salud = items.map((o) => calcularEstadoEstancamiento({ reglas: reglasActivas, etapa_id: o.etapa_id, subestado_id: o.subestado_id, actualizado_en: o.fecha_entrada_subestado || o.actualizado_en }));
+              const lentas = salud.filter((x) => x.estado === 'lenta').length;
+              const estancadas = salud.filter((x) => x.estado === 'estancada').length;
               const subetapas = subestadosActivos.filter((sub) => sub.etapa_id === etapa.id);
               const next = etapasActivas[index + 1];
               return (
@@ -105,7 +104,7 @@ export default async function PipelineYFunnelPage({ searchParams }: { searchPara
               );
             })}
           </div>
-          <p className="mt-4 text-xs text-gray-500">Lenta y Estancada se muestran como señal visual inicial; la regla definitiva se calcula por subetapa configurada.</p>
+          <p className="mt-4 text-xs text-gray-500">Las señales Lenta y Estancada usan la regla activa de cada subetapa; si no existe, usan la regla de su etapa. Configúralas en Estados y subetapas.</p>
         </section>
       )}
 
@@ -133,7 +132,7 @@ export default async function PipelineYFunnelPage({ searchParams }: { searchPara
               <h2 className="font-semibold text-gray-900">Configuración versionada del funnel</h2>
               <p className="mt-1 text-sm text-gray-500">Etapas, subetapas, transiciones, estancamiento y cierre deben modificarse con permisos administrativos y trazabilidad.</p>
             </div>
-            {sesion.esSuper && <Link href="/admin/funnel" className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white">Administrar estados y subetapas</Link>}
+            {sesion.esSuper ? <Link href="/admin/funnel" className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white">Administrar estados y subetapas</Link> : <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">La edición requiere rol super_admin.</p>}
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             {etapasActivas.map((etapa) => {

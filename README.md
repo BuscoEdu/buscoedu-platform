@@ -341,6 +341,14 @@ La actualización consolida la operación del Lead Center sin sustituir sus fuen
 - WhatsApp opera desde **Canales** en una ventana única, centrada y minimizable; no permanece como panel fijo.
 - La tarjeta duplicada de Persona fue retirada de la oportunidad: la ficha se abre desde el nombre superior.
 
+### Cierre operativo: salud y gobierno IA
+
+- **Reglas de estancamiento:** `/admin/funnel` administra los umbrales `Lenta` y `Estancada`, bloque recurrente y descuentos por etapa o subetapa. Ficha, Pipeline y copiloto aplican la misma regla con precedencia por subetapa.
+- **Ruta comercial:** la ficha prioriza subetapas configuradas como estaciones; verde representa lo recorrido, azul el paso actual y gris lo pendiente.
+- **Temperatura:** el puntaje comercial se muestra de forma uniforme en cinco niveles: Muy fría, Fría, Tibia, Caliente y Muy caliente.
+- **NaIA:** las sugerencias analizan estado/subetapa, salud, actividad reciente, tareas y consentimientos. Son auditables y no ejecutan acciones automáticamente.
+- **Centro de Agentes IA:** navegación y pestañas siguen la secuencia de creación/actualización: gobierno, agente, contexto, fuentes, herramientas, canales, despliegue, simulación, pruebas y publicación.
+
 ## 🐛 Troubleshooting
 
 ### "No hay datos demo en Supabase"

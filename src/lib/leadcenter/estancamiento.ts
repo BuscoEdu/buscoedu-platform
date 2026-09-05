@@ -3,11 +3,18 @@ export type ReglaEstancamiento = {
   etapa_id: string | null;
   subestado_id: string | null;
   tiempo_maximo_horas: number;
+  horas_lenta?: number | null;
+  horas_estancada?: number | null;
+  bloque_recurrente_horas?: number | null;
+  descuento_lenta?: number | null;
+  descuento_estancada_por_bloque?: number | null;
+  limite_descuento_total?: number | null;
   accion_recomendada: string | null;
   activo?: boolean | null;
 };
 
-export type EstadoEstancamiento = 'normal' | 'proximo_a_vencer' | 'estancado';
+/** La salud operativa se expresa con los nombres de negocio configurables. */
+export type EstadoEstancamiento = 'normal' | 'lenta' | 'estancada';
 
 export interface ResultadoEstancamiento {
   estado: EstadoEstancamiento;
@@ -15,6 +22,10 @@ export interface ResultadoEstancamiento {
   tiempo_legible: string;
   regla_id?: string;
   tiempo_maximo_horas?: number;
+  horas_lenta?: number;
+  horas_estancada?: number;
+  bloques_estancada?: number;
+  descuento_estimado?: number;
   accion_recomendada?: string | null;
   origen_regla?: 'subestado' | 'etapa';
 }
@@ -86,27 +97,43 @@ export function calcularEstadoEstancamiento(args: {
     };
   }
 
-  const max = regla.tiempo_maximo_horas;
+  // Las columnas nuevas prevalecen; se conserva compatibilidad con reglas
+  // históricas que únicamente tienen tiempo_maximo_horas.
+  const horasEstancada = regla.horas_estancada || regla.tiempo_maximo_horas;
+  const horasLenta = regla.horas_lenta || Math.max(1, Math.floor(horasEstancada * 0.5));
+  const bloque = regla.bloque_recurrente_horas || 0;
+  const bloquesEstancada = horas >= horasEstancada && bloque > 0 ? 1 + Math.floor((horas - horasEstancada) / bloque) : horas >= horasEstancada ? 1 : 0;
+  const descuentoEstimado = Math.min(
+    regla.limite_descuento_total || Number.MAX_SAFE_INTEGER,
+    (horas >= horasLenta ? regla.descuento_lenta || 0 : 0) + bloquesEstancada * (regla.descuento_estancada_por_bloque || 0)
+  );
 
-  if (horas >= max) {
+  if (horas >= horasEstancada) {
     return {
-      estado: 'estancado',
+      estado: 'estancada',
       tiempo_transcurrido_horas: horas,
       tiempo_legible,
       regla_id: regla.id,
-      tiempo_maximo_horas: max,
+      tiempo_maximo_horas: regla.tiempo_maximo_horas,
+      horas_lenta: horasLenta,
+      horas_estancada: horasEstancada,
+      bloques_estancada: bloquesEstancada,
+      descuento_estimado: descuentoEstimado,
       accion_recomendada: regla.accion_recomendada,
       origen_regla: origen || undefined
     };
   }
 
-  if (horas >= max * 0.75) {
+  if (horas >= horasLenta) {
     return {
-      estado: 'proximo_a_vencer',
+      estado: 'lenta',
       tiempo_transcurrido_horas: horas,
       tiempo_legible,
       regla_id: regla.id,
-      tiempo_maximo_horas: max,
+      tiempo_maximo_horas: regla.tiempo_maximo_horas,
+      horas_lenta: horasLenta,
+      horas_estancada: horasEstancada,
+      descuento_estimado: descuentoEstimado,
       accion_recomendada: regla.accion_recomendada,
       origen_regla: origen || undefined
     };
@@ -115,9 +142,11 @@ export function calcularEstadoEstancamiento(args: {
   return {
     estado: 'normal',
     tiempo_transcurrido_horas: horas,
-    tiempo_legible,
-    regla_id: regla.id,
-    tiempo_maximo_horas: max,
+      tiempo_legible,
+      regla_id: regla.id,
+      tiempo_maximo_horas: regla.tiempo_maximo_horas,
+      horas_lenta: horasLenta,
+      horas_estancada: horasEstancada,
     accion_recomendada: regla.accion_recomendada,
     origen_regla: origen || undefined
   };

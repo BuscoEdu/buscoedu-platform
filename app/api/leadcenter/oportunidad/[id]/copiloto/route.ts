@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 import { generarSugerencia, ContextoCopiloto } from '@/src/lib/leadcenter/copiloto';
+import { calcularEstadoEstancamiento } from '@/src/lib/leadcenter/estancamiento';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const { data: op, error } = await supabase
       .from('oportunidades')
       .select(
-        'id, temperatura, estado, puntaje, fecha_proxima_accion, actualizado_en, etapa_id, modelo_negocio_snapshot'
+        'id, persona_id, temperatura, estado, puntaje, fecha_proxima_accion, actualizado_en, fecha_entrada_subestado, etapa_id, subestado_id, modelo_negocio_snapshot'
       )
       .eq('id', id)
       .single();
@@ -29,8 +30,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // Datos complementarios para las reglas.
-    const [{ data: etapa }, { count: tareasPend }, { count: consentTransfer }] = await Promise.all([
+    const [{ data: etapa }, { data: subestado }, { count: tareasPend }, { count: consentTransfer }, { count: consentimientosOtorgados }, { count: interaccionesRecientes }, { data: reglas }] = await Promise.all([
       supabase.from('etapas_embudo').select('nombre').eq('id', (op as any).etapa_id).single(),
+      (op as any).subestado_id ? supabase.from('subestados_oportunidad').select('nombre').eq('id', (op as any).subestado_id).maybeSingle() : Promise.resolve({ data: null } as any),
       supabase
         .from('tareas_crm')
         .select('id', { count: 'exact', head: true })
@@ -40,13 +42,23 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         .from('transferencias_universidad')
         .select('id', { count: 'exact', head: true })
         .eq('oportunidad_id', id)
-        .eq('estado', 'pendiente')
+        .eq('estado', 'pendiente'),
+      supabase.from('consentimientos_persona').select('id', { count: 'exact', head: true }).eq('persona_id', (op as any).persona_id).eq('estado', 'otorgado'),
+      supabase.from('eventos_negocio').select('id', { count: 'exact', head: true }).eq('oportunidad_id', id).gte('creado_en', new Date(Date.now() - 7 * 86_400_000).toISOString()),
+      supabase.from('reglas_estancamiento').select('id, etapa_id, subestado_id, tiempo_maximo_horas, horas_lenta, horas_estancada, bloque_recurrente_horas, descuento_lenta, descuento_estancada_por_bloque, limite_descuento_total, accion_recomendada, activo').eq('activo', true)
     ]);
 
     const modelo = (op as any).modelo_negocio_snapshot;
     // Para por_lead, requiere consentimiento si NO existe ninguna transferencia en curso.
     const requiereConsentimientoTransferencia =
       modelo === 'por_lead' && (consentTransfer ?? 0) === 0;
+
+    const estancamiento = calcularEstadoEstancamiento({
+      reglas: (reglas as any[]) || [],
+      etapa_id: (op as any).etapa_id,
+      subestado_id: (op as any).subestado_id,
+      actualizado_en: (op as any).fecha_entrada_subestado || (op as any).actualizado_en
+    });
 
     const ctx: ContextoCopiloto = {
       temperatura: (op as any).temperatura,
@@ -55,9 +67,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       fechaProximaAccion: (op as any).fecha_proxima_accion,
       actualizadoEn: (op as any).actualizado_en,
       etapaNombre: (etapa as any)?.nombre,
+      subestadoNombre: (subestado as any)?.nombre,
       modeloNegocio: modelo,
       requiereConsentimientoTransferencia,
-      tieneTareaPendiente: (tareasPend ?? 0) > 0
+      tieneTareaPendiente: (tareasPend ?? 0) > 0,
+      estadoEstancamiento: estancamiento.estado,
+      tiempoEnSubestado: estancamiento.tiempo_legible,
+      consentimientosOtorgados: consentimientosOtorgados ?? 0,
+      interaccionesRecientes: interaccionesRecientes ?? 0
     };
 
     return NextResponse.json({ ok: true, sugerencia: generarSugerencia(ctx) });

@@ -50,15 +50,15 @@ const CATEGORIAS: Categoria[] = [
     label: 'Centro de Agentes IA',
     icono: '🤖',
     items: [
-      { label: 'Dashboard IA', href: '/admin/ia' },
-      { label: 'Agentes', href: '/admin/ia/agentes' },
       { label: 'Guía de gobierno', href: '/admin/ia/guia' },
+      { label: 'Agentes', href: '/admin/ia/agentes' },
       { label: 'Contextos', href: '/admin/ia/contextos' },
       { label: 'Proveedores', href: '/admin/ia/proveedores' },
       { label: 'Canales', href: '/admin/ia/canales' },
       { label: 'Herramientas', href: '/admin/ia/herramientas' },
       { label: 'Fuentes', href: '/admin/ia/fuentes' },
-      { label: 'Ejecuciones', href: '/admin/ia/ejecuciones' }
+      { label: 'Ejecuciones y pruebas', href: '/admin/ia/ejecuciones' },
+      { label: 'Dashboard IA', href: '/admin/ia' }
     ]
   },
   {

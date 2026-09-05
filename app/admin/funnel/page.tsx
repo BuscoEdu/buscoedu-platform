@@ -33,6 +33,12 @@ type Regla = {
   etapa_id: string | null;
   subestado_id: string | null;
   tiempo_maximo_horas: number;
+  horas_lenta?: number | null;
+  horas_estancada?: number | null;
+  bloque_recurrente_horas?: number | null;
+  descuento_lenta?: number | null;
+  descuento_estancada_por_bloque?: number | null;
+  limite_descuento_total?: number | null;
   accion_recomendada: string | null;
   reduce_score?: boolean;
   escalar_a_humano?: boolean;
@@ -63,6 +69,12 @@ const emptyRegla = {
   etapa_id: '',
   subestado_id: '',
   tiempo_maximo_horas: '24',
+  horas_lenta: '12',
+  horas_estancada: '24',
+  bloque_recurrente_horas: '24',
+  descuento_lenta: '0',
+  descuento_estancada_por_bloque: '0',
+  limite_descuento_total: '0',
   accion_recomendada: '',
   reduce_score: false,
   escalar_a_humano: false,
@@ -94,6 +106,7 @@ export default function AdminFunnelPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [edicion, setEdicion] = useState<{ tipo: 'etapa' | 'subestado'; id: string } | null>(null);
 
   const mapaEtapas = useMemo(() => Object.fromEntries(etapas.map((e) => [e.id, e.nombre])), [etapas]);
 
@@ -259,8 +272,10 @@ export default function AdminFunnelPage() {
     }
 
     const tiempo = Number(reglaForm.tiempo_maximo_horas);
-    if (!Number.isFinite(tiempo) || tiempo <= 0) {
-      setErrorMessage('El tiempo máximo debe ser mayor a 0.');
+    const lenta = Number(reglaForm.horas_lenta);
+    const estancada = Number(reglaForm.horas_estancada);
+    if (!Number.isFinite(tiempo) || !Number.isFinite(lenta) || !Number.isFinite(estancada) || lenta <= 0 || estancada <= lenta) {
+      setErrorMessage('Define umbrales válidos: Lenta debe ser menor que Estancada.');
       return;
     }
 
@@ -272,6 +287,12 @@ export default function AdminFunnelPage() {
         etapa_id: reglaForm.nivel === 'etapa' ? reglaForm.etapa_id : null,
         subestado_id: reglaForm.nivel === 'subestado' ? reglaForm.subestado_id : null,
         tiempo_maximo_horas: tiempo,
+        horas_lenta: lenta,
+        horas_estancada: estancada,
+        bloque_recurrente_horas: Number(reglaForm.bloque_recurrente_horas || 0),
+        descuento_lenta: Number(reglaForm.descuento_lenta || 0),
+        descuento_estancada_por_bloque: Number(reglaForm.descuento_estancada_por_bloque || 0),
+        limite_descuento_total: Number(reglaForm.limite_descuento_total || 0),
         accion_recomendada: reglaForm.accion_recomendada,
         reduce_score: reglaForm.reduce_score,
         escalar_a_humano: reglaForm.escalar_a_humano,
@@ -324,7 +345,7 @@ export default function AdminFunnelPage() {
       ) : (
         <>
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-            Precedencia: se aplica primero regla de subestado; si no existe, regla de etapa; si no hay regla activa, no se marca estancamiento.
+            Esta es la fuente de verdad del funnel: aquí editas nombre, orden y estado de cada etapa/subetapa, y los umbrales de salud. Precedencia: primero subetapa y luego etapa.
           </div>
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_1fr]">
@@ -378,13 +399,13 @@ export default function AdminFunnelPage() {
                   <div key={etapa.id} className="rounded-lg border border-gray-200 p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="font-semibold text-buscoedu-text">{etapa.nombre}</p>
-                        <p className="text-xs text-gray-500">Orden {etapa.orden} · {etapa.descripcion || 'Sin descripción'}</p>
+                        {edicion?.tipo === 'etapa' && edicion.id === etapa.id ? <div className="space-y-2"><input defaultValue={etapa.nombre} id={`nombre-etapa-${etapa.id}`} className="w-full rounded border px-2 py-1 text-sm" /><input defaultValue={etapa.descripcion || ''} id={`descripcion-etapa-${etapa.id}`} className="w-full rounded border px-2 py-1 text-xs" placeholder="Descripción" /></div> : <><p className="font-semibold text-buscoedu-text">{etapa.nombre}</p><p className="text-xs text-gray-500">Orden {etapa.orden} · {etapa.descripcion || 'Sin descripción'}</p></>}
                         <p className="text-xs text-gray-500">{etapa.activo ? 'Activa' : 'Inactiva'}</p>
                       </div>
                       <div className="flex gap-1">
                         <button type="button" onClick={() => moverEtapa(index, 'up')} className="rounded border px-2 py-1 text-xs">↑</button>
                         <button type="button" onClick={() => moverEtapa(index, 'down')} className="rounded border px-2 py-1 text-xs">↓</button>
+                        {edicion?.tipo === 'etapa' && edicion.id === etapa.id ? <button type="button" onClick={() => { const nombre = (document.getElementById(`nombre-etapa-${etapa.id}`) as HTMLInputElement)?.value; const descripcion = (document.getElementById(`descripcion-etapa-${etapa.id}`) as HTMLInputElement)?.value; void actualizarEtapa(etapa.id, { nombre, descripcion }); setEdicion(null); }} className="rounded border px-2 py-1 text-xs">Guardar</button> : <button type="button" onClick={() => setEdicion({ tipo: 'etapa', id: etapa.id })} className="rounded border px-2 py-1 text-xs">Editar</button>}
                         <button
                           type="button"
                           onClick={() => actualizarEtapa(etapa.id, { activo: !etapa.activo })}
@@ -460,12 +481,13 @@ export default function AdminFunnelPage() {
                         {rows.map((row) => (
                           <div key={row.id} className="flex items-start justify-between gap-2 rounded border border-gray-100 p-2">
                             <div>
-                              <p className="text-sm font-medium">{row.nombre}</p>
+                              {edicion?.tipo === 'subestado' && edicion.id === row.id ? <div className="space-y-2"><input defaultValue={row.nombre} id={`nombre-subestado-${row.id}`} className="w-full rounded border px-2 py-1 text-sm" /><input defaultValue={row.descripcion || ''} id={`descripcion-subestado-${row.id}`} className="w-full rounded border px-2 py-1 text-xs" placeholder="Descripción" /></div> : <p className="text-sm font-medium">{row.nombre}</p>}
                               <p className="text-xs text-gray-500">Orden {row.orden} · {row.tiempo_maximo_horas ?? '—'}h · {row.activo ? 'Activo' : 'Inactivo'}</p>
                             </div>
                             <div className="flex gap-1">
                               <button type="button" onClick={() => moverSubestado(row, 'up')} className="rounded border px-2 py-1 text-xs">↑</button>
                               <button type="button" onClick={() => moverSubestado(row, 'down')} className="rounded border px-2 py-1 text-xs">↓</button>
+                              {edicion?.tipo === 'subestado' && edicion.id === row.id ? <button type="button" onClick={() => { const nombre = (document.getElementById(`nombre-subestado-${row.id}`) as HTMLInputElement)?.value; const descripcion = (document.getElementById(`descripcion-subestado-${row.id}`) as HTMLInputElement)?.value; void actualizarSubestado(row.id, { nombre, descripcion }); setEdicion(null); }} className="rounded border px-2 py-1 text-xs">Guardar</button> : <button type="button" onClick={() => setEdicion({ tipo: 'subestado', id: row.id })} className="rounded border px-2 py-1 text-xs">Editar</button>}
                               <button
                                 type="button"
                                 onClick={() => actualizarSubestado(row.id, { activo: !row.activo })}
@@ -531,12 +553,21 @@ export default function AdminFunnelPage() {
               )}
 
               <FormField
-                label="Tiempo máximo (horas)"
+                label="Compatibilidad: tiempo máximo histórico (horas)"
                 value={reglaForm.tiempo_maximo_horas}
                 onChange={(e) => setReglaForm((prev) => ({ ...prev, tiempo_maximo_horas: e.target.value }))}
                 type="number"
                 requiredMark
               />
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <FormField label="Lenta desde (horas)" value={reglaForm.horas_lenta} onChange={(e) => setReglaForm((prev) => ({ ...prev, horas_lenta: e.target.value }))} type="number" requiredMark />
+                <FormField label="Estancada desde (horas)" value={reglaForm.horas_estancada} onChange={(e) => setReglaForm((prev) => ({ ...prev, horas_estancada: e.target.value }))} type="number" requiredMark />
+                <FormField label="Bloque recurrente (horas)" value={reglaForm.bloque_recurrente_horas} onChange={(e) => setReglaForm((prev) => ({ ...prev, bloque_recurrente_horas: e.target.value }))} type="number" />
+                <FormField label="Descuento al quedar lenta" value={reglaForm.descuento_lenta} onChange={(e) => setReglaForm((prev) => ({ ...prev, descuento_lenta: e.target.value }))} type="number" />
+                <FormField label="Descuento por bloque estancada" value={reglaForm.descuento_estancada_por_bloque} onChange={(e) => setReglaForm((prev) => ({ ...prev, descuento_estancada_por_bloque: e.target.value }))} type="number" />
+                <FormField label="Límite descuento total" value={reglaForm.limite_descuento_total} onChange={(e) => setReglaForm((prev) => ({ ...prev, limite_descuento_total: e.target.value }))} type="number" />
+              </div>
 
               <FormTextarea
                 label="Acción recomendada (descriptiva)"
@@ -574,7 +605,8 @@ export default function AdminFunnelPage() {
                             ? `Subestado: ${subestados.find((s) => s.id === r.subestado_id)?.nombre || r.subestado_id}`
                             : `Etapa: ${mapaEtapas[r.etapa_id || ''] || r.etapa_id}`}
                         </p>
-                        <p className="text-xs text-gray-500">{r.tiempo_maximo_horas} horas · {r.activo ? 'Activa' : 'Inactiva'}</p>
+                        <p className="text-xs text-gray-500">Lenta: {r.horas_lenta ?? Math.floor(r.tiempo_maximo_horas / 2)}h · Estancada: {r.horas_estancada ?? r.tiempo_maximo_horas}h · {r.activo ? 'Activa' : 'Inactiva'}</p>
+                        {(r.descuento_lenta || r.descuento_estancada_por_bloque) ? <p className="text-xs text-gray-500">Salud: −{r.descuento_lenta || 0} al quedar lenta; −{r.descuento_estancada_por_bloque || 0} por bloque.</p> : null}
                         {r.accion_recomendada && <p className="mt-1 text-xs text-gray-600">{r.accion_recomendada}</p>}
                       </div>
                       <button
