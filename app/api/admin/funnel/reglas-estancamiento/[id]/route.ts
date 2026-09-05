@@ -78,14 +78,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body?.mover_a_nurturing !== undefined) patch.mover_a_nurturing = !!body.mover_a_nurturing;
   if (body?.activo !== undefined) patch.activo = !!body.activo;
 
-  const { data, error } = await supabase
-    .from('reglas_estancamiento')
-    .update(patch)
-    .eq('id', id)
-    .select('id, etapa_id, subestado_id, tiempo_maximo_horas, horas_lenta, horas_estancada, bloque_recurrente_horas, descuento_lenta, descuento_estancada_por_bloque, limite_descuento_total, accion_recomendada, reduce_score, escalar_a_humano, crear_tarea, mover_a_nurturing, activo, creado_en, actualizado_en')
-    .single();
+  const { error } = await supabase.from('reglas_estancamiento').update(patch).eq('id', id);
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
-  return NextResponse.json({ ok: true, item: data });
+  return NextResponse.json({ ok: true });
 }

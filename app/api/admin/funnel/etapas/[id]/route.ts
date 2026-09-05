@@ -31,13 +31,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body?.activo !== undefined) patch.activo = !!body.activo;
 
   const { supabase } = auth.ctx;
-  const { data, error } = await supabase
-    .from('etapas_embudo')
-    .update(patch)
-    .eq('id', id)
-    .select('id, nombre, descripcion, orden, color, es_etapa_final_ganada, es_etapa_final_perdida, activo')
-    .single();
+  const { error } = await supabase.from('etapas_embudo').update(patch).eq('id', id);
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, item: data });
+  return NextResponse.json({ ok: true });
 }

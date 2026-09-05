@@ -42,13 +42,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body?.activo !== undefined) patch.activo = !!body.activo;
 
   const { supabase } = auth.ctx;
-  const { data, error } = await supabase
-    .from('subestados_oportunidad')
-    .update(patch)
-    .eq('id', id)
-    .select('id, etapa_id, nombre, descripcion, orden, tiempo_maximo_horas, activo')
-    .single();
+  const { error } = await supabase.from('subestados_oportunidad').update(patch).eq('id', id);
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, item: data });
+  return NextResponse.json({ ok: true });
 }
