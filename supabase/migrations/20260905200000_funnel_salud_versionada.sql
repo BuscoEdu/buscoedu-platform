@@ -160,7 +160,7 @@ ALTER TABLE public.reglas_estancamiento
 
 UPDATE public.reglas_estancamiento
 SET horas_estancada = coalesce(horas_estancada, tiempo_maximo_horas),
-    horas_lenta = coalesce(horas_lenta, greatest(1, floor(tiempo_maximo_horas * 0.5)::integer)
+    horas_lenta = coalesce(horas_lenta, greatest(1, floor(tiempo_maximo_horas * 0.5)::integer))
 WHERE horas_estancada IS NULL OR horas_lenta IS NULL;
 
 ALTER TABLE public.reglas_estancamiento
