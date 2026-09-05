@@ -351,6 +351,16 @@ export default function AdminFunnelPage() {
   const subestadosActivos = subestados.filter((subestado) => subestado.activo);
   const reglasActivas = reglas.filter((regla) => regla.activo);
 
+  function abrirNuevaSubetapa(etapaId: string) {
+    setSubestadoForm({ ...emptySubestado, etapa_id: etapaId });
+    document.getElementById('administracion-avanzada')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function abrirNuevaRegla(etapaId: string, subestadoId?: string) {
+    setReglaForm({ ...emptyRegla, etapa_id: etapaId, subestado_id: subestadoId || '' });
+    document.getElementById('administracion-avanzada')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   return (
     <section className="space-y-6">
       <div>
@@ -387,6 +397,7 @@ export default function AdminFunnelPage() {
                     {subestados.filter((s) => s.etapa_id === etapa.id && !s.activo).length > 0 && <div className="border-t border-gray-200 pt-3"><p className="mb-2 text-xs font-semibold text-gray-400">Subetapas desactivadas</p><div className="flex flex-wrap gap-2">{subestados.filter((s) => s.etapa_id === etapa.id && !s.activo).sort((a, b) => a.orden - b.orden).map((row) => <button key={row.id} type="button" onClick={() => actualizarSubestado(row.id, { activo: true })} className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-400 hover:text-blue-700">{row.nombre} · Activar</button>)}</div></div>}
                   </div>
                   <div className="mt-5 space-y-3 border-t border-gray-100 pt-4"><h3 className="text-sm font-semibold text-buscoedu-text">Reglas de estancamiento</h3>{reglasEtapa.length ? reglasEtapa.map((r) => <div key={r.id} className="rounded-xl border border-amber-100 bg-amber-50 p-3"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-semibold text-amber-900">{r.subestado_id ? hijos.find((s) => s.id === r.subestado_id)?.nombre || 'Subetapa' : 'Regla de etapa'}</p><p className="text-xs text-amber-800">Lenta: {r.horas_lenta ?? Math.floor(r.tiempo_maximo_horas / 2)} h · Estancada: {r.horas_estancada ?? r.tiempo_maximo_horas} h</p>{r.accion_recomendada && <p className="mt-1 text-xs text-amber-900">{r.accion_recomendada}</p>}</div><button type="button" onClick={() => toggleRegla(r.id, r.activo)} className="rounded-lg border border-amber-200 bg-white px-2 py-1 text-xs">Desactivar</button></div></div>) : <p className="text-xs text-gray-500">No hay reglas activas configuradas para esta etapa.</p>}</div>
+                  <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => abrirNuevaSubetapa(etapa.id)} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white">+ Nueva subetapa</button><button type="button" onClick={() => abrirNuevaRegla(etapa.id)} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">+ Nueva regla</button></div>
                 </article>
               );
             })}
@@ -405,7 +416,7 @@ export default function AdminFunnelPage() {
             </div>
           </section>
 
-          <details className="rounded-xl border border-gray-200 bg-white p-4"><summary className="cursor-pointer text-sm font-semibold text-buscoedu-text">Administración avanzada</summary><div className="mt-4 space-y-4"><p className="text-xs text-gray-500">Usa esta sección solo para crear una nueva subetapa o regla. Las etapas no se eliminan físicamente para proteger el historial.</p>
+          <details id="administracion-avanzada" className="rounded-xl border border-gray-200 bg-white p-4"><summary className="cursor-pointer text-sm font-semibold text-buscoedu-text">Formulario de la ficha seleccionada</summary><div className="mt-4 space-y-4"><p className="text-xs text-gray-500">Este formulario se abre desde la ficha de una etapa y llega preseleccionado. Las etapas no se eliminan físicamente para proteger el historial.</p>
               <form onSubmit={crearSubestado} className="space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
                 <label className="block text-sm">
                   <span className="mb-1 block text-buscoedu-text">Etapa padre</span>
