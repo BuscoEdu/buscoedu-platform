@@ -20,6 +20,11 @@ Ejecutar en Supabase las migraciones pendientes, en especial `supabase/migration
 
 ## 📚 Stack Técnico
 
+La arquitectura modular y sus reglas de escalamiento están documentadas en
+[`docs/ARQUITECTURA_ESCALABLE_BUSCOEDU.md`](docs/ARQUITECTURA_ESCALABLE_BUSCOEDU.md).
+La comprobación no destructiva del módulo IA está disponible en
+[`supabase/diagnostics/auditoria_escalabilidad_ia.sql`](supabase/diagnostics/auditoria_escalabilidad_ia.sql).
+
 ```
 Framework:      Next.js 14+ (TypeScript, App Router)
 Estilos:        Tailwind CSS
