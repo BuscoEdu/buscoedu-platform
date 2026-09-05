@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdminApi } from '@/src/lib/admin/require-super-admin-api';
+import { getServiceRoleClient } from '@/src/lib/supabase-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ ok: false, error: 'json_invalido' }, { status: 400 });
   }
 
-  const { supabase } = auth.ctx;
+  const supabase = getServiceRoleClient();
   const { data: actual, error: actualError } = await supabase
     .from('reglas_estancamiento')
     .select('id, etapa_id, subestado_id')

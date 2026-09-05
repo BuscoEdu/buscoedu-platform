@@ -177,7 +177,7 @@ export default function AdminFunnelPage() {
     await cargar();
   }
 
-  async function actualizarEtapa(id: string, patch: Partial<Etapa>) {
+  async function actualizarEtapa(id: string, patch: Partial<Etapa>, recargar = true) {
     const res = await fetch(`/api/admin/funnel/etapas/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -189,7 +189,7 @@ export default function AdminFunnelPage() {
       return false;
     }
     setSuccessMessage('Etapa actualizada.');
-    await cargar();
+    if (recargar) await cargar();
     return true;
   }
 
@@ -199,9 +199,10 @@ export default function AdminFunnelPage() {
 
     const actual = etapas[index];
     const otra = etapas[destino];
-    await actualizarEtapa(actual.id, { orden: -Date.now() });
-    await actualizarEtapa(otra.id, { orden: actual.orden });
-    await actualizarEtapa(actual.id, { orden: otra.orden });
+    const primero = await actualizarEtapa(actual.id, { orden: -Date.now() }, false);
+    const segundo = primero && await actualizarEtapa(otra.id, { orden: actual.orden }, false);
+    const tercero = segundo && await actualizarEtapa(actual.id, { orden: otra.orden }, false);
+    if (tercero) { setSuccessMessage('Orden de etapa actualizado.'); await cargar(); }
   }
 
   async function crearSubestado(e: FormEvent) {
@@ -233,7 +234,7 @@ export default function AdminFunnelPage() {
     await cargar();
   }
 
-  async function actualizarSubestado(id: string, patch: Partial<Subestado>) {
+  async function actualizarSubestado(id: string, patch: Partial<Subestado>, recargar = true) {
     const res = await fetch(`/api/admin/funnel/subestados/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -245,7 +246,7 @@ export default function AdminFunnelPage() {
       return false;
     }
     setSuccessMessage('Subestado actualizado.');
-    await cargar();
+    if (recargar) await cargar();
     return true;
   }
 
@@ -259,9 +260,10 @@ export default function AdminFunnelPage() {
 
     const actual = delMismoGrupo[index];
     const otro = delMismoGrupo[destino];
-    await actualizarSubestado(actual.id, { orden: -Date.now() });
-    await actualizarSubestado(otro.id, { orden: actual.orden });
-    await actualizarSubestado(actual.id, { orden: otro.orden });
+    const primero = await actualizarSubestado(actual.id, { orden: -Date.now() }, false);
+    const segundo = primero && await actualizarSubestado(otro.id, { orden: actual.orden }, false);
+    const tercero = segundo && await actualizarSubestado(actual.id, { orden: otro.orden }, false);
+    if (tercero) { setSuccessMessage('Orden de subetapa actualizado.'); await cargar(); }
   }
 
   async function crearRegla(e: FormEvent) {

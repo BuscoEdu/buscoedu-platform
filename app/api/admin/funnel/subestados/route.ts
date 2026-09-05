@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdminApi } from '@/src/lib/admin/require-super-admin-api';
+import { getServiceRoleClient } from '@/src/lib/supabase-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -8,7 +9,7 @@ export async function GET() {
   const auth = await requireSuperAdminApi();
   if ('response' in auth) return auth.response;
 
-  const { supabase } = auth.ctx;
+  const supabase = getServiceRoleClient();
   const { data, error } = await supabase
     .from('subestados_oportunidad')
     .select('id, etapa_id, nombre, descripcion, orden, tiempo_maximo_horas, activo')
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
   if (!nombre) return NextResponse.json({ ok: false, error: 'nombre_requerido' }, { status: 400 });
   if (!etapaId) return NextResponse.json({ ok: false, error: 'etapa_requerida' }, { status: 400 });
 
-  const { supabase } = auth.ctx;
+  const supabase = getServiceRoleClient();
 
   const { data: etapa } = await supabase.from('etapas_embudo').select('id').eq('id', etapaId).maybeSingle();
   if (!etapa) return NextResponse.json({ ok: false, error: 'etapa_invalida' }, { status: 400 });

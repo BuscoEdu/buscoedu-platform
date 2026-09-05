@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdminApi } from '@/src/lib/admin/require-super-admin-api';
+import { getServiceRoleClient } from '@/src/lib/supabase-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,7 +15,7 @@ export async function GET() {
   const auth = await requireSuperAdminApi();
   if ('response' in auth) return auth.response;
 
-  const { supabase } = auth.ctx;
+  const supabase = getServiceRoleClient();
   const { data, error } = await supabase
     .from('reglas_estancamiento')
     .select('id, etapa_id, subestado_id, tiempo_maximo_horas, horas_lenta, horas_estancada, bloque_recurrente_horas, descuento_lenta, descuento_estancada_por_bloque, limite_descuento_total, accion_recomendada, reduce_score, escalar_a_humano, crear_tarea, mover_a_nurturing, activo, creado_en, actualizado_en')
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'nivel_regla_invalido' }, { status: 400 });
   }
 
-  const { supabase } = auth.ctx;
+  const supabase = getServiceRoleClient();
 
   if (subestadoId) {
     const { data: sub } = await supabase
