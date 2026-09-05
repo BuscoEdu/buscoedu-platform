@@ -181,7 +181,7 @@ export default function NaiaSearchExperience() {
                       {opcion}
                     </button>
                   ))}
-                </div>
+                  </div>
                 </div>
               )}
             </section>

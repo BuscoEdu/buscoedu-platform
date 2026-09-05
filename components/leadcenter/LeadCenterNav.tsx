@@ -30,6 +30,7 @@ export default function LeadCenterNav({ esSuper }: LeadCenterNavProps) {
     items.push({ href: '/admin', label: 'Administración CRM', icon: '⚙️' });
     items.push({ href: '/admin/funnel', label: 'Configurar funnel', icon: '🔧' });
   }
+  items.push({ href: '/leadcenter/pipeline', label: 'Pipeline y Funnel', icon: '🛤️' });
 
   const esActivo = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname === href || pathname.startsWith(href + '/');
