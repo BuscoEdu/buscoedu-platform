@@ -155,6 +155,9 @@ export default async function FichaOportunidadPage({
   const nombreEtapaPorId = (eid: string) => (etapas as any[])?.find((e) => e.id === eid)?.nombre || '—';
   const subestadoActual = ((subestados as any[]) || []).find((s: any) => s.id === o.subestado_id);
   const etapaActualOrden = ((etapas as any[]) || []).findIndex((e: any) => e.id === o.etapa_id);
+  const etapaActualNombre = String((etapaActual as any)?.nombre || '').trim();
+  const subestadoActualNombre = String(subestadoActual?.nombre || '').trim();
+  const esPerdida = etapaActualNombre.toLowerCase() === 'cerrada' && subestadoActualNombre.toLowerCase() === 'perdida';
 
   const estancamiento = calcularEstadoEstancamiento({
     reglas: (reglasEstancamiento as any[]) || [],
@@ -173,13 +176,27 @@ export default async function FichaOportunidadPage({
   // El funnel se representa en dos niveles: cada etapa es un nodo superior y
   // debajo se muestran únicamente sus subetapas relacionadas, sin convertirlas
   // en pasos independientes ni inventar nombres que no existan en la BD.
+  const subetapasPermitidas: Record<string, string[]> = {
+    'nuevo': [],
+    'en acceso': ['sin documentos', 'incompleto', 'verificado'],
+    'transferida': ['universidad', 'buscoedu'],
+    'en gestión': ['universidad', 'valorando', 'desaparecido'],
+    'cerrada': ['ganada', 'perdida']
+  };
+  const etapasPermitidas = ['nuevo', 'en acceso', 'transferida', 'en gestión', 'cerrada'];
   const funnelStages = ((etapas as any[]) || [])
     .slice()
+    .filter((etapa: any) => etapasPermitidas.includes(String(etapa.nombre || '').trim().toLowerCase()))
     .sort((a: any, b: any) => a.orden - b.orden)
     .map((etapa: any) => ({
       ...etapa,
       subestados: ((subestados as any[]) || [])
-        .filter((sub: any) => sub.etapa_id === etapa.id && (sub.activo !== false || sub.id === o.subestado_id))
+        .filter((sub: any) => {
+          const permitidas = subetapasPermitidas[String(etapa.nombre || '').trim().toLowerCase()] || [];
+          return sub.etapa_id === etapa.id
+            && permitidas.includes(String(sub.nombre || '').trim().toLowerCase())
+            && (sub.activo !== false || sub.id === o.subestado_id);
+        })
         .sort((a: any, b: any) => a.orden - b.orden)
     }));
   const indiceActualFunnel = funnelStages.findIndex((stage: any) => stage.id === o.etapa_id);
@@ -261,7 +278,7 @@ export default async function FichaOportunidadPage({
             <p className="text-xs text-gray-500">{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</p>
           </div>
           <div className="flex max-w-sm flex-col items-end gap-2 text-right">
-            <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</span>
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${esPerdida ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</span>
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${temperatura.clase}`}>{temperatura.etiqueta} · {o.puntaje ?? 0}/110</span>
             <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badgeEstancamiento.cls}`}>{badgeEstancamiento.label} · {estancamiento.tiempo_legible}</span>
             {estancamiento.accion_recomendada ? <p className="max-w-sm text-xs text-gray-500">Siguiente acción: {estancamiento.accion_recomendada}</p> : null}
@@ -293,18 +310,18 @@ export default async function FichaOportunidadPage({
               const completada = indiceActualFunnel >= 0 && index < indiceActualFunnel;
               return (
                 <div key={stage.id} className="relative flex min-w-44 flex-1 flex-col items-center text-center">
-                  {index < funnelStages.length - 1 && <span aria-hidden="true" className={`absolute left-1/2 right-[-0.5rem] top-3.5 h-0.5 ${completada ? 'bg-emerald-400' : 'bg-gray-200'}`} />}
-                  <span className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${actual ? 'bg-blue-600 text-white ring-4 ring-blue-100' : completada ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                  {index < funnelStages.length - 1 && <span aria-hidden="true" className="absolute left-1/2 right-[-0.5rem] top-3.5 h-0.5 bg-gray-200" />}
+                  <span className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${actual && esPerdida ? 'bg-red-600 text-white ring-4 ring-red-100' : actual ? 'bg-gray-700 text-white ring-4 ring-gray-100' : 'bg-gray-200 text-gray-500'}`}>
                     {completada ? '✓' : index + 1}
                   </span>
-                  <p className={`mt-2 text-sm font-semibold ${actual ? 'text-blue-700' : 'text-gray-700'}`}>{stage.nombre}</p>
+                  <p className={`mt-2 text-sm font-semibold ${actual && esPerdida ? 'text-red-700' : 'text-gray-700'}`}>{stage.nombre}</p>
                   <p className="text-[10px] uppercase tracking-wide text-gray-400">Etapa</p>
-                  {actual && <p className="mt-0.5 text-[11px] font-semibold text-blue-600">Etapa actual</p>}
+                  {actual && <p className={`mt-0.5 text-[11px] font-semibold ${esPerdida ? 'text-red-600' : 'text-gray-600'}`}>Etapa actual</p>}
                   <div className="mt-3 w-full space-y-1.5 border-t border-gray-100 pt-2">
                     {stage.subestados.length > 0 ? stage.subestados.map((sub: any) => {
                       const subActual = sub.id === o.subestado_id;
                       return (
-                        <div key={sub.id} className={`rounded-lg border px-2 py-1.5 text-left ${subActual ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
+                        <div key={sub.id} className={`rounded-lg border px-2 py-1.5 text-left ${subActual && esPerdida ? 'border-red-300 bg-red-50 text-red-800' : subActual ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
                           <p className="text-xs font-medium">{sub.nombre}</p>
                           <p className="text-[10px] uppercase tracking-wide text-gray-400">Subetapa{subActual ? ' · Actual' : ''}</p>
                         </div>
