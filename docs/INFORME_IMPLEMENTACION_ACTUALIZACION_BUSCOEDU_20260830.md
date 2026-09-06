@@ -178,6 +178,17 @@ Resultado global:
   - resolución por IDs en tablas relacionadas antes de filtrar ofertas.
 - Resultado: la corrección no es hardcode de un caso único, sino una mejora generalizable del motor de búsqueda.
 
+### Refuerzo de búsqueda académica (2026-09-06)
+- Se amplió la resolución de programas para consultar `nombre_oficial`, `nombre_corto`
+  y `titulo_otorgado`, además del área de conocimiento relacionada.
+- Esto corrige el caso en que un programa de Derecho está cargado con el nombre
+  corto o el título otorgado, aunque el nombre oficial no contenga literalmente
+  el término buscado.
+- La consulta continúa aplicando las mismas reglas de publicación, validación,
+  vigencia y actividad; no se muestran registros no publicables.
+- Se mantiene el comentario técnico en el código para que futuras cargas no
+  vuelvan a reducir la búsqueda a un único campo.
+
 ## Fase 7 — DemoWapp y avance conversacional
 
 ### Estado
