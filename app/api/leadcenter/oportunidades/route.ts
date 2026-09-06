@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
     const ofertaIds = Array.from(new Set((baseRows || []).map((r: any) => r.oferta_id).filter(Boolean)));
     const etapaIds = Array.from(new Set((baseRows || []).map((r: any) => r.etapa_id).filter(Boolean)));
 
-    const [personasRes, universidadesRes, programasRes, ofertasRes, etapasRes, reglasRes] = await Promise.all([
+    const [personasRes, universidadesRes, programasRes, ofertasRes, etapasRes, subestadosRes, reglasRes] = await Promise.all([
       personaIds.length
         ? supabase.from('personas').select('id, nombres, apellidos').in('id', personaIds)
         : Promise.resolve({ data: [] as any[] } as any),
@@ -94,6 +94,7 @@ export async function GET(req: NextRequest) {
       etapaIds.length
         ? supabase.from('etapas_embudo').select('id, nombre').in('id', etapaIds)
         : Promise.resolve({ data: [] as any[] } as any),
+      supabase.from('subestados_oportunidad').select('id, nombre').in('id', (baseRows || []).map((r: any) => r.subestado_id).filter(Boolean)),
       supabase
         .from('reglas_estancamiento')
         .select('id, etapa_id, subestado_id, tiempo_maximo_horas, accion_recomendada, activo')
@@ -105,6 +106,7 @@ export async function GET(req: NextRequest) {
     const programas = Object.fromEntries((programasRes.data || []).map((p: any) => [p.id, p]));
     const ofertas = Object.fromEntries((ofertasRes.data || []).map((o: any) => [o.id, o]));
     const etapas = Object.fromEntries((etapasRes.data || []).map((e: any) => [e.id, e.nombre]));
+    const subestados = Object.fromEntries((subestadosRes.data || []).map((s: any) => [s.id, s.nombre]));
 
     const reglasActivas = (reglasRes.data as any[]) || [];
 
@@ -131,6 +133,7 @@ export async function GET(req: NextRequest) {
         fecha_proxima_accion: row.fecha_proxima_accion,
         actualizado_en: row.actualizado_en,
         etapa: etapas[row.etapa_id] || '—',
+        subetapa: subestados[row.subestado_id] || 'Sin subetapa',
         persona: {
           id: row.persona_id,
           nombre_completo: nombrePersona(persona)
