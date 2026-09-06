@@ -170,17 +170,19 @@ export default async function FichaOportunidadPage({
       ? { label: '🟡 Lenta', cls: 'bg-amber-100 text-amber-700' }
       : { label: '🟢 Normal', cls: 'bg-emerald-100 text-emerald-700' };
 
-  // La ruta refleja la definición del embudo: una estación por subetapa. Solo
-  // muestra una etapa como estación cuando esa etapa aún no tiene subetapas.
-  const funnelStops = ((etapas as any[]) || []).flatMap((etapa: any) => {
-    const hijos = ((subestados as any[]) || []).filter((sub: any) => sub.activo !== false && sub.etapa_id === etapa.id);
-    return hijos.length
-      ? hijos.map((sub: any) => ({ id: `subestado-${sub.id}`, tipo: 'subestado', etapaId: etapa.id, subestadoId: sub.id, nombre: sub.nombre }))
-      : [{ id: `etapa-${etapa.id}`, tipo: 'etapa', etapaId: etapa.id, subestadoId: null, nombre: etapa.nombre }];
-  });
-  const indiceActualFunnel = funnelStops.findIndex((stop: any) =>
-    o.subestado_id ? stop.subestadoId === o.subestado_id : stop.tipo === 'etapa' && stop.etapaId === o.etapa_id
-  );
+  // El funnel se representa en dos niveles: cada etapa es un nodo superior y
+  // debajo se muestran únicamente sus subetapas relacionadas, sin convertirlas
+  // en pasos independientes ni inventar nombres que no existan en la BD.
+  const funnelStages = ((etapas as any[]) || [])
+    .slice()
+    .sort((a: any, b: any) => a.orden - b.orden)
+    .map((etapa: any) => ({
+      ...etapa,
+      subestados: ((subestados as any[]) || [])
+        .filter((sub: any) => sub.etapa_id === etapa.id && (sub.activo !== false || sub.id === o.subestado_id))
+        .sort((a: any, b: any) => a.orden - b.orden)
+    }));
+  const indiceActualFunnel = funnelStages.findIndex((stage: any) => stage.id === o.etapa_id);
 
   const comentarios = ((notas as any[]) || []).map((n) => ({
     id: n.id,
@@ -283,12 +285,34 @@ export default async function FichaOportunidadPage({
             <p className="font-semibold text-gray-900">{fecha(o.actualizado_en)}</p>
           </div>
         </div>
-        <div className="mt-5 overflow-x-auto border-t border-gray-100 pt-4" aria-label="Ruta del funnel">
-          <div className="flex min-w-[760px] items-start justify-between gap-2">
-            {funnelStops.map((stop: any, index: number) => {
+        {/* Funnel jerárquico: etapa arriba, subetapa debajo y avance entre etapas. */}
+        <div className="mt-5 overflow-x-auto border-t border-gray-100 pt-4" aria-label="Funnel de la oportunidad">
+          <div className="flex min-w-[980px] items-start gap-2">
+            {funnelStages.map((stage: any, index: number) => {
               const actual = index === indiceActualFunnel;
-              const completada = indiceActualFunnel > index;
-              return <div key={stop.id} className="relative flex min-w-24 flex-1 flex-col items-center text-center"><span className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${actual ? 'bg-blue-600 text-white ring-4 ring-blue-100' : completada ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{completada ? '✓' : index + 1}</span>{index < funnelStops.length - 1 && <span aria-hidden="true" className={`absolute left-1/2 top-3.5 h-0.5 w-full ${completada ? 'bg-emerald-400' : 'bg-gray-200'}`} />}<p className={`mt-2 text-xs font-medium ${actual ? 'text-blue-700' : 'text-gray-600'}`}>{stop.nombre}</p><p className="mt-0.5 text-[10px] uppercase tracking-wide text-gray-400">{stop.tipo === 'etapa' ? 'Etapa' : 'Subetapa'}</p>{actual && <p className="mt-0.5 text-[11px] text-blue-600">Actual</p>}</div>;
+              const completada = indiceActualFunnel >= 0 && index < indiceActualFunnel;
+              return (
+                <div key={stage.id} className="relative flex min-w-44 flex-1 flex-col items-center text-center">
+                  {index < funnelStages.length - 1 && <span aria-hidden="true" className={`absolute left-1/2 right-[-0.5rem] top-3.5 h-0.5 ${completada ? 'bg-emerald-400' : 'bg-gray-200'}`} />}
+                  <span className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${actual ? 'bg-blue-600 text-white ring-4 ring-blue-100' : completada ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                    {completada ? '✓' : index + 1}
+                  </span>
+                  <p className={`mt-2 text-sm font-semibold ${actual ? 'text-blue-700' : 'text-gray-700'}`}>{stage.nombre}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400">Etapa</p>
+                  {actual && <p className="mt-0.5 text-[11px] font-semibold text-blue-600">Etapa actual</p>}
+                  <div className="mt-3 w-full space-y-1.5 border-t border-gray-100 pt-2">
+                    {stage.subestados.length > 0 ? stage.subestados.map((sub: any) => {
+                      const subActual = sub.id === o.subestado_id;
+                      return (
+                        <div key={sub.id} className={`rounded-lg border px-2 py-1.5 text-left ${subActual ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
+                          <p className="text-xs font-medium">{sub.nombre}</p>
+                          <p className="text-[10px] uppercase tracking-wide text-gray-400">Subetapa{subActual ? ' · Actual' : ''}</p>
+                        </div>
+                      );
+                    }) : <p className="rounded-lg border border-dashed border-gray-200 px-2 py-1.5 text-xs text-gray-400">Sin subetapa</p>}
+                  </div>
+                </div>
+              );
             })}
           </div>
         </div>
