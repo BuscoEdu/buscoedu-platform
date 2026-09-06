@@ -236,6 +236,8 @@ export default function OportunidadesBoard({ etapas }: { etapas: Option[] }) {
         )}
         {items.map((o) => {
           const est = badgeEstancamiento(o.estancamiento?.estado);
+          const esPerdida = o.subetapa.toLowerCase() === 'perdida';
+          const esGanada = o.etapa.toLowerCase() === 'cerrada' && o.subetapa.toLowerCase() === 'ganada';
           return (
             <Link
               key={o.id}
@@ -245,7 +247,7 @@ export default function OportunidadesBoard({ etapas }: { etapas: Option[] }) {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
                   <p className="truncate font-semibold text-gray-900">{o.codigo || `OP-${o.id.slice(0, 8)}`}</p>
-                  <p className={`truncate text-xs font-semibold ${o.subetapa.toLowerCase() === 'perdida' ? 'text-red-600' : 'text-blue-600'}`}>
+                  <p className={`truncate text-xs font-semibold ${esPerdida ? 'text-red-600' : esGanada ? 'text-emerald-600' : 'text-blue-600'}`}>
                     {o.etapa} · {o.subetapa}
                   </p>
                   <p className="truncate text-sm font-medium text-gray-800">{o.tipo_oportunidad === 'universidad' ? o.universidad.nombre : o.persona.nombre_completo}</p>
