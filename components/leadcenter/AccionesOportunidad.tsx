@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface Etapa {
   id: string;
@@ -67,6 +67,15 @@ export default function AccionesOportunidad({
   const [cargContacto, setCargContacto] = useState(false);
 
   const subDeEtapa = subestados.filter((s) => s.etapa_id === etapaNueva);
+
+  useEffect(() => {
+    setSubestadoNuevo((actual) => subDeEtapa.some((s) => s.id === actual) ? actual : (subDeEtapa[0]?.id || ''));
+  }, [etapaNueva, subestados]);
+
+  useEffect(() => {
+    const disponibles = subestados.filter((s) => s.etapa_id === etapaReapertura);
+    setSubestadoReapertura((actual) => disponibles.some((s) => s.id === actual) ? actual : (disponibles[0]?.id || ''));
+  }, [etapaReapertura, subestados]);
 
   async function cargarCausas() {
     if (causas.length || cargandoCausas) return;
@@ -226,7 +235,7 @@ export default function AccionesOportunidad({
           {msgCierre && <p className="text-sm text-gray-700">{msgCierre}</p>}
         </div>}
       </div>
-      {estaCerrada && <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3"><p className="text-sm font-semibold text-blue-900">Reabrir oportunidad</p><div className="mt-2 space-y-2"><select value={etapaReapertura} onChange={(e) => { setEtapaReapertura(e.target.value); setSubestadoReapertura(''); }} className={inputCls}>{etapas.filter((e) => e.nombre.toLowerCase() !== 'cerrada').map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}</select>{subestados.filter((s) => s.etapa_id === etapaReapertura).length > 0 && <select value={subestadoReapertura} onChange={(e) => setSubestadoReapertura(e.target.value)} className={inputCls}><option value="">Sin subestado</option>{subestados.filter((s) => s.etapa_id === etapaReapertura).map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}</select>}<input value={motivoReapertura} onChange={(e) => setMotivoReapertura(e.target.value)} className={inputCls} placeholder="Motivo obligatorio de reapertura" /><div className="flex gap-2"><button onClick={enviarReapertura} disabled={cargCierre} className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">Reabrir oportunidad</button><button onClick={() => setMotivoReapertura('')} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">Cancelar</button></div>{msgCierre && <p className="text-sm text-gray-700">{msgCierre}</p>}</div></div>}
+      {estaCerrada && <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3"><p className="text-sm font-semibold text-blue-900">Reabrir oportunidad</p><div className="mt-2 space-y-2"><select value={etapaReapertura} onChange={(e) => setEtapaReapertura(e.target.value)} className={inputCls}>{etapas.filter((e) => e.nombre.toLowerCase() !== 'cerrada').map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}</select>{subestados.filter((s) => s.etapa_id === etapaReapertura).length > 0 && <select value={subestadoReapertura} onChange={(e) => setSubestadoReapertura(e.target.value)} className={inputCls}>{subestados.filter((s) => s.etapa_id === etapaReapertura).map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}</select>}<input value={motivoReapertura} onChange={(e) => setMotivoReapertura(e.target.value)} className={inputCls} placeholder="Motivo obligatorio de reapertura" /><div className="flex gap-2"><button onClick={enviarReapertura} disabled={cargCierre} className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">Reabrir oportunidad</button><button onClick={() => setMotivoReapertura('')} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">Cancelar</button></div>{msgCierre && <p className="text-sm text-gray-700">{msgCierre}</p>}</div></div>}
 
       {tab === 'contacto' && (
         <div className="space-y-3">
@@ -328,7 +337,6 @@ export default function AccionesOportunidad({
                 onChange={(e) => setSubestadoNuevo(e.target.value)}
                 className={inputCls}
               >
-                <option value="">Sin subestado</option>
                 {subDeEtapa.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.nombre}

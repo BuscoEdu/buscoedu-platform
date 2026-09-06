@@ -103,6 +103,7 @@ export default function AdminFunnelPage() {
   const [reglas, setReglas] = useState<Regla[]>([]);
 
   const [etapaForm, setEtapaForm] = useState(emptyEtapa);
+  const [primeraSubetapa, setPrimeraSubetapa] = useState('');
   const [subestadoForm, setSubestadoForm] = useState(emptySubestado);
   const [reglaForm, setReglaForm] = useState(emptyRegla);
 
@@ -154,7 +155,7 @@ export default function AdminFunnelPage() {
 
   async function crearEtapa(e: FormEvent) {
     e.preventDefault();
-    if (!etapaForm.nombre.trim()) {
+    if (!etapaForm.nombre.trim() || !primeraSubetapa.trim()) {
       setErrorMessage('El nombre de la etapa es obligatorio.');
       return;
     }
@@ -162,7 +163,7 @@ export default function AdminFunnelPage() {
     const res = await fetch('/api/admin/funnel/etapas', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(etapaForm)
+      body: JSON.stringify({ ...etapaForm, primera_subetapa: primeraSubetapa.trim() })
     });
     const data = await parseJson(res);
     setGuardando(false);
@@ -173,6 +174,7 @@ export default function AdminFunnelPage() {
     }
 
     setEtapaForm(emptyEtapa);
+    setPrimeraSubetapa('');
     setSuccessMessage('Etapa creada correctamente.');
     await cargar();
   }
