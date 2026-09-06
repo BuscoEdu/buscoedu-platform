@@ -16,27 +16,6 @@ function fecha(iso?: string | null) {
   return new Date(iso).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-// MEJORA 8: agrupa cada evento del historial por cercanía temporal para que el
-// timeline sea más legible (Hoy, Ayer, Esta semana, Este mes, Anteriores).
-function grupoFecha(iso?: string | null): string {
-  if (!iso) return 'Anteriores';
-  const ahora = new Date();
-  const d = new Date(iso);
-
-  const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
-  const inicioAyer = new Date(inicioHoy);
-  inicioAyer.setDate(inicioAyer.getDate() - 1);
-  const inicioSemana = new Date(inicioHoy);
-  inicioSemana.setDate(inicioSemana.getDate() - 6); // últimos 7 días
-  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
-
-  if (d >= inicioHoy) return 'Hoy';
-  if (d >= inicioAyer) return 'Ayer';
-  if (d >= inicioSemana) return 'Esta semana';
-  if (d >= inicioMes) return 'Este mes';
-  return 'Anteriores';
-}
-
 export default async function FichaOportunidadPage({
   params
 }: {
@@ -68,6 +47,7 @@ export default async function FichaOportunidadPage({
     { data: consentimientos },
     { data: propuestas },
     { data: transferencias }
+    ,{ data: cierres }
   ] = await Promise.all([
     supabase.from('personas').select('*').eq('id', o.persona_id).single(),
     o.universidad_id
@@ -99,7 +79,7 @@ export default async function FichaOportunidadPage({
       .eq('activo', true),
     supabase
       .from('historial_etapas_oportunidad')
-      .select('id, etapa_nueva_id, subestado_nuevo_id, motivo, canal, creado_en')
+      .select('id, etapa_nueva_id, motivo, canal, creado_en')
       .eq('oportunidad_id', id)
       .order('creado_en', { ascending: false })
       .limit(50),
@@ -137,6 +117,11 @@ export default async function FichaOportunidadPage({
       .select('id, estado, metodo_entrega, es_facturable, fecha_transferencia, creado_en')
       .eq('oportunidad_id', id)
       .order('creado_en', { ascending: false })
+    ,supabase
+      .from('oportunidades_cierres')
+      .select('id, tipo_cierre, comentario, causa_perdida_id, etapa_anterior_id, subestado_anterior_id, canal, actor_tipo, creado_en, reabierto_en, motivo_reapertura')
+      .eq('oportunidad_id', id)
+      .order('creado_en', { ascending: false })
   ]);
 
   const autoresIds = Array.from(new Set(((notas as any[]) || []).map((n) => n.autor_id).filter(Boolean)));
@@ -164,20 +149,10 @@ export default async function FichaOportunidadPage({
   const nombrePrograma =
     (programa as any)?.nombre_corto || (programa as any)?.nombre_oficial || 'Programa no definido';
   const nombreOferta = (oferta as any)?.nombre_oferta || 'Oferta no definida';
-  // Evita duplicar el nombre cuando la oferta ya contiene al programa.
-  // Se normaliza (minúsculas + sin espacios extremos) y si la oferta es igual,
-  // empieza por o incluye al programa, se muestra solo el nombre de la oferta.
-  const ofNorm = nombreOferta.toLowerCase().trim();
-  const progNorm = nombrePrograma.toLowerCase().trim();
-  const programaOferta =
-    ofNorm === progNorm || ofNorm.startsWith(progNorm) || ofNorm.includes(progNorm)
-      ? nombreOferta
-      : `${nombrePrograma} · ${nombreOferta}`;
+  const programaOferta = nombreOferta === nombrePrograma ? nombrePrograma : `${nombrePrograma} · ${nombreOferta}`;
   const temperatura = TEMPERATURA_META[temperaturaDesdePuntaje(o.puntaje)];
 
   const nombreEtapaPorId = (eid: string) => (etapas as any[])?.find((e) => e.id === eid)?.nombre || '—';
-  const nombreSubestadoPorId = (sid?: string | null) =>
-    sid ? ((subestados as any[]) || []).find((s: any) => s.id === sid)?.nombre || null : null;
   const subestadoActual = ((subestados as any[]) || []).find((s: any) => s.id === o.subestado_id);
   const etapaActualOrden = ((etapas as any[]) || []).findIndex((e: any) => e.id === o.etapa_id);
 
@@ -216,54 +191,15 @@ export default async function FichaOportunidadPage({
 
   type Item = { ts: string; tipo: string; texto: string; icono: string; tono: string };
   const timeline: Item[] = [];
-  // MEJORA 6 (cierre configurable): el historial de etapas se representa de forma
-  // jerárquica en dos niveles — Nivel 1 Etapa, Nivel 2 Subetapa — y el cierre se
-  // dibuja como una "salida lateral" que cuelga de la subetapa, conservando los
-  // pasos previos. También distinguimos el origen del movimiento (manual, IA o
-  // automático) a partir del canal registrado.
-  (historial as any[])?.forEach((h) => {
-    const etapaNombre = nombreEtapaPorId(h.etapa_nueva_id);
-    const subNombre = nombreSubestadoPorId(h.subestado_nuevo_id);
-    const motivo: string = h.motivo || '';
-    // Detecta si este movimiento corresponde a un cierre (Ganada/Perdida) o a una
-    // reapertura, a partir del texto que las RPC dejan en `motivo`.
-    const esCierre = /cierre:/i.test(motivo);
-    const esReapertura = /reapertura|reabri/i.test(motivo);
-    // Origen del cambio: el canal "ia"/"naia"/"automatico" indica acción no humana.
-    const canal = String(h.canal || '').toLowerCase();
-    const origen = /ia|naia/.test(canal)
-      ? '🤖 IA'
-      : /auto/.test(canal)
-      ? '⚙️ Automático'
-      : '👤 Manual';
-
-    // Construcción del árbol jerárquico legible (se muestra con whitespace-pre-line).
-    const lineas: string[] = [`${etapaNombre}`];
-    if (subNombre) lineas.push(`└── ${subNombre}`);
-    if (esCierre) {
-      // El motivo trae algo como "Cierre: Perdida · Causa: Precio · <comentario>".
-      const partes = motivo.split('·').map((s) => s.trim()).filter(Boolean);
-      const indent = subNombre ? '    ' : '';
-      partes.forEach((parte, idx) => {
-        lineas.push(`${indent}${'    '.repeat(idx)}└── ${parte}`);
-      });
-    } else if (motivo) {
-      const indent = subNombre ? '    ' : '';
-      lineas.push(`${indent}└── ${motivo}`);
-    }
-
+  (historial as any[])?.forEach((h) =>
     timeline.push({
       ts: h.creado_en,
-      tipo: esCierre ? 'Cierre' : esReapertura ? 'Reapertura' : 'Etapa',
-      texto: `${lineas.join('\n')}\n${origen}`,
-      icono: esCierre ? '🏁' : esReapertura ? '🔓' : '↔️',
-      tono: esCierre
-        ? (/ganada/i.test(motivo) ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700')
-        : esReapertura
-        ? 'bg-amber-100 text-amber-700'
-        : 'bg-blue-100 text-blue-700'
-    });
-  });
+      tipo: 'Etapa',
+      texto: `Movida a "${nombreEtapaPorId(h.etapa_nueva_id)}"${h.motivo ? ` · ${h.motivo}` : ''}`,
+      icono: '↔️',
+      tono: 'bg-blue-100 text-blue-700'
+    })
+  );
   comentarios.forEach((n) =>
     timeline.push({ ts: n.creado_en, tipo: 'Comentario', texto: `${n.autor_nombre}: ${n.contenido}`, icono: '💬', tono: 'bg-violet-100 text-violet-700' })
   );
@@ -292,6 +228,17 @@ export default async function FichaOportunidadPage({
       icono: push ? '📱' : '🤖',
       tono: push ? 'bg-green-100 text-green-700' : 'bg-cyan-100 text-cyan-700'
     });
+  });
+  // El cierre se muestra como salida lateral, sin ocultar las etapas recorridas.
+  (cierres as any[])?.forEach((cierre) => {
+    timeline.push({
+      ts: cierre.creado_en,
+      tipo: cierre.tipo_cierre === 'ganada' ? 'Ganada' : 'Perdida',
+      texto: `${cierre.tipo_cierre === 'ganada' ? 'Cierre Ganada' : 'Cierre Perdida'}${cierre.comentario ? ` · ${cierre.comentario}` : ''}`,
+      icono: cierre.tipo_cierre === 'ganada' ? '🏆' : '⛔',
+      tono: cierre.tipo_cierre === 'ganada' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+    });
+    if (cierre.reabierto_en) timeline.push({ ts: cierre.reabierto_en, tipo: 'Reapertura', texto: `Oportunidad reabierta${cierre.motivo_reapertura ? ` · ${cierre.motivo_reapertura}` : ''}`, icono: '↩️', tono: 'bg-blue-100 text-blue-700' });
   });
   timeline.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
 
@@ -356,34 +303,20 @@ export default async function FichaOportunidadPage({
             {timeline.length === 0 ? (
               <p className="text-sm text-gray-500">Aún no hay actividad registrada.</p>
             ) : (
-              <div className="max-h-[34rem] space-y-4 overflow-y-auto pr-2">
-                {/* MEJORA 8: el historial se agrupa por cercanía temporal.
-                    Recorremos los grupos en orden y solo mostramos los que
-                    tienen eventos, respetando el orden descendente ya calculado. */}
-                {(['Hoy', 'Ayer', 'Esta semana', 'Este mes', 'Anteriores'] as const).map((grupo) => {
-                  const items = timeline.slice(0, 60).filter((it) => grupoFecha(it.ts) === grupo);
-                  if (items.length === 0) return null;
-                  return (
-                    <div key={grupo}>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{grupo}</p>
-                      <ol className="space-y-3">
-                        {items.map((it, i) => (
-                          <li key={`${grupo}-${i}`} className="relative flex gap-3 pb-1">
-                            {i < items.length - 1 && <span aria-hidden="true" className="absolute left-4 top-8 h-[calc(100%+0.25rem)] border-l-2 border-dotted border-gray-200" />}
-                            <span className={`relative z-10 mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${it.tono}`} title={it.tipo}>
-                              <span aria-hidden="true">{it.icono}</span><span className="sr-only">{it.tipo}</span>
-                            </span>
-                            <div className="min-w-0">
-                              <p className="whitespace-pre-line text-sm text-gray-700">{it.texto}</p>
-                              <p className="text-xs text-gray-400">{fecha(it.ts)}</p>
-                            </div>
-                          </li>
-                        ))}
-                      </ol>
+              <ol className="max-h-[34rem] space-y-3 overflow-y-auto pr-2">
+                {timeline.slice(0, 60).map((it, i) => (
+                  <li key={i} className="relative flex gap-3 pb-1">
+                    {i < timeline.slice(0, 60).length - 1 && <span aria-hidden="true" className="absolute left-4 top-8 h-[calc(100%+0.25rem)] border-l-2 border-dotted border-gray-200" />}
+                    <span className={`relative z-10 mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${it.tono}`} title={it.tipo}>
+                      <span aria-hidden="true">{it.icono}</span><span className="sr-only">{it.tipo}</span>
+                    </span>
+                    <div className="min-w-0">
+                      <p className="whitespace-pre-line text-sm text-gray-700">{it.texto}</p>
+                      <p className="text-xs text-gray-400">{fecha(it.ts)}</p>
                     </div>
-                  );
-                })}
-              </div>
+                  </li>
+                ))}
+              </ol>
             )}
           </div>
         </div>
@@ -399,10 +332,9 @@ export default async function FichaOportunidadPage({
             oportunidadId={id}
             personaId={o.persona_id}
             etapaActualId={o.etapa_id}
+            estaCerrada={String((etapaActual as any)?.nombre || '').toLowerCase() === 'cerrada'}
             etapas={(etapas as any[]) || []}
             subestados={((subestados as any[]) || []).filter((s: any) => s.activo !== false)}
-            estadoOportunidad={o.estado || 'activa'}
-            cierreTipo={o.cierre_tipo || null}
           />
 
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
