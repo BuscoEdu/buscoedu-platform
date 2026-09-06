@@ -49,6 +49,18 @@ BEGIN
       INSERT INTO public.subestados_oportunidad
         (etapa_id, nombre, descripcion, orden, tiempo_maximo_horas, activo)
       VALUES (v_stage.id, 'General', 'Subetapa inicial de la etapa', 1, 24, true);
+    ELSIF NOT EXISTS (
+      SELECT 1 FROM public.subestados_oportunidad s
+      WHERE s.etapa_id = v_stage.id AND coalesce(s.activo, true)
+    ) THEN
+      UPDATE public.subestados_oportunidad
+      SET activo = true
+      WHERE id = (
+        SELECT s2.id FROM public.subestados_oportunidad s2
+        WHERE s2.etapa_id = v_stage.id
+        ORDER BY s2.orden ASC NULLS LAST, s2.id
+        LIMIT 1
+      );
     END IF;
   END LOOP;
 
