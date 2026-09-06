@@ -53,7 +53,7 @@ function fecha(iso?: string | null) {
 function badgeEstancamiento(estado?: 'normal' | 'proximo_a_vencer' | 'estancado') {
   if (estado === 'estancado') return { label: '🔴 Estancado', cls: 'bg-red-100 text-red-700' };
   if (estado === 'proximo_a_vencer') return { label: '🟡 Próximo a vencer', cls: 'bg-amber-100 text-amber-700' };
-  return { label: '🟢 Normal', cls: 'bg-emerald-100 text-emerald-700' };
+  return { label: 'Normal', cls: 'bg-blue-100 text-blue-700' };
 }
 
 function normalizarTitulo(valor?: string) {
@@ -68,7 +68,9 @@ function normalizarTitulo(valor?: string) {
 function descripcionAcademica(programa?: string, oferta?: string) {
   const programaLimpio = (programa || '').trim();
   const ofertaLimpia = (oferta || '').trim();
-  if (!ofertaLimpia || normalizarTitulo(programaLimpio) === normalizarTitulo(ofertaLimpia)) return programaLimpio || ofertaLimpia || '—';
+  const programaNormalizado = normalizarTitulo(programaLimpio);
+  const ofertaNormalizada = normalizarTitulo(ofertaLimpia);
+  if (!ofertaLimpia || ofertaNormalizada.includes(programaNormalizado)) return ofertaLimpia || programaLimpio || '—';
   return programaLimpio ? `${programaLimpio} · ${ofertaLimpia}` : ofertaLimpia;
 }
 

@@ -149,7 +149,9 @@ export default async function FichaOportunidadPage({
   const nombrePrograma =
     (programa as any)?.nombre_corto || (programa as any)?.nombre_oficial || 'Programa no definido';
   const nombreOferta = (oferta as any)?.nombre_oferta || 'Oferta no definida';
-  const programaOferta = nombreOferta === nombrePrograma ? nombrePrograma : `${nombrePrograma} · ${nombreOferta}`;
+  const programaOferta = nombreOferta.toLocaleLowerCase().includes(nombrePrograma.toLocaleLowerCase())
+    ? nombreOferta
+    : `${nombrePrograma} · ${nombreOferta}`;
   const temperatura = TEMPERATURA_META[temperaturaDesdePuntaje(o.puntaje)];
 
   const nombreEtapaPorId = (eid: string) => (etapas as any[])?.find((e) => e.id === eid)?.nombre || '—';
@@ -171,7 +173,7 @@ export default async function FichaOportunidadPage({
       ? { label: '🔴 Estancada', cls: 'bg-red-100 text-red-700' }
       : estancamiento.estado === 'lenta'
       ? { label: '🟡 Lenta', cls: 'bg-amber-100 text-amber-700' }
-      : { label: '🟢 Normal', cls: 'bg-emerald-100 text-emerald-700' };
+      : { label: 'Normal', cls: 'bg-blue-100 text-blue-700' };
 
   // El funnel se representa en dos niveles: cada etapa es un nodo superior y
   // debajo se muestran únicamente sus subetapas relacionadas, sin convertirlas
@@ -271,14 +273,14 @@ export default async function FichaOportunidadPage({
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Persona</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{o.codigo || `OP-${String(o.id).slice(0, 8)}`}</p>
             <Link href={`/leadcenter/personas/${o.persona_id}`} className="text-xl font-bold text-gray-900 hover:text-blue-600 hover:underline">{nombrePersona}</Link>
             <p className="text-sm text-gray-600">{nombreUniversidad}</p>
             <p className="text-sm text-gray-500">{programaOferta}</p>
             <p className="text-xs text-gray-500">{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</p>
           </div>
           <div className="flex max-w-sm flex-col items-end gap-2 text-right">
-            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${esPerdida ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</span>
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${esPerdida ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</span>
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${temperatura.clase}`}>{temperatura.etiqueta} · {o.puntaje ?? 0}/110</span>
             <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badgeEstancamiento.cls}`}>{badgeEstancamiento.label} · {estancamiento.tiempo_legible}</span>
             {estancamiento.accion_recomendada ? <p className="max-w-sm text-xs text-gray-500">Siguiente acción: {estancamiento.accion_recomendada}</p> : null}
@@ -321,9 +323,8 @@ export default async function FichaOportunidadPage({
                     {stage.subestados.length > 0 ? stage.subestados.map((sub: any) => {
                       const subActual = sub.id === o.subestado_id;
                       return (
-                        <div key={sub.id} className={`rounded-lg border px-2 py-1.5 text-left ${subActual && esPerdida ? 'border-red-300 bg-red-50 text-red-800' : subActual ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
+                        <div key={sub.id} className={`rounded-lg border px-2 py-1.5 text-center ${subActual && esPerdida ? 'border-red-300 bg-red-50 text-red-800' : subActual ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-blue-100 bg-blue-50/40 text-blue-700'}`}>
                           <p className="text-xs font-medium">{sub.nombre}</p>
-                          <p className="text-[10px] uppercase tracking-wide text-gray-400">Subetapa{subActual ? ' · Actual' : ''}</p>
                         </div>
                       );
                     }) : <p className="rounded-lg border border-dashed border-gray-200 px-2 py-1.5 text-xs text-gray-400">Sin subetapa</p>}
