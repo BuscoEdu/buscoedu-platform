@@ -31,8 +31,12 @@ export async function POST(req: NextRequest) {
   }
 
   const nombre = String(body?.nombre || '').trim();
+  const primeraSubetapa = String(body?.primera_subetapa || '').trim();
   if (!nombre) {
     return NextResponse.json({ ok: false, error: 'nombre_requerido' }, { status: 400 });
+  }
+  if (!primeraSubetapa) {
+    return NextResponse.json({ ok: false, error: 'primera_subetapa_requerida' }, { status: 400 });
   }
 
   const supabase = getServiceRoleClient();
@@ -61,5 +65,25 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, item: data });
+
+  const { data: subestado, error: subestadoError } = await supabase
+    .from('subestados_oportunidad')
+    .insert({
+      etapa_id: data.id,
+      nombre: primeraSubetapa,
+      descripcion: null,
+      orden: 1,
+      tiempo_maximo_horas: 24,
+      activo: true
+    })
+    .select('id, etapa_id, nombre, descripcion, orden, tiempo_maximo_horas, activo')
+    .single();
+
+  if (subestadoError) {
+    // No dejamos una etapa huérfana si el alta obligatoria de su primera
+    // subetapa falla.
+    await supabase.from('etapas_embudo').delete().eq('id', data.id);
+    return NextResponse.json({ ok: false, error: subestadoError.message }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, item: data, primera_subetapa: subestado });
 }
