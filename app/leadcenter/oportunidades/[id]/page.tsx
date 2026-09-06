@@ -161,6 +161,7 @@ export default async function FichaOportunidadPage({
   const subestadoActualNombre = String(subestadoActual?.nombre || '').trim();
   const esPerdida = etapaActualNombre.toLowerCase() === 'cerrada' && subestadoActualNombre.toLowerCase() === 'perdida';
   const esGanada = etapaActualNombre.toLowerCase() === 'cerrada' && subestadoActualNombre.toLowerCase() === 'ganada';
+  const rutaActualClase = esPerdida ? 'text-red-600' : esGanada ? 'text-emerald-600' : 'text-blue-600';
 
   const estancamiento = calcularEstadoEstancamiento({
     reglas: (reglasEstancamiento as any[]) || [],
@@ -278,7 +279,7 @@ export default async function FichaOportunidadPage({
             <Link href={`/leadcenter/personas/${o.persona_id}`} className="text-xl font-bold text-gray-900 hover:text-blue-600 hover:underline">{nombrePersona}</Link>
             <p className="text-sm text-gray-600">{nombreUniversidad}</p>
             <p className="text-sm text-gray-500">{programaOferta}</p>
-            <p className="text-xs text-gray-500">{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</p>
+            <p className={`text-xs font-semibold ${rutaActualClase}`}>{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || '—'}</p>
           </div>
           <div className="flex max-w-sm flex-col items-end gap-2 text-right">
             <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${esPerdida ? 'bg-red-100 text-red-700' : esGanada ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || '—'}</span>
@@ -314,18 +315,18 @@ export default async function FichaOportunidadPage({
               return (
                 <div key={stage.id} className="relative flex min-w-44 flex-1 flex-col items-center text-center">
                   {index < funnelStages.length - 1 && <span aria-hidden="true" className="absolute left-1/2 right-[-0.5rem] top-3.5 h-0.5 bg-gray-200" />}
-                  <span className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${actual && esPerdida ? 'bg-red-600 text-white ring-4 ring-red-100' : actual ? 'bg-gray-700 text-white ring-4 ring-gray-100' : 'bg-gray-200 text-gray-500'}`}>
+                  <span className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${actual && esPerdida ? 'bg-red-600 text-white ring-4 ring-red-100' : actual && esGanada ? 'bg-emerald-600 text-white ring-4 ring-emerald-100' : actual ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 'bg-gray-200 text-gray-500'}`}>
                     {completada ? '✓' : index + 1}
                   </span>
-                  <p className={`mt-2 text-sm font-semibold ${actual && esPerdida ? 'text-red-700' : 'text-gray-700'}`}>{stage.nombre}</p>
+                  <p className={`mt-2 text-sm font-semibold ${actual ? rutaActualClase : 'text-gray-700'}`}>{stage.nombre}</p>
                   <p className="text-[10px] uppercase tracking-wide text-gray-400">Etapa</p>
-                  {actual && <p className={`mt-0.5 text-[11px] font-semibold ${esPerdida ? 'text-red-600' : 'text-gray-600'}`}>Etapa actual</p>}
+                  {actual && <p className={`mt-0.5 text-[11px] font-semibold ${rutaActualClase}`}>Etapa actual</p>}
                   <div className="mt-3 w-full space-y-1.5 border-t border-gray-100 pt-2">
                     {stage.subestados.length > 0 ? stage.subestados.map((sub: any) => {
                       const subActual = sub.id === o.subestado_id;
                       return (
-                        <div key={sub.id} className={`rounded-lg border px-2 py-1.5 text-center ${subActual && esPerdida ? 'border-red-300 bg-red-50 text-red-800' : subActual && esGanada ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : subActual ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-blue-100 bg-blue-50/40 text-blue-700'}`}>
-                          <p className="text-xs font-medium">{sub.nombre}</p>
+                        <div key={sub.id} className="py-1 text-center">
+                          <p className={`text-xs font-medium ${subActual ? (esPerdida ? 'text-red-600' : esGanada ? 'text-emerald-600' : 'text-blue-600') : 'text-gray-500'}`}>{sub.nombre}</p>
                         </div>
                       );
                     }) : <p className="rounded-lg border border-dashed border-gray-200 px-2 py-1.5 text-xs text-gray-400">—</p>}
