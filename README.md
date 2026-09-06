@@ -6,13 +6,25 @@ BuscoEdu (www.buscoedu.com) es una plataforma de orientación educativa neutral 
 
 **NaIA** es la asesora virtual de BuscoEdu que ayuda a las personas a expresar lo que buscan, transforma esa intención en filtros de búsqueda visibles, explica resultados y acompaña la exploración.
 
-## Estado actual — 4 de septiembre de 2026
+## Estado actual — 6 de septiembre de 2026
 
 * NaIA usa configuración de agente, versión, contexto, canal y despliegue resueltos desde la base de datos; una versión sin prueba, contexto, canal o despliegue no puede publicarse.
 * La experiencia web de NaIA conserva el chat inferior, muestra la respuesta de forma progresiva, ofrece tres continuaciones rápidas y presenta resultados en una columna con carga de diez en diez.
 * El CRM comparte las tablas existentes para oportunidades de estudiantes y de universidades. La migración `20260904010000_tipos_oportunidad_universidad.sql` agrega `tipo_oportunidad` y `codigo`, crea automáticamente la oportunidad institucional al registrar una universidad y evita aplicar automatizaciones B2C a ella.
 * Demo WApp muestra una sesión por oportunidad, incorpora el mensaje del estudiante de forma inmediata y se desplaza al último mensaje al recibir la respuesta de NaIA.
 * El super administrador puede editar los datos de una persona desde su ficha. La guía de gobierno de agentes enlaza cada uno de sus ocho pasos con la pantalla operativa correspondiente.
+* La búsqueda de programas resuelve coincidencias en `nombre_oficial`, `nombre_corto`, `titulo_otorgado` y área de conocimiento. Esto evita que programas como Derecho desaparezcan cuando la carga académica usa un campo alternativo.
+* El funnel incorpora cierres auditados: `Ganada` y `Perdida` pueden ejecutarse desde cualquier etapa, siempre terminando en `Cerrada`; los requisitos y causas se parametrizan en `/admin/funnel/cierres`.
+* La ficha de oportunidad conserva la línea de tiempo y ofrece `Cerrar oportunidad` y `Reabrir oportunidad`; ambos flujos requieren validación, cancelación explícita y registro histórico.
+
+### Checklist de verificación después del despliegue
+
+- [ ] Ejecutar una búsqueda pública de `Derecho` y confirmar que devuelve ofertas publicadas y validadas.
+- [ ] Repetir la búsqueda con `derecho`, `DERECHO` y `ciencias jurídicas`.
+- [ ] Abrir una oferta y confirmar programa, universidad, sede y modalidad.
+- [ ] Verificar que filtros de nivel, modalidad y ubicación continúan combinándose con la búsqueda.
+- [ ] Revisar la consola del navegador y los logs de Supabase: no debe aparecer error de columna ni consulta PostgREST inválida.
+- [ ] Confirmar que los cambios de funnel y sus reglas se conservan después de recargar la página.
 
 ### Pendiente operativo obligatorio
 
