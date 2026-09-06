@@ -182,15 +182,13 @@ export default async function FichaOportunidadPage({
   // en pasos independientes ni inventar nombres que no existan en la BD.
   const normalizarFunnel = (valor: string) => valor.trim().toLowerCase().replace(/\s+/g, ' ');
   const subetapasPermitidas: Record<string, string[]> = {
-    'nuevo': ['nueva', 'nuevo', 'sin contactar'],
-    'nuevo lead': ['nueva', 'nuevo', 'sin contactar'],
-    'nueva': ['nueva', 'nuevo', 'sin contactar'],
+    'nuevo': ['nuevo', 'nueva', 'sin contactar'],
     'en acceso': ['sin documentos', 'incompleto', 'verificado'],
     'transferida': ['universidad', 'buscoedu'],
     'en gestión': ['universidad', 'valorando', 'desaparecido'],
     'cerrada': ['ganada', 'perdida']
   };
-  const etapasPermitidas = ['nuevo', 'nuevo lead', 'nueva', 'en acceso', 'transferida', 'en gestión', 'cerrada'];
+  const etapasPermitidas = ['nuevo', 'en acceso', 'transferida', 'en gestión', 'cerrada'];
   const funnelStages = ((etapas as any[]) || [])
     .slice()
     .filter((etapa: any) => etapasPermitidas.includes(normalizarFunnel(String(etapa.nombre || ''))))
@@ -206,7 +204,12 @@ export default async function FichaOportunidadPage({
         })
         .sort((a: any, b: any) => a.orden - b.orden)
     }));
-  const indiceActualFunnel = funnelStages.findIndex((stage: any) => stage.id === o.etapa_id);
+  // Compatibilidad visual: si una oportunidad histórica quedó en "Nuevo Lead",
+  // se representa en la única etapa canónica "Nuevo" sin duplicar el funnel.
+  const etapaActualVisual = normalizarFunnel(etapaActualNombre) === 'nuevo lead' ? 'nuevo' : normalizarFunnel(etapaActualNombre);
+  const indiceActualFunnel = funnelStages.findIndex((stage: any) => normalizarFunnel(String(stage.nombre || '')) === etapaActualVisual);
+  const etapaActualEtiqueta = etapaActualVisual === 'nuevo' ? 'Nuevo' : (etapaActual as any)?.nombre || '—';
+  const subestadoActualEtiqueta = etapaActualVisual === 'nuevo' && normalizarFunnel(subestadoActualNombre) === 'sin contactar' ? 'Nuevo' : subestadoActual?.nombre || '—';
 
   const comentarios = ((notas as any[]) || []).map((n) => ({
     id: n.id,
@@ -282,10 +285,10 @@ export default async function FichaOportunidadPage({
             <Link href={`/leadcenter/personas/${o.persona_id}`} className="text-xl font-bold text-gray-900 hover:text-blue-600 hover:underline">{nombrePersona}</Link>
             <p className="text-sm text-gray-600">{nombreUniversidad}</p>
             <p className="text-sm text-gray-500">{programaOferta}</p>
-            <p className={`text-xs font-semibold ${rutaActualClase}`}>{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || '—'}</p>
+            <p className={`text-xs font-semibold ${rutaActualClase}`}>{etapaActualEtiqueta} · {subestadoActualEtiqueta}</p>
           </div>
           <div className="flex max-w-sm flex-col items-end gap-2 text-right">
-            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${esPerdida ? 'bg-red-100 text-red-700' : esGanada ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || '—'}</span>
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${esPerdida ? 'bg-red-100 text-red-700' : esGanada ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>{etapaActualEtiqueta} · {subestadoActualEtiqueta}</span>
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${temperatura.clase}`}>{temperatura.etiqueta} · {o.puntaje ?? 0}/110</span>
             <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badgeEstancamiento.cls}`}>{badgeEstancamiento.label} · {estancamiento.tiempo_legible}</span>
             {estancamiento.accion_recomendada ? <p className="max-w-sm text-xs text-gray-500">Siguiente acción: {estancamiento.accion_recomendada}</p> : null}
@@ -311,13 +314,13 @@ export default async function FichaOportunidadPage({
         </div>
         {/* Funnel horizontal: etapas de izquierda a derecha y subetapas conectadas debajo de cada una. */}
         <div className="mt-6 border-t border-gray-100 pt-6" aria-label="Funnel de la oportunidad">
-          <div className="relative grid grid-cols-1 gap-5 sm:grid-cols-5 sm:gap-2">
-            <span aria-hidden="true" className="absolute left-[10%] right-[10%] top-4 hidden h-0.5 bg-gray-200 sm:block" />
+          <div className="relative flex flex-nowrap items-start gap-2 overflow-hidden">
+            <span aria-hidden="true" className="absolute left-[8%] right-[8%] top-4 h-0.5 bg-gray-200" />
             {funnelStages.map((stage: any, index: number) => {
               const actual = index === indiceActualFunnel;
               const completada = indiceActualFunnel >= 0 && index < indiceActualFunnel;
               return (
-                <div key={stage.id} className="relative min-w-0 text-center">
+                <div key={stage.id} className="relative min-w-0 flex-1 text-center">
                   <span className={`relative z-10 mx-auto flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${actual && esPerdida ? 'bg-red-600 text-white ring-4 ring-red-100' : actual && esGanada ? 'bg-emerald-600 text-white ring-4 ring-emerald-100' : actual ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 'bg-gray-200 text-gray-500'}`}>
                     {completada ? '✓' : index + 1}
                   </span>
@@ -328,11 +331,13 @@ export default async function FichaOportunidadPage({
                     </div>
                     <div className="mx-auto mt-3 max-w-[12rem] space-y-1 border-l border-gray-200 pl-3 text-left">
                     {stage.subestados.length > 0 ? stage.subestados.map((sub: any) => {
-                      const subActual = sub.id === o.subestado_id || (actual && !o.subestado_id && normalizarFunnel(String(sub.nombre || '')) === 'nueva');
+                      const subNombreNormalizado = normalizarFunnel(String(sub.nombre || ''));
+                      const subActual = sub.id === o.subestado_id || (actual && !o.subestado_id && ['nuevo', 'nueva', 'sin contactar'].includes(subNombreNormalizado));
+                      const nombreSubestadoVisual = etapaActualVisual === 'nuevo' && subNombreNormalizado === 'sin contactar' ? 'Nuevo' : sub.nombre;
                       return (
                         <div key={sub.id} className="relative py-0.5">
                           <span aria-hidden="true" className={`absolute -left-[0.8rem] top-2 h-1.5 w-1.5 rounded-full ${subActual ? (esPerdida ? 'bg-red-500' : esGanada ? 'bg-emerald-500' : 'bg-blue-500') : 'bg-gray-300'}`} />
-                          <p className={`text-xs font-medium ${subActual ? (esPerdida ? 'text-red-600' : esGanada ? 'text-emerald-600' : 'text-blue-600') : 'text-gray-500'}`}>{sub.nombre}</p>
+                          <p className={`text-xs font-medium ${subActual ? (esPerdida ? 'text-red-600' : esGanada ? 'text-emerald-600' : 'text-blue-600') : 'text-gray-500'}`}>{nombreSubestadoVisual}</p>
                         </div>
                       );
                     }) : <p className="py-0.5 text-xs text-gray-400">—</p>}
