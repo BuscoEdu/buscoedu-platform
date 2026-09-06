@@ -50,13 +50,6 @@ export default function LeadCenterNav({ esSuper }: LeadCenterNavProps) {
             {it.label}
           </Link>
         ))}
-        <Link
-          href="/explorar"
-          className="ml-auto inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
-        >
-          <span aria-hidden="true">↩️</span>
-          Volver al portal
-        </Link>
       </div>
     </nav>
   );

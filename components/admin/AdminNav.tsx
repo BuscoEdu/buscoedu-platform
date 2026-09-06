@@ -43,7 +43,6 @@ const CATEGORIAS: Categoria[] = [
       { label: 'Lead Center', href: '/leadcenter' },
       { label: 'Personas', href: '/leadcenter/personas' },
       { label: 'Pipeline / Funnel', href: '/admin/funnel' },
-      { label: 'Reglas de cierre', href: '/admin/cierre' },
     ]
   },
   {
@@ -80,7 +79,6 @@ function coincide(pathname: string, href: string) {
 
 export default function AdminNav({ roleCode }: { roleCode: string }) {
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   const categoriasVisibles = CATEGORIAS.filter(
     (cat) => !cat.roles || cat.roles.includes(roleCode)
@@ -110,105 +108,50 @@ export default function AdminNav({ roleCode }: { roleCode: string }) {
   };
 
   return (
-    <>
-      {/* Barra de menú hamburguesa (solo móvil) */}
-      <div className="flex items-center gap-2 border-b border-buscoedu-border bg-white px-4 py-2 md:hidden">
-        <button
-          type="button"
-          onClick={() => setMobileOpen((v) => !v)}
-          className="inline-flex items-center gap-2 rounded-md border border-buscoedu-border px-3 py-2 text-sm font-semibold text-buscoedu-text hover:bg-buscoedu-bg"
-          aria-expanded={mobileOpen}
-          aria-label="Abrir menú de administración"
-        >
-          <span aria-hidden="true">☰</span> Menú
-        </button>
+    <nav className="w-full border-b border-buscoedu-border bg-white" aria-label="Navegación administración">
+      <div className="mx-auto flex w-full max-w-7xl gap-1 overflow-x-auto px-4 py-2 md:px-6">
+        {categoriasVisibles.map((cat) => {
+          const abierta = !!expandidas[cat.id];
+          const categoriaActiva = cat.items.some((item) => item.href === hrefActivo);
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => alternarCategoria(cat.id)}
+              className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-bold transition ${
+                categoriaActiva || abierta
+                  ? 'bg-buscoedu-blue text-white'
+                  : 'text-buscoedu-text hover:bg-buscoedu-bg'
+              }`}
+              aria-expanded={abierta}
+            >
+              <span aria-hidden="true">{cat.icono}</span>
+              {cat.label}
+              <span aria-hidden="true" className={abierta ? 'rotate-90' : ''}>›</span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Fondo oscuro al abrir el menú en móvil */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/40 md:hidden"
-          onClick={() => setMobileOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Sidebar con las categorías y submenús */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 w-72 transform overflow-y-auto border-r border-buscoedu-border bg-white p-3 transition-transform md:static md:z-0 md:w-64 md:translate-x-0 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-        aria-label="Navegación administración"
-      >
-        <div className="mb-3 flex items-center justify-between md:hidden">
-          <span className="text-sm font-bold text-buscoedu-blue">Menú</span>
-          <button
-            type="button"
-            onClick={() => setMobileOpen(false)}
-            className="rounded-md border border-buscoedu-border px-2 py-1 text-sm text-buscoedu-text"
-            aria-label="Cerrar menú"
-          >
-            ✕
-          </button>
+      {categoriasVisibles.filter((cat) => expandidas[cat.id]).map((cat) => (
+        <div key={`${cat.id}-items`} className="border-t border-buscoedu-border bg-buscoedu-bg">
+          <div className="mx-auto flex w-full max-w-7xl gap-1 overflow-x-auto px-4 py-2 md:px-6">
+            {cat.items.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`inline-flex shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition ${
+                  item.href === hrefActivo
+                    ? 'bg-white font-semibold text-buscoedu-teal shadow-sm'
+                    : 'text-buscoedu-text hover:bg-white'
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
         </div>
-
-        <nav className="space-y-2">
-          {categoriasVisibles.map((cat) => {
-            const abierta = !!expandidas[cat.id];
-            const categoriaActiva = cat.items.some((item) => item.href === hrefActivo);
-            return (
-              <div key={cat.id} className="rounded-lg">
-                {/* Encabezado de categoría (expandir/colapsar) */}
-                <button
-                  type="button"
-                  onClick={() => alternarCategoria(cat.id)}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-bold transition ${
-                    categoriaActiva
-                      ? 'bg-buscoedu-blue/10 text-buscoedu-blue'
-                      : 'text-buscoedu-text hover:bg-buscoedu-bg'
-                  }`}
-                  aria-expanded={abierta}
-                >
-                  <span className="flex items-center gap-2">
-                    <span aria-hidden="true">{cat.icono}</span>
-                    {cat.label}
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className={`transition-transform ${abierta ? 'rotate-90' : ''}`}
-                  >
-                    ›
-                  </span>
-                </button>
-
-                {/* Submenús */}
-                {abierta && (
-                  <ul className="mt-1 space-y-1 pl-3">
-                    {cat.items.map((item) => {
-                      const activo = item.href === hrefActivo;
-                      return (
-                        <li key={item.href}>
-                          <Link
-                            href={item.href}
-                            onClick={() => setMobileOpen(false)}
-                            className={`block rounded-md border-l-2 px-3 py-2 text-sm transition ${
-                              activo
-                                ? 'border-buscoedu-teal bg-buscoedu-teal/10 font-semibold text-buscoedu-teal'
-                                : 'border-transparent text-buscoedu-text hover:bg-buscoedu-bg hover:text-buscoedu-blue'
-                            }`}
-                          >
-                            {item.label}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-        </nav>
-      </aside>
-    </>
+      ))}
+    </nav>
   );
 }
