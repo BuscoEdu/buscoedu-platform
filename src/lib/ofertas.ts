@@ -172,16 +172,19 @@ function expandirSinonimos(termino: string, contexto: 'nivel' | 'area'): string[
     sin.push('Ingeniería', 'Ingenieria', 'Tecnología', 'Tecnologia');
   }
   if (t.includes('derecho') || t.includes('leyes') || t.includes('juridic')) {
-    sin.push('Derecho', 'Ciencias Jurídicas', 'Ciencias Juridicas', 'Leyes');
+    // MEJORA C: incluimos "Jurisprudencia" porque varias universidades
+    // catalogan el área de Derecho bajo ese nombre.
+    sin.push('Derecho', 'Ciencias Jurídicas', 'Ciencias Juridicas', 'Leyes', 'Jurisprudencia');
   }
   if (t.includes('comunic')) {
     sin.push('Comunicación', 'Comunicacion', 'Periodismo');
   }
-  // MEJORA 5: sinónimos de marketing. Muchos programas se catalogan como
-  // "Mercadeo", "Mercadotecnia" o "Publicidad", así que ampliamos el término
-  // para que una búsqueda de "marketing" (o abreviaturas como "mkt") coincida.
+  // MEJORA C: sinónimos de marketing. Muchos programas se catalogan como
+  // "Mercadeo", "Mercadotecnia", "Publicidad", "Comunicaciones" o "Diseño",
+  // así que ampliamos el término para que una búsqueda de "marketing"
+  // (o abreviaturas como "mkt") coincida con esas áreas.
   if (t.includes('marketing') || t.includes('mercadeo') || t.includes('mercadotecnia') || t.includes('mkt') || t.includes('publicidad')) {
-    sin.push('Marketing', 'Mercadeo', 'Mercadotecnia', 'Publicidad');
+    sin.push('Marketing', 'Mercadeo', 'Mercadotecnia', 'Publicidad', 'Comunicaciones', 'Diseño');
   }
 
   return [...new Set(sin)];
@@ -217,18 +220,66 @@ async function resolverProgramasPorTexto(termino: string): Promise<string[]> {
   const areaIdsArrays = await Promise.all(areaIdsPromises);
   const areaIds = [...new Set(areaIdsArrays.flat())];
 
-  const condiciones = terminosBusqueda.map((t) => `nombre_oficial.ilike.${likePattern(t)}`);
-  if (areaIds.length > 0) {
-    condiciones.push(`area_conocimiento_id.in.(${areaIds.join(',')})`);
+  // MEJORA C.1: PostgREST interpreta comas dentro de `.or()` como separadores
+  // de condiciones, lo que rompe un `area_conocimiento_id.in.(uuid1,uuid2)`
+  // colocado dentro del mismo `.or()` (búsquedas como "derecho" o "marketing"
+  // devolvían 0 resultados). Para evitarlo lanzamos DOS consultas separadas:
+  //   1) coincidencia por nombre_oficial (con `.or()` de solo ILIKE).
+  //   2) coincidencia por área (con `.in()` sobre los IDs de área).
+  // Luego combinamos ambos conjuntos deduplicando por id.
+  const condicionesNombre = terminosBusqueda.map((t) => `nombre_oficial.ilike.${likePattern(t)}`);
+
+  const consultaNombre = supabase
+    .from('programas_academicos')
+    .select('id')
+    .or(condicionesNombre.join(','));
+
+  const consultaArea =
+    areaIds.length > 0
+      ? supabase.from('programas_academicos').select('id').in('area_conocimiento_id', areaIds)
+      : null;
+
+  const [resNombre, resArea] = await Promise.all([
+    consultaNombre,
+    consultaArea ?? Promise.resolve({ data: [], error: null } as any)
+  ]);
+
+  if (resNombre.error) {
+    console.error('Error resolviendo programas por nombre:', resNombre.error);
   }
+  if (resArea.error) {
+    console.error('Error resolviendo programas por área:', resArea.error);
+  }
+
+  const idsNombre = (resNombre.data || []).map((row: any) => row.id);
+  const idsArea = (resArea.data || []).map((row: any) => row.id);
+
+  return [...new Set([...idsNombre, ...idsArea])];
+}
+
+/**
+ * MEJORA C.2: Fallback cuando la búsqueda por nombre de programa no arroja
+ * coincidencias pero el término corresponde claramente a un área
+ * (ej: "derecho", "marketing"). Expande sinónimos de área, resuelve los IDs de
+ * las áreas coincidentes y devuelve TODOS los programas de esas áreas, sin
+ * filtrar por nombre. Así una búsqueda de área siempre puede ofrecer ofertas.
+ */
+async function resolverProgramasSoloPorArea(termino: string): Promise<string[]> {
+  const terminosBusqueda = construirTerminosBusqueda(termino);
+  const terminosArea = [...new Set(terminosBusqueda.flatMap((t) => expandirSinonimos(t, 'area')))];
+  const areaIdsArrays = await Promise.all(
+    terminosArea.map((t) => idsPorNombre('areas_conocimiento', t))
+  );
+  const areaIds = [...new Set(areaIdsArrays.flat())];
+  if (areaIds.length === 0) return [];
 
   const { data, error } = await supabase
     .from('programas_academicos')
     .select('id')
-    .or(condiciones.join(','));
+    .in('area_conocimiento_id', areaIds);
 
   if (error) {
-    console.error('Error resolviendo programas por texto:', error);
+    console.error('Error resolviendo programas solo por área:', error);
     return [];
   }
   return (data || []).map((row: any) => row.id);
@@ -441,9 +492,17 @@ export async function obtenerOfertas(
     ]);
 
     const terminoPrograma = filtros.programa_o_area?.trim();
-    const programasTexto = terminoPrograma
+    let programasTexto = terminoPrograma
       ? await resolverProgramasPorTexto(terminoPrograma)
       : null;
+
+    // MEJORA C.2: si la resolución por nombre/área no encontró programas pero el
+    // término corresponde a un área (ej: "derecho", "marketing"), usamos el
+    // fallback que devuelve todos los programas de esas áreas. Así evitamos que
+    // una búsqueda por área quede sin resultados.
+    if (terminoPrograma && programasTexto && programasTexto.length === 0) {
+      programasTexto = await resolverProgramasSoloPorArea(terminoPrograma);
+    }
 
     // 2) Construir la consulta principal solo sobre columnas de ofertas.
     const from = safePage * safeSize;
@@ -458,11 +517,17 @@ export async function obtenerOfertas(
       .lte('vigente_desde', hoy)
       .or(`vigente_hasta.is.null,vigente_hasta.gte.${hoy}`);
 
-    // Filtro programa/área: nombre_oferta ILIKE término OR programa ∈ coincidencias.
+    // Filtro programa/área: nombre_oferta ILIKE término OR descripcion_comercial
+    // ILIKE término OR programa ∈ coincidencias.
+    // MEJORA C.2: buscamos también dentro de `descripcion_comercial` para captar
+    // ofertas cuyo enfoque (ej: marketing, derecho) aparece en la descripción
+    // aunque no esté en el nombre.
     if (terminoPrograma) {
-      const condiciones = construirTerminosBusqueda(terminoPrograma).map(
-        (t) => `nombre_oferta.ilike.${likePattern(t)}`
-      );
+      const terminos = construirTerminosBusqueda(terminoPrograma);
+      const condiciones = [
+        ...terminos.map((t) => `nombre_oferta.ilike.${likePattern(t)}`),
+        ...terminos.map((t) => `descripcion_comercial.ilike.${likePattern(t)}`)
+      ];
       if (programasTexto && programasTexto.length > 0) {
         condiciones.push(`programa_id.in.(${programasTexto.join(',')})`);
       }

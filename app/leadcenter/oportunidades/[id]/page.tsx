@@ -164,7 +164,15 @@ export default async function FichaOportunidadPage({
   const nombrePrograma =
     (programa as any)?.nombre_corto || (programa as any)?.nombre_oficial || 'Programa no definido';
   const nombreOferta = (oferta as any)?.nombre_oferta || 'Oferta no definida';
-  const programaOferta = nombreOferta === nombrePrograma ? nombrePrograma : `${nombrePrograma} · ${nombreOferta}`;
+  // Evita duplicar el nombre cuando la oferta ya contiene al programa.
+  // Se normaliza (minúsculas + sin espacios extremos) y si la oferta es igual,
+  // empieza por o incluye al programa, se muestra solo el nombre de la oferta.
+  const ofNorm = nombreOferta.toLowerCase().trim();
+  const progNorm = nombrePrograma.toLowerCase().trim();
+  const programaOferta =
+    ofNorm === progNorm || ofNorm.startsWith(progNorm) || ofNorm.includes(progNorm)
+      ? nombreOferta
+      : `${nombrePrograma} · ${nombreOferta}`;
   const temperatura = TEMPERATURA_META[temperaturaDesdePuntaje(o.puntaje)];
 
   const nombreEtapaPorId = (eid: string) => (etapas as any[])?.find((e) => e.id === eid)?.nombre || '—';
