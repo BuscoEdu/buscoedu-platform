@@ -160,6 +160,7 @@ export default async function FichaOportunidadPage({
   const etapaActualNombre = String((etapaActual as any)?.nombre || '').trim();
   const subestadoActualNombre = String(subestadoActual?.nombre || '').trim();
   const esPerdida = etapaActualNombre.toLowerCase() === 'cerrada' && subestadoActualNombre.toLowerCase() === 'perdida';
+  const esGanada = etapaActualNombre.toLowerCase() === 'cerrada' && subestadoActualNombre.toLowerCase() === 'ganada';
 
   const estancamiento = calcularEstadoEstancamiento({
     reglas: (reglasEstancamiento as any[]) || [],
@@ -280,7 +281,7 @@ export default async function FichaOportunidadPage({
             <p className="text-xs text-gray-500">{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</p>
           </div>
           <div className="flex max-w-sm flex-col items-end gap-2 text-right">
-            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${esPerdida ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || 'Sin subestado'}</span>
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${esPerdida ? 'bg-red-100 text-red-700' : esGanada ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>{(etapaActual as any)?.nombre || '—'} · {subestadoActual?.nombre || '—'}</span>
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${temperatura.clase}`}>{temperatura.etiqueta} · {o.puntaje ?? 0}/110</span>
             <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badgeEstancamiento.cls}`}>{badgeEstancamiento.label} · {estancamiento.tiempo_legible}</span>
             {estancamiento.accion_recomendada ? <p className="max-w-sm text-xs text-gray-500">Siguiente acción: {estancamiento.accion_recomendada}</p> : null}
@@ -323,7 +324,7 @@ export default async function FichaOportunidadPage({
                     {stage.subestados.length > 0 ? stage.subestados.map((sub: any) => {
                       const subActual = sub.id === o.subestado_id;
                       return (
-                        <div key={sub.id} className={`rounded-lg border px-2 py-1.5 text-center ${subActual && esPerdida ? 'border-red-300 bg-red-50 text-red-800' : subActual ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-blue-100 bg-blue-50/40 text-blue-700'}`}>
+                        <div key={sub.id} className={`rounded-lg border px-2 py-1.5 text-center ${subActual && esPerdida ? 'border-red-300 bg-red-50 text-red-800' : subActual && esGanada ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : subActual ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-blue-100 bg-blue-50/40 text-blue-700'}`}>
                           <p className="text-xs font-medium">{sub.nombre}</p>
                         </div>
                       );
