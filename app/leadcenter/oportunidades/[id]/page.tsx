@@ -180,23 +180,26 @@ export default async function FichaOportunidadPage({
   // El funnel se representa en dos niveles: cada etapa es un nodo superior y
   // debajo se muestran únicamente sus subetapas relacionadas, sin convertirlas
   // en pasos independientes ni inventar nombres que no existan en la BD.
+  const normalizarFunnel = (valor: string) => valor.trim().toLowerCase().replace(/\s+/g, ' ');
   const subetapasPermitidas: Record<string, string[]> = {
-    'nuevo': [],
+    'nuevo': ['nueva', 'nuevo', 'sin contactar'],
+    'nuevo lead': ['nueva', 'nuevo', 'sin contactar'],
+    'nueva': ['nueva', 'nuevo', 'sin contactar'],
     'en acceso': ['sin documentos', 'incompleto', 'verificado'],
     'transferida': ['universidad', 'buscoedu'],
     'en gestión': ['universidad', 'valorando', 'desaparecido'],
     'cerrada': ['ganada', 'perdida']
   };
-  const etapasPermitidas = ['nuevo', 'en acceso', 'transferida', 'en gestión', 'cerrada'];
+  const etapasPermitidas = ['nuevo', 'nuevo lead', 'nueva', 'en acceso', 'transferida', 'en gestión', 'cerrada'];
   const funnelStages = ((etapas as any[]) || [])
     .slice()
-    .filter((etapa: any) => etapasPermitidas.includes(String(etapa.nombre || '').trim().toLowerCase()))
+    .filter((etapa: any) => etapasPermitidas.includes(normalizarFunnel(String(etapa.nombre || ''))))
     .sort((a: any, b: any) => a.orden - b.orden)
     .map((etapa: any) => ({
       ...etapa,
       subestados: ((subestados as any[]) || [])
         .filter((sub: any) => {
-          const permitidas = subetapasPermitidas[String(etapa.nombre || '').trim().toLowerCase()] || [];
+          const permitidas = subetapasPermitidas[normalizarFunnel(String(etapa.nombre || ''))] || [];
           return sub.etapa_id === etapa.id
             && permitidas.includes(String(sub.nombre || '').trim().toLowerCase())
             && (sub.activo !== false || sub.id === o.subestado_id);
@@ -306,30 +309,33 @@ export default async function FichaOportunidadPage({
             <p className="font-semibold text-gray-900">{fecha(o.actualizado_en)}</p>
           </div>
         </div>
-        {/* Funnel jerárquico: etapa arriba, subetapa debajo y avance entre etapas. */}
-        <div className="mt-5 overflow-x-auto border-t border-gray-100 pt-4" aria-label="Funnel de la oportunidad">
-          <div className="flex min-w-[980px] items-start gap-2">
+        {/* Funnel jerárquico vertical: una ruta tipo metro que conecta etapas y subetapas. */}
+        <div className="mt-6 border-t border-gray-100 pt-6" aria-label="Funnel de la oportunidad">
+          <div className="relative pl-1">
+            <span aria-hidden="true" className="absolute bottom-5 left-[1.05rem] top-5 w-0.5 bg-gray-200" />
             {funnelStages.map((stage: any, index: number) => {
               const actual = index === indiceActualFunnel;
               const completada = indiceActualFunnel >= 0 && index < indiceActualFunnel;
               return (
-                <div key={stage.id} className="relative flex min-w-44 flex-1 flex-col items-center text-center">
-                  {index < funnelStages.length - 1 && <span aria-hidden="true" className="absolute left-1/2 right-[-0.5rem] top-3.5 h-0.5 bg-gray-200" />}
-                  <span className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${actual && esPerdida ? 'bg-red-600 text-white ring-4 ring-red-100' : actual && esGanada ? 'bg-emerald-600 text-white ring-4 ring-emerald-100' : actual ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 'bg-gray-200 text-gray-500'}`}>
+                <div key={stage.id} className="relative flex gap-4 pb-5 last:pb-0">
+                  <span className={`relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${actual && esPerdida ? 'bg-red-600 text-white ring-4 ring-red-100' : actual && esGanada ? 'bg-emerald-600 text-white ring-4 ring-emerald-100' : actual ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 'bg-gray-200 text-gray-500'}`}>
                     {completada ? '✓' : index + 1}
                   </span>
-                  <p className={`mt-2 text-sm font-semibold ${actual ? rutaActualClase : 'text-gray-700'}`}>{stage.nombre}</p>
-                  <p className="text-[10px] uppercase tracking-wide text-gray-400">Etapa</p>
-                  {actual && <p className={`mt-0.5 text-[11px] font-semibold ${rutaActualClase}`}>Etapa actual</p>}
-                  <div className="mt-3 w-full space-y-1.5 border-t border-gray-100 pt-2">
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                      <p className={`text-sm font-semibold ${actual ? rutaActualClase : 'text-gray-700'}`}>{stage.nombre}</p>
+                      {actual && <span className={`text-[11px] font-semibold ${rutaActualClase}`}>Etapa actual</span>}
+                    </div>
+                    <div className="mt-2 space-y-1 border-l border-gray-200 pl-4">
                     {stage.subestados.length > 0 ? stage.subestados.map((sub: any) => {
-                      const subActual = sub.id === o.subestado_id;
+                      const subActual = sub.id === o.subestado_id || (actual && !o.subestado_id && normalizarFunnel(String(sub.nombre || '')) === 'nueva');
                       return (
-                        <div key={sub.id} className="py-1 text-center">
+                        <div key={sub.id} className="py-0.5">
                           <p className={`text-xs font-medium ${subActual ? (esPerdida ? 'text-red-600' : esGanada ? 'text-emerald-600' : 'text-blue-600') : 'text-gray-500'}`}>{sub.nombre}</p>
                         </div>
                       );
-                    }) : <p className="rounded-lg border border-dashed border-gray-200 px-2 py-1.5 text-xs text-gray-400">—</p>}
+                    }) : <p className="py-0.5 text-xs text-gray-400">—</p>}
+                    </div>
                   </div>
                 </div>
               );
