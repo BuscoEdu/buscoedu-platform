@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
         fecha_proxima_accion: row.fecha_proxima_accion,
         actualizado_en: row.actualizado_en,
         etapa: etapas[row.etapa_id] || '—',
-        subetapa: subestados[row.subestado_id] || 'Sin subetapa',
+        subetapa: subestados[row.subestado_id] || '—',
         persona: {
           id: row.persona_id,
           nombre_completo: nombrePersona(persona)
