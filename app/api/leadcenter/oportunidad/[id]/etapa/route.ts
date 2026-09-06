@@ -43,11 +43,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ ok: false, error: 'etapa_invalida' }, { status: 400 });
     }
 
-    if (subestadoNuevo) {
+    const { data: subestadosEtapa, error: subestadosError } = await supabase
+      .from('subestados_oportunidad')
+      .select('id, etapa_id, activo, orden')
+      .eq('etapa_id', etapaNueva)
+      .eq('activo', true)
+      .order('orden', { ascending: true });
+
+    if (subestadosError) return NextResponse.json({ ok: false, error: subestadosError.message }, { status: 500 });
+    if (!subestadosEtapa?.length) {
+      return NextResponse.json({ ok: false, error: 'etapa_sin_subestados' }, { status: 409 });
+    }
+
+    const subestadoObjetivo = subestadoNuevo || subestadosEtapa[0].id;
+    {
       const { data: subestado, error: subestadoError } = await supabase
         .from('subestados_oportunidad')
         .select('id, etapa_id, activo')
-        .eq('id', subestadoNuevo)
+        .eq('id', subestadoObjetivo)
         .maybeSingle();
 
       if (subestadoError) {
@@ -65,7 +78,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { data, error } = await supabase.rpc('fn_cambiar_etapa', {
       p_oportunidad_id: id,
       p_etapa_nueva: etapaNueva,
-      p_subestado_nuevo: subestadoNuevo,
+      p_subestado_nuevo: subestadoObjetivo,
       p_motivo: motivo
     });
 
