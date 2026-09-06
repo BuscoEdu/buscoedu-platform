@@ -23,6 +23,7 @@ type Item = {
   fecha_proxima_accion?: string | null;
   actualizado_en?: string | null;
   etapa: string;
+  subetapa: string;
   persona: { id?: string; nombre_completo: string };
   universidad: { id?: string; nombre: string };
   programa: { id?: string; nombre: string };
@@ -242,29 +243,25 @@ export default function OportunidadesBoard({ etapas }: { etapas: Option[] }) {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
                   <p className="truncate font-semibold text-gray-900">{o.codigo || `OP-${o.id.slice(0, 8)}`}</p>
+                  <p className={`truncate text-xs font-semibold ${o.subetapa.toLowerCase() === 'perdida' ? 'text-red-600' : 'text-blue-600'}`}>
+                    {o.etapa} · {o.subetapa}
+                  </p>
                   <p className="truncate text-sm font-medium text-gray-800">{o.tipo_oportunidad === 'universidad' ? o.universidad.nombre : o.persona.nombre_completo}</p>
                   <p className="truncate text-xs text-gray-500">{o.universidad.nombre}</p>
                   <p className="truncate text-xs text-gray-500">
                     {descripcionAcademica(o.programa.nombre, o.oferta.nombre)}
                   </p>
-                  <p className="truncate text-xs text-gray-500">
-                    {o.etapa} · {o.estado}
-                  </p>
                   <p className="inline-flex w-fit rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{o.tipo_oportunidad === 'universidad' ? 'Universidad' : 'Estudiante'}</p>
-                  <p className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${est.cls}`}>
-                    {est.label}
-                  </p>
                   <p className="truncate text-[11px] text-gray-500">
                     {o.estancamiento?.tiempo_legible || '0 horas'} en esta etapa
                   </p>
                 </div>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium ${
-                    TEMP_BADGE[o.temperatura] || 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {(o.temperatura || '—').replace('_', ' ')}
-                </span>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className={`rounded-full px-2 py-1 text-[11px] font-medium ${est.cls}`}>{est.label}</span>
+                  <span className={`rounded-full px-2 py-1 text-[11px] font-medium ${TEMP_BADGE[o.temperatura] || 'bg-gray-100 text-gray-600'}`}>
+                    {(o.temperatura || '—').replace('_', ' ')}
+                  </span>
+                </div>
               </div>
               <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
                 <span>Puntaje: {o.puntaje ?? 0}</span>
