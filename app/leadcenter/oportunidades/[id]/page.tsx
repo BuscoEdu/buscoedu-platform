@@ -327,7 +327,7 @@ export default async function FichaOportunidadPage({
                           <p className="text-xs font-medium">{sub.nombre}</p>
                         </div>
                       );
-                    }) : <p className="rounded-lg border border-dashed border-gray-200 px-2 py-1.5 text-xs text-gray-400">Sin subetapa</p>}
+                    }) : <p className="rounded-lg border border-dashed border-gray-200 px-2 py-1.5 text-xs text-gray-400">—</p>}
                   </div>
                 </div>
               );
