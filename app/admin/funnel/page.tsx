@@ -6,6 +6,7 @@ import FormField from '@/components/admin/FormField';
 import FormTextarea from '@/components/admin/FormTextarea';
 import ErrorToast from '@/components/admin/ErrorToast';
 import SuccessToast from '@/components/admin/SuccessToast';
+import ConfirmDialog from '@/components/admin/ConfirmDialog';
 
 type Etapa = {
   id: string;
@@ -82,6 +83,37 @@ export default function AdminFunnelPage() {
   const [nuevaSubAbierta, setNuevaSubAbierta] = useState(false);
   const [nuevaSubDraft, setNuevaSubDraft] = useState({ nombre: '', descripcion: '', maximo: '24' });
   const [guardandoSub, setGuardandoSub] = useState(false);
+
+  // MEJORA 1: diálogo de confirmación antes de activar/desactivar una etapa o subetapa.
+  // Evita cambios accidentales de estado que afectan al historial operativo.
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    tipo: 'etapa' | 'subetapa';
+    id: string;
+    nombre: string;
+    activar: boolean;
+  }>({ open: false, tipo: 'etapa', id: '', nombre: '', activar: false });
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
+  // Abre el diálogo de confirmación con los datos del elemento que se quiere activar/desactivar.
+  function solicitarConfirmacion(tipo: 'etapa' | 'subetapa', id: string, nombre: string, activar: boolean) {
+    setConfirmDialog({ open: true, tipo, id, nombre, activar });
+  }
+
+  // Ejecuta el cambio de estado (activo) una vez confirmado por el usuario.
+  async function ejecutarCambioActivo() {
+    setConfirmLoading(true);
+    try {
+      if (confirmDialog.tipo === 'etapa') {
+        await actualizarEtapa(confirmDialog.id, { activo: confirmDialog.activar });
+      } else {
+        await actualizarSubestado(confirmDialog.id, { activo: confirmDialog.activar });
+      }
+    } finally {
+      setConfirmLoading(false);
+      setConfirmDialog((prev) => ({ ...prev, open: false }));
+    }
+  }
 
   async function cargar() {
     setLoading(true);
@@ -356,7 +388,7 @@ export default function AdminFunnelPage() {
               {etapaActual.activo ? (
                 <button
                   type="button"
-                  onClick={() => actualizarEtapa(etapaActual.id, { activo: false })}
+                  onClick={() => solicitarConfirmacion('etapa', etapaActual.id, etapaActual.nombre, false)}
                   className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
                 >
                   Desactivar etapa
@@ -364,7 +396,7 @@ export default function AdminFunnelPage() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => actualizarEtapa(etapaActual.id, { activo: true })}
+                  onClick={() => solicitarConfirmacion('etapa', etapaActual.id, etapaActual.nombre, true)}
                   className="rounded-lg border border-green-400 bg-green-50 px-3 py-2 text-sm font-semibold text-green-800 hover:bg-green-100"
                 >
                   ✓ Reactivar etapa
@@ -632,7 +664,7 @@ export default function AdminFunnelPage() {
                         ) : (
                           <button
                             type="button"
-                            onClick={() => actualizarSubestado(row.id, { activo: true })}
+                            onClick={() => solicitarConfirmacion('subetapa', row.id, row.nombre, true)}
                             className="rounded border px-2 py-1 text-xs"
                           >
                             Activar
@@ -687,7 +719,7 @@ export default function AdminFunnelPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => actualizarSubestado(row.id, { activo: false })}
+                            onClick={() => solicitarConfirmacion('subetapa', row.id, row.nombre, false)}
                             className="rounded border border-red-200 px-3 py-1.5 text-xs text-red-700"
                           >
                             Desactivar
@@ -881,6 +913,30 @@ export default function AdminFunnelPage() {
           </section>
         </>
       )}
+
+      {/* MEJORA 1: diálogo de confirmación para activar/desactivar etapas y subetapas */}
+      <ConfirmDialog
+        isOpen={confirmDialog.open}
+        title={
+          confirmDialog.activar
+            ? `¿Reactivar ${confirmDialog.nombre}?`
+            : `¿Desactivar ${confirmDialog.nombre}?`
+        }
+        description={
+          confirmDialog.activar
+            ? `Se reactivará ${
+                confirmDialog.tipo === 'etapa' ? 'la etapa' : 'la subetapa'
+              } y volverá a estar disponible en el embudo.`
+            : `Se desactivará ${
+                confirmDialog.tipo === 'etapa' ? 'la etapa' : 'la subetapa'
+              }. No se elimina: se conserva el historial y podrás reactivarla más adelante.`
+        }
+        confirmLabel={confirmDialog.activar ? 'Sí, reactivar' : 'Sí, desactivar'}
+        cancelLabel="Cancelar"
+        isLoading={confirmLoading}
+        onConfirm={ejecutarCambioActivo}
+        onCancel={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}
+      />
 
       {successMessage ? (
         <SuccessToast message={successMessage} onClose={() => setSuccessMessage('')} />

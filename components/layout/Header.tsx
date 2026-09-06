@@ -62,10 +62,13 @@ export default function Header() {
           </Link>
 
           <nav aria-label="Navegación principal" className="hidden md:block">
-            <ul className="flex flex-wrap items-center gap-3 text-sm text-buscoedu-text md:gap-5">
+            {/* MEJORA 4: navegación en una sola línea en escritorio (sin salto de
+                línea). flex-nowrap + whitespace-nowrap y separaciones ajustadas
+                para que los 7 enlaces + "Mi lista" quepan desde 1024px. */}
+            <ul className="flex flex-nowrap items-center gap-x-3 text-[13px] text-buscoedu-text lg:gap-x-4 lg:text-sm">
               {navItems.map((item) => (
                 <li key={item.href}>
-                  <Link className="rounded px-1 py-1 hover:text-buscoedu-blue" href={item.href}>
+                  <Link className="whitespace-nowrap rounded px-0.5 py-1 hover:text-buscoedu-blue" href={item.href}>
                     {item.label}
                   </Link>
                 </li>
@@ -73,7 +76,7 @@ export default function Header() {
               <li>
                 <Link
                   href="/mi-lista"
-                  className="inline-flex items-center gap-1.5 rounded px-1 py-1 font-medium hover:text-buscoedu-blue"
+                  className="inline-flex items-center gap-1.5 whitespace-nowrap rounded px-0.5 py-1 font-medium hover:text-buscoedu-blue"
                   aria-label={`Mi lista${count > 0 ? ` (${count} guardadas)` : ""}`}
                 >
                   <svg

@@ -10,6 +10,8 @@ export interface NaiaChatMessage {
   content: string;
   isUser: boolean;
   timestamp: Date;
+  /** MEJORA 2: marca el mensaje de NaIA para mostrarlo con efecto máquina de escribir. */
+  streaming?: boolean;
 }
 
 export interface NaiaChatStateSnapshot {
@@ -161,13 +163,26 @@ export default function NaiaChatPanel({
       const preguntaLimpia = respuesta.pregunta_seguimiento ? sanitizeTone(respuesta.pregunta_seguimiento) : null;
       const textoBase = esInicial ? `Hola, soy NaIA. ${respuestaLimpia}` : respuestaLimpia;
 
+      const contenidoNaia = textoBase + (preguntaLimpia ? `\n\n${preguntaLimpia}` : '');
+      const naiaMsgId = `naia-${Date.now()}`;
       const naiaMsg: NaiaChatMessage = {
-        id: `naia-${Date.now()}`,
-        content: textoBase + (preguntaLimpia ? `\n\n${preguntaLimpia}` : ''),
+        id: naiaMsgId,
+        content: contenidoNaia,
         isUser: false,
-        timestamp: new Date()
+        timestamp: new Date(),
+        // MEJORA 2: se activa el efecto de tipeo al recibir la respuesta.
+        streaming: true
       };
       setMessages((prev) => [...prev, naiaMsg]);
+
+      // Retiramos la marca de streaming cuando termina la animación
+      // (18 ms por carácter + un pequeño margen) para no re-animar al re-renderizar.
+      const duracionTipeo = contenidoNaia.length * 18 + 200;
+      setTimeout(() => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === naiaMsgId ? { ...m, streaming: false } : m))
+        );
+      }, duracionTipeo);
 
       const tieneFiltrosDetectados = respuesta.filtros && Object.keys(respuesta.filtros).length > 0;
       if (tieneFiltrosDetectados) {
@@ -242,6 +257,7 @@ export default function NaiaChatPanel({
             content={message.content}
             isUser={message.isUser}
             timestamp={message.timestamp}
+            streaming={message.streaming}
           />
         ))}
 

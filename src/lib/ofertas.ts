@@ -177,6 +177,12 @@ function expandirSinonimos(termino: string, contexto: 'nivel' | 'area'): string[
   if (t.includes('comunic')) {
     sin.push('Comunicación', 'Comunicacion', 'Periodismo');
   }
+  // MEJORA 5: sinónimos de marketing. Muchos programas se catalogan como
+  // "Mercadeo", "Mercadotecnia" o "Publicidad", así que ampliamos el término
+  // para que una búsqueda de "marketing" (o abreviaturas como "mkt") coincida.
+  if (t.includes('marketing') || t.includes('mercadeo') || t.includes('mercadotecnia') || t.includes('mkt') || t.includes('publicidad')) {
+    sin.push('Marketing', 'Mercadeo', 'Mercadotecnia', 'Publicidad');
+  }
 
   return [...new Set(sin)];
 }
