@@ -43,6 +43,7 @@ const CATEGORIAS: Categoria[] = [
       { label: 'Lead Center', href: '/leadcenter' },
       { label: 'Personas', href: '/leadcenter/personas' },
       { label: 'Pipeline / Funnel', href: '/admin/funnel' },
+      { label: 'Reglas de cierre', href: '/admin/cierre' },
     ]
   },
   {

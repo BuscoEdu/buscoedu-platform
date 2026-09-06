@@ -13,10 +13,13 @@ BuscoEdu (www.buscoedu.com) es una plataforma de orientación educativa neutral 
 * El CRM comparte las tablas existentes para oportunidades de estudiantes y de universidades. La migración `20260904010000_tipos_oportunidad_universidad.sql` agrega `tipo_oportunidad` y `codigo`, crea automáticamente la oportunidad institucional al registrar una universidad y evita aplicar automatizaciones B2C a ella.
 * Demo WApp muestra una sesión por oportunidad, incorpora el mensaje del estudiante de forma inmediata y se desplaza al último mensaje al recibir la respuesta de NaIA.
 * El super administrador puede editar los datos de una persona desde su ficha. La guía de gobierno de agentes enlaza cada uno de sus ocho pasos con la pantalla operativa correspondiente.
+* **Cierre de oportunidades configurable (2026-09-06):** se puede cerrar una oportunidad como **Ganada** o **Perdida** desde cualquier etapa (etapa agrupadora **Cerrada** con subestados Ganada/Perdida). Los requisitos de Ganada, las causas de Perdida y las reglas de "Desaparecido" (reversible, no cierra automáticamente) se administran por CRUD en **`/admin/cierre`**. Cada cierre y reapertura queda en una auditoría inmutable con la versión de configuración usada. El historial se muestra en un timeline jerárquico (Etapa → Subetapa → Cierre → Causa). Detalle en [`docs/leadcenter/CIERRE_OPORTUNIDADES.md`](docs/leadcenter/CIERRE_OPORTUNIDADES.md).
 
 ### Pendiente operativo obligatorio
 
 Ejecutar en Supabase las migraciones pendientes, en especial `supabase/migrations/20260904010000_tipos_oportunidad_universidad.sql`, antes de usar códigos de oportunidad o registrar nuevas universidades en producción. Después, validar una universidad de prueba y verificar que aparezca como oportunidad de tipo **Universidad** en Lead Center.
+
+**Cierre de oportunidades:** ejecutar `supabase/migrations/20260906120000_cierre_oportunidades_configurable.sql` en Supabase antes de usar el nuevo flujo de cierre. Luego revisar `/admin/cierre` (como super admin) y validar un cierre de prueba (ver checklist en `docs/leadcenter/CIERRE_OPORTUNIDADES.md`).
 
 ## 📚 Stack Técnico
 

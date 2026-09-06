@@ -99,7 +99,7 @@ export default async function FichaOportunidadPage({
       .eq('activo', true),
     supabase
       .from('historial_etapas_oportunidad')
-      .select('id, etapa_nueva_id, motivo, canal, creado_en')
+      .select('id, etapa_nueva_id, subestado_nuevo_id, motivo, canal, creado_en')
       .eq('oportunidad_id', id)
       .order('creado_en', { ascending: false })
       .limit(50),
@@ -176,6 +176,8 @@ export default async function FichaOportunidadPage({
   const temperatura = TEMPERATURA_META[temperaturaDesdePuntaje(o.puntaje)];
 
   const nombreEtapaPorId = (eid: string) => (etapas as any[])?.find((e) => e.id === eid)?.nombre || '—';
+  const nombreSubestadoPorId = (sid?: string | null) =>
+    sid ? ((subestados as any[]) || []).find((s: any) => s.id === sid)?.nombre || null : null;
   const subestadoActual = ((subestados as any[]) || []).find((s: any) => s.id === o.subestado_id);
   const etapaActualOrden = ((etapas as any[]) || []).findIndex((e: any) => e.id === o.etapa_id);
 
@@ -214,15 +216,54 @@ export default async function FichaOportunidadPage({
 
   type Item = { ts: string; tipo: string; texto: string; icono: string; tono: string };
   const timeline: Item[] = [];
-  (historial as any[])?.forEach((h) =>
+  // MEJORA 6 (cierre configurable): el historial de etapas se representa de forma
+  // jerárquica en dos niveles — Nivel 1 Etapa, Nivel 2 Subetapa — y el cierre se
+  // dibuja como una "salida lateral" que cuelga de la subetapa, conservando los
+  // pasos previos. También distinguimos el origen del movimiento (manual, IA o
+  // automático) a partir del canal registrado.
+  (historial as any[])?.forEach((h) => {
+    const etapaNombre = nombreEtapaPorId(h.etapa_nueva_id);
+    const subNombre = nombreSubestadoPorId(h.subestado_nuevo_id);
+    const motivo: string = h.motivo || '';
+    // Detecta si este movimiento corresponde a un cierre (Ganada/Perdida) o a una
+    // reapertura, a partir del texto que las RPC dejan en `motivo`.
+    const esCierre = /cierre:/i.test(motivo);
+    const esReapertura = /reapertura|reabri/i.test(motivo);
+    // Origen del cambio: el canal "ia"/"naia"/"automatico" indica acción no humana.
+    const canal = String(h.canal || '').toLowerCase();
+    const origen = /ia|naia/.test(canal)
+      ? '🤖 IA'
+      : /auto/.test(canal)
+      ? '⚙️ Automático'
+      : '👤 Manual';
+
+    // Construcción del árbol jerárquico legible (se muestra con whitespace-pre-line).
+    const lineas: string[] = [`${etapaNombre}`];
+    if (subNombre) lineas.push(`└── ${subNombre}`);
+    if (esCierre) {
+      // El motivo trae algo como "Cierre: Perdida · Causa: Precio · <comentario>".
+      const partes = motivo.split('·').map((s) => s.trim()).filter(Boolean);
+      const indent = subNombre ? '    ' : '';
+      partes.forEach((parte, idx) => {
+        lineas.push(`${indent}${'    '.repeat(idx)}└── ${parte}`);
+      });
+    } else if (motivo) {
+      const indent = subNombre ? '    ' : '';
+      lineas.push(`${indent}└── ${motivo}`);
+    }
+
     timeline.push({
       ts: h.creado_en,
-      tipo: 'Etapa',
-      texto: `Movida a "${nombreEtapaPorId(h.etapa_nueva_id)}"${h.motivo ? ` · ${h.motivo}` : ''}`,
-      icono: '↔️',
-      tono: 'bg-blue-100 text-blue-700'
-    })
-  );
+      tipo: esCierre ? 'Cierre' : esReapertura ? 'Reapertura' : 'Etapa',
+      texto: `${lineas.join('\n')}\n${origen}`,
+      icono: esCierre ? '🏁' : esReapertura ? '🔓' : '↔️',
+      tono: esCierre
+        ? (/ganada/i.test(motivo) ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700')
+        : esReapertura
+        ? 'bg-amber-100 text-amber-700'
+        : 'bg-blue-100 text-blue-700'
+    });
+  });
   comentarios.forEach((n) =>
     timeline.push({ ts: n.creado_en, tipo: 'Comentario', texto: `${n.autor_nombre}: ${n.contenido}`, icono: '💬', tono: 'bg-violet-100 text-violet-700' })
   );
@@ -360,6 +401,8 @@ export default async function FichaOportunidadPage({
             etapaActualId={o.etapa_id}
             etapas={(etapas as any[]) || []}
             subestados={((subestados as any[]) || []).filter((s: any) => s.activo !== false)}
+            estadoOportunidad={o.estado || 'activa'}
+            cierreTipo={o.cierre_tipo || null}
           />
 
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
