@@ -309,28 +309,29 @@ export default async function FichaOportunidadPage({
             <p className="font-semibold text-gray-900">{fecha(o.actualizado_en)}</p>
           </div>
         </div>
-        {/* Funnel jerárquico vertical: una ruta tipo metro que conecta etapas y subetapas. */}
+        {/* Funnel horizontal: etapas de izquierda a derecha y subetapas conectadas debajo de cada una. */}
         <div className="mt-6 border-t border-gray-100 pt-6" aria-label="Funnel de la oportunidad">
-          <div className="relative pl-1">
-            <span aria-hidden="true" className="absolute bottom-5 left-[1.05rem] top-5 w-0.5 bg-gray-200" />
+          <div className="relative grid grid-cols-1 gap-5 sm:grid-cols-5 sm:gap-2">
+            <span aria-hidden="true" className="absolute left-[10%] right-[10%] top-4 hidden h-0.5 bg-gray-200 sm:block" />
             {funnelStages.map((stage: any, index: number) => {
               const actual = index === indiceActualFunnel;
               const completada = indiceActualFunnel >= 0 && index < indiceActualFunnel;
               return (
-                <div key={stage.id} className="relative flex gap-4 pb-5 last:pb-0">
-                  <span className={`relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${actual && esPerdida ? 'bg-red-600 text-white ring-4 ring-red-100' : actual && esGanada ? 'bg-emerald-600 text-white ring-4 ring-emerald-100' : actual ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 'bg-gray-200 text-gray-500'}`}>
+                <div key={stage.id} className="relative min-w-0 text-center">
+                  <span className={`relative z-10 mx-auto flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${actual && esPerdida ? 'bg-red-600 text-white ring-4 ring-red-100' : actual && esGanada ? 'bg-emerald-600 text-white ring-4 ring-emerald-100' : actual ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 'bg-gray-200 text-gray-500'}`}>
                     {completada ? '✓' : index + 1}
                   </span>
-                  <div className="min-w-0 flex-1 pt-0.5">
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <div className="pt-2">
+                    <div className="flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0.5">
                       <p className={`text-sm font-semibold ${actual ? rutaActualClase : 'text-gray-700'}`}>{stage.nombre}</p>
-                      {actual && <span className={`text-[11px] font-semibold ${rutaActualClase}`}>Etapa actual</span>}
+                      {actual && <span className={`text-[11px] font-semibold ${rutaActualClase}`}>Actual</span>}
                     </div>
-                    <div className="mt-2 space-y-1 border-l border-gray-200 pl-4">
+                    <div className="mx-auto mt-3 max-w-[12rem] space-y-1 border-l border-gray-200 pl-3 text-left">
                     {stage.subestados.length > 0 ? stage.subestados.map((sub: any) => {
                       const subActual = sub.id === o.subestado_id || (actual && !o.subestado_id && normalizarFunnel(String(sub.nombre || '')) === 'nueva');
                       return (
-                        <div key={sub.id} className="py-0.5">
+                        <div key={sub.id} className="relative py-0.5">
+                          <span aria-hidden="true" className={`absolute -left-[0.8rem] top-2 h-1.5 w-1.5 rounded-full ${subActual ? (esPerdida ? 'bg-red-500' : esGanada ? 'bg-emerald-500' : 'bg-blue-500') : 'bg-gray-300'}`} />
                           <p className={`text-xs font-medium ${subActual ? (esPerdida ? 'text-red-600' : esGanada ? 'text-emerald-600' : 'text-blue-600') : 'text-gray-500'}`}>{sub.nombre}</p>
                         </div>
                       );
