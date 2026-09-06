@@ -39,11 +39,11 @@ export default async function LeadCenterLayout({ children }: { children: ReactNo
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-7xl gap-4 px-4 py-6 sm:gap-6">
-        <LeadCenterNav esSuper={sesion.esSuper} />
-        <main className="min-w-0 flex-1 pb-24 lg:pb-6">{children}</main>
+      <LeadCenterNav esSuper={sesion.esSuper} />
+
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+        <main className="min-w-0 pb-6">{children}</main>
       </div>
     </div>
   );
 }
-
