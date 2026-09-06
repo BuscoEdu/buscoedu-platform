@@ -37,13 +37,14 @@ export default function AccionesOportunidad({
   const [tab, setTab] = useState<'etapa' | 'contacto'>('contacto');
   const [cierreAbierto, setCierreAbierto] = useState(false);
   const [tipoCierre, setTipoCierre] = useState<'ganada' | 'perdida'>('ganada');
-  const [causas, setCausas] = useState<Array<{ codigo: string; nombre: string }>>([]);
+  const [causas, setCausas] = useState<Array<{ codigo: string; nombre: string; requiere_detalle?: boolean }>>([]);
   const [causaCodigo, setCausaCodigo] = useState('');
   const [comentarioCierre, setComentarioCierre] = useState('');
   const [pagoConfirmado, setPagoConfirmado] = useState(false);
   const [evidenciaPago, setEvidenciaPago] = useState(false);
   const [msgCierre, setMsgCierre] = useState('');
   const [cargCierre, setCargCierre] = useState(false);
+  const [cargandoCausas, setCargandoCausas] = useState(false);
   const [motivoReapertura, setMotivoReapertura] = useState('');
   const [etapaReapertura, setEtapaReapertura] = useState(etapaActualId);
   const [subestadoReapertura, setSubestadoReapertura] = useState('');
@@ -68,20 +69,41 @@ export default function AccionesOportunidad({
   const subDeEtapa = subestados.filter((s) => s.etapa_id === etapaNueva);
 
   async function cargarCausas() {
-    if (causas.length) return;
-    const r = await fetch('/api/leadcenter/funnel/cierres');
-    const d = await r.json();
-    if (d.ok) setCausas(d.causas || []);
+    if (causas.length || cargandoCausas) return;
+    setCargandoCausas(true);
+    try {
+      const r = await fetch('/api/leadcenter/funnel/cierres', { cache: 'no-store' });
+      const d = await r.json();
+      if (d.ok) setCausas(d.causas || []);
+      else setMsgCierre('No se pudieron cargar las causas de pérdida.');
+    } catch {
+      setMsgCierre('No se pudieron cargar las causas de pérdida.');
+    } finally {
+      setCargandoCausas(false);
+    }
   }
 
   async function enviarCierre() {
+    // Validación local para no enviar cierres incompletos y evitar mensajes
+    // ambiguos cuando el selector todavía no tiene una causa seleccionada.
+    if (tipoCierre === 'perdida' && (!causaCodigo || !comentarioCierre.trim())) {
+      setMsgCierre('Selecciona una causa y escribe la explicación de la pérdida.');
+      return;
+    }
     setCargCierre(true); setMsgCierre('');
     const requisitos = { pago_inscripcion_confirmado: pagoConfirmado, evidencia_pago: evidenciaPago, programa_seleccionado: true, universidad_seleccionada: true, fecha_confirmacion: true, actor_validacion: true, canal_origen: true, comentario_cierre: Boolean(comentarioCierre.trim()) };
     try {
       const r = await fetch(`/api/leadcenter/oportunidad/${oportunidadId}/cierre`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipoCierre, causaCodigo: causaCodigo || null, comentario: comentarioCierre, requisitos, canal: 'leadcenter' }) });
       const d = await r.json();
       if (!d.ok) {
-        setMsgCierre(d.error === 'requisitos_ganada_incompletos' ? `Faltan requisitos: ${(d.faltantes || []).join(', ')}` : d.error === 'causa_y_comentario_requeridos' ? 'Selecciona una causa y escribe el detalle.' : 'No se pudo cerrar la oportunidad.');
+        const errores: Record<string, string> = {
+          causa_y_comentario_requeridos: 'Selecciona una causa y escribe el detalle.',
+          causa_perdida_invalida: 'La causa seleccionada ya no está activa. Recarga las causas e inténtalo de nuevo.',
+          etapa_cerrada_no_configurada: 'No existe la etapa Cerrada en el funnel. Debe configurarse antes de cerrar.',
+          subestado_cierre_no_configurado: 'No existen los subestados Ganada/Perdida dentro de Cerrada. Deben configurarse antes de cerrar.',
+          no_autorizado: 'No tienes permiso para cerrar esta oportunidad.'
+        };
+        setMsgCierre(d.error === 'requisitos_ganada_incompletos' ? `Faltan requisitos: ${(d.faltantes || []).join(', ')}` : errores[d.error] || `No se pudo cerrar la oportunidad${d.error ? ` (${d.error})` : ''}.`);
       } else { setMsgCierre('Cierre guardado.'); setCierreAbierto(false); setComentarioCierre(''); router.refresh(); }
     } catch { setMsgCierre('Error de red.'); } finally { setCargCierre(false); }
   }
@@ -194,11 +216,11 @@ export default function AccionesOportunidad({
       <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
         <div className="flex items-center justify-between gap-3">
           <div><p className="text-sm font-semibold text-amber-900">Cierre de oportunidad</p><p className="text-xs text-amber-800">Ganada o Perdida desde cualquier etapa.</p></div>
-          <button onClick={() => { setCierreAbierto(!cierreAbierto); cargarCausas(); }} className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white">{cierreAbierto ? 'Cancelar' : 'Cerrar oportunidad'}</button>
+          <button onClick={() => { setCierreAbierto(!cierreAbierto); if (!cierreAbierto) void cargarCausas(); }} className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white">{cierreAbierto ? 'Cancelar' : 'Cerrar oportunidad'}</button>
         </div>
         {cierreAbierto && <div className="mt-3 space-y-3 border-t border-amber-200 pt-3">
           <div className="grid grid-cols-2 gap-2"><button onClick={() => setTipoCierre('ganada')} className={`rounded-lg px-3 py-2 text-sm ${tipoCierre === 'ganada' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Ganada</button><button onClick={() => setTipoCierre('perdida')} className={`rounded-lg px-3 py-2 text-sm ${tipoCierre === 'perdida' ? 'bg-red-600 text-white' : 'bg-white text-gray-700'}`}>Perdida</button></div>
-          {tipoCierre === 'ganada' ? <div className="space-y-2 text-sm"><label className="flex items-center gap-2"><input type="checkbox" checked={pagoConfirmado} onChange={(e) => setPagoConfirmado(e.target.checked)} /> Pago de inscripción confirmado</label><label className="flex items-center gap-2"><input type="checkbox" checked={evidenciaPago} onChange={(e) => setEvidenciaPago(e.target.checked)} /> Evidencia o comprobante validado</label></div> : <select value={causaCodigo} onChange={(e) => setCausaCodigo(e.target.value)} className={inputCls}><option value="">Selecciona la causa de pérdida</option>{causas.map((c) => <option key={c.codigo} value={c.codigo}>{c.nombre}</option>)}</select>}
+          {tipoCierre === 'ganada' ? <div className="space-y-2 text-sm"><label className="flex items-center gap-2"><input type="checkbox" checked={pagoConfirmado} onChange={(e) => setPagoConfirmado(e.target.checked)} /> Pago de inscripción confirmado</label><label className="flex items-center gap-2"><input type="checkbox" checked={evidenciaPago} onChange={(e) => setEvidenciaPago(e.target.checked)} /> Evidencia o comprobante validado</label></div> : <div className="space-y-1"><select value={causaCodigo} onChange={(e) => setCausaCodigo(e.target.value)} className={inputCls} disabled={cargandoCausas}><option value="">{cargandoCausas ? 'Cargando causas…' : 'Selecciona la causa de pérdida'}</option>{causas.map((c) => <option key={c.codigo} value={c.codigo}>{c.nombre}</option>)}</select>{!cargandoCausas && causas.length === 0 && <p className="text-xs text-red-700">No hay causas activas configuradas. Revisa el CRUD de cierres.</p>}</div>}
           <textarea value={comentarioCierre} onChange={(e) => setComentarioCierre(e.target.value)} rows={3} className={inputCls} placeholder={tipoCierre === 'ganada' ? 'Comentario de validación de la conversión' : 'Explica la causa de pérdida'} />
           <div className="flex gap-2"><button onClick={enviarCierre} disabled={cargCierre} className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white disabled:opacity-50">{cargCierre ? 'Guardando…' : 'Guardar cierre'}</button><button onClick={() => setCierreAbierto(false)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">Cancelar</button></div>
           {msgCierre && <p className="text-sm text-gray-700">{msgCierre}</p>}
