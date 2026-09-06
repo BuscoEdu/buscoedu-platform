@@ -325,7 +325,8 @@ export default async function FichaOportunidadPage({
                     {completada ? '✓' : index + 1}
                   </span>
                   <div className="pt-2">
-                    <div className="flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0.5">
+                    <div className="mx-auto w-fit max-w-full text-left">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                       <p className={`text-sm font-semibold ${actual ? rutaActualClase : 'text-gray-700'}`}>{stage.nombre}</p>
                       {actual && <span className={`text-[11px] font-semibold ${rutaActualClase}`}>Actual</span>}
                     </div>
@@ -341,6 +342,7 @@ export default async function FichaOportunidadPage({
                         </div>
                       );
                     }) : <p className="py-0.5 text-xs text-gray-400">—</p>}
+                    </div>
                     </div>
                   </div>
                 </div>
