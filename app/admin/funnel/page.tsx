@@ -419,32 +419,37 @@ export default function AdminFunnelPage() {
               const reglasEtapa = reglasActivas.filter((r) => r.etapa_id === etapa.id || hijos.some((s) => s.id === r.subestado_id));
               return (
                 <article id={`etapa-${etapa.id}`} key={etapa.id} onClick={() => { if (!etapaSeleccionada) window.location.href = `/admin/funnel?etapa=${etapa.id}`; }} className={`rounded-2xl border bg-white p-5 shadow-card ${etapaSeleccionada === etapa.id ? 'border-blue-500 ring-2 ring-blue-100' : 'border-buscoedu-border'} ${!etapaSeleccionada ? 'cursor-pointer transition hover:border-blue-400 hover:shadow-lg' : ''}`}>
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Etapa {etapa.orden}</p><h2 className="text-xl font-bold text-buscoedu-text">{etapa.nombre}</h2><p className="text-xs text-gray-500">{etapa.descripcion || 'Configuración operativa de la etapa'}</p></div>
-                    <div className="flex items-center gap-1"><button type="button" disabled={etapasActivas.findIndex((e) => e.id === etapa.id) === 0} onClick={(e) => { e.stopPropagation(); void moverEtapa(etapasActivas.findIndex((x) => x.id === etapa.id), 'up'); }} className="rounded border px-2 py-1 text-xs disabled:opacity-30">↑</button><button type="button" disabled={etapasActivas.findIndex((e) => e.id === etapa.id) === etapasActivas.length - 1} onClick={(e) => { e.stopPropagation(); void moverEtapa(etapasActivas.findIndex((x) => x.id === etapa.id), 'down'); }} className="rounded border px-2 py-1 text-xs disabled:opacity-30">↓</button><span className="ml-2 h-4 w-4 rounded-full" style={{ backgroundColor: etapa.color || '#94a3b8' }} aria-label={`Color ${etapa.nombre}`} /></div>
-                  </div>
-                  {/* Resumen compacto: etapa padre → subestados y estado de cada uno. */}
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3" onClick={(e) => e.stopPropagation()}>
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Subestados relacionados</h3>
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${etapa.activo ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>
-                        Etapa {etapa.activo ? 'activa' : 'inactiva'}
-                      </span>
-                    </div>
-                    {todosLosHijos.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {todosLosHijos.map((subestado) => (
-                          <span key={subestado.id} className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${subestado.activo ? 'border-emerald-200 bg-white text-slate-700' : 'border-slate-200 bg-slate-100 text-slate-400'}`}>
-                            <span className="font-medium">{subestado.orden}. {subestado.nombre}</span>
-                            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${subestado.activo ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>
-                              {subestado.activo ? 'Activo' : 'Inactivo'}
-                            </span>
-                          </span>
-                        ))}
+                  {/* En pantallas amplias, los datos de la etapa y sus subestados se leen en paralelo. */}
+                  <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)] lg:items-start">
+                    <div className="min-w-0">
+                      <div className="mb-4 flex items-start justify-between gap-3">
+                        <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Etapa {etapa.orden}</p><h2 className="text-xl font-bold text-buscoedu-text">{etapa.nombre}</h2><p className="text-xs text-gray-500">{etapa.descripcion || 'Configuración operativa de la etapa'}</p></div>
+                        <div className="flex items-center gap-1"><button type="button" disabled={etapasActivas.findIndex((e) => e.id === etapa.id) === 0} onClick={(e) => { e.stopPropagation(); void moverEtapa(etapasActivas.findIndex((x) => x.id === etapa.id), 'up'); }} className="rounded border px-2 py-1 text-xs disabled:opacity-30">↑</button><button type="button" disabled={etapasActivas.findIndex((e) => e.id === etapa.id) === etapasActivas.length - 1} onClick={(e) => { e.stopPropagation(); void moverEtapa(etapasActivas.findIndex((x) => x.id === etapa.id), 'down'); }} className="rounded border px-2 py-1 text-xs disabled:opacity-30">↓</button><span className="ml-2 h-4 w-4 rounded-full" style={{ backgroundColor: etapa.color || '#94a3b8' }} aria-label={`Color ${etapa.nombre}`} /></div>
                       </div>
-                    ) : (
-                      <p className="text-xs text-slate-500">Sin subestados relacionados.</p>
-                    )}
+                    </div>
+                    {/* Resumen compacto: etapa padre → subestados y estado de cada uno. */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Subestados relacionados</h3>
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${etapa.activo ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>
+                          Etapa {etapa.activo ? 'activa' : 'inactiva'}
+                        </span>
+                      </div>
+                      {todosLosHijos.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {todosLosHijos.map((subestado) => (
+                            <span key={subestado.id} className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${subestado.activo ? 'border-emerald-200 bg-white text-slate-700' : 'border-slate-200 bg-slate-100 text-slate-400'}`}>
+                              <span className="font-medium">{subestado.orden}. {subestado.nombre}</span>
+                              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${subestado.activo ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>
+                                {subestado.activo ? 'Activo' : 'Inactivo'}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500">Sin subestados relacionados.</p>
+                      )}
+                    </div>
                   </div>
                   {false && etapaSeleccionada ? <div className="space-y-3">
                     <h3 className="text-sm font-semibold text-buscoedu-text">Subetapas</h3>
