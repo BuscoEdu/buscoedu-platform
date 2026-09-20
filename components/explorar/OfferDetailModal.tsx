@@ -11,6 +11,7 @@ import {
   getUniversitySoftBgColor,
   getUniversityTextColor
 } from '@/src/lib/university-colors';
+
 interface OfferDetailModalProps {
   oferta: OfertaAcademica | null;
   onClose: () => void;
@@ -56,25 +57,23 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mostrarExito, segundosRestantes]);
 
-  // Prevenir scroll del body cuando el modal está abierto y registrar eventos
+  // Prevenir scroll del body cuando el modal está abierto y registrar eventos.
   useEffect(() => {
     if (oferta) {
       document.body.style.overflow = 'hidden';
-      // Registrar apertura de ficha
       trackOfferOpened(oferta.id, oferta.programa_id, oferta.universidad_id);
     } else {
       document.body.style.overflow = 'unset';
     }
     return () => {
       document.body.style.overflow = 'unset';
-      // Registrar cierre de ficha si había una oferta abierta
       if (oferta) {
         trackOfferClosed(oferta.id);
       }
     };
   }, [oferta]);
 
-  // Manejar tecla Escape
+  // Manejar tecla Escape para cierre accesible de la ficha.
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && oferta) {
@@ -109,51 +108,49 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
   };
 
   const handleApplyClick = () => {
-    // Registrar intento de aplicación (evento existente, intacto).
     if (oferta) {
       trackApplyAttempt(oferta.id, oferta.programa_id, oferta.universidad_id);
     }
-    // Abrir el flujo consent-first de aplicación (identidad + consentimientos + conversión).
     setMostrarAplicacion(true);
   };
 
   return (
     <>
-      {/* Overlay */}
+      {/* Overlay oscuro para enfoque y cierre con clic externo. */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Modal */}
+      {/* Modal centrado que nunca excede el ancho del viewport en móvil ni desktop. */}
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="detail-modal-title"
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-2 sm:p-4"
       >
         <div
-          className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto my-8 border-t-4"
+          className="my-4 w-full min-w-0 max-w-[calc(100vw-1rem)] overflow-x-hidden rounded-lg border-t-4 bg-white shadow-2xl sm:my-8 sm:max-w-3xl xl:max-w-4xl"
           style={{ borderTopColor: universityBorderColor }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header fijo */}
-          <div className="sticky top-0 bg-white border-b border-buscoedu-border px-6 py-4 flex items-start justify-between z-10">
-            <div className="flex-1 pr-4">
-              <h2 id="detail-modal-title" className="text-2xl font-bold text-buscoedu-blue mb-1">
+          {/* Header fijo con textos truncables para evitar desbordes horizontales. */}
+          <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-buscoedu-border bg-white px-4 py-4 sm:px-6">
+            <div className="min-w-0 flex-1 pr-1 sm:pr-4">
+              <h2 id="detail-modal-title" className="break-words text-xl font-bold text-buscoedu-blue sm:text-2xl">
                 {oferta.programa?.nombre || oferta.nombre}
               </h2>
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-2 flex min-w-0 items-center gap-2">
                 <span
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
                   style={{ backgroundColor: universityColor, color: universityTextColor }}
                   aria-hidden="true"
                 >
                   {universityInitial}
                 </span>
                 <p
-                  className="rounded-md px-2 py-1 text-sm"
+                  className="min-w-0 break-words rounded-md px-2 py-1 text-sm"
                   style={{ backgroundColor: universitySoftBg, color: universityBorderColor }}
                 >
                   {oferta.universidad?.nombre}
@@ -162,14 +159,14 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
                   {oferta.sede?.pais && `, ${oferta.sede.pais}`}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 {oferta.programa?.nivel_academico && (
-                  <span className="inline-block px-2 py-1 bg-buscoedu-blue/10 text-buscoedu-blue text-xs font-medium rounded">
+                  <span className="inline-block rounded bg-buscoedu-blue/10 px-2 py-1 text-xs font-medium text-buscoedu-blue break-words">
                     {oferta.programa.nivel_academico}
                   </span>
                 )}
                 {oferta.programa?.modalidad && (
-                  <span className="inline-block px-2 py-1 bg-buscoedu-teal/10 text-buscoedu-teal text-xs font-medium rounded">
+                  <span className="inline-block rounded bg-buscoedu-teal/10 px-2 py-1 text-xs font-medium text-buscoedu-teal break-words">
                     {oferta.programa.modalidad}
                   </span>
                 )}
@@ -177,11 +174,11 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
             </div>
             <button
               onClick={onClose}
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-buscoedu-bg transition-colors flex-shrink-0"
+              className="h-10 w-10 shrink-0 rounded-full transition-colors hover:bg-buscoedu-bg"
               aria-label="Cerrar ficha"
             >
               <svg
-                className="w-6 h-6 text-buscoedu-text"
+                className="h-6 w-6 text-buscoedu-text"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -196,17 +193,16 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
             </button>
           </div>
 
-          {/* Contenido */}
-          <div className="px-6 py-6 space-y-6">
-            {/* Información académica */}
+          {/* Contenido con break-words y overflow controlado para evitar scroll lateral. */}
+          <div className="max-h-[calc(100dvh-16rem)] space-y-6 overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6">
             {oferta.descripcion && (
               <section>
-                <h3 className="text-lg font-bold text-buscoedu-blue mb-3">Información académica</h3>
+                <h3 className="mb-3 text-lg font-bold text-buscoedu-blue">Información académica</h3>
                 <div className="space-y-2 text-sm">
-                  <p className="text-buscoedu-text leading-relaxed">{oferta.descripcion}</p>
-                  
+                  <p className="break-words leading-relaxed text-buscoedu-text">{oferta.descripcion}</p>
+
                   {oferta.programa?.duracion && (
-                    <p>
+                    <p className="break-words">
                       <span className="font-semibold text-buscoedu-text">Duración:</span>{' '}
                       <span className="text-buscoedu-muted">{oferta.programa.duracion}</span>
                     </p>
@@ -215,16 +211,15 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
               </section>
             )}
 
-            {/* Oferta y beneficios */}
             {oferta.beneficios && oferta.beneficios.length > 0 && (
               <section>
-                <h3 className="text-lg font-bold text-buscoedu-blue mb-3">Oferta y beneficios</h3>
+                <h3 className="mb-3 text-lg font-bold text-buscoedu-blue">Oferta y beneficios</h3>
                 <div className="space-y-3">
                   {oferta.beneficios.map((beneficio, index) => (
-                    <div key={index} className="bg-buscoedu-bg p-4 rounded-lg">
-                      <p className="font-semibold text-buscoedu-blue mb-1">{beneficio.tipo}</p>
+                    <div key={index} className="rounded-lg bg-buscoedu-bg p-4">
+                      <p className="mb-1 break-words font-semibold text-buscoedu-blue">{beneficio.tipo}</p>
                       {beneficio.descripcion && (
-                        <p className="text-sm text-buscoedu-muted">{beneficio.descripcion}</p>
+                        <p className="break-words text-sm text-buscoedu-muted">{beneficio.descripcion}</p>
                       )}
                     </div>
                   ))}
@@ -232,44 +227,41 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
               </section>
             )}
 
-            {/* Precios y condiciones */}
-            <section className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <h3 className="text-lg font-bold text-buscoedu-blue mb-2">Precios y condiciones</h3>
-              <p className="text-sm text-amber-800">
+            <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <h3 className="mb-2 text-lg font-bold text-buscoedu-blue">Precios y condiciones</h3>
+              <p className="break-words text-sm text-amber-800">
                 Los precios específicos se consultarán directamente con la universidad. La información mostrada es orientativa y puede variar según condiciones, periodos y validaciones de la institución.
               </p>
             </section>
 
-            {/* Requisitos de acceso */}
             <section>
-              <h3 className="text-lg font-bold text-buscoedu-blue mb-3">Requisitos de acceso</h3>
-              <p className="text-sm text-buscoedu-muted mb-2">
+              <h3 className="mb-3 text-lg font-bold text-buscoedu-blue">Requisitos de acceso</h3>
+              <p className="mb-2 break-words text-sm text-buscoedu-muted">
                 Los requisitos específicos del programa y de la oferta se confirman con la institución educativa.
               </p>
-              <p className="text-xs text-buscoedu-muted italic bg-buscoedu-bg p-3 rounded">
+              <p className="rounded bg-buscoedu-bg p-3 text-xs italic text-buscoedu-muted break-words">
                 La revisión definitiva de requisitos corresponde a la institución.
               </p>
             </section>
 
-            {/* Cupos disponibles (solo si están publicados) */}
             {oferta.cupos_disponibles !== undefined && oferta.cupos_disponibles !== null && (
               <section>
-                <h3 className="text-lg font-bold text-buscoedu-blue mb-2">Disponibilidad</h3>
-                <p className="text-sm text-buscoedu-text">
+                <h3 className="mb-2 text-lg font-bold text-buscoedu-blue">Disponibilidad</h3>
+                <p className="break-words text-sm text-buscoedu-text">
                   <span className="font-semibold">Cupos disponibles:</span> {oferta.cupos_disponibles}
                 </p>
               </section>
             )}
           </div>
 
-          {/* Acciones finales */}
-          <div className="sticky bottom-0 bg-white border-t border-buscoedu-border px-6 py-4 flex flex-wrap gap-3">
+          {/* Acciones finales con anchos fluidos para no romper en pantallas angostas. */}
+          <div className="sticky bottom-0 flex flex-wrap gap-3 border-t border-buscoedu-border bg-white px-4 py-4 sm:px-6">
             <button
               onClick={handleToggleMyList}
-              className={`flex-1 min-w-[200px] px-6 py-3 rounded-lg font-semibold transition-colors ${
+              className={`min-w-0 flex-1 rounded-lg border-2 px-4 py-3 font-semibold transition-colors sm:min-w-[200px] sm:px-6 ${
                 inMyList
-                  ? 'bg-red-50 text-red-600 border-2 border-red-600 hover:bg-red-100'
-                  : 'bg-white text-buscoedu-blue border-2 border-buscoedu-blue hover:bg-buscoedu-blue/5'
+                  ? 'border-red-600 bg-red-50 text-red-600 hover:bg-red-100'
+                  : 'border-buscoedu-blue bg-white text-buscoedu-blue hover:bg-buscoedu-blue/5'
               }`}
             >
               {inMyList ? 'Quitar de Mi lista' : 'Guardar en Mi lista'}
@@ -277,7 +269,7 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
 
             <button
               onClick={handleApplyClick}
-              className="flex-1 min-w-[200px] bg-buscoedu-teal text-white px-6 py-3 rounded-lg font-semibold hover:bg-buscoedu-teal/90 transition-colors"
+              className="min-w-0 flex-1 rounded-lg bg-buscoedu-teal px-4 py-3 font-semibold text-white transition-colors hover:bg-buscoedu-teal/90 sm:min-w-[200px] sm:px-6"
             >
               Aplicar a beca
             </button>
@@ -301,16 +293,15 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
         />
       )}
 
-      {/* Overlay de solicitud enviada con cuenta regresiva */}
+      {/* Overlay de solicitud enviada con cuenta regresiva. */}
       {mostrarExito && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="exito-titulo"
         >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full px-8 py-10 text-center">
-            {/* Ícono de check verde grande */}
+          <div className="w-full max-w-md rounded-2xl bg-white px-8 py-10 text-center shadow-2xl">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
               <svg
                 className="h-12 w-12 text-green-600"
@@ -328,29 +319,27 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
               </svg>
             </div>
 
-            <h2 id="exito-titulo" className="text-2xl font-bold text-buscoedu-blue mb-2">
+            <h2 id="exito-titulo" className="mb-2 text-2xl font-bold text-buscoedu-blue">
               ¡Tu solicitud fue enviada exitosamente!
             </h2>
-            <p className="text-buscoedu-muted mb-6">
+            <p className="mb-6 break-words text-buscoedu-muted">
               {oferta.programa?.nombre || oferta.nombre}
             </p>
 
-            {/* Barra de progreso que se reduce en 10 segundos */}
-            <div className="w-full h-2 bg-buscoedu-bg rounded-full overflow-hidden mb-3">
+            <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-buscoedu-bg">
               <div
-                className="h-full bg-buscoedu-teal rounded-full transition-all duration-1000 ease-linear"
+                className="h-full rounded-full bg-buscoedu-teal transition-all duration-1000 ease-linear"
                 style={{ width: `${(segundosRestantes / SEGUNDOS_CIERRE) * 100}%` }}
               />
             </div>
 
-            {/* Contador regresivo visible */}
-            <p className="text-sm text-buscoedu-muted mb-6">
+            <p className="mb-6 text-sm text-buscoedu-muted">
               Cerrando en {segundosRestantes} segundo{segundosRestantes === 1 ? '' : 's'}...
             </p>
 
             <button
               onClick={cerrarConExito}
-              className="w-full bg-buscoedu-teal text-white px-6 py-3 rounded-lg font-semibold hover:bg-buscoedu-teal/90 transition-colors"
+              className="w-full rounded-lg bg-buscoedu-teal px-6 py-3 font-semibold text-white transition-colors hover:bg-buscoedu-teal/90"
             >
               Cerrar ahora
             </button>

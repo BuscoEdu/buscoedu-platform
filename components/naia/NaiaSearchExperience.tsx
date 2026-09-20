@@ -19,6 +19,7 @@ import {
 type EstadoBusqueda = "inicio" | "interpretando" | "consultando" | "listo" | "error";
 type Orden = "recomendado" | "virtual" | "beneficio" | "universidad";
 type MensajeChat = { id: string; autor: "estudiante" | "naia"; contenido: string };
+type ChipFiltro = { clave: keyof FiltrosOferta; etiqueta: string; valor: string };
 
 const NAIA_CHAT_STATE_KEY = "buscoedu_naia_chat_v1";
 
@@ -35,10 +36,30 @@ const ORDENES: Array<{ id: Orden; etiqueta: string }> = [
   { id: "universidad", etiqueta: "Universidad A–Z" },
 ];
 
+/**
+ * Convierte la respuesta del agente en filtros válidos de consulta.
+ * Si NaIA no devuelve un filtro, se elimina del estado para evitar arrastres.
+ */
 function filtrosConValor(filtros: NaiaResponse["filtros"]): FiltrosOferta {
   return Object.fromEntries(
     Object.entries(filtros).filter(([, valor]) => typeof valor === "string" && valor.trim())
   ) as FiltrosOferta;
+}
+
+/**
+ * Centraliza las etiquetas legibles de cada filtro para los chips editables.
+ */
+function etiquetaFiltro(clave: keyof FiltrosOferta): string {
+  const etiquetas: Record<keyof FiltrosOferta, string> = {
+    programa_o_area: "Área o programa",
+    modalidad: "Modalidad",
+    ciudad: "Ciudad",
+    pais: "País",
+    nivel_academico: "Nivel",
+    tipo_beneficio: "Beneficio",
+    universidad: "Universidad",
+  };
+  return etiquetas[clave];
 }
 
 function esVirtual(oferta: OfertaAcademica) {
@@ -60,8 +81,12 @@ export default function NaiaSearchExperience() {
   const [orden, setOrden] = useState<Orden>("recomendado");
   const [seleccionada, setSeleccionada] = useState<OfertaAcademica | null>(null);
   const [mensajes, setMensajes] = useState<MensajeChat[]>([]);
+  const [mostrarResultadosMovil, setMostrarResultadosMovil] = useState(false);
   const historialRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * Recupera sesión local de chat para continuidad entre recargas.
+   */
   useEffect(() => {
     try {
       const guardado = sessionStorage.getItem(NAIA_CHAT_STATE_KEY);
@@ -69,15 +94,47 @@ export default function NaiaSearchExperience() {
       const estadoGuardado = JSON.parse(guardado) as { conversationId?: string; mensajes?: MensajeChat[] };
       if (estadoGuardado.conversationId) setConversationId(estadoGuardado.conversationId);
       if (Array.isArray(estadoGuardado.mensajes)) setMensajes(estadoGuardado.mensajes);
-    } catch { /* Un estado local corrupto no debe bloquear el chat. */ }
+    } catch {
+      /* Un estado local corrupto no debe bloquear el chat. */
+    }
   }, []);
 
+  /**
+   * Persiste la conversación y mantiene el scroll del historial en el último mensaje.
+   */
   useEffect(() => {
-    if (!mensajes.length) return;
+    if (!mensajes.length) {
+      sessionStorage.removeItem(NAIA_CHAT_STATE_KEY);
+      return;
+    }
     sessionStorage.setItem(NAIA_CHAT_STATE_KEY, JSON.stringify({ conversationId, mensajes }));
     historialRef.current?.scrollTo({ top: historialRef.current.scrollHeight, behavior: "smooth" });
   }, [conversationId, mensajes]);
 
+  /**
+   * Ejecuta consulta de ofertas y actualiza resultados de forma consistente.
+   */
+  const consultarOfertas = async (filtros: FiltrosOferta) => {
+    const resultado = await obtenerOfertas(filtros, 0, 10);
+    setFiltrosActuales(filtros);
+    setOfertas(resultado.ofertas);
+    setTotal(Math.max(resultado.total, resultado.ofertas.length));
+    return resultado;
+  };
+
+  /**
+   * Construye una frase estándar con conteo obligatorio de resultados.
+   */
+  const construirMensajeConteo = (cantidad: number) => {
+    if (cantidad <= 0) {
+      return "No encontré resultados con esos criterios (0 resultados). Puedes ampliar la búsqueda o limpiar filtros para ver más opciones vigentes.";
+    }
+    return `Encontré ${cantidad} ${cantidad === 1 ? "opción" : "opciones"} que coinciden con tu búsqueda.`;
+  };
+
+  /**
+   * Flujo principal del chat: interpreta intención, aplica filtros y responde con conteo.
+   */
   const buscar = async (mensaje: string) => {
     const texto = mensaje.trim();
     if (!texto) return;
@@ -85,28 +142,49 @@ export default function NaiaSearchExperience() {
     setInput("");
     setMensajes((actuales) => [...actuales, { id: `estudiante-${Date.now()}`, autor: "estudiante", contenido: texto }]);
     setEstado("interpretando");
+
     try {
       const siguienteRespuesta = await callNaia(texto, conversationId);
       setRespuesta(siguienteRespuesta);
       setConversationId(siguienteRespuesta.conversationId);
-      const respuestaCompleta = [siguienteRespuesta.mensaje, siguienteRespuesta.pregunta_seguimiento]
-        .filter(Boolean)
-        .join("\n\n");
-      setMensajes((actuales) => [...actuales, { id: `naia-${Date.now()}`, autor: "naia", contenido: respuestaCompleta }]);
 
       setEstado("consultando");
       const filtros = filtrosConValor(siguienteRespuesta.filtros);
-      const resultado = await obtenerOfertas(filtros, 0, 10);
-      setFiltrosActuales(filtros);
-      setOfertas(resultado.ofertas);
-      setTotal(Math.max(resultado.total, resultado.ofertas.length));
+      const resultado = await consultarOfertas(filtros);
+      const conteo = Math.max(resultado.total, resultado.ofertas.length);
+
+      const bloques = [
+        siguienteRespuesta.mensaje,
+        construirMensajeConteo(conteo),
+        conteo === 0 ? null : siguienteRespuesta.pregunta_seguimiento,
+      ].filter(Boolean);
+
+      setMensajes((actuales) => [
+        ...actuales,
+        {
+          id: `naia-${Date.now()}`,
+          autor: "naia",
+          contenido: bloques.join("\n\n"),
+        },
+      ]);
+
       setEstado("listo");
     } catch {
       setEstado("error");
-      setMensajes((actuales) => [...actuales, { id: `naia-error-${Date.now()}`, autor: "naia", contenido: "Tuve un inconveniente para responder. Inténtalo de nuevo, por favor." }]);
+      setMensajes((actuales) => [
+        ...actuales,
+        {
+          id: `naia-error-${Date.now()}`,
+          autor: "naia",
+          contenido: "Tuve un inconveniente para responder. Inténtalo de nuevo, por favor.",
+        },
+      ]);
     }
   };
 
+  /**
+   * Carga incremental de resultados manteniendo deduplicación por ID.
+   */
   const cargarMasResultados = async () => {
     if (estaCargando || ofertas.length >= total) return;
     try {
@@ -116,19 +194,69 @@ export default function NaiaSearchExperience() {
         resultado.ofertas.forEach((oferta) => porId.set(oferta.id, oferta));
         return Array.from(porId.values());
       });
-      // La paginación no debe degradar el total ya mostrado si una respuesta
-      // posterior llega sin count (PostgREST puede omitirlo en reintentos).
       setTotal((totalActual) => Math.max(totalActual, resultado.total, resultado.ofertas.length));
     } catch {
       setEstado("error");
     }
   };
 
+  /**
+   * Permite quitar un filtro puntual desde chips y refresca resultados de inmediato.
+   */
+  const quitarFiltro = async (clave: keyof FiltrosOferta) => {
+    const siguiente = { ...filtrosActuales };
+    delete siguiente[clave];
+
+    setEstado("consultando");
+    try {
+      const resultado = await consultarOfertas(siguiente);
+      const conteo = Math.max(resultado.total, resultado.ofertas.length);
+      setMensajes((actuales) => [
+        ...actuales,
+        {
+          id: `naia-chip-${Date.now()}`,
+          autor: "naia",
+          contenido: `Quité el filtro “${etiquetaFiltro(clave)}”. ${construirMensajeConteo(conteo)}`,
+        },
+      ]);
+      setEstado("listo");
+    } catch {
+      setEstado("error");
+    }
+  };
+
+  /**
+   * Reinicia filtros y conversación para comenzar una búsqueda nueva sin arrastre de contexto.
+   */
+  const reiniciarBusqueda = async () => {
+    setEstado("consultando");
+    setConversationId(undefined);
+    setRespuesta(null);
+    setMensajes([]);
+
+    try {
+      const resultado = await consultarOfertas({});
+      const conteo = Math.max(resultado.total, resultado.ofertas.length);
+      setMensajes([
+        {
+          id: `naia-reset-${Date.now()}`,
+          autor: "naia",
+          contenido: `Reinicié la búsqueda y limpié los filtros anteriores. ${construirMensajeConteo(conteo)}`,
+        },
+      ]);
+      setEstado("listo");
+    } catch {
+      setEstado("error");
+    }
+  };
+
+  /**
+   * Procesa una consulta inicial (`/naia?q=...`) una sola vez para evitar duplicados.
+   */
   useEffect(() => {
     if (!initialQuery || hasProcessedInitialQuery.current) return;
     hasProcessedInitialQuery.current = true;
     void buscar(initialQuery);
-    // La consulta inicial se procesa una vez para no repetirla al renderizar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery]);
 
@@ -139,6 +267,19 @@ export default function NaiaSearchExperience() {
     if (orden === "universidad") return copia.sort((a, b) => (a.universidad?.nombre ?? "").localeCompare(b.universidad?.nombre ?? "", "es"));
     return copia;
   }, [ofertas, orden]);
+
+  /**
+   * Construye los chips editables en una sola línea horizontal.
+   */
+  const chipsFiltros = useMemo<ChipFiltro[]>(() => {
+    return (Object.entries(filtrosActuales) as Array<[keyof FiltrosOferta, string | undefined]>)
+      .filter(([, valor]) => typeof valor === "string" && valor.trim())
+      .map(([clave, valor]) => ({
+        clave,
+        etiqueta: etiquetaFiltro(clave),
+        valor: (valor ?? "").trim(),
+      }));
+  }, [filtrosActuales]);
 
   const mostrarResultados = estado !== "inicio";
   const estaCargando = estado === "interpretando" || estado === "consultando";
@@ -153,40 +294,102 @@ export default function NaiaSearchExperience() {
     else addToMyList(oferta.id);
   };
 
+  const tituloResultados = mostrarResultados
+    ? estaCargando
+      ? "Preparando opciones…"
+      : `${total} opciones encontradas`
+    : "Tus opciones aparecerán aquí";
+
   return (
-    <div className="bg-[#f7f9fc] lg:h-[calc(100vh-73px)] lg:overflow-hidden">
-      <div className="mx-auto grid w-full max-w-[1600px] lg:h-full lg:grid-cols-[minmax(0,1.65fr)_minmax(360px,0.85fr)]">
-        <main className="relative min-h-[calc(100vh-73px)] border-b border-buscoedu-border bg-white px-5 pb-28 pt-6 sm:px-8 lg:h-full lg:overflow-hidden lg:border-b-0 lg:border-r lg:px-12 lg:pb-24 lg:pt-8">
+    <div className="bg-[#f7f9fc] lg:h-[calc(100dvh-73px)] lg:overflow-hidden">
+      {/* Layout principal sin scroll vertical global en desktop. */}
+      <div className="mx-auto grid w-full max-w-[1600px] lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1.65fr)_minmax(360px,0.85fr)]">
+        <main className="relative min-h-[calc(100dvh-73px)] border-b border-buscoedu-border bg-white px-5 pb-28 pt-6 sm:px-8 lg:h-full lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:border-r lg:px-12 lg:pb-24 lg:pt-8">
           {mostrarResultados ? (
-            <section className="mx-auto flex h-[calc(100vh-150px)] max-w-3xl flex-col lg:h-full">
+            <section className="mx-auto flex h-[calc(100dvh-150px)] max-w-3xl min-h-0 flex-col lg:h-full">
               <div className="mb-4 shrink-0">
                 <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">Conversación con NaIA</p>
                 <h1 className="mt-1 text-2xl font-bold tracking-tight text-buscoedu-blue">Tu búsqueda educativa</h1>
               </div>
+
               <div ref={historialRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-5 pr-1" aria-live="polite">
                 {mensajes.map((mensaje) => (
-                  <div key={mensaje.id} className={mensaje.autor === "estudiante" ? "ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-buscoedu-blue px-4 py-3 text-white" : "max-w-[92%] rounded-2xl rounded-bl-md border border-buscoedu-border bg-buscoedu-bg/60 px-4 py-3 text-buscoedu-text"}>
+                  <div
+                    key={mensaje.id}
+                    className={
+                      mensaje.autor === "estudiante"
+                        ? "ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-buscoedu-blue px-4 py-3 text-white"
+                        : "max-w-[92%] rounded-2xl rounded-bl-md border border-buscoedu-border bg-buscoedu-bg/60 px-4 py-3 text-buscoedu-text"
+                    }
+                  >
                     {mensaje.autor === "naia" && <p className="mb-1 text-xs font-semibold text-buscoedu-teal">NaIA</p>}
-                    <p className="whitespace-pre-line text-base leading-relaxed">{mensaje.contenido}</p>
+                    {mensaje.autor === "naia" ? (
+                      <TypedText
+                        texto={mensaje.contenido}
+                        onStep={() => {
+                          historialRef.current?.scrollTo({
+                            top: historialRef.current.scrollHeight,
+                            behavior: "smooth",
+                          });
+                        }}
+                      />
+                    ) : (
+                      <p className="whitespace-pre-line text-base leading-relaxed">{mensaje.contenido}</p>
+                    )}
                   </div>
                 ))}
-                {estaCargando && <div className="flex items-center gap-3 rounded-2xl border border-buscoedu-border bg-buscoedu-bg/60 px-4 py-3 text-sm text-buscoedu-text"><span className="h-2.5 w-2.5 animate-pulse rounded-full bg-buscoedu-teal" />{estado === "interpretando" ? "NaIA está entendiendo tu búsqueda…" : "NaIA está consultando opciones vigentes…"}</div>}
+
+                {estaCargando && (
+                  <ThinkingIndicator
+                    texto={
+                      estado === "interpretando"
+                        ? "NaIA está entendiendo tu búsqueda…"
+                        : "NaIA está consultando opciones vigentes…"
+                    }
+                  />
+                )}
               </div>
+
               {!!respuesta?.opciones_sugeridas?.length && !estaCargando && (
-                <div className="shrink-0 border-t border-buscoedu-border pt-4" aria-label="Opciones para continuar">
+                <div className="shrink-0 rounded-2xl border border-buscoedu-border bg-slate-100 p-4" aria-label="Opciones para continuar">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-buscoedu-muted">Puedes continuar con</p>
                   <div className="flex flex-wrap gap-2">
-                  {respuesta.opciones_sugeridas.slice(0, 3).map((opcion) => (
-                    <button key={opcion} type="button" onClick={() => void buscar(opcion)} disabled={estaCargando} className="rounded-full border border-buscoedu-teal/40 bg-white px-3 py-2 text-sm font-medium text-buscoedu-blue transition hover:bg-buscoedu-teal/5 disabled:opacity-50">
-                      {opcion}
-                    </button>
-                  ))}
+                    {respuesta.opciones_sugeridas.slice(0, 3).map((opcion) => (
+                      <button
+                        key={opcion}
+                        type="button"
+                        onClick={() => void buscar(opcion)}
+                        disabled={estaCargando}
+                        className="rounded-full border border-buscoedu-teal/40 bg-white px-3 py-2 text-sm font-medium text-buscoedu-blue transition hover:bg-buscoedu-teal/5 disabled:opacity-50"
+                      >
+                        {opcion}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
+
+              {/* En desktop, los filtros activos se muestran bajo sugerencias y encima del input del chat. */}
+              <ActiveFiltersBar
+                chips={chipsFiltros}
+                onRemove={(clave) => void quitarFiltro(clave)}
+                onReset={() => void reiniciarBusqueda()}
+                className="mt-3 hidden lg:block"
+                showExploreButton={false}
+              />
+
+              {/* En móvil solo aparece el acceso a la ventana de resultados; los chips viven dentro del modal móvil. */}
+              <ActiveFiltersBar
+                chips={chipsFiltros}
+                onRemove={(clave) => void quitarFiltro(clave)}
+                onReset={() => void reiniciarBusqueda()}
+                className="mt-3 lg:hidden"
+                showExploreButton={mostrarResultados}
+                onExploreResults={() => setMostrarResultadosMovil(true)}
+              />
             </section>
           ) : (
-            <section className="mx-auto flex min-h-[calc(100vh-250px)] max-w-3xl flex-col justify-center pb-8">
+            <section className="mx-auto flex min-h-[calc(100dvh-250px)] max-w-3xl flex-col justify-center pb-8">
               <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-buscoedu-teal/10 text-2xl font-bold text-buscoedu-teal">N</span>
               <p className="mt-7 text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">Tu búsqueda educativa, acompañada</p>
               <h1 className="mt-3 max-w-2xl text-4xl font-bold tracking-tight text-buscoedu-blue sm:text-5xl">Hola, soy NaIA.</h1>
@@ -204,7 +407,20 @@ export default function NaiaSearchExperience() {
 
           <form onSubmit={enviar} className="absolute bottom-0 left-0 right-0 z-20 border-t border-buscoedu-border bg-white/95 px-5 py-3 backdrop-blur sm:px-8 lg:px-12">
             <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-2xl border border-buscoedu-border bg-white p-2 shadow-[0_10px_30px_rgba(17,45,84,0.12)]">
-              <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void buscar(input); } }} rows={1} placeholder="Cuéntale a NaIA qué estás buscando…" className="min-h-[48px] flex-1 resize-none bg-transparent px-3 py-3 text-base text-buscoedu-text outline-none placeholder:text-slate-400" aria-label="Mensaje para NaIA" />
+              <textarea
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void buscar(input);
+                  }
+                }}
+                rows={1}
+                placeholder="Cuéntale a NaIA qué buscas…"
+                className="min-h-[48px] flex-1 resize-none bg-transparent px-3 py-3 text-base text-buscoedu-text outline-none placeholder:text-sm placeholder:text-slate-400 sm:placeholder:text-base"
+                aria-label="Mensaje para NaIA"
+              />
               <button type="submit" disabled={!input.trim() || estaCargando} className="inline-flex h-11 items-center gap-2 rounded-xl bg-buscoedu-blue px-4 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50">
                 {estaCargando ? "Buscando" : "Enviar"}<span aria-hidden="true">→</span>
               </button>
@@ -212,38 +428,89 @@ export default function NaiaSearchExperience() {
           </form>
         </main>
 
-        <aside className="bg-[#f7f9fc] px-5 py-0 sm:px-8 lg:h-full lg:overflow-y-auto lg:px-6">
+        {/* En desktop los resultados permanecen visibles; en móvil se abren en modal dedicado. */}
+        <aside className="hidden bg-[#f7f9fc] px-5 py-0 sm:px-8 lg:block lg:h-full lg:min-h-0 lg:overflow-y-auto lg:px-6">
           <div className="mx-auto max-w-xl">
             <div className="sticky top-0 z-20 -mx-5 border-b border-buscoedu-border bg-[#f7f9fc] px-5 py-4 sm:-mx-8 sm:px-8 lg:-mx-6 lg:px-6">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">RESULTADOS</p>
-            <h2 className="mt-2 text-2xl font-bold text-buscoedu-blue">{mostrarResultados ? (estaCargando ? "Preparando opciones…" : `${total} opciones encontradas`) : "Tus opciones aparecerán aquí"}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-buscoedu-muted">{mostrarResultados ? "Abre una ficha para ver requisitos, beneficios y cómo aplicar." : "Cuando hables con NaIA, podrás comparar alternativas vigentes sin salir de la conversación."}</p>
-            </div>
-            {estaCargando ? <ResultSkeleton /> : ofertasOrdenadas.length > 0 ? (
-              <div className="mt-6">
-                <div className="divide-y divide-buscoedu-border overflow-hidden rounded-xl border border-buscoedu-border bg-white lg:hidden">
-                  {ofertasOrdenadas.map((oferta) => (
-                    <MobileOfferRow key={oferta.id} oferta={oferta} onOpen={() => setSeleccionada(oferta)} />
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">RESULTADOS</p>
+              <h2 className="mt-2 text-2xl font-bold text-buscoedu-blue">{tituloResultados}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-buscoedu-muted">{mostrarResultados ? "Abre una ficha para ver requisitos, beneficios y cómo aplicar." : "Cuando hables con NaIA, podrás comparar alternativas vigentes sin salir de la conversación."}</p>
+              <div className="mt-4">
+                <div className="flex flex-wrap gap-2">
+                  {ORDENES.map((opcionOrden) => (
+                    <button
+                      key={opcionOrden.id}
+                      type="button"
+                      onClick={() => setOrden(opcionOrden.id)}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                        orden === opcionOrden.id
+                          ? "border-buscoedu-blue bg-buscoedu-blue text-white"
+                          : "border-buscoedu-border bg-white text-buscoedu-muted hover:border-buscoedu-blue hover:text-buscoedu-blue"
+                      }`}
+                    >
+                      {opcionOrden.etiqueta}
+                    </button>
                   ))}
                 </div>
+              </div>
+            </div>
+
+            {estaCargando ? (
+              <ResultSkeleton />
+            ) : ofertasOrdenadas.length > 0 ? (
+              <div className="mt-6">
                 <div className="hidden gap-4 lg:grid">
-                  {ofertasOrdenadas.map((oferta) => <OfferCard key={oferta.id} oferta={oferta} onCardClick={() => setSeleccionada(oferta)} isInMyList={isInMyList(oferta.id)} onToggleMyList={() => alternarLista(oferta)} />)}
+                  {ofertasOrdenadas.map((oferta) => (
+                    <OfferCard
+                      key={oferta.id}
+                      oferta={oferta}
+                      onCardClick={() => setSeleccionada(oferta)}
+                      isInMyList={isInMyList(oferta.id)}
+                      onToggleMyList={() => alternarLista(oferta)}
+                    />
+                  ))}
                 </div>
-                {ofertas.length < total && <button type="button" onClick={() => void cargarMasResultados()} className="mt-5 w-full rounded-xl border border-buscoedu-blue bg-white px-4 py-3 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-blue hover:text-white">Mostrar 10 resultados más</button>}
+                {ofertas.length < total && (
+                  <button type="button" onClick={() => void cargarMasResultados()} className="mt-5 w-full rounded-xl border border-buscoedu-blue bg-white px-4 py-3 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-blue hover:text-white">
+                    Mostrar 10 resultados más
+                  </button>
+                )}
               </div>
             ) : mostrarResultados && estado === "listo" ? (
               <div className="mt-6 rounded-2xl border border-dashed border-buscoedu-border bg-white p-6 text-sm leading-relaxed text-buscoedu-muted">No encontramos una coincidencia exacta todavía. Cuéntale a NaIA otra alternativa de área, ciudad, modalidad o nivel para ampliar la búsqueda.</div>
-            ) : <EmptyResults />}
+            ) : (
+              <EmptyResults />
+            )}
           </div>
         </aside>
       </div>
+
+      {/* Modal móvil para explorar resultados sin salir del chat. */}
+      <MobileResultsModal
+        open={mostrarResultadosMovil}
+        onClose={() => setMostrarResultadosMovil(false)}
+        tituloResultados={tituloResultados}
+        mostrarResultados={mostrarResultados}
+        estaCargando={estaCargando}
+        estado={estado}
+        ofertas={ofertasOrdenadas}
+        total={total}
+        onOpenOffer={(oferta) => setSeleccionada(oferta)}
+        onLoadMore={() => void cargarMasResultados()}
+        chips={chipsFiltros}
+        onRemoveFilter={(clave) => void quitarFiltro(clave)}
+        onResetFilters={() => void reiniciarBusqueda()}
+      />
+
       <OfferDetailModal oferta={seleccionada} onClose={() => setSeleccionada(null)} />
     </div>
   );
 }
 
-function TypedText({ texto }: { texto: string }) {
+function TypedText({ texto, onStep }: { texto: string; onStep?: () => void }) {
   const [visible, setVisible] = useState("");
+
+  // Efecto de máquina de escribir para mensajes de NaIA.
   useEffect(() => {
     setVisible("");
     if (!texto) return;
@@ -255,7 +522,169 @@ function TypedText({ texto }: { texto: string }) {
     }, 14);
     return () => window.clearInterval(intervalo);
   }, [texto]);
-  return <p className="text-base leading-relaxed text-buscoedu-text" aria-live="polite">{visible}<span className={visible.length < texto.length ? "ml-0.5 inline-block h-4 border-l border-buscoedu-teal align-[-2px] animate-pulse" : ""} /></p>;
+
+  // Avisa al contenedor para mantener scroll pegado al final durante el tipeo.
+  useEffect(() => {
+    onStep?.();
+  }, [onStep, visible]);
+
+  return <p className="whitespace-pre-line text-base leading-relaxed text-buscoedu-text" aria-live="polite">{visible}<span className={visible.length < texto.length ? "ml-0.5 inline-block h-4 border-l border-buscoedu-teal align-[-2px] animate-pulse" : ""} /></p>;
+}
+
+function ThinkingIndicator({ texto }: { texto: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-buscoedu-border bg-buscoedu-bg/60 px-4 py-3 text-sm text-buscoedu-text">
+      {/* Animación de tres puntos para indicar pensamiento/consulta en curso. */}
+      <div className="flex items-center gap-1" aria-hidden="true">
+        <span className="h-2 w-2 animate-bounce rounded-full bg-buscoedu-teal [animation-delay:-0.25s]" />
+        <span className="h-2 w-2 animate-bounce rounded-full bg-buscoedu-teal [animation-delay:-0.15s]" />
+        <span className="h-2 w-2 animate-bounce rounded-full bg-buscoedu-teal" />
+      </div>
+      <span>{texto}</span>
+    </div>
+  );
+}
+
+function ActiveFiltersBar({
+  chips,
+  onRemove,
+  onReset,
+  className,
+  showExploreButton,
+  onExploreResults,
+}: {
+  chips: ChipFiltro[];
+  onRemove: (clave: keyof FiltrosOferta) => void;
+  onReset: () => void;
+  className?: string;
+  showExploreButton?: boolean;
+  onExploreResults?: () => void;
+}) {
+  return (
+    <div className={`rounded-xl border border-buscoedu-border bg-buscoedu-bg/70 p-3 ${className ?? ""}`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-buscoedu-muted">Filtros activos</p>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={onReset} className="text-xs font-semibold text-buscoedu-blue underline-offset-2 hover:underline">
+            Limpiar filtros
+          </button>
+          {showExploreButton && (
+            <button
+              type="button"
+              onClick={onExploreResults}
+              className="rounded-lg bg-buscoedu-blue px-3 py-1.5 text-xs font-semibold text-white"
+            >
+              Explorar resultados
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-2 overflow-x-auto">
+        <div className="flex min-w-max items-center gap-2 whitespace-nowrap pr-1">
+          {chips.length === 0 ? (
+            <span className="text-sm text-buscoedu-muted">No hay filtros aplicados.</span>
+          ) : (
+            chips.map((chip) => (
+              <button
+                key={chip.clave}
+                type="button"
+                onClick={() => onRemove(chip.clave)}
+                className="inline-flex items-center gap-2 rounded-full border border-buscoedu-teal/30 bg-white px-3 py-1 text-xs font-medium text-buscoedu-text"
+                title={`Quitar filtro ${chip.etiqueta}`}
+              >
+                <span>{chip.etiqueta}: <strong>{chip.valor}</strong></span>
+                <span className="text-buscoedu-muted" aria-hidden="true">✕</span>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileResultsModal({
+  open,
+  onClose,
+  tituloResultados,
+  mostrarResultados,
+  estaCargando,
+  estado,
+  ofertas,
+  total,
+  onOpenOffer,
+  onLoadMore,
+  chips,
+  onRemoveFilter,
+  onResetFilters,
+}: {
+  open: boolean;
+  onClose: () => void;
+  tituloResultados: string;
+  mostrarResultados: boolean;
+  estaCargando: boolean;
+  estado: EstadoBusqueda;
+  ofertas: OfertaAcademica[];
+  total: number;
+  onOpenOffer: (oferta: OfertaAcademica) => void;
+  onLoadMore: () => void;
+  chips: ChipFiltro[];
+  onRemoveFilter: (clave: keyof FiltrosOferta) => void;
+  onResetFilters: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-40 bg-black/50 p-3 lg:hidden">
+      <div className="flex h-full flex-col overflow-hidden rounded-2xl bg-white">
+        <div className="flex items-center justify-between border-b border-buscoedu-border px-4 py-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">RESULTADOS</p>
+            <h2 className="mt-1 text-lg font-bold text-buscoedu-blue">{tituloResultados}</h2>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-full p-2 text-buscoedu-text" aria-label="Cerrar resultados">
+            ✕
+          </button>
+        </div>
+
+        {/* En móvil, los chips editables viven dentro de esta ventana de resultados. */}
+        <ActiveFiltersBar
+          chips={chips}
+          onRemove={onRemoveFilter}
+          onReset={onResetFilters}
+          className="m-3"
+          showExploreButton={false}
+        />
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+          {estaCargando ? (
+            <ResultSkeleton />
+          ) : ofertas.length > 0 ? (
+            <div className="overflow-hidden rounded-xl border border-buscoedu-border bg-white">
+              {ofertas.map((oferta) => (
+                <MobileOfferRow key={oferta.id} oferta={oferta} onOpen={() => onOpenOffer(oferta)} />
+              ))}
+            </div>
+          ) : mostrarResultados && estado === "listo" ? (
+            <div className="mt-2 rounded-2xl border border-dashed border-buscoedu-border bg-white p-4 text-sm leading-relaxed text-buscoedu-muted">No encontré coincidencias todavía. Quita un filtro o amplía la búsqueda para ver más resultados.</div>
+          ) : (
+            <EmptyResults />
+          )}
+
+          {ofertas.length > 0 && ofertas.length < total && !estaCargando && (
+            <button
+              type="button"
+              onClick={onLoadMore}
+              className="mt-4 w-full rounded-xl border border-buscoedu-blue bg-white px-4 py-3 text-sm font-semibold text-buscoedu-blue"
+            >
+              Mostrar 10 resultados más
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ResultSkeleton() {
@@ -280,7 +709,7 @@ function MobileOfferRow({ oferta, onOpen }: { oferta: OfertaAcademica; onOpen: (
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-center gap-3 px-3 py-3 text-left transition hover:bg-buscoedu-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-buscoedu-blue focus-visible:ring-inset"
+      className="flex w-full items-center gap-3 border-b border-buscoedu-border px-3 py-3 text-left transition hover:bg-buscoedu-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-buscoedu-blue focus-visible:ring-inset"
       aria-label={`Abrir ${oferta.programa?.nombre || oferta.nombre}, ${universityName}`}
     >
       <span

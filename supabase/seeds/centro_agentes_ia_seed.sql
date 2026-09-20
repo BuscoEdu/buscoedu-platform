@@ -154,7 +154,7 @@ INSERT INTO public.componentes_contexto_ia (codigo, nombre, tipo_contexto, conte
     "universidad": "valor o null"
   },
   "pregunta_seguimiento": "Una pregunta breve para continuar la conversación o null",
-  "opciones_sugeridas": ["opción 1", "opción 2", "Explorar el filtro actual"],
+  "opciones_sugeridas": ["opción 1", "opción 2", "Explorar resultados"],
   "conversationId": "el conversationId recibido o null"
 }
 No incluyas markdown, bloques de código ni explicaciones fuera del JSON.',

@@ -32,7 +32,8 @@ interface NaiaChatPanelProps {
   showMobileExploreButton?: boolean;
 }
 
-const ACTION_EXPLORE_CURRENT = 'Explorar el filtro actual';
+// Etiqueta unificada para abrir la ventana de resultados en móvil.
+const ACTION_EXPLORE_CURRENT = 'Explorar resultados';
 
 function sanitizeTone(text: string): string {
   if (!text) return '';
