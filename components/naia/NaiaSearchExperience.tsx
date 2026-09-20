@@ -475,8 +475,21 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
               </div>
             </form>
 
+            {/* Botón Explorar Resultados — solo móvil, cuando hay resultados disponibles */}
+            {mostrarResultados && !estaCargando && (
+              <div className="mt-3 lg:hidden">
+                <button
+                  type="button"
+                  onClick={() => setMostrarResultadosMovil(true)}
+                  className="w-full rounded-xl bg-buscoedu-blue px-4 py-3 text-sm font-semibold text-white"
+                >
+                  Explorar Resultados →
+                </button>
+              </div>
+            )}
+
             {sugerenciasParaMostrar.length > 0 && !estaCargando && (
-              <div className="mx-auto mt-3 max-w-3xl border-t border-buscoedu-border/80 pt-3" aria-label="Opciones debajo del input">
+              <div className="mx-auto mt-3 hidden max-w-3xl border-t border-buscoedu-border/80 pt-3 lg:block" aria-label="Opciones debajo del input">
                 <div className="rounded-2xl border border-buscoedu-border bg-slate-100 p-4">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-buscoedu-muted">Puedes continuar con</p>
                   <div className="flex gap-2 overflow-x-auto pb-1">
@@ -535,7 +548,7 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
               <ResultSkeleton />
             ) : ofertasOrdenadas.length > 0 ? (
               <div className="mt-6">
-                <div className="grid gap-4">
+                <div className={`grid gap-4 ${layoutVariant === "explorar" ? "sm:grid-cols-2 xl:grid-cols-3" : ""}`}>
                   {ofertasOrdenadas.map((oferta) => (
                     <OfferCard
                       key={oferta.id}

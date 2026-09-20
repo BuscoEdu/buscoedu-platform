@@ -119,17 +119,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8" id="para-universidades">
-        <SectionHeading
-          eyebrow="Para universidades"
-          title="Conectamos intención educativa con consentimiento"
-          description="BuscoEdu ayuda a universidades aliadas a recibir oportunidades con contexto de interés, siempre respetando el consentimiento expreso de cada persona."
-        />
-        <Link href="/para-universidades" className="inline-flex text-sm font-semibold text-buscoedu-blue underline">
-          Conocer propuesta para universidades
-        </Link>
-      </section>
-
       <section className="rounded-xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8" id="privacidad-consentimiento">
         <SectionHeading
           eyebrow="Privacidad y consentimiento"
