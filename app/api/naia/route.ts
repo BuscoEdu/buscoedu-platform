@@ -35,7 +35,8 @@ function fallback(conversationId?: string, mensaje?: string): NaiaPayload {
     filtros: {},
     pregunta_seguimiento:
       '¿Qué criterio quieres ajustar primero: área, modalidad, ciudad, nivel o beneficio?',
-    opciones_sugeridas: ['Quiero ajustar modalidad', 'Quiero ajustar ciudad', 'Explorar el filtro actual'],
+    // Mantiene consistencia de copy con el botón móvil de resultados.
+    opciones_sugeridas: ['Quiero ajustar modalidad', 'Quiero ajustar ciudad', 'Explorar resultados'],
     conversationId
   };
 }

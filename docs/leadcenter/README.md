@@ -68,6 +68,15 @@ La migración necesaria es `supabase/migrations/20260904010000_tipos_oportunidad
 
 Ver `PRODUCTION_VERIFICATION.md`. Ninguna clave está hardcodeada.
 
+## Ajustes UX de NaIA relacionados con conversión (2026-09-20)
+
+- El chat de `/naia` ahora informa siempre el conteo de resultados y comunica explícitamente cuando hay `0 resultados`.
+- Se habilitó limpieza de filtros y chips editables para evitar arrastre de contexto entre búsquedas.
+- En móvil, los resultados se consultan en ventana separada (`Explorar resultados`), manteniendo el chat como flujo principal.
+- El modal de detalle de oferta se adaptó para no exceder ancho de pantalla, reduciendo fricción en apertura de ficha.
+- Indicador de pensamiento y efecto de tipeo mejoran feedback percibido antes de conversión.
+- Diagnóstico vigente para Derecho: no es un fallo de NaIA/CRM, sino datos vencidos (`vigente_hasta=2026-08-15`); no se modificó la lógica de vigencia.
+
 ## Principios no negociables respetados
 
 * Nunca se borran ni renombran tablas/columnas; sólo se extienden.

@@ -6,22 +6,26 @@ BuscoEdu (www.buscoedu.com) es una plataforma de orientación educativa neutral 
 
 **NaIA** es la asesora virtual de BuscoEdu que ayuda a las personas a expresar lo que buscan, transforma esa intención en filtros de búsqueda visibles, explica resultados y acompaña la exploración.
 
-## Estado actual — 6 de septiembre de 2026
+## Estado actual — 20 de septiembre de 2026
 
-* NaIA usa configuración de agente, versión, contexto, canal y despliegue resueltos desde la base de datos; una versión sin prueba, contexto, canal o despliegue no puede publicarse.
-* La experiencia web de NaIA conserva el chat inferior, muestra la respuesta de forma progresiva, ofrece tres continuaciones rápidas y presenta resultados en una columna con carga de diez en diez.
-* El CRM comparte las tablas existentes para oportunidades de estudiantes y de universidades. La migración `20260904010000_tipos_oportunidad_universidad.sql` agrega `tipo_oportunidad` y `codigo`, crea automáticamente la oportunidad institucional al registrar una universidad y evita aplicar automatizaciones B2C a ella.
-* Demo WApp muestra una sesión por oportunidad, incorpora el mensaje del estudiante de forma inmediata y se desplaza al último mensaje al recibir la respuesta de NaIA.
-* El super administrador puede editar los datos de una persona desde su ficha. La guía de gobierno de agentes enlaza cada uno de sus ocho pasos con la pantalla operativa correspondiente.
-* La búsqueda de programas resuelve coincidencias en `nombre_oficial`, `nombre_corto`, `titulo_otorgado` y área de conocimiento. Esto evita que programas como Derecho desaparezcan cuando la carga académica usa un campo alternativo.
-* El funnel incorpora cierres auditados: `Ganada` y `Perdida` pueden ejecutarse desde cualquier etapa, siempre terminando en `Cerrada`; los requisitos y causas se parametrizan en `/admin/funnel/cierres`.
-* La ficha de oportunidad conserva la línea de tiempo y ofrece `Cerrar oportunidad` y `Reabrir oportunidad`; ambos flujos requieren validación, cancelación explícita y registro histórico.
+* NaIA mantiene configuración de agente, versión, contexto, canal y despliegue desde base de datos; una versión sin prueba/contexto/canal/despliegue no puede publicarse.
+* La experiencia `/naia` ahora encaja sin scroll vertical general en desktop: el layout usa `100dvh` con `overflow-hidden`, y solo chat/listados internos hacen scroll.
+* Todas las respuestas de NaIA incluyen conteo de resultados. Cuando el total es 0, NaIA responde explícitamente que no encontró coincidencias y sugiere ampliar o limpiar filtros.
+* Se activó efecto máquina de escribir para los mensajes de NaIA y se mantuvo el autoscroll del historial durante la animación.
+* Se agregó una barra de filtros activos editable (chips removibles + botón `Limpiar filtros`). En móvil, esta barra vive dentro de la ventana de resultados.
+* La sección `Puedes continuar con…` quedó resaltada con fondo tenue y bordes para visibilidad.
+* En móvil, el placeholder del chat se acortó a `Cuéntale a NaIA qué buscas…` y se ajustó tipografía de placeholder para evitar doble línea.
+* En móvil, los resultados se abren en ventana adicional desde el botón `Explorar resultados`; en desktop continúan visibles en panel derecho.
+* El indicador de espera `NaIA está entendiendo.../consultando...` ahora usa animación de puntos en movimiento.
+* `OfferDetailModal` fue ajustado para no exceder el viewport: `max-w-[calc(100vw-1rem)]`, `min-w-0`, `overflow-x-hidden` y `break-words`.
+* **Diagnóstico Derecho (confirmado 2026-09-20):** existen 9 ofertas activas/publicadas/validadas del área Derecho, pero todas tienen `vigente_hasta=2026-08-15`. Como la lógica exige vigencia (`vigente_hasta >= hoy`), el resultado correcto es 0. **No se cambió la lógica de vigencia**; la corrección requerida es de datos en Supabase.
+* El CRM mantiene la migración `20260904010000_tipos_oportunidad_universidad.sql`: agrega `tipo_oportunidad` y `codigo`, crea automáticamente oportunidad institucional y evita automatizaciones B2C para universidades.
 
 ### Checklist de verificación después del despliegue
 
-- [ ] Ejecutar una búsqueda pública de `Derecho` y confirmar que devuelve ofertas publicadas y validadas.
-- [ ] Repetir la búsqueda con `derecho`, `DERECHO` y `ciencias jurídicas`.
-- [ ] Abrir una oferta y confirmar programa, universidad, sede y modalidad.
+- [ ] Ejecutar una búsqueda pública de `Derecho` y confirmar que actualmente devuelve **0 resultados** por vigencia vencida en datos (`vigente_hasta=2026-08-15`).
+- [ ] Repetir la búsqueda con `derecho`, `DERECHO` y `ciencias jurídicas`, validando el mismo comportamiento hasta actualizar datos.
+- [ ] Tras actualizar vigencias en Supabase, abrir una oferta y confirmar programa, universidad, sede y modalidad.
 - [ ] Verificar que filtros de nivel, modalidad y ubicación continúan combinándose con la búsqueda.
 - [ ] Revisar la consola del navegador y los logs de Supabase: no debe aparecer error de columna ni consulta PostgREST inválida.
 - [ ] Confirmar que los cambios de funnel y sus reglas se conservan después de recargar la página.

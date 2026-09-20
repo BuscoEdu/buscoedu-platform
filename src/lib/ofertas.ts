@@ -453,6 +453,10 @@ export async function obtenerOfertas(
     const from = safePage * safeSize;
     const to = from + safeSize - 1;
 
+    // Regla de vigencia obligatoria:
+    // se mantienen fuera las ofertas vencidas. Ejemplo diagnosticado (2026-09-20):
+    // en Derecho había ofertas activas/publicadas/validadas con vigente_hasta=2026-08-15,
+    // por lo que deben devolver 0 resultados hasta actualizar datos en BD.
     let query = supabase
       .from('ofertas_academicas')
       .select(SELECT_OFERTAS, { count: 'exact' })

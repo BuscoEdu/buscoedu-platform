@@ -75,7 +75,13 @@ Aplicar en Supabase (SQL Editor o CLI) las 11 migraciones nuevas del panel admin
 ### Opción Supabase CLI (si está configurado)
 - Ejecutar el pipeline de migraciones del proyecto y confirmar estado final sin pendientes.
 
-## 7. Troubleshooting
+## 7. Cambios recientes que impactan operación (2026-09-20)
+- La experiencia `/naia` ahora muestra siempre el conteo de resultados y permite limpiar filtros desde UI sin depender del chat.
+- En móvil, los resultados abren en una ventana independiente (`Explorar resultados`), por lo que QA debe validar chat y resultados como dos vistas separadas.
+- El diagnóstico del área Derecho sigue siendo de datos vencidos (`vigente_hasta=2026-08-15`), no de lógica. Si se desea reactivar esas ofertas, la corrección es actualizar vigencias desde administración/SQL en Supabase.
+- La ficha `OfferDetailModal` fue reforzada para no desbordar ancho de viewport en móvil ni desktop.
+
+## 8. Troubleshooting
 ### Error: "No tienes acceso"
 - Verificar que el usuario exista en `usuarios_internos`.
 - Verificar que `rol_id` apunte a `roles.codigo = 'super_admin'`.

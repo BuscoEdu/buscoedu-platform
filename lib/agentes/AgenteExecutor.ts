@@ -44,18 +44,18 @@ function limpiarTono(texto: string): string {
 function opcionesDeterministas(anchor: string): string[] {
   const text = (anchor || '').toLowerCase();
   if (text.includes('pregrado') && text.includes('posgrado')) {
-    return ['Me interesa pregrado', 'Me interesa posgrado', 'Explorar el filtro actual'];
+    return ['Me interesa pregrado', 'Me interesa posgrado', 'Explorar resultados'];
   }
   if (text.includes('modalidad')) {
-    return ['Prefiero modalidad virtual', 'Prefiero modalidad presencial', 'Explorar el filtro actual'];
+    return ['Prefiero modalidad virtual', 'Prefiero modalidad presencial', 'Explorar resultados'];
   }
   if (text.includes('ciudad') || text.includes('ubicación') || text.includes('pais')) {
-    return ['Quiero estudiar en Bogotá', 'Estoy abierto a cualquier ciudad', 'Explorar el filtro actual'];
+    return ['Quiero estudiar en Bogotá', 'Estoy abierto a cualquier ciudad', 'Explorar resultados'];
   }
   if (text.includes('beneficio') || text.includes('beca') || text.includes('descuento')) {
-    return ['Quiero opciones con beca', 'Quiero opciones con descuento', 'Explorar el filtro actual'];
+    return ['Quiero opciones con beca', 'Quiero opciones con descuento', 'Explorar resultados'];
   }
-  return ['Quiero filtrar por modalidad', 'Quiero ajustar por ciudad', 'Explorar el filtro actual'];
+  return ['Quiero filtrar por modalidad', 'Quiero ajustar por ciudad', 'Explorar resultados'];
 }
 
 function normalizarOpciones(raw: unknown, anchor: string): string[] {
@@ -63,7 +63,7 @@ function normalizarOpciones(raw: unknown, anchor: string): string[] {
     ? raw.filter((x) => typeof x === 'string' && x.trim()).map((x) => (x as string).trim())
     : [];
   if (opciones.length >= 2) {
-    return [opciones[0], opciones[1], 'Explorar el filtro actual'];
+    return [opciones[0], opciones[1], 'Explorar resultados'];
   }
   return opcionesDeterministas(anchor);
 }
