@@ -8,6 +8,17 @@ BuscoEdu (www.buscoedu.com) es una plataforma de orientación educativa neutral 
 
 ## Estado actual — 20 de septiembre de 2026
 
+### Actualización Ronda 2 (NaIA UX web/móvil + detalle de fichas)
+
+* En `/naia` se recalcula dinámicamente la altura útil de escritorio (`header + contenido NaIA + footer`) para mantener visible el footer sin saltos de página durante la conversación.
+* Se añadió un separador visual entre el historial del chat y el bloque `Puedes continuar con`, evitando que ambos bloques queden pegados.
+* En móvil, el chat ya no muestra chips de filtros: los filtros activos viven solo en la ventana de resultados, con mejor aprovechamiento del alto útil del chat.
+* El placeholder del input quedó en `Pregúntale a NaIA` para asegurar una sola línea en móvil.
+* La ventana móvil de resultados conserva botón de cierre explícito (`X`) con mayor contraste táctil.
+* `OfferDetailModal` ahora queda totalmente contenido dentro del viewport móvil (`max-h` + `overflow` interno).
+* Se amplió la altura de rebote del indicador de `pensando` para feedback visual más claro.
+* NaIA recibe contexto de ofertas visibles (filtros + fichas resumidas) desde frontend/backend para responder preguntas de detalle de universidad/oferta sin inventar datos.
+
 * NaIA mantiene configuración de agente, versión, contexto, canal y despliegue desde base de datos; una versión sin prueba/contexto/canal/despliegue no puede publicarse.
 * La experiencia `/naia` ahora encaja sin scroll vertical general en desktop: el layout usa `100dvh` con `overflow-hidden`, y solo chat/listados internos hacen scroll.
 * Todas las respuestas de NaIA incluyen conteo de resultados. Cuando el total es 0, NaIA responde explícitamente que no encontró coincidencias y sugiere ampliar o limpiar filtros.

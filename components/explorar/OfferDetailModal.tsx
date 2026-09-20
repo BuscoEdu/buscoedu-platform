@@ -128,10 +128,10 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
         role="dialog"
         aria-modal="true"
         aria-labelledby="detail-modal-title"
-        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-2 sm:p-4"
+        className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden p-2 sm:items-center sm:overflow-y-auto sm:p-4"
       >
         <div
-          className="my-4 w-full min-w-0 max-w-[calc(100vw-1rem)] overflow-x-hidden rounded-lg border-t-4 bg-white shadow-2xl sm:my-8 sm:max-w-3xl xl:max-w-4xl"
+          className="my-0 flex max-h-[calc(100dvh-1rem)] w-full min-w-0 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-lg border-t-4 bg-white shadow-2xl sm:my-8 sm:max-h-[calc(100dvh-2rem)] sm:max-w-3xl xl:max-w-4xl"
           style={{ borderTopColor: universityBorderColor }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -194,7 +194,7 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
           </div>
 
           {/* Contenido con break-words y overflow controlado para evitar scroll lateral. */}
-          <div className="max-h-[calc(100dvh-16rem)] space-y-6 overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6">
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6">
             {oferta.descripcion && (
               <section>
                 <h3 className="mb-3 text-lg font-bold text-buscoedu-blue">Información académica</h3>

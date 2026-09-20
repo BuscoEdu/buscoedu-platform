@@ -22,6 +22,44 @@ export interface NaiaResponse {
   conversationId?: string;
 }
 
+/**
+ * Resumen compacto de una oferta para enriquecer el contexto conversacional de NaIA.
+ */
+export interface NaiaOfertaContexto {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  vigente_desde?: string;
+  vigente_hasta?: string;
+  cupos_disponibles?: number;
+  tipo_beneficio?: string;
+  programa?: {
+    nombre?: string;
+    nivel_academico?: string;
+    duracion?: string;
+    modalidad?: string;
+    area?: string;
+  };
+  universidad?: {
+    nombre?: string;
+  };
+  sede?: {
+    nombre?: string;
+    ciudad?: string;
+    pais?: string;
+  };
+  beneficios?: Array<{
+    tipo?: string;
+    descripcion?: string;
+  }>;
+}
+
+export interface NaiaContextoConversacion {
+  filtros_actuales?: Record<string, string>;
+  total_resultados?: number;
+  ofertas_relevantes?: NaiaOfertaContexto[];
+}
+
 // Respuesta segura ante cualquier fallo de red o del servidor.
 function respuestaFallback(conversationId?: string): NaiaResponse {
   return {
@@ -37,16 +75,18 @@ function respuestaFallback(conversationId?: string): NaiaResponse {
  * Envía un mensaje a NaIA y devuelve su respuesta estructurada.
  * @param mensaje        Texto escrito por el usuario.
  * @param conversationId ID de conversación para mantener el contexto (opcional).
+ * @param contexto       Contexto de resultados/filtros visibles para responder dudas de detalle.
  */
 export async function callNaia(
   mensaje: string,
-  conversationId?: string
+  conversationId?: string,
+  contexto?: NaiaContextoConversacion
 ): Promise<NaiaResponse> {
   try {
     const res = await fetch('/api/naia', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mensaje, conversationId }),
+      body: JSON.stringify({ mensaje, conversationId, contexto_ofertas: contexto }),
     });
 
     if (!res.ok) {

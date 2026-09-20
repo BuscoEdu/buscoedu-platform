@@ -82,6 +82,7 @@ export default function NaiaSearchExperience() {
   const [seleccionada, setSeleccionada] = useState<OfertaAcademica | null>(null);
   const [mensajes, setMensajes] = useState<MensajeChat[]>([]);
   const [mostrarResultadosMovil, setMostrarResultadosMovil] = useState(false);
+  const [alturaLayoutDesktop, setAlturaLayoutDesktop] = useState<number | null>(null);
   const historialRef = useRef<HTMLDivElement>(null);
 
   /**
@@ -110,6 +111,42 @@ export default function NaiaSearchExperience() {
     sessionStorage.setItem(NAIA_CHAT_STATE_KEY, JSON.stringify({ conversationId, mensajes }));
     historialRef.current?.scrollTo({ top: historialRef.current.scrollHeight, behavior: "smooth" });
   }, [conversationId, mensajes]);
+
+  /**
+   * Calcula una altura robusta en escritorio para mantener visible el footer
+   * y evitar saltos de scroll en la página completa.
+   */
+  useEffect(() => {
+    const recalcularAltura = () => {
+      if (window.innerWidth < 1024) {
+        setAlturaLayoutDesktop(null);
+        return;
+      }
+
+      const header = document.querySelector("header");
+      const footer = document.querySelector("footer");
+      const altoHeader = header?.getBoundingClientRect().height ?? 0;
+      const altoFooter = footer?.getBoundingClientRect().height ?? 0;
+      const margenSeguridad = 24;
+      const disponible = Math.floor(window.innerHeight - altoHeader - altoFooter - margenSeguridad);
+
+      setAlturaLayoutDesktop(Math.max(260, disponible));
+    };
+
+    recalcularAltura();
+    window.addEventListener("resize", recalcularAltura);
+
+    const header = document.querySelector("header");
+    const footer = document.querySelector("footer");
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(recalcularAltura) : null;
+    if (observer && header) observer.observe(header);
+    if (observer && footer) observer.observe(footer);
+
+    return () => {
+      window.removeEventListener("resize", recalcularAltura);
+      observer?.disconnect();
+    };
+  }, []);
 
   /**
    * Ejecuta consulta de ofertas y actualiza resultados de forma consistente.
@@ -144,7 +181,7 @@ export default function NaiaSearchExperience() {
     setEstado("interpretando");
 
     try {
-      const siguienteRespuesta = await callNaia(texto, conversationId);
+      const siguienteRespuesta = await callNaia(texto, conversationId, construirContextoOfertasParaNaia(ofertas, filtrosActuales, total));
       setRespuesta(siguienteRespuesta);
       setConversationId(siguienteRespuesta.conversationId);
 
@@ -281,6 +318,34 @@ export default function NaiaSearchExperience() {
       }));
   }, [filtrosActuales]);
 
+  /**
+   * Prepara contexto de fichas para que NaIA responda preguntas de detalle
+   * (universidad, modalidad, beneficios, vigencia, etc.) sin inventar datos.
+   */
+  const construirContextoOfertasParaNaia = (
+    listaOfertas: OfertaAcademica[],
+    filtros: FiltrosOferta,
+    totalResultados: number
+  ) => ({
+    filtros_actuales: Object.fromEntries(
+      Object.entries(filtros).filter(([, valor]) => typeof valor === "string" && valor.trim())
+    ) as Record<string, string>,
+    total_resultados: totalResultados,
+    ofertas_relevantes: listaOfertas.slice(0, 8).map((oferta) => ({
+      id: oferta.id,
+      nombre: oferta.nombre,
+      descripcion: oferta.descripcion,
+      vigente_desde: oferta.vigente_desde,
+      vigente_hasta: oferta.vigente_hasta,
+      cupos_disponibles: oferta.cupos_disponibles,
+      tipo_beneficio: oferta.tipo_beneficio,
+      programa: oferta.programa,
+      universidad: oferta.universidad,
+      sede: oferta.sede,
+      beneficios: oferta.beneficios,
+    })),
+  });
+
   const mostrarResultados = estado !== "inicio";
   const estaCargando = estado === "interpretando" || estado === "consultando";
 
@@ -301,12 +366,15 @@ export default function NaiaSearchExperience() {
     : "Tus opciones aparecerán aquí";
 
   return (
-    <div className="bg-[#f7f9fc] lg:h-[calc(100dvh-73px)] lg:overflow-hidden">
+    <div
+      className="bg-[#f7f9fc] lg:mb-8 lg:overflow-hidden lg:pb-3"
+      style={alturaLayoutDesktop ? { height: `${alturaLayoutDesktop}px` } : undefined}
+    >
       {/* Layout principal sin scroll vertical global en desktop. */}
       <div className="mx-auto grid w-full max-w-[1600px] lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1.65fr)_minmax(360px,0.85fr)]">
         <main className="relative min-h-[calc(100dvh-73px)] border-b border-buscoedu-border bg-white px-5 pb-28 pt-6 sm:px-8 lg:h-full lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:border-r lg:px-12 lg:pb-24 lg:pt-8">
           {mostrarResultados ? (
-            <section className="mx-auto flex h-[calc(100dvh-150px)] max-w-3xl min-h-0 flex-col lg:h-full">
+            <section className="mx-auto flex h-[calc(100dvh-150px)] max-w-3xl min-h-0 flex-col lg:h-full lg:max-h-full">
               <div className="mb-4 shrink-0">
                 <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">Conversación con NaIA</p>
                 <h1 className="mt-1 text-2xl font-bold tracking-tight text-buscoedu-blue">Tu búsqueda educativa</h1>
@@ -351,20 +419,22 @@ export default function NaiaSearchExperience() {
               </div>
 
               {!!respuesta?.opciones_sugeridas?.length && !estaCargando && (
-                <div className="shrink-0 rounded-2xl border border-buscoedu-border bg-slate-100 p-4" aria-label="Opciones para continuar">
+                <div className="mt-2 shrink-0 border-t border-buscoedu-border/80 pt-4" aria-label="Separador y opciones de continuación">
+                  <div className="rounded-2xl border border-buscoedu-border bg-slate-100 p-4" aria-label="Opciones para continuar">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-buscoedu-muted">Puedes continuar con</p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex gap-2 overflow-x-auto pb-1">
                     {respuesta.opciones_sugeridas.slice(0, 3).map((opcion) => (
                       <button
                         key={opcion}
                         type="button"
                         onClick={() => void buscar(opcion)}
                         disabled={estaCargando}
-                        className="rounded-full border border-buscoedu-teal/40 bg-white px-3 py-2 text-sm font-medium text-buscoedu-blue transition hover:bg-buscoedu-teal/5 disabled:opacity-50"
+                        className="shrink-0 rounded-full border border-buscoedu-teal/40 bg-white px-3 py-2 text-sm font-medium text-buscoedu-blue transition hover:bg-buscoedu-teal/5 disabled:opacity-50"
                       >
                         {opcion}
                       </button>
                     ))}
+                  </div>
                   </div>
                 </div>
               )}
@@ -378,14 +448,12 @@ export default function NaiaSearchExperience() {
                 showExploreButton={false}
               />
 
-              {/* En móvil solo aparece el acceso a la ventana de resultados; los chips viven dentro del modal móvil. */}
-              <ActiveFiltersBar
-                chips={chipsFiltros}
-                onRemove={(clave) => void quitarFiltro(clave)}
-                onReset={() => void reiniciarBusqueda()}
+              {/* En móvil evitamos mostrar chips dentro del chat para liberar altura útil. */}
+              <MobileQuickActions
                 className="mt-3 lg:hidden"
-                showExploreButton={mostrarResultados}
+                onReset={() => void reiniciarBusqueda()}
                 onExploreResults={() => setMostrarResultadosMovil(true)}
+                showExploreButton={mostrarResultados}
               />
             </section>
           ) : (
@@ -417,7 +485,7 @@ export default function NaiaSearchExperience() {
                   }
                 }}
                 rows={1}
-                placeholder="Cuéntale a NaIA qué buscas…"
+                placeholder="Pregúntale a NaIA"
                 className="min-h-[48px] flex-1 resize-none bg-transparent px-3 py-3 text-base text-buscoedu-text outline-none placeholder:text-sm placeholder:text-slate-400 sm:placeholder:text-base"
                 aria-label="Mensaje para NaIA"
               />
@@ -534,13 +602,19 @@ function TypedText({ texto, onStep }: { texto: string; onStep?: () => void }) {
 function ThinkingIndicator({ texto }: { texto: string }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-buscoedu-border bg-buscoedu-bg/60 px-4 py-3 text-sm text-buscoedu-text">
-      {/* Animación de tres puntos para indicar pensamiento/consulta en curso. */}
+      {/* Rebote ampliado: cada punto sube más para dar mayor sensación de actividad. */}
       <div className="flex items-center gap-1" aria-hidden="true">
-        <span className="h-2 w-2 animate-bounce rounded-full bg-buscoedu-teal [animation-delay:-0.25s]" />
-        <span className="h-2 w-2 animate-bounce rounded-full bg-buscoedu-teal [animation-delay:-0.15s]" />
-        <span className="h-2 w-2 animate-bounce rounded-full bg-buscoedu-teal" />
+        <span className="h-2 w-2 rounded-full bg-buscoedu-teal" style={{ animation: "naiaDotBounceHigh 0.82s infinite", animationDelay: "-0.24s" }} />
+        <span className="h-2 w-2 rounded-full bg-buscoedu-teal" style={{ animation: "naiaDotBounceHigh 0.82s infinite", animationDelay: "-0.12s" }} />
+        <span className="h-2 w-2 rounded-full bg-buscoedu-teal" style={{ animation: "naiaDotBounceHigh 0.82s infinite" }} />
       </div>
       <span>{texto}</span>
+      <style jsx>{`
+        @keyframes naiaDotBounceHigh {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-9px); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -604,6 +678,38 @@ function ActiveFiltersBar({
   );
 }
 
+function MobileQuickActions({
+  className,
+  onReset,
+  onExploreResults,
+  showExploreButton,
+}: {
+  className?: string;
+  onReset: () => void;
+  onExploreResults?: () => void;
+  showExploreButton?: boolean;
+}) {
+  return (
+    <div className={`rounded-xl border border-buscoedu-border bg-buscoedu-bg/70 p-3 ${className ?? ""}`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-buscoedu-muted">Acciones rápidas</p>
+        <button type="button" onClick={onReset} className="text-xs font-semibold text-buscoedu-blue underline-offset-2 hover:underline">
+          Limpiar filtros
+        </button>
+      </div>
+      {showExploreButton && (
+        <button
+          type="button"
+          onClick={onExploreResults}
+          className="mt-3 w-full rounded-lg bg-buscoedu-blue px-3 py-2 text-xs font-semibold text-white"
+        >
+          Explorar resultados
+        </button>
+      )}
+    </div>
+  );
+}
+
 function MobileResultsModal({
   open,
   onClose,
@@ -643,8 +749,13 @@ function MobileResultsModal({
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">RESULTADOS</p>
             <h2 className="mt-1 text-lg font-bold text-buscoedu-blue">{tituloResultados}</h2>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full p-2 text-buscoedu-text" aria-label="Cerrar resultados">
-            ✕
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-buscoedu-border text-sm font-bold text-buscoedu-text"
+            aria-label="Cerrar resultados"
+          >
+            X
           </button>
         </div>
 

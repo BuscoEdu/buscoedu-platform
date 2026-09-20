@@ -70,6 +70,9 @@ Ver `PRODUCTION_VERIFICATION.md`. Ninguna clave está hardcodeada.
 
 ## Ajustes UX de NaIA relacionados con conversión (2026-09-20)
 
+- En escritorio, `/naia` ajusta altura disponible para mantener el footer visible sin saltos de scroll global al conversar.
+- NaIA incorpora contexto de fichas visibles para contestar dudas de detalle dentro del chat (modalidad, duración, ubicación, beneficios y vigencia).
+- Si un campo no existe en catálogo (por ejemplo costo/matrícula exacta), NaIA debe explicitarlo sin inventar valores.
 - El chat de `/naia` ahora informa siempre el conteo de resultados y comunica explícitamente cuando hay `0 resultados`.
 - Se habilitó limpieza de filtros y chips editables para evitar arrastre de contexto entre búsquedas.
 - En móvil, los resultados se consultan en ventana separada (`Explorar resultados`), manteniendo el chat como flujo principal.
