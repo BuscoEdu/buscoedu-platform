@@ -20,6 +20,14 @@
 - [ ] Verificar que `OfferDetailModal` no desborde alto en móvil y use scroll interno.
 - [ ] Verificar mayor amplitud del rebote en indicador de `NaIA está pensando`.
 - [ ] Verificar respuestas de detalle de oferta (universidad/modalidad/beneficios/vigencia) sin invención de datos.
+- [ ] Verificar que NaIA NO responda siempre el fallback genérico tras despliegue (prueba 3 preguntas distintas).
+- [ ] Verificar que el bloque `Puedes continuar con` esté debajo del input (desktop y móvil).
+- [ ] Verificar que el chat no muestre chips/filtros y que esos chips aparezcan solo en resultados.
+- [ ] Verificar franja disclaimer entre experiencia NaIA y footer, y ausencia de ese texto en footer.
+- [ ] Verificar en móvil que resultados NaIA abren full-screen, con `Volver al chat` sticky y header global oculto.
+- [ ] Verificar `/explorar` con layout heredado de NaIA y mayor área para resultados.
+- [ ] Verificar `/universidades` completa (13 secciones, FAQ acordeón, CTA repetido y formulario funcional).
+- [ ] Confirmar inserción en tabla `contactos_universidades` al enviar formulario B2B.
 
 ## Deployment Steps
 1. **Push a GitHub**

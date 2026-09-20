@@ -148,24 +148,29 @@ function construirBloqueContextoOfertas(entrada: EntradaEjecucion): string {
     : undefined;
 
   const ofertas = Array.isArray(contexto.ofertas_relevantes)
-    ? contexto.ofertas_relevantes.slice(0, 8).map((oferta) => ({
-        id: oferta.id,
-        nombre: oferta.nombre,
-        descripcion: oferta.descripcion,
-        vigente_desde: oferta.vigente_desde,
-        vigente_hasta: oferta.vigente_hasta,
-        cupos_disponibles: oferta.cupos_disponibles,
-        tipo_beneficio: oferta.tipo_beneficio,
-        programa: oferta.programa,
-        universidad: oferta.universidad,
-        sede: oferta.sede,
-        beneficios: oferta.beneficios
-      }))
+    ? contexto.ofertas_relevantes
+        .slice(0, 8)
+        .filter((oferta) => typeof oferta?.nombre === 'string' && oferta.nombre.trim())
+        .map((oferta) => ({
+          id: oferta.id,
+          nombre: oferta.nombre,
+          descripcion: oferta.descripcion,
+          vigente_desde: oferta.vigente_desde,
+          vigente_hasta: oferta.vigente_hasta,
+          cupos_disponibles: oferta.cupos_disponibles,
+          tipo_beneficio: oferta.tipo_beneficio,
+          programa: oferta.programa,
+          universidad: oferta.universidad,
+          sede: oferta.sede,
+          beneficios: oferta.beneficios
+        }))
     : [];
 
-  if (!total && ofertas.length === 0 && Object.keys(filtros).length === 0) {
-    return '';
-  }
+  // Solo enriquecemos el mensaje cuando llega contexto real útil.
+  const tieneFiltros = Object.keys(filtros).length > 0;
+  const tieneTotal = typeof total === 'number' && total > 0;
+  const tieneOfertas = ofertas.length > 0;
+  if (!tieneFiltros && !tieneTotal && !tieneOfertas) return '';
 
   return [
     'CONTEXTO DISPONIBLE DEL CATÁLOGO (fuente de verdad para responder detalles de fichas):',
@@ -199,8 +204,10 @@ export class AgenteExecutor {
     versionForzadaId?: string,
     permitirBorrador = false
   ): Promise<ConfiguracionAgente> {
+    // Cliente de servicio: se usa en backend para leer configuración centralizada del agente.
     const db = getServiceRoleClient();
 
+    // 1) Resolver el agente solicitado por código y validar que siga activo.
     const { data: agente, error: agenteError } = await db
       .from('agentes_ia')
       .select('id, codigo, nombre, estado, version_activa_id, activo')
@@ -218,6 +225,7 @@ export class AgenteExecutor {
       throw new AgenteEjecucionError(`El agente ${codigoAgente} no está activo`, 'agente_inactivo');
     }
 
+    // 2) Resolver la versión activa (o forzada en simulación) y validar pertenencia/publicación.
     const { data: version, error: versionError } = await db
       .from('versiones_agente_ia')
       .select('id, agente_id, numero_version, estado, configuracion_snapshot')
@@ -234,7 +242,7 @@ export class AgenteExecutor {
       throw new AgenteEjecucionError('La versión activa no está publicada', 'version_no_publicada');
     }
 
-    // Canal
+    // 3) Resolver canal operativo (web, whatsapp, etc.) para aplicar su configuración específica.
     const { data: canal, error: canalError } = await db
       .from('canales_ia')
       .select('id, codigo')
@@ -245,6 +253,7 @@ export class AgenteExecutor {
       throw new AgenteEjecucionError(`Canal no encontrado: ${codigoCanal}`, 'canal_no_encontrado');
     }
 
+    // 4) Cargar reglas del canal para la versión activa (tono, plantilla y restricciones).
     const { data: configuracionCanal, error: configuracionCanalError } = await db
       .from('configuraciones_agente_canal')
       .select('tono, reglas_especificas, plantilla_respuesta')
@@ -260,7 +269,7 @@ export class AgenteExecutor {
       );
     }
 
-    // Contextos asociados a la versión
+    // 5) Cargar componentes de contexto asociados a la versión y su orden de ensamblado.
     const { data: contextosRows, error: contextosError } = await db
       .from('versiones_agente_contextos')
       .select('orden, rol_contexto, componentes_contexto_ia:componente_contexto_id(contenido, activo)')
@@ -293,7 +302,7 @@ export class AgenteExecutor {
     ].filter(Boolean).join('\n');
     if (reglasCanal) contextos.push({ orden: 100000, rol_contexto: 'canal', contenido: reglasCanal });
 
-    // Herramientas habilitadas para la versión
+    // 6) Registrar herramientas habilitadas (informativo para trazabilidad/configuración).
     const { data: herramientasRows } = await db
       .from('agente_herramientas')
       .select('habilitada, herramientas_ia:herramienta_id(codigo, nombre)')
@@ -306,27 +315,59 @@ export class AgenteExecutor {
       habilitada: row.habilitada !== false
     }));
 
-    // El despliegue es explícito por versión: nunca se escoge uno oculto por defecto.
+    // 7) Resolver despliegue de IA con estrategia resiliente:
+    //    a) primero intenta el despliegue_id guardado en snapshot,
+    //    b) si falta, busca cualquier despliegue activo más reciente.
     const despliegueIdSnapshot =
       (version.configuracion_snapshot as Record<string, unknown> | null)?.['despliegue_id'];
 
-    if (typeof despliegueIdSnapshot !== 'string' || !despliegueIdSnapshot) {
-      throw new AgenteEjecucionError('La versión no tiene despliegue seleccionado', 'sin_despliegue_asignado');
+    let despliegue: any = null;
+    let despliegueError: any = null;
+
+    if (typeof despliegueIdSnapshot === 'string' && despliegueIdSnapshot) {
+      const resultadoPorSnapshot = await db
+        .from('despliegues_ia')
+        .select('id, identificador_externo, referencia_secreto, configuracion_tecnica')
+        .eq('activo', true)
+        .eq('estado', 'activo')
+        .eq('id', despliegueIdSnapshot)
+        .limit(1)
+        .maybeSingle();
+
+      despliegue = resultadoPorSnapshot.data;
+      despliegueError = resultadoPorSnapshot.error;
     }
 
-    const despliegueQuery = db
-      .from('despliegues_ia')
-      .select('id, identificador_externo, referencia_secreto, configuracion_tecnica')
-      .eq('activo', true)
-      .eq('estado', 'activo')
-      .eq('id', despliegueIdSnapshot);
+    if (!despliegue) {
+      // Fallback seguro: toma el despliegue activo más recientemente actualizado.
+      let resultadoFallback = await db
+        .from('despliegues_ia')
+        .select('id, identificador_externo, referencia_secreto, configuracion_tecnica')
+        .eq('activo', true)
+        .eq('estado', 'activo')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    const { data: despliegue, error: despliegueError } = await despliegueQuery
-      .limit(1)
-      .maybeSingle();
+      // Compatibilidad con esquemas que todavía usan actualizado_en.
+      if (!resultadoFallback.data && resultadoFallback.error) {
+        resultadoFallback = await db
+          .from('despliegues_ia')
+          .select('id, identificador_externo, referencia_secreto, configuracion_tecnica')
+          .eq('activo', true)
+          .eq('estado', 'activo')
+          .order('actualizado_en', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+      }
+
+      despliegue = resultadoFallback.data;
+      despliegueError = resultadoFallback.error;
+    }
 
     if (despliegueError || !despliegue) {
-      throw new AgenteEjecucionError('No hay despliegue activo disponible', 'sin_despliegue');
+      // Conserva la semántica del error original cuando no hay despliegue utilizable.
+      throw new AgenteEjecucionError('La versión no tiene despliegue seleccionado', 'sin_despliegue_asignado');
     }
     if (!despliegue.identificador_externo || !despliegue.referencia_secreto) {
       throw new AgenteEjecucionError('Despliegue sin referencias de entorno', 'despliegue_incompleto');

@@ -70,6 +70,10 @@ Ver `PRODUCTION_VERIFICATION.md`. Ninguna clave está hardcodeada.
 
 ## Ajustes UX de NaIA relacionados con conversión (2026-09-20)
 
+- R3 resolvió una falla crítica de configuración de despliegue en `AgenteExecutor` que forzaba fallback genérico en cada turno cuando faltaba `despliegue_id` en snapshot.
+- El chat quedó sin filtros visibles (historial + input + sugerencias), y los chips viven únicamente en resultados para reducir fricción conversacional.
+- `/explorar` ahora hereda la misma base de comportamiento de `/naia`, priorizando el área de resultados en desktop.
+- Se incorporó `/universidades` como landing B2B para alianzas con formulario conectado a almacenamiento estructurado.
 - En escritorio, `/naia` ajusta altura disponible para mantener el footer visible sin saltos de scroll global al conversar.
 - NaIA incorpora contexto de fichas visibles para contestar dudas de detalle dentro del chat (modalidad, duración, ubicación, beneficios y vigencia).
 - Si un campo no existe en catálogo (por ejemplo costo/matrícula exacta), NaIA debe explicitarlo sin inventar valores.

@@ -36,11 +36,7 @@ export default function Footer() {
           </ul>
         </nav>
 
-        <p className="text-sm leading-relaxed text-buscoedu-muted">
-          BuscoEdu no es una universidad y no garantiza admisión, precios, becas ni cupos. La orientación
-          ofrecida busca ayudarte a explorar opciones educativas. Cualquier decisión final, requisitos y
-          condiciones dependen de cada universidad aliada.
-        </p>
+        {/* Disclaimer movido a la franja contextual de la experiencia NaIA para evitar duplicidad. */}
       </div>
     </footer>
   );
