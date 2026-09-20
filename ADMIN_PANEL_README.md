@@ -76,6 +76,13 @@ Aplicar en Supabase (SQL Editor o CLI) las 11 migraciones nuevas del panel admin
 - Ejecutar el pipeline de migraciones del proyecto y confirmar estado final sin pendientes.
 
 ## 7. Cambios recientes que impactan operación (2026-09-20)
+- **R3 Fix crítico NaIA:** si la versión activa no tiene `configuracion_snapshot.despliegue_id`, el ejecutor toma el despliegue activo más reciente y evita caída sistemática al fallback.
+- En `/naia` y `/explorar`, el chat quedó limpio (sin chips/filtros); los filtros activos viven solo en resultados.
+- El bloque `Puedes continuar con` ahora va debajo del input, en web y móvil.
+- En móvil, la ventana de resultados es full-screen con botón `Volver al chat` sticky y header global oculto durante la sesión de resultados.
+- El disclaimer institucional se movió del footer a una franja dedicada entre NaIA y footer.
+- Nueva landing B2B `/universidades` con formulario conectado a `/api/universidades/contacto`.
+- Semilla SQL disponible para tabla `contactos_universidades` en `supabase/seeds/contactos_universidades_seed.sql`.
 - La experiencia `/naia` ahora recalcula altura útil en desktop para mantener `header + NaIA + footer` sin scroll global inestable durante el chat.
 - Se agregó separador visual entre chat y sección `Puedes continuar con`, mejorando lectura y jerarquía.
 - En móvil, los filtros activos ya no se muestran en el chat: se gestionan únicamente dentro de la ventana de resultados para evitar pérdida de espacio conversacional.

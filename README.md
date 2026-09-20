@@ -8,6 +8,17 @@ BuscoEdu (www.buscoedu.com) es una plataforma de orientación educativa neutral 
 
 ## Estado actual — 20 de septiembre de 2026
 
+### Actualización Ronda 3 (fix crítico de NaIA + UX + Universidades B2B)
+
+* **Fix crítico NaIA:** `AgenteExecutor` ahora resuelve despliegue de forma resiliente. Si la versión activa no trae `configuracion_snapshot.despliegue_id`, busca el despliegue activo más reciente (`updated_at DESC`, con fallback a `actualizado_en`).
+* **Chat NaIA limpio:** en `/naia` y `/explorar`, el chat solo muestra historial + input + bloque `Puedes continuar con`; los filtros/chips viven únicamente en resultados.
+* **Ubicación de sugerencias:** `Puedes continuar con` quedó debajo del input en web y móvil.
+* **Resultados móvil full-screen:** al abrir resultados se oculta el header global, se bloquea scroll del body y el cierre `Volver al chat` queda sticky (tap target >= 44px).
+* **Franja disclaimer dedicada:** el texto legal-operativo se movió a una franja entre experiencia NaIA y footer; se retiró del footer para evitar duplicidad.
+* **/explorar hereda lógica de /naia:** ahora usa `NaiaSearchExperience` con variante de layout que prioriza el área de resultados.
+* **Nueva página `/universidades`:** landing B2B completa de 13 secciones, FAQ acordeón, CTA repetido y formulario conectado a endpoint real (`/api/universidades/contacto`).
+* **Semilla SQL B2B:** se agregó `supabase/seeds/contactos_universidades_seed.sql` con tabla y políticas idempotentes.
+
 ### Actualización Ronda 2 (NaIA UX web/móvil + detalle de fichas)
 
 * En `/naia` se recalcula dinámicamente la altura útil de escritorio (`header + contenido NaIA + footer`) para mantener visible el footer sin saltos de página durante la conversación.
