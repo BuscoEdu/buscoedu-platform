@@ -12,7 +12,6 @@ const navItems = [
   { label: "Programas", href: "/programas" },
   { label: "Universidades", href: "/universidades" },
   { label: "Beneficios", href: "/beneficios" },
-  { label: "Para universidades", href: "/para-universidades" },
   { label: "Contacto", href: "/contacto" }
 ];
 

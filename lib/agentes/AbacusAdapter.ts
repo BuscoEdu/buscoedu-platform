@@ -42,10 +42,17 @@ export class AbacusAdapter {
       );
     }
 
+    // Respetamos la estrategia del executor: si prompt_sistema viene vacío/corto,
+    // enviamos solo el mensaje del usuario para no inflar el payload.
+    const promptSistema = (params.prompt_sistema || '').trim();
+    const usarSoloMensajeUsuario = promptSistema.length < 10;
+
     const reqBody: Record<string, unknown> = {
       deploymentId,
       deploymentToken,
-      message: `${params.prompt_sistema}\n\nMensaje del estudiante: ${params.mensaje_usuario}`
+      message: usarSoloMensajeUsuario
+        ? params.mensaje_usuario
+        : `${promptSistema}\n\nMensaje del estudiante: ${params.mensaje_usuario}`
     };
 
     if (params.conversation_id) {

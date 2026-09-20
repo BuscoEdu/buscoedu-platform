@@ -147,44 +147,50 @@ function construirBloqueContextoOfertas(entrada: EntradaEjecucion): string {
     ? Number(contexto.total_resultados)
     : undefined;
 
+  // Reducimos el payload: máximo 3 ofertas y solo campos esenciales para resolver dudas.
   const ofertas = Array.isArray(contexto.ofertas_relevantes)
     ? contexto.ofertas_relevantes
-        .slice(0, 8)
+        .slice(0, 3)
         .filter((oferta) => typeof oferta?.nombre === 'string' && oferta.nombre.trim())
         .map((oferta) => ({
-          id: oferta.id,
           nombre: oferta.nombre,
-          descripcion: oferta.descripcion,
-          vigente_desde: oferta.vigente_desde,
-          vigente_hasta: oferta.vigente_hasta,
-          cupos_disponibles: oferta.cupos_disponibles,
           tipo_beneficio: oferta.tipo_beneficio,
-          programa: oferta.programa,
-          universidad: oferta.universidad,
-          sede: oferta.sede,
-          beneficios: oferta.beneficios
+          vigente_hasta: oferta.vigente_hasta,
+          programa: {
+            modalidad: oferta.programa?.modalidad ?? null
+          },
+          universidad: {
+            nombre: oferta.universidad?.nombre ?? null
+          },
+          sede: {
+            ciudad: oferta.sede?.ciudad ?? null,
+            pais: oferta.sede?.pais ?? null
+          }
         }))
     : [];
 
-  // Solo enriquecemos el mensaje cuando llega contexto real útil.
   const tieneFiltros = Object.keys(filtros).length > 0;
   const tieneTotal = typeof total === 'number' && total > 0;
   const tieneOfertas = ofertas.length > 0;
   if (!tieneFiltros && !tieneTotal && !tieneOfertas) return '';
 
-  return [
-    'CONTEXTO DISPONIBLE DEL CATÁLOGO (fuente de verdad para responder detalles de fichas):',
-    JSON.stringify(
-      {
-        filtros_actuales: filtros,
-        total_resultados: total,
-        ofertas_relevantes: ofertas
-      },
-      null,
-      2
-    ),
-    'Regla operativa: responde sobre universidad, modalidad, duración, ubicación, beneficios y vigencia usando solo este contexto y lo que haya en la conversación. Si costo/matrícula exacta no está presente, indícalo explícitamente y no inventes cifras.'
-  ].join('\n');
+  const contextoCompacto = JSON.stringify({
+    filtros_actuales: filtros,
+    total_resultados: total,
+    ofertas_relevantes: ofertas
+  });
+
+  const prefijo = 'CONTEXTO_OFERTAS=';
+  const maximoCaracteres = 800;
+  const disponibleParaJson = Math.max(0, maximoCaracteres - prefijo.length);
+
+  if (contextoCompacto.length <= disponibleParaJson) {
+    return `${prefijo}${contextoCompacto}`;
+  }
+
+  // Corte limpio con sufijo para evitar payloads largos que disparen 414.
+  const recorte = Math.max(0, disponibleParaJson - 3);
+  return `${prefijo}${contextoCompacto.slice(0, recorte)}...`;
 }
 
 // ---------------------------------------------------------------------------
@@ -451,17 +457,22 @@ export class AgenteExecutor {
       entrada.version_agente_id,
       entrada.modo_simulacion === true
     );
-    const promptSistema = construirPromptSistema(config.contextos);
-    // Agrega contexto de ofertas visibles para habilitar respuestas de detalle de ficha.
-    const bloqueContextoOfertas = construirBloqueContextoOfertas(entrada);
+        const promptSistema = construirPromptSistema(config.contextos);
+
+    // Turno 1: enviamos prompt de sistema completo.
+    // Turno 2+: no reenviamos prompt_sistema para evitar crecer el payload.
+    const esTurnoSeguimiento = Boolean(entrada.conversation_id);
+    const bloqueContextoOfertas = esTurnoSeguimiento ? construirBloqueContextoOfertas(entrada) : '';
     const mensajeUsuarioEnriquecido = bloqueContextoOfertas
-      ? `${entrada.mensaje_usuario}\n\n${bloqueContextoOfertas}`
+      ? `${entrada.mensaje_usuario}
+
+${bloqueContextoOfertas}`
       : entrada.mensaje_usuario;
 
     let resultadoAdaptador;
     try {
       resultadoAdaptador = await this.adaptador.ejecutar({
-        prompt_sistema: promptSistema,
+        prompt_sistema: esTurnoSeguimiento ? '' : promptSistema,
         mensaje_usuario: mensajeUsuarioEnriquecido,
         conversation_id: entrada.conversation_id,
         identificador_externo: config.despliegue.identificador_externo,

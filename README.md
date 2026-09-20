@@ -8,6 +8,16 @@ BuscoEdu (www.buscoedu.com) es una plataforma de orientación educativa neutral 
 
 ## Estado actual — 20 de septiembre de 2026
 
+### Actualización Ronda 4 (payload 414 + mobile UX + optimización /universidades)
+
+* **Fix crítico 414 en NaIA:** se redujo drásticamente el payload en `AgenteExecutor` (máx. 3 ofertas, campos esenciales, JSON compacto y recorte a 800 caracteres), y en turnos con `conversation_id` ya no se reenvía `prompt_sistema`.
+* **AbacusAdapter condicionado por tamaño de prompt:** si `prompt_sistema` llega vacío/corto, envía solo el mensaje del estudiante para evitar crecer el body de la solicitud.
+* **UX móvil en NaIA:** el bloque `Puedes continuar con` queda solo en desktop (`lg+`) y en móvil aparece botón dedicado `Explorar Resultados` cuando hay resultados.
+* **Jerarquía de modales en móvil:** `OfferDetailModal` sube a `z-[80]` para mostrarse por encima del modal de resultados (`z-[70]`).
+* **/explorar con grid más denso:** en layout `explorar`, las fichas usan 2 columnas en `sm` y 3 columnas en `xl`.
+* **Deprecación de `/para-universidades`:** se removió del header, footer y home; la ruta ahora redirige de forma permanente a `/universidades`.
+* **/universidades mejorada para conversión:** fondos alternantes por sección, animaciones de entrada con Intersection Observer, bloque de estadísticas con contador animado, microinteracciones hover y badge contextual en hero.
+
 ### Actualización Ronda 3 (fix crítico de NaIA + UX + Universidades B2B)
 
 * **Fix crítico NaIA:** `AgenteExecutor` ahora resuelve despliegue de forma resiliente. Si la versión activa no trae `configuracion_snapshot.despliegue_id`, busca el despliegue activo más reciente (`updated_at DESC`, con fallback a `actualizado_en`).

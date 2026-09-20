@@ -296,7 +296,7 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
       {/* Overlay de solicitud enviada con cuenta regresiva. */}
       {mostrarExito && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="exito-titulo"

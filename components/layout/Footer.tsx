@@ -8,7 +8,6 @@ const links = [
   { label: 'NaIA', href: '/naia' },
   { label: 'Programas', href: '/programas' },
   { label: 'Universidades', href: '/universidades' },
-  { label: 'Para universidades', href: '/para-universidades' },
   { label: 'Contacto', href: '/contacto' },
   { label: 'Privacidad', href: '/privacidad' },
   { label: 'Términos', href: '/terminos' }
