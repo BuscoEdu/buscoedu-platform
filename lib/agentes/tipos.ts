@@ -48,6 +48,27 @@ export interface EntradaEjecucion {
   codigo_agente: string;
   contexto_persona?: Record<string, unknown>;
   contexto_conversacion?: string;
+  /**
+   * Contexto visible en UI (filtros + ofertas) para responder preguntas
+   * sobre fichas sin inventar información fuera del catálogo.
+   */
+  contexto_ofertas?: {
+    filtros_actuales?: Record<string, string>;
+    total_resultados?: number;
+    ofertas_relevantes?: Array<{
+      id?: string;
+      nombre?: string;
+      descripcion?: string;
+      vigente_desde?: string;
+      vigente_hasta?: string;
+      cupos_disponibles?: number;
+      tipo_beneficio?: string;
+      programa?: Record<string, unknown>;
+      universidad?: Record<string, unknown>;
+      sede?: Record<string, unknown>;
+      beneficios?: Array<Record<string, unknown>>;
+    }>;
+  };
   /** Solo para el simulador administrativo: ejecuta una versión borrador concreta. */
   version_agente_id?: string;
   modo_simulacion?: boolean;

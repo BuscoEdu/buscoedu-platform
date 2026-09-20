@@ -76,10 +76,13 @@ Aplicar en Supabase (SQL Editor o CLI) las 11 migraciones nuevas del panel admin
 - Ejecutar el pipeline de migraciones del proyecto y confirmar estado final sin pendientes.
 
 ## 7. Cambios recientes que impactan operación (2026-09-20)
-- La experiencia `/naia` ahora muestra siempre el conteo de resultados y permite limpiar filtros desde UI sin depender del chat.
-- En móvil, los resultados abren en una ventana independiente (`Explorar resultados`), por lo que QA debe validar chat y resultados como dos vistas separadas.
+- La experiencia `/naia` ahora recalcula altura útil en desktop para mantener `header + NaIA + footer` sin scroll global inestable durante el chat.
+- Se agregó separador visual entre chat y sección `Puedes continuar con`, mejorando lectura y jerarquía.
+- En móvil, los filtros activos ya no se muestran en el chat: se gestionan únicamente dentro de la ventana de resultados para evitar pérdida de espacio conversacional.
+- Placeholder móvil actualizado a `Pregúntale a NaIA` para evitar doble línea.
+- La ventana móvil de resultados incluye cierre explícito `X` y la ficha `OfferDetailModal` quedó contenida por viewport con scroll interno.
+- NaIA recibe contexto de ofertas visibles (filtros + fichas resumidas) para responder preguntas de detalle (modalidad, ubicación, beneficios, vigencia).
 - El diagnóstico del área Derecho sigue siendo de datos vencidos (`vigente_hasta=2026-08-15`), no de lógica. Si se desea reactivar esas ofertas, la corrección es actualizar vigencias desde administración/SQL en Supabase.
-- La ficha `OfferDetailModal` fue reforzada para no desbordar ancho de viewport en móvil ni desktop.
 
 ## 8. Troubleshooting
 ### Error: "No tienes acceso"

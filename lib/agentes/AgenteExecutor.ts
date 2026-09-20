@@ -134,6 +134,54 @@ function construirPromptSistema(contextos: ConfiguracionAgente['contextos']): st
     .join('\n\n');
 }
 
+/**
+ * Serializa contexto de ofertas visible en UI para que el modelo pueda
+ * responder preguntas de detalle sin inventar campos inexistentes.
+ */
+function construirBloqueContextoOfertas(entrada: EntradaEjecucion): string {
+  const contexto = entrada.contexto_ofertas;
+  if (!contexto) return '';
+
+  const filtros = contexto.filtros_actuales || {};
+  const total = Number.isFinite(contexto.total_resultados as number)
+    ? Number(contexto.total_resultados)
+    : undefined;
+
+  const ofertas = Array.isArray(contexto.ofertas_relevantes)
+    ? contexto.ofertas_relevantes.slice(0, 8).map((oferta) => ({
+        id: oferta.id,
+        nombre: oferta.nombre,
+        descripcion: oferta.descripcion,
+        vigente_desde: oferta.vigente_desde,
+        vigente_hasta: oferta.vigente_hasta,
+        cupos_disponibles: oferta.cupos_disponibles,
+        tipo_beneficio: oferta.tipo_beneficio,
+        programa: oferta.programa,
+        universidad: oferta.universidad,
+        sede: oferta.sede,
+        beneficios: oferta.beneficios
+      }))
+    : [];
+
+  if (!total && ofertas.length === 0 && Object.keys(filtros).length === 0) {
+    return '';
+  }
+
+  return [
+    'CONTEXTO DISPONIBLE DEL CATÁLOGO (fuente de verdad para responder detalles de fichas):',
+    JSON.stringify(
+      {
+        filtros_actuales: filtros,
+        total_resultados: total,
+        ofertas_relevantes: ofertas
+      },
+      null,
+      2
+    ),
+    'Regla operativa: responde sobre universidad, modalidad, duración, ubicación, beneficios y vigencia usando solo este contexto y lo que haya en la conversación. Si costo/matrícula exacta no está presente, indícalo explícitamente y no inventes cifras.'
+  ].join('\n');
+}
+
 // ---------------------------------------------------------------------------
 // Motor principal
 // ---------------------------------------------------------------------------
@@ -363,12 +411,17 @@ export class AgenteExecutor {
       entrada.modo_simulacion === true
     );
     const promptSistema = construirPromptSistema(config.contextos);
+    // Agrega contexto de ofertas visibles para habilitar respuestas de detalle de ficha.
+    const bloqueContextoOfertas = construirBloqueContextoOfertas(entrada);
+    const mensajeUsuarioEnriquecido = bloqueContextoOfertas
+      ? `${entrada.mensaje_usuario}\n\n${bloqueContextoOfertas}`
+      : entrada.mensaje_usuario;
 
     let resultadoAdaptador;
     try {
       resultadoAdaptador = await this.adaptador.ejecutar({
         prompt_sistema: promptSistema,
-        mensaje_usuario: entrada.mensaje_usuario,
+        mensaje_usuario: mensajeUsuarioEnriquecido,
         conversation_id: entrada.conversation_id,
         identificador_externo: config.despliegue.identificador_externo,
         referencia_secreto: config.despliegue.referencia_secreto

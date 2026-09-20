@@ -13,6 +13,13 @@
 - [ ] Verificar botón móvil `Explorar resultados` y apertura/cierre de ventana de resultados.
 - [ ] Verificar efecto máquina de escribir en mensajes de NaIA y animación de pensamiento.
 - [ ] Verificar que `OfferDetailModal` no se desborde horizontalmente en móvil/desktop.
+- [ ] Verificar separación visual entre historial de chat y bloque `Puedes continuar con`.
+- [ ] Verificar placeholder móvil en una sola línea: `Pregúntale a NaIA`.
+- [ ] Verificar que en móvil los chips de filtros activos NO aparezcan en chat y sí en modal de resultados.
+- [ ] Verificar botón `X` para cerrar resultados móviles.
+- [ ] Verificar que `OfferDetailModal` no desborde alto en móvil y use scroll interno.
+- [ ] Verificar mayor amplitud del rebote en indicador de `NaIA está pensando`.
+- [ ] Verificar respuestas de detalle de oferta (universidad/modalidad/beneficios/vigencia) sin invención de datos.
 
 ## Deployment Steps
 1. **Push a GitHub**
@@ -35,7 +42,7 @@
 - [ ] Sitio público NO afectado.
 - [ ] En móvil, resultados de NaIA solo aparecen al abrir `Explorar resultados`.
 - [ ] En desktop, resultados visibles en panel derecho sin modal móvil.
-- [ ] Placeholder móvil del chat queda en una sola línea (`Cuéntale a NaIA qué buscas…`).
+- [ ] Placeholder móvil del chat queda en una sola línea (`Pregúntale a NaIA`).
 
 ## Nota operativa crítica — Diagnóstico Derecho (20/09/2026)
 - Estado confirmado: las ofertas de Derecho activas/publicadas/validadas existen, pero están vencidas (`vigente_hasta=2026-08-15`).
