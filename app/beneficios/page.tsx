@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import SectionHeading from "@/components/ui/SectionHeading";
 import InfoCard from "@/components/ui/InfoCard";
+import ClosingCtas from "@/components/ui/ClosingCtas";
 
 export const metadata: Metadata = {
   title: "Beneficios | BuscoEdu",
@@ -42,6 +43,8 @@ export default function BeneficiosPage() {
           <InfoCard key={beneficio.title} title={beneficio.title} description={beneficio.description} />
         ))}
       </div>
+
+      <ClosingCtas description="Empieza por conversar con NaIA o revisa las ofertas académicas vigentes." />
     </div>
   );
 }

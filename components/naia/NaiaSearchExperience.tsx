@@ -21,6 +21,12 @@ type Orden = "recomendado" | "virtual" | "beneficio" | "universidad";
 type MensajeChat = { id: string; autor: "estudiante" | "naia"; contenido: string };
 type ChipFiltro = { clave: keyof FiltrosOferta; etiqueta: string; valor: string };
 type LayoutVariant = "naia" | "explorar";
+type VistaExplorar = "programas" | "universidades";
+
+function parseVista(raw: string | null): VistaExplorar | null {
+  if (raw === "programas" || raw === "universidades") return raw;
+  return null;
+}
 
 const NAIA_CHAT_STATE_KEY = "buscoedu_naia_chat_v1";
 
@@ -67,11 +73,14 @@ function esVirtual(oferta: OfertaAcademica) {
 export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSearchExperienceProps) {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q")?.trim() ?? "";
+  const vistaParam = parseVista(searchParams.get("vista"));
   const hasProcessedInitialQuery = useRef(false);
+  const hasProcessedVista = useRef(false);
   const { isInMyList, addToMyList, removeFromMyList } = useMyList();
 
   const [input, setInput] = useState("");
   const [estado, setEstado] = useState<EstadoBusqueda>("inicio");
+  const [vistaActiva, setVistaActiva] = useState<VistaExplorar | null>(vistaParam);
   const [respuesta, setRespuesta] = useState<NaiaResponse | null>(null);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [ofertas, setOfertas] = useState<OfertaAcademica[]>([]);
@@ -317,6 +326,47 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery]);
 
+  /** Sync URL ?vista= with local view mode (Programas / Universidades prefilter). */
+  useEffect(() => {
+    setVistaActiva(vistaParam);
+    if (vistaParam === "universidades") {
+      setOrden("universidad");
+    } else if (vistaParam === "programas") {
+      setOrden("recomendado");
+    }
+  }, [vistaParam]);
+
+  /**
+   * Minimal wiring: when /explorar?vista=… opens without q, load catalog once
+   * so the prefilter view has results without inventing data.
+   */
+  useEffect(() => {
+    if (!vistaParam || initialQuery || hasProcessedVista.current) return;
+    hasProcessedVista.current = true;
+    void (async () => {
+      setEstado("consultando");
+      try {
+        const resultado = await consultarOfertas({});
+        const conteo = Math.max(resultado.total, resultado.ofertas.length);
+        const etiqueta =
+          vistaParam === "programas"
+            ? "Vista Programas: listado de ofertas agrupado por programa."
+            : "Vista Universidades: listado ordenado por universidad.";
+        setMensajes([
+          {
+            id: `naia-vista-${Date.now()}`,
+            autor: "naia",
+            contenido: `${etiqueta} ${construirMensajeConteo(conteo)} Puedes seguir filtrando con NaIA cuando quieras.`,
+          },
+        ]);
+        setEstado("listo");
+      } catch {
+        setEstado("error");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vistaParam, initialQuery]);
+
   const ofertasOrdenadas = useMemo(() => {
     const copia = [...ofertas];
     if (orden === "virtual") return copia.sort((a, b) => Number(esVirtual(b)) - Number(esVirtual(a)));
@@ -324,6 +374,20 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
     if (orden === "universidad") return copia.sort((a, b) => (a.universidad?.nombre ?? "").localeCompare(b.universidad?.nombre ?? "", "es"));
     return copia;
   }, [ofertas, orden]);
+
+  /** Programas vista: one card per programa_id (no new catalog data). */
+  const ofertasVista = useMemo(() => {
+    if (vistaActiva !== "programas") return ofertasOrdenadas;
+    const vistos = new Set<string>();
+    const unicos: OfertaAcademica[] = [];
+    for (const oferta of ofertasOrdenadas) {
+      const clave = oferta.programa_id || oferta.programa?.nombre || oferta.id;
+      if (vistos.has(clave)) continue;
+      vistos.add(clave);
+      unicos.push(oferta);
+    }
+    return unicos;
+  }, [ofertasOrdenadas, vistaActiva]);
 
   const chipsFiltros = useMemo<ChipFiltro[]>(() => {
     return (Object.entries(filtrosActuales) as Array<[keyof FiltrosOferta, string | undefined]>)
@@ -363,8 +427,16 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
   const tituloResultados = mostrarResultados
     ? estaCargando
       ? "Preparando opciones…"
-      : `${total} opciones encontradas`
-    : "Tus opciones aparecerán aquí";
+      : vistaActiva === "programas"
+        ? `${ofertasVista.length} programas en vista`
+        : vistaActiva === "universidades"
+          ? `${total} opciones por universidad`
+          : `${total} opciones encontradas`
+    : vistaActiva === "programas"
+      ? "Vista Programas"
+      : vistaActiva === "universidades"
+        ? "Vista Universidades"
+        : "Tus opciones aparecerán aquí";
 
   const sugerenciasParaMostrar = useMemo(() => {
     const base = respuesta?.opciones_sugeridas?.slice(0, 3) ?? [];
@@ -432,7 +504,7 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
             </section>
           ) : (
             <section className="mx-auto flex min-h-[calc(100dvh-250px)] max-w-3xl flex-col justify-center pb-8">
-              <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-buscoedu-teal/10 text-2xl font-bold text-buscoedu-teal">N</span>
+              <span className="inline-flex h-14 items-center justify-center rounded-2xl bg-buscoedu-teal/10 px-3 text-lg font-bold text-buscoedu-teal">NaIA</span>
               <p className="mt-7 text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">Tu búsqueda educativa, acompañada</p>
               <h1 className="mt-3 max-w-2xl text-4xl font-bold tracking-tight text-buscoedu-blue sm:text-5xl">Hola, soy NaIA.</h1>
               <p className="mt-4 max-w-2xl text-lg leading-relaxed text-buscoedu-muted">Cuéntame qué quieres estudiar, dónde te gustaría hacerlo o qué necesitas para empezar. Te ayudaré a explorar opciones y compararlas con calma.</p>
@@ -516,7 +588,20 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
             <div className="sticky top-0 z-20 -mx-5 border-b border-buscoedu-border bg-[#f7f9fc] px-5 py-4 sm:-mx-8 sm:px-8 lg:-mx-6 lg:px-6">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">RESULTADOS</p>
               <h2 className="mt-2 text-2xl font-bold text-buscoedu-blue">{tituloResultados}</h2>
-              <p className="mt-2 text-sm leading-relaxed text-buscoedu-muted">{mostrarResultados ? "Abre una ficha para ver requisitos, beneficios y cómo aplicar." : "Cuando hables con NaIA, podrás comparar alternativas vigentes sin salir de la conversación."}</p>
+              {vistaActiva && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-buscoedu-teal/10 px-3 py-1 text-xs font-semibold text-buscoedu-teal">
+                    {vistaActiva === "programas" ? "Vista: Programas" : "Vista: Universidades"}
+                  </span>
+                  <a
+                    href="/explorar"
+                    className="text-xs font-semibold text-buscoedu-blue underline-offset-2 hover:underline"
+                  >
+                    Quitar vista
+                  </a>
+                </div>
+              )}
+              <p className="mt-2 text-sm leading-relaxed text-buscoedu-muted">{mostrarResultados ? "Abre una ficha para ver requisitos, beneficios y cómo aplicar. Usa Guardar en Mi lista, Aplicar o Autorizar contacto según el paso." : "Cuando hables con NaIA, podrás comparar alternativas vigentes sin salir de la conversación."}</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {ORDENES.map((opcionOrden) => (
                   <button
@@ -546,10 +631,10 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
 
             {estaCargando ? (
               <ResultSkeleton />
-            ) : ofertasOrdenadas.length > 0 ? (
+            ) : ofertasVista.length > 0 ? (
               <div className="mt-6">
                 <div className={`grid gap-4 ${layoutVariant === "explorar" ? "sm:grid-cols-2 xl:grid-cols-3" : ""}`}>
-                  {ofertasOrdenadas.map((oferta) => (
+                  {ofertasVista.map((oferta) => (
                     <OfferCard
                       key={oferta.id}
                       oferta={oferta}
@@ -581,7 +666,7 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
         mostrarResultados={mostrarResultados}
         estaCargando={estaCargando}
         estado={estado}
-        ofertas={ofertasOrdenadas}
+        ofertas={ofertasVista}
         total={total}
         onOpenOffer={(oferta) => setSeleccionada(oferta)}
         onLoadMore={() => void cargarMasResultados()}
@@ -798,7 +883,7 @@ function ResultSkeleton() {
 }
 
 function EmptyResults() {
-  return <div className="mt-8 rounded-2xl border border-dashed border-buscoedu-border bg-white p-7"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-buscoedu-teal/10 font-bold text-buscoedu-teal">N</div><p className="mt-4 font-semibold text-buscoedu-blue">Una conversación, resultados organizados.</p><p className="mt-2 text-sm leading-relaxed text-buscoedu-muted">NaIA interpretará tu búsqueda y traerá aquí las ofertas que puedes abrir, guardar y comparar.</p></div>;
+  return <div className="mt-8 rounded-2xl border border-dashed border-buscoedu-border bg-white p-7"><div className="inline-flex h-11 items-center justify-center rounded-xl bg-buscoedu-teal/10 px-2.5 text-sm font-bold text-buscoedu-teal">NaIA</div><p className="mt-4 font-semibold text-buscoedu-blue">Una conversación, resultados organizados.</p><p className="mt-2 text-sm leading-relaxed text-buscoedu-muted">NaIA interpretará tu búsqueda y traerá aquí las ofertas que puedes abrir, guardar y comparar.</p></div>;
 }
 
 function MobileOfferRow({ oferta, onOpen }: { oferta: OfertaAcademica; onOpen: () => void }) {

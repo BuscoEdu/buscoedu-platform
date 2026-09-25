@@ -6,7 +6,20 @@ BuscoEdu (www.buscoedu.com) es una plataforma de orientación educativa neutral 
 
 **NaIA** es la asesora virtual de BuscoEdu que ayuda a las personas a expresar lo que buscan, transforma esa intención en filtros de búsqueda visibles, explica resultados y acompaña la exploración.
 
-## Estado actual — 20 de septiembre de 2026
+## Estado actual — 25 de septiembre de 2026
+
+### Actualización lookfeel-nav (portal público)
+
+* **Nav primer nivel (orden fijo):** Explorar · NaIA · Programas · Universidades · Mi lista · Más; CTA único de header **Hablar con NaIA**.
+* **Menú Más (exacto):** Cómo funciona · Beneficios · Contacto · Para universidades · Privacidad · Términos.
+* **Footer en 3 columnas:** Producto | Información | Legal (espejo de destinos de producto + legal).
+* **Logo:** mark mínimo + wordmark BuscoEdu (enlace a home). FAB móvil etiquetado **NaIA** (no letra “N”).
+* **Home:** dos puertas **Hablar con NaIA** + **Explorar ofertas**; formulario local del navegador retirado del home.
+* **Programas / Universidades:** sin landings nuevas; redirigen a `/explorar?vista=programas` y `/explorar?vista=universidades`. B2B permanece en `/para-universidades`.
+* **`/explorar?vista=`:** cableado mínimo de prefiltro/vista (programas dedupe por programa; universidades orden A–Z) sin inventar catálogo.
+* **Copy exacto de funnel público:** **Guardar en Mi lista** / **Aplicar** / **Autorizar contacto**. Empty Mi lista incluye “Guardar no envía tus datos.”
+* **Cierres:** `ClosingCtas` en cómo-funciona, beneficios, contacto y para-universidades.
+* **Fuera de alcance:** admin, Lead Center (salvo label pública del consentimiento usada por el portal), Demo WApp, SQL/datos, identidad Fase 2.
 
 ### Actualización Ronda 4 (payload 414 + mobile UX + optimización /universidades)
 
@@ -15,8 +28,8 @@ BuscoEdu (www.buscoedu.com) es una plataforma de orientación educativa neutral 
 * **UX móvil en NaIA:** el bloque `Puedes continuar con` queda solo en desktop (`lg+`) y en móvil aparece botón dedicado `Explorar Resultados` cuando hay resultados.
 * **Jerarquía de modales en móvil:** `OfferDetailModal` sube a `z-[80]` para mostrarse por encima del modal de resultados (`z-[70]`).
 * **/explorar con grid más denso:** en layout `explorar`, las fichas usan 2 columnas en `sm` y 3 columnas en `xl`.
-* **Deprecación de `/para-universidades`:** se removió del header, footer y home; la ruta ahora redirige de forma permanente a `/universidades`.
-* **/universidades mejorada para conversión:** fondos alternantes por sección, animaciones de entrada con Intersection Observer, bloque de estadísticas con contador animado, microinteracciones hover y badge contextual en hero.
+* **/para-universidades (B2B):** landing de conversión para instituciones (históricamente también en `/universidades`); desde lookfeel-nav, el ítem de producto **Universidades** apunta a Explorar prefiltrado y B2B vive en `/para-universidades`.
+* **Landing B2B:** fondos alternantes por sección, animaciones de entrada con Intersection Observer, bloque de estadísticas con contador animado, microinteracciones hover y badge contextual en hero.
 
 ### Actualización Ronda 3 (fix crítico de NaIA + UX + Universidades B2B)
 
@@ -89,8 +102,9 @@ buscoedu-platform/
 │   ├── page.tsx                  # Landing principal
 │   ├── layout.tsx                # Layout global
 │   ├── globals.css               # Estilos globales
-│   ├── explorar/                 # Página de exploración (NUEVA)
+│   ├── explorar/                 # Página de exploración
 │   │   └── page.tsx
+│   ├── mi-lista/                 # Lista local del visitante
 │   ├── naia/                     # Página informativa de NaIA
 │   ├── programas/
 │   ├── universidades/
@@ -119,7 +133,9 @@ buscoedu-platform/
 │   │   └── Footer.tsx
 │   ├── ui/
 │   │   ├── SectionHeading.tsx
-│   │   └── InfoCard.tsx
+│   │   ├── InfoCard.tsx
+│   │   ├── Logo.tsx
+│   │   └── ClosingCtas.tsx
 │   └── forms/
 │       ├── InterestForm.tsx
 │       └── SimpleLocalForm.tsx
@@ -158,7 +174,7 @@ Landing (app/page.tsx)
       └── [click en tarjeta]
           → Ficha ampliada modal bloqueante (componente sobre /explorar)
               ├── Información completa de la oferta académica
-              ├── Botones: "Guardar en Mi lista" / "Aplicar a beca"
+              ├── Botones: "Guardar en Mi lista" / "Aplicar"
               └── [click ×] → cierra ficha, restaura posición exacta de /explorar
 ```
 
@@ -209,7 +225,7 @@ Ficha de detalle bloqueante:
 - Beneficios y condiciones
 - Precios (solo aquí, no en tarjetas)
 - Requisitos de acceso
-- Acciones: "Guardar en Mi lista" / "Aplicar a beca"
+- Acciones: "Guardar en Mi lista" / "Aplicar"
 - Tracking de eventos: `ficha_oferta_abierta`, `ficha_oferta_cerrada`, `intento_aplicar_oferta`
 
 ### 7. MyListContext.tsx
@@ -233,7 +249,7 @@ Contexto global de "Mi Lista":
 | `ficha_oferta_cerrada` | Usuario cierra detalle | `visitante_id`, `oferta_id` |
 | `oferta_agregada_mi_lista` | Oferta guardada en Mi Lista | `visitante_id`, `oferta_id` |
 | `oferta_retirada_mi_lista` | Oferta quitada de Mi Lista | `visitante_id`, `oferta_id` |
-| `intento_aplicar_oferta` | Click en "Aplicar a beca" | `visitante_id`, `oferta_id`, `programa_id`, `universidad_id` |
+| `intento_aplicar_oferta` | Click en "Aplicar" | `visitante_id`, `oferta_id`, `programa_id`, `universidad_id` |
 
 ### Migración de Base de Datos
 
@@ -332,7 +348,7 @@ eventos_negocio        → tipo_evento, visitante_id, oferta_id, metadata
 - [x] La ficha es bloqueante, única, sin imágenes, solo se cierra con `×`
 - [x] Al cerrar la ficha se restaura la posición exacta del explorador
 - [x] Existe una sola "Mi Lista", temporal para visitante anónimo
-- [x] "Aplicar a beca" muestra aviso (sin completar registro ni aplicación)
+- [x] "Aplicar" muestra aviso (sin completar registro ni aplicación)
 - [x] Ninguna acción de exploración crea oportunidad, aplicación ni transferencia
 - [x] El visitante anónimo tiene `identificador_navegacion` persistido en `localStorage`
 - [x] Los eventos clave se registran en `eventos_negocio` con `visitante_id`

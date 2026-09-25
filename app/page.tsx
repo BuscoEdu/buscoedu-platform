@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import InterestForm from "@/components/forms/InterestForm";
 import SectionHeading from "@/components/ui/SectionHeading";
 import InfoCard from "@/components/ui/InfoCard";
 import NaiaEntryModal from "@/components/naia/NaiaEntryModal";
@@ -55,86 +54,88 @@ export default function HomePage() {
       <div className="mx-auto w-full max-w-6xl space-y-14 px-4 py-10 sm:px-6 lg:px-8">
         <NaiaHomeHero />
 
+        {/* Dos puertas: NaIA (primario) + Explorar (secundario) */}
         <section className="rounded-xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8">
           <SectionHeading
-            title="¿Prefieres explorar por tu cuenta?"
-            description="Revisa las ofertas académicas vigentes con filtros por área, nivel, modalidad, ciudad y beneficio. Puedes volver a hablar con NaIA en cualquier momento."
+            title="Elige cómo empezar"
+            description="Habla con NaIA para orientarte, o explora las ofertas académicas vigentes por tu cuenta. Puedes combinar ambos caminos cuando quieras."
           />
           <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center rounded-md bg-buscoedu-teal px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95"
+            >
+              Hablar con NaIA
+            </button>
             <Link
               href="/explorar"
-              className="inline-flex items-center rounded-md bg-buscoedu-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95"
-            >
-              Explorar ofertas vigentes
-            </Link>
-            <button
-              onClick={() => setIsModalOpen(true)}
               className="inline-flex items-center rounded-md border border-buscoedu-blue px-5 py-2.5 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-blue/5"
             >
-              Empezar con NaIA
-            </button>
+              Explorar ofertas
+            </Link>
           </div>
         </section>
 
-      <section>
-        <SectionHeading
-          eyebrow="Cómo funciona"
-          title="Un proceso simple para orientarte mejor"
-          description="BuscoEdu te acompaña paso a paso para que tomes decisiones informadas sin promesas irreales."
-        />
-        <div className="grid gap-4 md:grid-cols-3">
-          {pasos.map((paso) => (
-            <InfoCard key={paso.title} title={paso.title} description={paso.description} />
-          ))}
-        </div>
-        <Link href="/como-funciona" className="mt-6 inline-flex text-sm font-semibold text-buscoedu-blue underline">
-          Conocer el proceso completo
-        </Link>
-      </section>
+        <section>
+          <SectionHeading
+            eyebrow="Cómo funciona"
+            title="Un proceso simple para orientarte mejor"
+            description="BuscoEdu te acompaña paso a paso para que tomes decisiones informadas sin promesas irreales."
+          />
+          <div className="grid gap-4 md:grid-cols-3">
+            {pasos.map((paso) => (
+              <InfoCard key={paso.title} title={paso.title} description={paso.description} />
+            ))}
+          </div>
+          <Link href="/como-funciona" className="mt-6 inline-flex text-sm font-semibold text-buscoedu-blue underline">
+            Conocer el proceso completo
+          </Link>
+        </section>
 
-      <section className="rounded-xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8" id="naia-home">
-        <SectionHeading
-          eyebrow="Conoce a NaIA"
-          title="NaIA es la asesora virtual de BuscoEdu"
-          description="NaIA te ayuda a organizar tus ideas, entender opciones de formación y prepararte para conversar con instituciones aliadas cuando tú lo decidas."
-        />
-        <Link
-          href="#formulario-interes"
-          className="inline-flex items-center rounded-md bg-buscoedu-teal px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95"
-        >
-          Hablar con NaIA
-        </Link>
-      </section>
+        <section className="rounded-xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8" id="naia-home">
+          <SectionHeading
+            eyebrow="Conoce a NaIA"
+            title="NaIA es la asesora virtual de BuscoEdu"
+            description="NaIA te ayuda a organizar tus ideas, entender opciones de formación y prepararte para conversar con instituciones aliadas cuando tú lo decidas."
+          />
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center rounded-md bg-buscoedu-teal px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95"
+          >
+            Hablar con NaIA
+          </button>
+        </section>
 
-      <section id="beneficios">
-        <SectionHeading
-          eyebrow="Beneficios"
-          title="Beneficios para estudiantes"
-          description="Herramientas y orientación para explorar rutas educativas con mayor claridad y confianza."
-        />
-        <div className="grid gap-4 sm:grid-cols-2">
-          {beneficios.map((beneficio) => (
-            <InfoCard key={beneficio.title} title={beneficio.title} description={beneficio.description} />
-          ))}
-        </div>
-      </section>
+        <section id="beneficios">
+          <SectionHeading
+            eyebrow="Beneficios"
+            title="Beneficios para estudiantes"
+            description="Herramientas y orientación para explorar rutas educativas con mayor claridad y confianza."
+          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            {beneficios.map((beneficio) => (
+              <InfoCard key={beneficio.title} title={beneficio.title} description={beneficio.description} />
+            ))}
+          </div>
+        </section>
 
-      <section className="rounded-xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8" id="privacidad-consentimiento">
-        <SectionHeading
-          eyebrow="Privacidad y consentimiento"
-          title="Tus datos solo se comparten si tú lo autorizas"
-          description="La privacidad es central en BuscoEdu. No transferimos datos personales a universidades aliadas sin autorización expresa y verificable."
-        />
-        <Link href="/privacidad" className="inline-flex text-sm font-semibold text-buscoedu-blue underline">
-          Ver política de privacidad
-        </Link>
-      </section>
+        <section className="rounded-xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8" id="privacidad-consentimiento">
+          <SectionHeading
+            eyebrow="Privacidad y consentimiento"
+            title="Tus datos solo se comparten si tú lo autorizas"
+            description="La privacidad es central en BuscoEdu. No transferimos datos personales a universidades aliadas sin autorización expresa y verificable."
+          />
+          <Link href="/privacidad" className="inline-flex text-sm font-semibold text-buscoedu-blue underline">
+            Ver política de privacidad
+          </Link>
+        </section>
 
-      <InterestForm />
-    </div>
+        {/* Formulario local del navegador demovido/oculto: las puertas son NaIA y Explorar. */}
+      </div>
 
-    {/* Modal de NaIA */}
-    <NaiaEntryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <NaiaEntryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </>
   );
 }

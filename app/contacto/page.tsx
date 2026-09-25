@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import SectionHeading from "@/components/ui/SectionHeading";
 import SimpleLocalForm from "@/components/forms/SimpleLocalForm";
+import ClosingCtas from "@/components/ui/ClosingCtas";
 
 export const metadata: Metadata = {
   title: "Contacto | BuscoEdu",
@@ -35,6 +36,8 @@ export default function ContactoPage() {
           { id: "mensaje", label: "Mensaje", type: "textarea" }
         ]}
       />
+
+      <ClosingCtas description="Si prefieres, también puedes hablar con NaIA o explorar ofertas ahora." />
     </div>
   );
 }

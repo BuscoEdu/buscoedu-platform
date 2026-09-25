@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import SectionHeading from "@/components/ui/SectionHeading";
 import InfoCard from "@/components/ui/InfoCard";
+import ClosingCtas from "@/components/ui/ClosingCtas";
 
 export const metadata: Metadata = {
   title: "Cómo funciona | BuscoEdu",
@@ -31,6 +32,8 @@ export default function ComoFuncionaPage() {
           description="Solo si autorizas expresamente, BuscoEdu puede compartir tu intención con universidades aliadas."
         />
       </div>
+
+      <ClosingCtas description="¿Listo para dar el siguiente paso? Habla con NaIA o explora ofertas vigentes." />
     </div>
   );
 }
