@@ -326,7 +326,7 @@ export default function AplicacionConsentimientoModal({
               disabled={cargando || enviandoConversion}
               className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {cargando || enviandoConversion ? 'Procesando…' : 'Confirmar aplicación'}
+              {cargando || enviandoConversion ? 'Procesando…' : 'Autorizar contacto'}
             </button>
           </div>
         )}

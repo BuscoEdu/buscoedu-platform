@@ -271,7 +271,7 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
               onClick={handleApplyClick}
               className="min-w-0 flex-1 rounded-lg bg-buscoedu-teal px-4 py-3 font-semibold text-white transition-colors hover:bg-buscoedu-teal/90 sm:min-w-[200px] sm:px-6"
             >
-              Aplicar a beca
+              Aplicar
             </button>
           </div>
         </div>

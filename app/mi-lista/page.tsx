@@ -66,8 +66,11 @@ export default function MiListaPage() {
         ) : ofertas.length === 0 ? (
           <div className="rounded-lg border border-buscoedu-border bg-white p-8 text-center">
             <p className="mb-2 font-semibold text-buscoedu-text">Tu lista está vacía</p>
-            <p className="mb-6 text-sm text-buscoedu-muted">
+            <p className="mb-2 text-sm text-buscoedu-muted">
               Explora las opciones y toca el corazón para guardarlas aquí y compararlas después.
+            </p>
+            <p className="mb-6 text-sm font-medium text-buscoedu-text">
+              Guardar no envía tus datos.
             </p>
             <Link
               href="/explorar"
