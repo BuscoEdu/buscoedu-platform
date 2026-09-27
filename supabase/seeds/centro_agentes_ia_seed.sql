@@ -5,6 +5,8 @@
 --
 -- Idempotente: usa ON CONFLICT (codigo) DO NOTHING donde aplica.
 -- No inserta secretos: solo referencias a nombres de variables de entorno.
+-- BA-029: la semilla deja WhatsApp activo (contexto, config de canal y
+-- canales_permitidos con web+whatsapp). No apaga web ni toca contexto_naia.
 -- =====================================================
 
 BEGIN;
@@ -44,12 +46,21 @@ WHERE p.codigo = 'abacus_ai'
 -- =====================================================
 -- Canales
 -- =====================================================
+-- BA-029: WhatsApp nace activo en semillas nuevas (misma NaIA, otra config).
+-- web sigue activo. email y llamada siguen inactivos.
+-- ON CONFLICT DO NOTHING no pisa un canal ya editado; el UPDATE de abajo
+-- solo enciende whatsapp si seguía apagado.
 INSERT INTO public.canales_ia (codigo, nombre, tipo, descripcion, activo) VALUES
   ('web', 'Web', 'texto', 'Canal web principal de BuscoEdu', true),
-  ('whatsapp', 'WhatsApp', 'texto', 'Canal WhatsApp via Twilio', false),
+  ('whatsapp', 'WhatsApp', 'texto', 'Canal WhatsApp (Demo WApp / Meta Cloud API). Misma NaIA, otra config de canal.', true),
   ('email', 'Email', 'email', 'Canal de correo electrónico', false),
   ('llamada', 'Llamada Telefónica', 'voz', 'Canal de voz via Retell/Twilio', false)
 ON CONFLICT (codigo) DO NOTHING;
+
+UPDATE public.canales_ia
+SET activo = true
+WHERE codigo = 'whatsapp'
+  AND activo = false;
 
 -- =====================================================
 -- Herramientas
@@ -138,6 +149,13 @@ INSERT INTO public.componentes_contexto_ia (codigo, nombre, tipo_contexto, conte
   60, false, '1.0', 'activo'
 ),
 (
+  'contexto_canal_whatsapp',
+  'Contexto Canal WhatsApp',
+  'canal',
+  $txt$Estás operando en el canal WhatsApp de BuscoEdu (Demo o Meta). El estudiante solo ve el hilo de chat: no hay Explorar, filtros ni paneles web. Responde corto (2–4 oraciones + bullets). Presenta opciones y ofertas en el hilo (texto o botones/listas cuando el adaptador lo permita). No inventes ofertas ni datos. Si aplica o autoriza contacto, el flujo ocurre en el hilo. Sin consentimiento vigente no hay lead a universidad.$txt$,
+  60, false, '1.0', 'activo'
+),
+(
   'formato_respuesta_naia',
   'Formato de Respuesta NaIA',
   'formato_respuesta',
@@ -189,7 +207,8 @@ JOIN public.agentes_ia a ON a.id = v.agente_id AND a.codigo = 'naia_asesora_educ
 JOIN public.componentes_contexto_ia c
   ON c.codigo IN (
     'reglas_seguridad_naia','identidad_naia','reglas_negocio_naia',
-    'personalidad_naia','objetivos_naia','contexto_canal_web','formato_respuesta_naia'
+    'personalidad_naia','objetivos_naia','contexto_canal_web','contexto_canal_whatsapp',
+    'formato_respuesta_naia'
   )
 WHERE v.numero_version = '1.0'
   AND NOT EXISTS (
@@ -209,7 +228,7 @@ WHERE v.agente_id = a.id
   AND v.numero_version = '1.0'
   AND v.configuracion_snapshot IS NULL;
 
--- Asociar canal web a la versión
+-- Asociar canal web a la versión (sin cambios de BA-029: consent false)
 INSERT INTO public.configuraciones_agente_canal (version_agente_id, canal_id, nombre_publico, tono, requiere_consentimiento)
 SELECT v.id, c.id, 'NaIA', 'cercano', false
 FROM public.versiones_agente_ia v
@@ -221,9 +240,42 @@ WHERE v.numero_version = '1.0'
     WHERE x.version_agente_id = v.id AND x.canal_id = c.id
   );
 
--- Habilitar herramientas básicas para la versión
+-- BA-029: config de WhatsApp solo en la v1.0 de la semilla.
+-- WHERE NOT EXISTS: no reescribe una config ya ajustada en admin u ops.
+INSERT INTO public.configuraciones_agente_canal (
+  version_agente_id,
+  canal_id,
+  nombre_publico,
+  tono,
+  longitud_maxima_respuesta,
+  reglas_especificas,
+  plantilla_respuesta,
+  requiere_consentimiento,
+  activo
+)
+SELECT
+  v.id,
+  c.id,
+  'NaIA',
+  'cercano',
+  600,
+  $reg$Canal WhatsApp: mensajes cortos; sin mandar a Explorar/filtros/paneles web; CTAs en el hilo; no inventar catálogo; fail-closed de consentimiento antes de lead a U.$reg$,
+  $plt$Respuesta breve (2–4 oraciones). Si hay opciones: viñetas cortas. Cierra con 1 pregunta o CTA en el hilo.$plt$,
+  true,
+  true
+FROM public.versiones_agente_ia v
+JOIN public.agentes_ia a ON a.id = v.agente_id AND a.codigo = 'naia_asesora_educativa'
+JOIN public.canales_ia c ON c.codigo = 'whatsapp'
+WHERE v.numero_version = '1.0'
+  AND NOT EXISTS (
+    SELECT 1 FROM public.configuraciones_agente_canal x
+    WHERE x.version_agente_id = v.id AND x.canal_id = c.id
+  );
+
+-- Habilitar herramientas básicas para la versión.
+-- BA-029: semillas nuevas incluyen web y whatsapp. No se quita web.
 INSERT INTO public.agente_herramientas (version_agente_id, herramienta_id, habilitada, canales_permitidos)
-SELECT v.id, h.id, true, '["web"]'::jsonb
+SELECT v.id, h.id, true, '["web","whatsapp"]'::jsonb
 FROM public.versiones_agente_ia v
 JOIN public.agentes_ia a ON a.id = v.agente_id AND a.codigo = 'naia_asesora_educativa'
 JOIN public.herramientas_ia h
@@ -236,6 +288,26 @@ WHERE v.numero_version = '1.0'
     SELECT 1 FROM public.agente_herramientas x
     WHERE x.version_agente_id = v.id AND x.herramienta_id = h.id
   );
+
+-- Re-semilla: suma whatsapp si la fila v1.0 ya existía solo con web.
+-- Conserva cualquier otro canal ya listado. No toca otras versiones.
+UPDATE public.agente_herramientas ah
+SET canales_permitidos = (
+  SELECT COALESCE(to_jsonb(array_agg(DISTINCT elem ORDER BY elem)), '["web","whatsapp"]'::jsonb)
+  FROM (
+    SELECT jsonb_array_elements_text(COALESCE(ah.canales_permitidos, '[]'::jsonb)) AS elem
+    UNION
+    SELECT 'whatsapp'::text
+  ) s
+)
+FROM public.versiones_agente_ia v
+JOIN public.agentes_ia a
+  ON a.id = v.agente_id
+ AND a.codigo = 'naia_asesora_educativa'
+WHERE ah.version_agente_id = v.id
+  AND v.numero_version = '1.0'
+  AND ah.activo = true
+  AND NOT (COALESCE(ah.canales_permitidos, '[]'::jsonb) ? 'whatsapp');
 
 -- Asociar fuentes de contexto a la versión
 INSERT INTO public.agente_fuentes_contexto (version_agente_id, fuente_contexto_id, prioridad, modo_acceso)
@@ -258,5 +330,28 @@ SET version_activa_id = (
 actualizado_en = now()
 WHERE codigo = 'naia_asesora_educativa'
   AND version_activa_id IS NULL;
+
+-- BA-029: agente predeterminado de WhatsApp = NaIA, solo si la columna de
+-- gobierno ya existe y el canal aún no tiene agente. No pisa web ni una
+-- asignación hecha a mano.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'canales_ia'
+      AND column_name = 'agente_predeterminado_id'
+  ) THEN
+    UPDATE public.canales_ia c
+    SET agente_predeterminado_id = a.id
+    FROM public.agentes_ia a
+    WHERE c.codigo = 'whatsapp'
+      AND c.agente_predeterminado_id IS NULL
+      AND a.codigo = 'naia_asesora_educativa'
+      AND a.activo = true
+      AND a.estado = 'activo';
+  END IF;
+END $$;
 
 COMMIT;
