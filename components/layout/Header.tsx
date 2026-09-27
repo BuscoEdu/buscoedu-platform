@@ -65,11 +65,12 @@ export default function Header() {
     setMounted(true);
   }, []);
 
+  // BA-012: cerrar el drawer también al cambiar ?vista= (misma ruta /explorar).
   useEffect(() => {
     setIsMobileOpen(false);
     setIsMasOpen(false);
     setIsMobileMasOpen(false);
-  }, [pathname]);
+  }, [pathname, vista]);
 
   useEffect(() => {
     if (!isMobileOpen) return;
@@ -346,12 +347,18 @@ export default function Header() {
         </div>
       </aside>
 
-      {/* FAB móvil: chip etiquetado «NaIA» (no letra N) = misma acción que Hablar con NaIA */}
-      {!pathname.startsWith("/naia") && !pathname.startsWith("/explorar") && (
+      {/*
+        BA-022: en Explorar móvil el atajo sigue visible, por encima del pie y
+        del contenido, y más arriba para no tapar la barra del chat.
+        En /naia no hace falta: la persona ya está en la conversación.
+      */}
+      {!pathname.startsWith("/naia") && (
         <button
           type="button"
           onClick={() => setIsModalOpen(true)}
-          className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-1.5 rounded-full bg-buscoedu-teal px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:scale-105 hover:brightness-95 md:hidden"
+          className={`fixed right-5 z-40 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-buscoedu-teal px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:scale-105 hover:brightness-95 md:hidden ${
+            pathname.startsWith("/explorar") ? "bottom-44" : "bottom-5"
+          }`}
           aria-label="Hablar con NaIA"
         >
           NaIA
