@@ -17,84 +17,129 @@
 
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { AbacusAdapter } from './AbacusAdapter';
+import { componenteContextoAplicaAlCanal, herramientaPermitidaEnCanal } from './canales';
+import { AgenteEjecucionError } from './errores';
+import { cargarMemoriaSesion } from './sesionEstudianteStore';
 import type { ConfiguracionAgente, EntradaEjecucion, SalidaEjecucion } from './tipos';
+import {
+  BLOQUE_VOZ_NAIA,
+  acumularFiltros,
+  detectarAperturas,
+  extraerSlotsDeclarados,
+  CONTRATO_JSON_WAPP,
+  fusionarSesion,
+  incorporarFiltrosDichos,
+  serializarSesion,
+  temperaturaNaia,
+  type SesionEstudiante
+} from './vozNaia';
 
-/** Error específico de la ejecución del agente. */
-export class AgenteEjecucionError extends Error {
-  constructor(message: string, public readonly codigo: string) {
-    super(message);
-    this.name = 'AgenteEjecucionError';
-  }
-}
+export { AgenteEjecucionError };
 
 // ---------------------------------------------------------------------------
 // Helpers de parseo y normalización (portados para conservar el contrato
 // externo idéntico al del endpoint /api/naia original).
 // ---------------------------------------------------------------------------
 
+/**
+ * BA-024: solo quita halagos vacíos de apertura.
+ * No borra “perfecto” a mitad de frase y no aplasta saltos de línea:
+ * el markdown del mensaje necesita los cortes.
+ */
 function limpiarTono(texto: string): string {
   return (texto || '')
-    .replace(/\b(¡)?excelente elección!?/gi, '')
-    .replace(/\b(qué bueno que te guste esta carrera\.?)/gi, '')
-    .replace(/\b(genial|perfecto)\.?\s*/gi, '')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/(^|[.!?]\s*)(?:¡\s*)?excelente elección!?\s*/gi, '$1')
+    .replace(/(^|[.!?]\s*)qué bueno que te guste esta carrera\.?\s*/gi, '$1')
+    .replace(/[ \t]{2,}/g, ' ')
     .trim();
 }
 
-function opcionesDeterministas(anchor: string): string[] {
-  const text = (anchor || '').toLowerCase();
-  if (text.includes('pregrado') && text.includes('posgrado')) {
-    return ['Me interesa pregrado', 'Me interesa posgrado', 'Explorar resultados'];
-  }
-  if (text.includes('modalidad')) {
-    return ['Prefiero modalidad virtual', 'Prefiero modalidad presencial', 'Explorar resultados'];
-  }
-  if (text.includes('ciudad') || text.includes('ubicación') || text.includes('pais')) {
-    return ['Quiero estudiar en Bogotá', 'Estoy abierto a cualquier ciudad', 'Explorar resultados'];
-  }
-  if (text.includes('beneficio') || text.includes('beca') || text.includes('descuento')) {
-    return ['Quiero opciones con beca', 'Quiero opciones con descuento', 'Explorar resultados'];
-  }
-  return ['Quiero filtrar por modalidad', 'Quiero ajustar por ciudad', 'Explorar resultados'];
+/**
+ * BA-024: si el modelo sugiere frases, se respetan (máximo 3).
+ * No se inventa la grilla “modalidad / ciudad / explorar”.
+ */
+function textoOpcional(valor: unknown): string | undefined {
+  return typeof valor === 'string' && valor.trim() ? valor.trim() : undefined;
 }
 
-function normalizarOpciones(raw: unknown, anchor: string): string[] {
-  const opciones = Array.isArray(raw)
-    ? raw.filter((x) => typeof x === 'string' && x.trim()).map((x) => (x as string).trim())
-    : [];
-  if (opciones.length >= 2) {
-    return [opciones[0], opciones[1], 'Explorar resultados'];
+function normalizarOpciones(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item) => typeof item === 'string' && item.trim())
+    .map((item) => (item as string).trim())
+    .slice(0, 3);
+}
+
+/**
+ * Un markdown con saltos de línea dentro del JSON a veces llega sin escapar.
+ * Antes de tirar la respuesta, se reparan esos saltos para no mostrar el JSON crudo.
+ */
+function repararJsonTexto(texto: string): string {
+  let salida = '';
+  let enCadena = false;
+  let escapado = false;
+
+  for (let index = 0; index < texto.length; index += 1) {
+    const char = texto[index];
+    if (escapado) {
+      salida += char;
+      escapado = false;
+      continue;
+    }
+    if (char === '\\' && enCadena) {
+      salida += char;
+      escapado = true;
+      continue;
+    }
+    if (char === '"') {
+      enCadena = !enCadena;
+      salida += char;
+      continue;
+    }
+    if (char === '\r' || char === '\n') {
+      if (char === '\r' && texto[index + 1] === '\n') index += 1;
+      salida += enCadena ? '\\n' : ' ';
+      continue;
+    }
+    salida += char;
   }
-  return opcionesDeterministas(anchor);
+  return salida;
+}
+
+function parsearJson(texto: string): Record<string, unknown> | null {
+  try {
+    const valor = JSON.parse(texto);
+    return valor && typeof valor === 'object' && !Array.isArray(valor)
+      ? (valor as Record<string, unknown>)
+      : null;
+  } catch {
+    try {
+      const reparado = JSON.parse(repararJsonTexto(texto));
+      return reparado && typeof reparado === 'object' && !Array.isArray(reparado)
+        ? (reparado as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
+  }
 }
 
 function extraerJson(texto: string): Record<string, unknown> | null {
   if (!texto) return null;
 
   const bloque = texto.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (bloque && bloque[1]) {
-    try {
-      return JSON.parse(bloque[1].trim());
-    } catch {
-      // continuar
-    }
+  if (bloque?.[1]) {
+    const parsed = parsearJson(bloque[1].trim());
+    if (parsed) return parsed;
   }
 
-  try {
-    return JSON.parse(texto.trim());
-  } catch {
-    // continuar
-  }
+  const directo = parsearJson(texto.trim());
+  if (directo) return directo;
 
   const inicio = texto.indexOf('{');
   const fin = texto.lastIndexOf('}');
   if (inicio !== -1 && fin !== -1 && fin > inicio) {
-    const posible = texto.slice(inicio, fin + 1);
-    try {
-      return JSON.parse(posible);
-    } catch {
-      // continuar
-    }
+    return parsearJson(texto.slice(inicio, fin + 1));
   }
   return null;
 }
@@ -193,6 +238,37 @@ function construirBloqueContextoOfertas(entrada: EntradaEjecucion): string {
   return `${prefijo}${contextoCompacto.slice(0, recorte)}...`;
 }
 
+/**
+ * BA-029: contexto CRM que Demo WApp ya armaba para NaIA.
+ * Viaja en el turno del usuario (no hay segundo bot). Se recorta para no
+ * inflar el payload hacia Abacus; el hilo sigue en conversation_id.
+ */
+function construirBloqueContextoCrm(entrada: EntradaEjecucion): string {
+  const partes: string[] = [];
+  const conversacion = (entrada.contexto_conversacion || '').trim();
+  if (conversacion) {
+    partes.push(`CONTEXTO_CONVERSACION=${conversacion.slice(0, 500)}`);
+  }
+
+  const persona = entrada.contexto_persona;
+  if (!persona || Object.keys(persona).length === 0) {
+    return partes.join('\n');
+  }
+
+  let json = JSON.stringify(persona);
+  const maximo = 1600;
+  if (json.length > maximo && 'mensajesRecientes' in persona) {
+    const resto = { ...persona };
+    delete resto.mensajesRecientes;
+    json = JSON.stringify(resto);
+  }
+  if (json.length > maximo) {
+    json = `${json.slice(0, Math.max(0, maximo - 3))}...`;
+  }
+  partes.push(`CONTEXTO_CRM=${json}`);
+  return partes.join('\n');
+}
+
 // ---------------------------------------------------------------------------
 // Motor principal
 // ---------------------------------------------------------------------------
@@ -248,21 +324,28 @@ export class AgenteExecutor {
       throw new AgenteEjecucionError('La versión activa no está publicada', 'version_no_publicada');
     }
 
-    // 3) Resolver canal operativo (web, whatsapp, etc.) para aplicar su configuración específica.
+    // 3) Resolver canal operativo (web, whatsapp). Inactivo = no usable (fail-closed).
     const { data: canal, error: canalError } = await db
       .from('canales_ia')
-      .select('id, codigo')
+      .select('id, codigo, activo')
       .eq('codigo', codigoCanal)
       .maybeSingle();
 
     if (canalError || !canal) {
       throw new AgenteEjecucionError(`Canal no encontrado: ${codigoCanal}`, 'canal_no_encontrado');
     }
+    if (canal.activo === false) {
+      throw new AgenteEjecucionError(
+        `El canal ${codigoCanal} no está activo.`,
+        'canal_no_configurado'
+      );
+    }
 
     // 4) Cargar reglas del canal para la versión activa (tono, plantilla y restricciones).
+    //    Sin fila activa no hay fallback a otro canal.
     const { data: configuracionCanal, error: configuracionCanalError } = await db
       .from('configuraciones_agente_canal')
-      .select('tono, reglas_especificas, plantilla_respuesta')
+      .select('tono, reglas_especificas, plantilla_respuesta, longitud_maxima_respuesta')
       .eq('version_agente_id', version.id)
       .eq('canal_id', canal.id)
       .eq('activo', true)
@@ -276,9 +359,13 @@ export class AgenteExecutor {
     }
 
     // 5) Cargar componentes de contexto asociados a la versión y su orden de ensamblado.
+    //    BA-029: los de tipo_contexto=canal se filtran por el canal activo para no
+    //    mezclar contexto web y WhatsApp en el mismo prompt.
     const { data: contextosRows, error: contextosError } = await db
       .from('versiones_agente_contextos')
-      .select('orden, rol_contexto, componentes_contexto_ia:componente_contexto_id(contenido, activo)')
+      .select(
+        'orden, rol_contexto, componentes_contexto_ia:componente_contexto_id(codigo, tipo_contexto, contenido, activo)'
+      )
       .eq('version_agente_id', version.id)
       .eq('activo', true)
       .order('orden', { ascending: true });
@@ -291,35 +378,52 @@ export class AgenteExecutor {
       .map((row: any) => ({
         orden: row.orden as number,
         rol_contexto: row.rol_contexto as string,
+        codigo: (row.componentes_contexto_ia?.codigo as string) || '',
+        tipo_contexto: (row.componentes_contexto_ia?.tipo_contexto as string) || '',
         contenido: (row.componentes_contexto_ia?.contenido as string) || '',
         activo: row.componentes_contexto_ia?.activo !== false
       }))
-      .filter((c) => c.activo && c.contenido.trim())
+      .filter(
+        (c) =>
+          c.activo &&
+          c.contenido.trim() &&
+          componenteContextoAplicaAlCanal(
+            { tipo_contexto: c.tipo_contexto, codigo: c.codigo },
+            codigoCanal
+          )
+      )
       .map(({ orden, rol_contexto, contenido }) => ({ orden, rol_contexto, contenido }));
 
     if (contextos.length === 0) {
       throw new AgenteEjecucionError('La versión no tiene contexto activo asociado', 'sin_contexto_activo');
     }
 
+    // BA-024: no se antepone “Tono para este canal: cercano”.
+    // Esa etiqueta sonaba a formulario; la voz vive en BLOQUE_VOZ_NAIA.
+    // BA-029: sí entran longitud, reglas y plantilla de ESTE canal (no del otro).
     const reglasCanal = [
-      configuracionCanal.tono ? `Tono para este canal: ${configuracionCanal.tono}` : '',
+      typeof configuracionCanal.longitud_maxima_respuesta === 'number'
+        ? `Longitud máxima orientativa: ${configuracionCanal.longitud_maxima_respuesta} caracteres`
+        : '',
       configuracionCanal.reglas_especificas ? `Reglas del canal: ${configuracionCanal.reglas_especificas}` : '',
       configuracionCanal.plantilla_respuesta ? `Formato de respuesta: ${configuracionCanal.plantilla_respuesta}` : ''
     ].filter(Boolean).join('\n');
     if (reglasCanal) contextos.push({ orden: 100000, rol_contexto: 'canal', contenido: reglasCanal });
 
-    // 6) Registrar herramientas habilitadas (informativo para trazabilidad/configuración).
+    // 6) Herramientas habilitadas para ESTE canal (canales_permitidos). Informativo.
     const { data: herramientasRows } = await db
       .from('agente_herramientas')
-      .select('habilitada, herramientas_ia:herramienta_id(codigo, nombre)')
+      .select('habilitada, canales_permitidos, herramientas_ia:herramienta_id(codigo, nombre)')
       .eq('version_agente_id', version.id)
       .eq('activo', true);
 
-    const herramientas = (herramientasRows || []).map((row: any) => ({
-      codigo: (row.herramientas_ia?.codigo as string) || '',
-      nombre: (row.herramientas_ia?.nombre as string) || '',
-      habilitada: row.habilitada !== false
-    }));
+    const herramientas = (herramientasRows || [])
+      .filter((row: any) => herramientaPermitidaEnCanal(row.canales_permitidos, codigoCanal))
+      .map((row: any) => ({
+        codigo: (row.herramientas_ia?.codigo as string) || '',
+        nombre: (row.herramientas_ia?.nombre as string) || '',
+        habilitada: row.habilitada !== false
+      }));
 
     // 7) Resolver despliegue de IA fail-closed (BA-008):
     //    solo el despliegue_id del snapshot de la versión. Sin fallback a
@@ -428,26 +532,52 @@ export class AgenteExecutor {
       entrada.version_agente_id,
       entrada.modo_simulacion === true
     );
-        const promptSistema = construirPromptSistema(config.contextos);
+    const promptSistema = construirPromptSistema(config.contextos);
 
-    // Turno 1: enviamos prompt de sistema completo.
-    // Turno 2+: no reenviamos prompt_sistema para evitar crecer el payload.
+    // BA-024: lo ya dicho vive en ejecuciones_agente_ia. Si no hay hilo o falla
+    // la lectura, se sigue solo con este mensaje (no se inventa memoria).
+    const memoria = entrada.modo_simulacion
+      ? { sesion: {} as SesionEstudiante, filtros: {} }
+      : await cargarMemoriaSesion(entrada.conversation_id);
+    const slotsTurno = extraerSlotsDeclarados(entrada.mensaje_usuario);
+    const aperturas = detectarAperturas(entrada.mensaje_usuario);
+    // BA-029: si Demo WApp trae la sesión BA-024 (hechos + hilo), esa base gana.
+    // Si no, sigue la bitácora del chat web. El texto de este turno se fusiona igual.
+    const baseSesion = entrada.sesion_previa
+      ? fusionarSesion({}, entrada.sesion_previa, [])
+      : memoria.sesion;
+    let sesion = fusionarSesion(baseSesion, slotsTurno, aperturas);
+    const bloqueSesion = serializarSesion(sesion);
+
+    // Turno 1: prompt de base + voz + sesión (cabe en el system side).
+    // Turno 2+: no se reenvía el prompt largo (414). Sí viajan la voz corta y la sesión.
+    // WhatsApp suma el contrato JSON de CRM (BA-024) sin mezclar el contexto de canal web.
     const esTurnoSeguimiento = Boolean(entrada.conversation_id);
     const bloqueContextoOfertas = esTurnoSeguimiento ? construirBloqueContextoOfertas(entrada) : '';
-    const mensajeUsuarioEnriquecido = bloqueContextoOfertas
-      ? `${entrada.mensaje_usuario}
-
-${bloqueContextoOfertas}`
-      : entrada.mensaje_usuario;
+    const bloqueContextoCrm = construirBloqueContextoCrm(entrada);
+    const voz =
+      config.canal.codigo === 'whatsapp'
+        ? `${BLOQUE_VOZ_NAIA}\n\n${CONTRATO_JSON_WAPP}`
+        : BLOQUE_VOZ_NAIA;
+    const promptEfectivo = esTurnoSeguimiento
+      ? ''
+      : `${promptSistema}\n\n${voz}\n\n${bloqueSesion}`;
+    const extrasUsuario = [bloqueContextoCrm, bloqueContextoOfertas].filter(
+      (parte) => typeof parte === 'string' && parte.trim()
+    );
+    const mensajeUsuarioEnriquecido = esTurnoSeguimiento
+      ? [voz, bloqueSesion, `Mensaje del estudiante:\n${entrada.mensaje_usuario}`, ...extrasUsuario].join('\n\n')
+      : [entrada.mensaje_usuario, ...extrasUsuario].join('\n\n');
 
     let resultadoAdaptador;
     try {
       resultadoAdaptador = await this.adaptador.ejecutar({
-        prompt_sistema: esTurnoSeguimiento ? '' : promptSistema,
+        prompt_sistema: promptEfectivo,
         mensaje_usuario: mensajeUsuarioEnriquecido,
         conversation_id: entrada.conversation_id,
         identificador_externo: config.despliegue.identificador_externo,
-        referencia_secreto: config.despliegue.referencia_secreto
+        referencia_secreto: config.despliegue.referencia_secreto,
+        temperature: temperaturaNaia(config.despliegue.configuracion_tecnica)
       });
     } catch (err) {
       if (!entrada.modo_simulacion) {
@@ -483,22 +613,41 @@ ${bloqueContextoOfertas}`
           ? limpiarTono(parsed.pregunta_seguimiento.trim())
           : null;
 
-      const anchor = preguntaLimpia || mensajeLimpio;
+      const filtrosAnclados = acumularFiltros({
+        previos: memoria.filtros,
+        delModelo: normalizarFiltros(parsed.filtros),
+        textoUsuario: entrada.mensaje_usuario,
+        sesion,
+        aperturas
+      });
+      sesion = incorporarFiltrosDichos(sesion, filtrosAnclados, entrada.mensaje_usuario);
 
       salida = {
         mensaje: mensajeLimpio,
-        filtros: normalizarFiltros(parsed.filtros),
+        filtros: filtrosAnclados,
         pregunta_seguimiento: preguntaLimpia,
-        opciones_sugeridas: normalizarOpciones((parsed as any).opciones_sugeridas, anchor),
-        conversationId: nuevaConversationId
+        opciones_sugeridas: normalizarOpciones((parsed as any).opciones_sugeridas),
+        conversationId: nuevaConversationId,
+        resumen_actualizado: textoOpcional((parsed as any).resumen_actualizado),
+        intencion_detectada: textoOpcional((parsed as any).intencion_detectada),
+        siguiente_accion_sugerida: textoOpcional((parsed as any).siguiente_accion_sugerida),
+        requiere_escalamiento: (parsed as any).requiere_escalamiento === true,
+        espera_respuesta: (parsed as any).espera_respuesta !== false
       };
     } else {
       const limpio = limpiarTono((resultadoAdaptador.respuesta_texto || '').trim());
+      const filtrosAnclados = acumularFiltros({
+        previos: memoria.filtros,
+        delModelo: {},
+        textoUsuario: entrada.mensaje_usuario,
+        sesion,
+        aperturas
+      });
       salida = {
-        mensaje: limpio || 'Actualicé la búsqueda con lo que me indicaste.',
-        filtros: {},
+        mensaje: limpio || 'Te sigo. Cuéntame con tus palabras qué te gustaría estudiar.',
+        filtros: filtrosAnclados,
         pregunta_seguimiento: null,
-        opciones_sugeridas: normalizarOpciones([], limpio),
+        opciones_sugeridas: [],
         conversationId: nuevaConversationId
       };
     }
@@ -510,7 +659,11 @@ ${bloqueContextoOfertas}`
           entrada,
           estado: 'exitoso',
           duracion_ms: Date.now() - inicio,
-          respuesta: salida as unknown as Record<string, unknown>
+          respuesta: {
+            ...(salida as unknown as Record<string, unknown>),
+            // BA-024: la sesión no sale en el contrato público; queda en la bitácora del hilo.
+            sesion_estudiante: sesion
+          }
         });
 
     salida.ejecucion_id = ejecucionId;

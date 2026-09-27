@@ -8,7 +8,9 @@ Se implementó un sistema de simulación de conversación tipo WhatsApp para Bus
 
 2. **Modal público temporal** para estudiante posterior a conversión exitosa, usando token firmado de corta vida.
 
-No se creó integración nueva con [Abacus.AI](http://Abacus.AI): se reutiliza la misma configuración (`ABACUS_NAIA_DEPLOYMENT_ID` y `ABACUS_NAIA_DEPLOYMENT_TOKEN`) en servidor.
+No se creó integración nueva con [Abacus.AI](http://Abacus.AI): el despliegue sigue saliendo del Centro IA (nombres de variables en `despliegues_ia`).
+
+**BA-029:** Demo WApp ya no arma un prompt propio. `src/lib/demowapp/mensaje-service.ts` ejecuta la misma NaIA con `codigo_canal=whatsapp`. Contrato y errores: `docs/backend/README-ba029.md`.
 
 ---
 
@@ -16,15 +18,19 @@ No se creó integración nueva con [Abacus.AI](http://Abacus.AI): se reutiliza l
 
 ## 2.1 UI
 
-* `app/demoWapp/page.tsx`: consola privada Demo WApp.
+* `app/demoWapp/layout.tsx` y `app/demoWapp/page.tsx`: hilo a pantalla completa (BA-033).
 
-* `components/demowapp/SessionList.tsx`: listado de sesiones por aplicación/oportunidad.
+* `components/demowapp/DemoWappPanel.tsx`: burbujas, input y opciones dentro del hilo (BA-030).
 
-* `components/demowapp/DemoWappPanel.tsx`: panel chat estilo WApp (burbujas, input, Enter).
+* `components/demowapp/DemoWappOpsSheet.tsx`: sesiones, búsqueda y CRM, en una hoja que tapa el chat.
 
-* `components/demowapp/ContextPanel.tsx`: panel lateral con contexto CRM.
+* `components/demowapp/SessionList.tsx`: listado de sesiones, solo dentro de esa hoja.
 
-* `components/demowapp/DemoWappModal.tsx`: modal estudiante (NaIA · BuscoEdu).
+* `components/demowapp/ContextPanel.tsx`: contexto CRM, solo dentro de esa hoja.
+
+* `components/demowapp/DemoWappModal.tsx`: el mismo hilo, a pantalla completa, para el estudiante.
+
+**BA-030 / BA-033:** el estudiante no ve columnas de Explorar, filtros ni CRM. La oferta y las respuestas rápidas van en el hilo. Nota corta: `docs/frontend/README-ba030-ba033.md`.
 
 ## 2.2 APIs
 
@@ -198,7 +204,7 @@ Sin crear tablas nuevas. La migración `20260830130000_demowapp_idempotency_inde
 
 1. Iniciar sesión como `super_admin` y abrir `/demoWapp`.
 
-2. Pulsar **Iniciar sesión** y abrir una sesión.
+2. La pantalla es el hilo. Abre **Operación**, elige una sesión y vuelve al chat.
 
 3. Enviar mensaje y verificar guardado + respuesta + trazabilidad.
 

@@ -51,11 +51,12 @@ export default function NaiaMessage({ content, isUser, timestamp, streaming = fa
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+      {/* BA-025: la respuesta de NaIA es burbuja blanca; el estudiante mantiene el teal. */}
       <div
         className={`max-w-[80%] rounded-lg px-4 py-3 ${
           isUser
-            ? 'bg-buscoedu-teal text-white'
-            : 'bg-white border border-buscoedu-border text-buscoedu-text'
+            ? 'bg-buscoedu-teal text-white shadow-[0_6px_16px_rgba(18,58,111,0.16)]'
+            : 'naia-chat-bubble text-buscoedu-text'
         }`}
       >
         {!isUser && (

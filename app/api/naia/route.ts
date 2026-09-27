@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { agenteExecutor } from '@/lib/agentes';
+import {
+  agenteExecutor,
+  esErrorCanalFailClosed,
+  estadoHttpErrorCanal,
+  resolverAgenteDelCanal,
+  resolverCodigoCanalExplicito,
+  type CodigoCanalIa
+} from '@/lib/agentes';
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
 
 /**
@@ -10,7 +17,10 @@ import { getServiceRoleClient } from '@/src/lib/supabase-server';
  * `lib/agentes` (AgenteExecutor). Este endpoint solo orquesta y conserva el
  * MISMO contrato externo de entrada/salida que la versión anterior.
  *
- * Recibe:  POST { mensaje: string, conversationId?: string }
+ * Recibe:  POST { mensaje, conversationId?, contexto_ofertas?, codigo_canal? }
+ *   codigo_canal: 'web' | 'whatsapp'. Si se omite, queda 'web' (chat público).
+ *   Un valor distinto no cae a web: responde canal_invalido (400).
+ *   Canal inactivo o sin config activa: canal_no_configurado (422), sin fallback.
  * Devuelve: { mensaje, filtros, pregunta_seguimiento, opciones_sugeridas, conversationId }
  *
  * BA-008: rate limit in-memory por IP + validación server-side de
@@ -19,8 +29,6 @@ import { getServiceRoleClient } from '@/src/lib/supabase-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const CODIGO_CANAL = 'web';
 
 /** Ventana y tope del rate limit simple in-memory (BA-008). */
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -75,29 +83,25 @@ function fallback(conversationId?: string, mensaje?: string): NaiaPayload {
   return {
     mensaje:
       mensaje ||
-      'Gracias por tu mensaje. Tu búsqueda sigue activa. Si quieres, indícame área, modalidad, nivel, ciudad o tipo de beneficio y ajusto los filtros.',
+      'Se me enredó la respuesta un momento. Cuéntame **qué te gustaría estudiar** y, si ya lo tienes, la **ciudad** o la **modalidad**.',
     filtros: {},
-    pregunta_seguimiento:
-      '¿Qué criterio quieres ajustar primero: área, modalidad, ciudad, nivel o beneficio?',
-    // Mantiene consistencia de copy con el botón móvil de resultados.
-    opciones_sugeridas: ['Quiero ajustar modalidad', 'Quiero ajustar ciudad', 'Explorar resultados'],
+    pregunta_seguimiento: '¿Qué te gustaría estudiar?',
+    // BA-024: sin grilla fija. El botón de explorar vive en la interfaz.
+    opciones_sugeridas: [],
     conversationId
   };
 }
 
-async function resolverAgenteDelCanal(codigoCanal: string): Promise<string> {
-  const { data: canal, error } = await getServiceRoleClient()
-    .from('canales_ia')
-    .select('codigo, agente_predeterminado_id, agentes_ia:agente_predeterminado_id(codigo, activo, estado)')
-    .eq('codigo', codigoCanal)
-    .eq('activo', true)
-    .maybeSingle();
-
-  const agente = (canal?.agentes_ia as any);
-  if (error || !canal?.agente_predeterminado_id || !agente?.codigo || agente.activo === false || agente.estado !== 'activo') {
-    throw new Error(`El canal ${codigoCanal} no tiene un agente activo asignado.`);
-  }
-  return agente.codigo;
+/** BA-029: error de canal se devuelve tal cual. El resto conserva el fallback conversacional. */
+function respuestaCanalFailClosed(err: unknown) {
+  if (!esErrorCanalFailClosed(err)) return null;
+  return NextResponse.json(
+    { ok: false, code: err.codigo, message: err.message },
+    {
+      status: estadoHttpErrorCanal(err.codigo),
+      headers: { 'Cache-Control': 'no-store' }
+    }
+  );
 }
 
 /**
@@ -163,11 +167,14 @@ export async function POST(req: NextRequest) {
   let mensaje = '';
   let conversationId: string | undefined;
   let contextoOfertas: ContextoOfertasPayload | undefined;
+  let codigoCanal: CodigoCanalIa = 'web';
 
   try {
     const body = await req.json();
     mensaje = (body?.mensaje ?? '').toString();
     conversationId = body?.conversationId || undefined;
+    // BA-029: explícito. Omitido o null = web. Otro valor = canal_invalido (no cae a web).
+    codigoCanal = resolverCodigoCanalExplicito(body?.codigo_canal);
 
     // Captura contexto visible en frontend para responder preguntas de detalle.
     if (body?.contexto_ofertas && typeof body.contexto_ofertas === 'object') {
@@ -185,7 +192,9 @@ export async function POST(req: NextRequest) {
           : undefined
       };
     }
-  } catch {
+  } catch (err) {
+    const falloCanal = respuestaCanalFailClosed(err);
+    if (falloCanal) return falloCanal;
     return NextResponse.json(fallback(), { status: 200 });
   }
 
@@ -203,10 +212,10 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    const codigoAgente = await resolverAgenteDelCanal(CODIGO_CANAL);
+    const codigoAgente = await resolverAgenteDelCanal(codigoCanal);
     const salida = await agenteExecutor.ejecutar({
       codigo_agente: codigoAgente,
-      codigo_canal: CODIGO_CANAL,
+      codigo_canal: codigoCanal,
       mensaje_usuario: mensaje,
       conversation_id: conversationId,
       contexto_ofertas: contextoOfertas
@@ -222,6 +231,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(payload, { status: 200 });
   } catch (err) {
+    const falloCanal = respuestaCanalFailClosed(err);
+    if (falloCanal) {
+      console.error('[api/naia] Canal no disponible:', err);
+      return falloCanal;
+    }
     console.error('[api/naia] Error ejecutando el agente:', err);
     return NextResponse.json(fallback(conversationId), { status: 200 });
   }

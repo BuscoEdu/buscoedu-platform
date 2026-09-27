@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { esErrorCanalFailClosed, estadoHttpErrorCanal } from '@/lib/agentes';
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { verifyDemoWappToken } from '@/src/lib/demowapp/token-service';
 import { processInboundStudentMessage } from '@/src/lib/demowapp/mensaje-service';
@@ -119,6 +120,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
 
     return NextResponse.json({ ok: true, result });
   } catch (e: any) {
+    // BA-029: canal whatsapp sin config no se disfraza de respuesta de NaIA.
+    if (esErrorCanalFailClosed(e)) {
+      return NextResponse.json(
+        { ok: false, code: e.codigo, error: e.message },
+        { status: estadoHttpErrorCanal(e.codigo) }
+      );
+    }
     return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });
   }
 }

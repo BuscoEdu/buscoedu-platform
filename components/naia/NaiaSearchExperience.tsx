@@ -18,6 +18,7 @@ import {
 } from "@/src/lib/university-colors";
 import { COPY_CERO_VIGENCIA, repararCopyFiltrado } from "@/components/naia/copyNaia";
 import { esSnapshotCompleto, type SnapshotNaia } from "@/components/naia/naiaSession";
+import { EVENTO_FAB_NAIA } from "@/components/naia/naiaFab";
 
 type EstadoBusqueda = "inicio" | "interpretando" | "consultando" | "listo" | "error";
 type Orden = "recomendado" | "virtual" | "beneficio" | "universidad";
@@ -67,6 +68,11 @@ const ORDENES: Array<{ id: Orden; etiqueta: string }> = [
 
 interface NaiaSearchExperienceProps {
   layoutVariant?: LayoutVariant;
+  /**
+   * BA-028: la misma experiencia, montada en la capa del FAB
+   * encima de la página. No abre otro chat.
+   */
+  enCapa?: boolean;
 }
 
 function filtrosConValor(filtros: NaiaResponse["filtros"]): FiltrosOferta {
@@ -92,7 +98,10 @@ function esVirtual(oferta: OfertaAcademica) {
   return (oferta.programa?.modalidad ?? "").toLocaleLowerCase().includes("virtual");
 }
 
-export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSearchExperienceProps) {
+export default function NaiaSearchExperience({
+  layoutVariant = "naia",
+  enCapa = false,
+}: NaiaSearchExperienceProps) {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q")?.trim() ?? "";
   const vistaParam = parseVista(searchParams.get("vista"));
@@ -129,6 +138,7 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
   const [alturaLayoutDesktop, setAlturaLayoutDesktop] = useState<number | null>(null);
   const [hidratado, setHidratado] = useState(false);
   const historialRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   /**
    * BA-014: restaura chat + resultados + filtros juntos.
@@ -262,25 +272,51 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
   }, []);
 
   /**
-   * Al abrir resultados en móvil: ocultamos header global y bloqueamos scroll del body.
+   * Móvil: el panel de resultados tapa el header.
+   * BA-027: en NaIA, con resultados o ficha, el header también sale.
+   * Quedan la ventana de chat y el botón Explorar oferta.
+   * BA-001: al cerrar la ficha se vuelve a bloquear el scroll del panel móvil.
    */
   useEffect(() => {
-    if (!mostrarResultadosMovil) return;
-    if (window.innerWidth >= 1024) return;
+    /*
+      Solo clases en body: no se escribe style en header ni en body,
+      porque ese DOM lo hidrata React.
+    */
+    const aplicarCromo = () => {
+      const movil = window.innerWidth < 1024;
+      /* estado !== "inicio": ya hay búsqueda, resultados o ficha en curso. */
+      const soloChat =
+        movil &&
+        !enCapa &&
+        layoutVariant === "naia" &&
+        (estado !== "inicio" || Boolean(seleccionada) || mostrarResultadosMovil);
+      const resultadosEncima = movil && mostrarResultadosMovil;
 
-    const header = document.querySelector("header") as HTMLElement | null;
-    const originalHeaderDisplay = header?.style.display;
-    const originalOverflow = document.body.style.overflow;
-
-    if (header) header.style.display = "none";
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      if (header) header.style.display = originalHeaderDisplay ?? "";
-      document.body.style.overflow = originalOverflow;
+      document.body.classList.toggle("naia-movil-solo-chat", soloChat);
+      document.body.classList.toggle("naia-movil-resultados", resultadosEncima);
     };
-    // BA-001: al cerrar la ficha se vuelve a bloquear el scroll del panel móvil.
-  }, [mostrarResultadosMovil, seleccionada]);
+
+    aplicarCromo();
+    window.addEventListener("resize", aplicarCromo);
+    return () => {
+      window.removeEventListener("resize", aplicarCromo);
+      document.body.classList.remove("naia-movil-solo-chat", "naia-movil-resultados");
+    };
+  }, [enCapa, layoutVariant, estado, seleccionada, mostrarResultadosMovil]);
+
+  /**
+   * BA-028: en Explorar el FAB no monta otro chat.
+   * Cierra la capa de resultados y deja la ventana que ya está en la página.
+   */
+  useEffect(() => {
+    if (enCapa || layoutVariant !== "explorar") return;
+    const alPulsarFab = () => {
+      setMostrarResultadosMovil(false);
+      inputRef.current?.focus();
+    };
+    window.addEventListener(EVENTO_FAB_NAIA, alPulsarFab);
+    return () => window.removeEventListener(EVENTO_FAB_NAIA, alPulsarFab);
+  }, [enCapa, layoutVariant]);
 
   /**
    * Primera página del catálogo.
@@ -858,28 +894,78 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
     ? "lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.65fr)]"
     : "lg:grid-cols-[minmax(0,1.65fr)_minmax(360px,0.85fr)]";
 
+  /*
+    BA-027: en móvil, con resultados o ficha, la columna se reparte entre
+    la ventana de chat y el botón Explorar oferta.
+    BA-028: en la capa del FAB el alto lo da el contenedor, no el header.
+  */
+  const ajustarColumnaMovil = enCapa || mostrarResultados || Boolean(seleccionada);
+  const naiaPantallaCompleta =
+    !enCapa && layoutVariant === "naia" && (mostrarResultados || Boolean(seleccionada));
+
   return (
     <div
-      className="bg-[#f7f9fc] lg:mb-6 lg:overflow-hidden lg:pb-2"
-      style={alturaLayoutDesktop ? { height: `${alturaLayoutDesktop}px` } : undefined}
+      className={
+        enCapa
+          ? "flex h-full min-h-0 flex-col overflow-hidden bg-[#f7f9fc]"
+          : `bg-[#f7f9fc] lg:mb-6 lg:overflow-hidden lg:pb-2${
+              naiaPantallaCompleta ? " max-lg:h-dvh max-lg:overflow-hidden" : ""
+            }`
+      }
+      style={!enCapa && alturaLayoutDesktop ? { height: `${alturaLayoutDesktop}px` } : undefined}
     >
-      <div className={`mx-auto grid w-full max-w-[1600px] lg:h-full lg:min-h-0 ${gridClass}`}>
-        <main className="relative min-h-[calc(100dvh-73px)] border-b border-buscoedu-border bg-white px-5 pb-44 pt-6 sm:px-8 lg:h-full lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:border-r lg:px-10 lg:pb-40 lg:pt-8">
+      {/*
+        En escritorio este envoltorio no cambia el grid.
+        En móvil acota el alto para que el botón quede debajo de la ventana,
+        dentro de la pantalla, y no debajo del pie.
+      */}
+      <div
+        className={
+          enCapa
+            ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
+            : ajustarColumnaMovil
+              ? `mx-auto flex w-full max-w-[1600px] flex-col overflow-hidden lg:block lg:h-full ${
+                  naiaPantallaCompleta ? "h-full" : "h-[calc(100dvh-73px)] lg:h-full"
+                }`
+              : "contents"
+        }
+      >
+      <div
+        className={`mx-auto w-full max-w-[1600px] lg:grid lg:h-full lg:min-h-0 ${gridClass} ${
+          ajustarColumnaMovil ? "flex min-h-0 flex-1 flex-col" : "grid"
+        }`}
+      >
+        {/*
+          Columna del hilo en flex: el chat ocupa el alto restante y la barra
+          inferior queda en el flujo. Así la franja de continuación no puede
+          crecer y tapar los mensajes (BA-026).
+          BA-025: superficie gris y marco más pesado para que esta ventana
+          se lea sobre el fondo del sitio, igual en /naia y /explorar.
+        */}
+        <main
+          className={`naia-chat-window relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-b-2 border-buscoedu-chat-edge px-5 pt-6 sm:px-8 lg:h-full lg:border-b-0 lg:border-r-2 lg:px-10 lg:pt-8 ${
+            ajustarColumnaMovil ? "max-lg:flex-1" : "h-[calc(100dvh-73px)]"
+          }`}
+        >
+          {/* Filete de marca: marca el borde superior de la ventana en web y móvil. */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-1 bg-buscoedu-teal" aria-hidden="true" />
           {mostrarResultados ? (
-            <section className="mx-auto flex h-[calc(100dvh-180px)] max-w-3xl min-h-0 flex-col lg:h-full lg:max-h-full">
+            <section className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
               <div className="mb-4 shrink-0">
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">Conversación con NaIA</p>
+                {/* Rótulo teal sobre pastilla blanca: el teal de marca no contrasta sobre el gris del hilo. */}
+                <p className="inline-flex rounded-full bg-white px-3 py-1 text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal shadow-[0_2px_8px_rgba(18,58,111,0.08)]">Conversación con NaIA</p>
                 <h1 className="mt-1 text-2xl font-bold tracking-tight text-buscoedu-blue">Tu búsqueda educativa</h1>
               </div>
 
-              <div ref={historialRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-5 pr-1" aria-live="polite">
+              <div ref={historialRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-3 pr-1" aria-live="polite">
+                {/* BA-025: burbuja blanca de NaIA sobre el gris; la del estudiante sigue en azul. */}
                 {mensajes.map((mensaje) => (
                   <div
                     key={mensaje.id}
                     className={
                       mensaje.autor === "estudiante"
-                        ? "ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-buscoedu-blue px-4 py-3 text-white"
-                        : "max-w-[92%] rounded-2xl rounded-bl-md border border-buscoedu-border bg-buscoedu-bg/60 px-4 py-3 text-buscoedu-text"
+                        ? "ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-buscoedu-blue px-4 py-3 text-white shadow-[0_6px_16px_rgba(18,58,111,0.18)]"
+                        : "naia-chat-bubble max-w-[92%] rounded-2xl rounded-bl-md px-4 py-3 text-buscoedu-text"
                     }
                   >
                     {mensaje.autor === "naia" && <p className="mb-1 text-xs font-semibold text-buscoedu-teal">NaIA</p>}
@@ -911,31 +997,37 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
               </div>
             </section>
           ) : (
-            <section className="mx-auto flex min-h-[calc(100dvh-250px)] max-w-3xl flex-col justify-center pb-8">
-              <span className="inline-flex h-14 items-center justify-center rounded-2xl bg-buscoedu-teal/10 px-3 text-lg font-bold text-buscoedu-teal">NaIA</span>
-              <p className="mt-7 text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">Tu búsqueda educativa, acompañada</p>
+            /* El saludo cede el alto a la barra; si no cabe, scrollea él y no la página. */
+            <section className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col justify-center overflow-y-auto pb-4">
+              {/* Sello sobre blanco para que el teal no se pierda en la superficie gris. */}
+              <span className="naia-chat-bubble inline-flex h-14 items-center justify-center rounded-2xl px-3 text-lg font-bold text-buscoedu-teal">NaIA</span>
+              {/* Misma pastilla que en el hilo activo: teal legible sobre el gris. */}
+              <p className="mt-7 inline-flex rounded-full bg-white px-3 py-1 text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal shadow-[0_2px_8px_rgba(18,58,111,0.08)]">Tu búsqueda educativa, acompañada</p>
               <h1 className="mt-3 max-w-2xl text-4xl font-bold tracking-tight text-buscoedu-blue sm:text-5xl">Hola, soy NaIA.</h1>
-              <p className="mt-4 max-w-2xl text-lg leading-relaxed text-buscoedu-muted">Cuéntame qué quieres estudiar, dónde te gustaría hacerlo o qué necesitas para empezar. Te ayudaré a explorar opciones y compararlas con calma.</p>
+              {/* Texto principal sobre la superficie gris: color de cuerpo, no el muted pensado para blanco. */}
+              <p className="mt-4 max-w-2xl text-lg leading-relaxed text-buscoedu-text">Cuéntame qué quieres estudiar, dónde te gustaría hacerlo o qué necesitas para empezar. Te ayudaré a explorar opciones y compararlas con calma.</p>
               <div className="mt-8 flex flex-wrap gap-2">
                 {PROMPTS_INICIALES.map((prompt) => (
-                  <button key={prompt} type="button" onClick={() => void buscar(prompt)} className="rounded-full border border-buscoedu-border bg-white px-4 py-2.5 text-sm font-medium text-buscoedu-blue transition hover:border-buscoedu-teal hover:bg-buscoedu-teal/5">
+                  <button key={prompt} type="button" onClick={() => void buscar(prompt)} className="naia-chat-bubble rounded-full px-4 py-2.5 text-sm font-medium text-buscoedu-blue transition hover:border-buscoedu-teal hover:bg-buscoedu-teal/5">
                     {prompt}
                   </button>
                 ))}
               </div>
-              <p className="mt-8 max-w-xl text-sm leading-relaxed text-buscoedu-muted">Puedes explorar sin registrarte. Solo compartiremos tus datos con una institución si lo autorizas expresamente.</p>
+              <p className="mt-8 max-w-xl text-sm leading-relaxed text-buscoedu-text">Puedes explorar sin registrarte. Solo compartiremos tus datos con una institución si lo autorizas expresamente.</p>
             </section>
           )}
 
           {/*
-            Barra inferior del chat:
-            1) input de mensaje
-            2) sugerencias "Puedes continuar con" debajo del input (web y móvil)
+            Muelle blanco sobre la superficie gris (BA-025). Va en el flujo
+            (shrink-0), no absoluto: no tapa el hilo.
+            1) input
+            2) "Puedes continuar con" con alto fijo y scroll interno (BA-026, web y móvil)
           */}
-          <div className="absolute bottom-0 left-0 right-0 z-20 border-t border-buscoedu-border bg-white/95 px-5 py-3 backdrop-blur sm:px-8 lg:px-10">
+          <div className="z-20 -mx-5 shrink-0 border-t-2 border-buscoedu-chat-edge bg-white px-5 py-3 sm:-mx-8 sm:px-8 lg:-mx-10 lg:px-10">
             <form onSubmit={enviar}>
-              <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-2xl border border-buscoedu-border bg-white p-2 shadow-[0_10px_30px_rgba(17,45,84,0.12)]">
+              <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-2xl border border-buscoedu-chat-edge bg-white p-2 shadow-[0_10px_30px_rgba(17,45,84,0.12)]">
                 <textarea
+                  ref={inputRef}
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={(event) => {
@@ -973,31 +1065,30 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
               </div>
             )}
 
-            {/* Botón Explorar Resultados — solo móvil, cuando hay resultados disponibles */}
-            {mostrarResultados && !estaCargando && (
-              <div className="mt-3 lg:hidden">
-                <button
-                  type="button"
-                  onClick={() => setMostrarResultadosMovil(true)}
-                  className="w-full min-h-[44px] rounded-xl bg-buscoedu-blue px-4 py-3 text-sm font-semibold text-white"
-                >
-                  Explorar Resultados →
-                </button>
-              </div>
-            )}
-
+            {/*
+              BA-027: el llamado Explorar oferta vive debajo de la ventana,
+              no dentro del muelle. Aquí sigue "Puedes continuar con" (BA-026).
+            */}
             {sugerenciasParaMostrar.length > 0 && !estaCargando && (
-              <div className="mx-auto mt-3 hidden max-w-3xl border-t border-buscoedu-border/80 pt-3 lg:block" aria-label="Opciones debajo del input">
-                <div className="rounded-2xl border border-buscoedu-border bg-slate-100 p-4">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-buscoedu-muted">Puedes continuar con</p>
-                  <div className="flex gap-2 overflow-x-auto pb-1">
+              /*
+                BA-026: alto fijo en web y móvil. Si las frases no caben,
+                el scroll es interno y el hilo no pierde alto.
+              */
+              <div className="mx-auto mt-3 max-w-3xl border-t border-buscoedu-border/80 pt-3">
+                <div
+                  className="h-28 overflow-y-auto overscroll-contain rounded-2xl border border-buscoedu-border bg-slate-100 p-3 sm:h-32 sm:p-4"
+                  aria-label="Puedes continuar con"
+                >
+                  {/* El rótulo queda visible mientras las frases scrollean dentro del alto fijo. */}
+                  <p className="sticky top-0 z-10 -mx-3 mb-2 bg-slate-100 px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-buscoedu-muted sm:-mx-4 sm:px-4">Puedes continuar con</p>
+                  <div className="flex flex-wrap gap-2 pb-1">
                     {sugerenciasParaMostrar.map((opcion) => (
                       <button
                         key={opcion}
                         type="button"
                         onClick={() => ejecutarSugerencia(opcion)}
                         disabled={estaCargando}
-                        className="shrink-0 rounded-full border border-buscoedu-teal/40 bg-white px-3 py-2 text-sm font-medium text-buscoedu-blue transition hover:bg-buscoedu-teal/5 disabled:opacity-50"
+                        className="max-w-full rounded-full border border-buscoedu-teal/40 bg-white px-3 py-2 text-left text-sm font-medium leading-snug text-buscoedu-blue transition hover:bg-buscoedu-teal/5 disabled:opacity-50"
                       >
                         {opcion}
                       </button>
@@ -1132,6 +1223,25 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
         </aside>
       </div>
 
+        {/*
+          BA-027: único bloque bajo la ventana en móvil.
+          Abre la capa de resultados que ya existe. En escritorio el listado
+          sigue al lado y este botón no se muestra.
+        */}
+        {mostrarResultados && (
+          <div className="shrink-0 border-t border-buscoedu-border bg-white px-4 py-3 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMostrarResultadosMovil(true)}
+              disabled={estaCargando}
+              className="w-full min-h-11 rounded-xl bg-buscoedu-blue px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Explorar oferta
+            </button>
+          </div>
+        )}
+      </div>
+
       <MobileResultsModal
         open={mostrarResultadosMovil}
         onClose={() => setMostrarResultadosMovil(false)}
@@ -1155,8 +1265,15 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
         esExplorar={layoutVariant === "explorar"}
       />
 
-      {/* Franja disclaimer solicitada entre experiencia NaIA y footer global. */}
-      <section className="border-t border-buscoedu-border bg-slate-100 px-4 py-4 text-sm text-buscoedu-muted sm:px-6 lg:px-8">
+      {/*
+        Franja entre la experiencia y el pie.
+        BA-027: en NaIA móvil no entra en la pantalla (solo chat + Explorar oferta).
+      */}
+      <section
+        className={`border-t border-buscoedu-border bg-slate-100 px-4 py-4 text-sm text-buscoedu-muted sm:px-6 lg:px-8 ${
+          layoutVariant === "naia" ? "hidden lg:block" : ""
+        }`}
+      >
         <div className="mx-auto max-w-6xl leading-relaxed">
           BuscoEdu no es una universidad y no garantiza admisión, precios, becas ni cupos. La orientación ofrecida busca ayudarte a explorar opciones educativas. Cualquier decisión final, requisitos y condiciones dependen de cada universidad aliada.
         </div>
@@ -1191,7 +1308,7 @@ function TypedText({ texto, onStep }: { texto: string; onStep?: () => void }) {
 
 function ThinkingIndicator({ texto }: { texto: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-buscoedu-border bg-buscoedu-bg/60 px-4 py-3 text-sm text-buscoedu-text">
+    <div className="naia-chat-bubble flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-buscoedu-text">
       {/* Rebote alto para reforzar la percepción de procesamiento activo. */}
       <div className="flex items-center gap-1" aria-hidden="true">
         <span className="h-2 w-2 rounded-full bg-buscoedu-teal" style={{ animation: "naiaDotBounceHigh 0.82s infinite", animationDelay: "-0.24s" }} />

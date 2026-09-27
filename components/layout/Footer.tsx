@@ -34,13 +34,23 @@ export default function Footer() {
 
   if (isPrivateArea) return null;
 
+  /*
+    BA-027: en /naia móvil el pie no se muestra.
+    En lg+ sigue la franja de escritorio.
+  */
+  const ocultarPieMovilNaia = pathname.startsWith("/naia");
+
   return (
     /*
       BA-002: en md+ el pie va en una sola franja (marca + 3 columnas) con menos
       padding y separación. En móvil se mantiene el bloque apilado, sin recortar
       el texto ni sumar margen de más.
     */
-    <footer className="mt-10 border-t border-buscoedu-border bg-white md:mt-6">
+    <footer
+      className={`mt-10 border-t border-buscoedu-border bg-white md:mt-6 ${
+        ocultarPieMovilNaia ? "hidden lg:block" : ""
+      }`}
+    >
       <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 md:py-5 lg:px-8">
         <div className="md:grid md:grid-cols-[minmax(14rem,18rem)_minmax(0,1fr)] md:items-start md:gap-8">
           <div className="mb-8 md:mb-0">

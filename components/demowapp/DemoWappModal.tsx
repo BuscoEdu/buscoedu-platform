@@ -10,6 +10,10 @@ interface Props {
   onCerrar: () => void;
 }
 
+/**
+ * BA-033: canal del estudiante a pantalla completa.
+ * No es un modal con marco de portal, ni un acceso a Explorar.
+ */
 export default function DemoWappModal({ token, abierto, autoOpenDelayMs = 5000, onCerrar }: Props) {
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -52,8 +56,13 @@ export default function DemoWappModal({ token, abierto, autoOpenDelayMs = 5000, 
 
   useEffect(() => {
     if (!visible) return;
+    const previo = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     const interval = window.setInterval(() => void cargar(), 5000);
-    return () => window.clearInterval(interval);
+    return () => {
+      document.body.style.overflow = previo;
+      window.clearInterval(interval);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, token]);
 
@@ -74,36 +83,22 @@ export default function DemoWappModal({ token, abierto, autoOpenDelayMs = 5000, 
 
   if (!visible) return null;
 
+  const avisoHilo = error ? error : loading && !session ? 'Cargando la conversación…' : null;
+
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 p-2 sm:items-center sm:p-6">
-      <div className="h-[88vh] w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-          <div>
-            <p className="font-semibold text-gray-900">NaIA · BuscoEdu</p>
-            <p className="text-xs text-gray-500">Simulación de conversación (no es WhatsApp real)</p>
-          </div>
-          <button
-            onClick={onCerrar}
-            className="rounded-lg border border-gray-200 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50"
-          >
-            Cerrar
-          </button>
-        </div>
-
-        {loading && <div className="p-4 text-sm text-gray-500">Cargando conversación...</div>}
-        {error && <div className="p-4 text-sm text-red-600">{error}</div>}
-
-        {session && (
-          <div className="p-3">
-            <DemoWappPanel
-              titulo={session.nombre || 'Estudiante'}
-              subtitulo={`Oferta: ${session.oferta || 'Oferta'} · NaIA · BuscoEdu`}
-              mensajes={session.mensajes || []}
-              onEnviar={enviar}
-            />
-          </div>
-        )}
-      </div>
+    /* BA-033: el canal cubre móvil y escritorio. No hay ficha ni columnas alrededor. */
+    <div className="fixed inset-0 z-[80] flex h-dvh min-h-0 flex-col bg-[#0b141a]">
+      <DemoWappPanel
+        soloHilo
+        titulo="NaIA"
+        subtitulo="en línea"
+        mensajes={session?.mensajes || []}
+        onEnviar={enviar}
+        disabled={!session}
+        onCerrar={onCerrar}
+        ofertaNombre={session?.oferta || null}
+        avisoHilo={avisoHilo}
+      />
     </div>
   );
 }
