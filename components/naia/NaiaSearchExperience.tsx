@@ -18,6 +18,7 @@ import {
 } from "@/src/lib/university-colors";
 import { COPY_CERO_VIGENCIA, repararCopyFiltrado } from "@/components/naia/copyNaia";
 import { esSnapshotCompleto, type SnapshotNaia } from "@/components/naia/naiaSession";
+import { EVENTO_FAB_NAIA } from "@/components/naia/naiaFab";
 
 type EstadoBusqueda = "inicio" | "interpretando" | "consultando" | "listo" | "error";
 type Orden = "recomendado" | "virtual" | "beneficio" | "universidad";
@@ -67,6 +68,11 @@ const ORDENES: Array<{ id: Orden; etiqueta: string }> = [
 
 interface NaiaSearchExperienceProps {
   layoutVariant?: LayoutVariant;
+  /**
+   * BA-028: la misma experiencia, montada en la capa del FAB
+   * encima de la página. No abre otro chat.
+   */
+  enCapa?: boolean;
 }
 
 function filtrosConValor(filtros: NaiaResponse["filtros"]): FiltrosOferta {
@@ -92,7 +98,10 @@ function esVirtual(oferta: OfertaAcademica) {
   return (oferta.programa?.modalidad ?? "").toLocaleLowerCase().includes("virtual");
 }
 
-export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSearchExperienceProps) {
+export default function NaiaSearchExperience({
+  layoutVariant = "naia",
+  enCapa = false,
+}: NaiaSearchExperienceProps) {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q")?.trim() ?? "";
   const vistaParam = parseVista(searchParams.get("vista"));
@@ -129,6 +138,7 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
   const [alturaLayoutDesktop, setAlturaLayoutDesktop] = useState<number | null>(null);
   const [hidratado, setHidratado] = useState(false);
   const historialRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   /**
    * BA-014: restaura chat + resultados + filtros juntos.
@@ -262,25 +272,51 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
   }, []);
 
   /**
-   * Al abrir resultados en móvil: ocultamos header global y bloqueamos scroll del body.
+   * Móvil: el panel de resultados tapa el header.
+   * BA-027: en NaIA, con resultados o ficha, el header también sale.
+   * Quedan la ventana de chat y el botón Explorar oferta.
+   * BA-001: al cerrar la ficha se vuelve a bloquear el scroll del panel móvil.
    */
   useEffect(() => {
-    if (!mostrarResultadosMovil) return;
-    if (window.innerWidth >= 1024) return;
+    /*
+      Solo clases en body: no se escribe style en header ni en body,
+      porque ese DOM lo hidrata React.
+    */
+    const aplicarCromo = () => {
+      const movil = window.innerWidth < 1024;
+      /* estado !== "inicio": ya hay búsqueda, resultados o ficha en curso. */
+      const soloChat =
+        movil &&
+        !enCapa &&
+        layoutVariant === "naia" &&
+        (estado !== "inicio" || Boolean(seleccionada) || mostrarResultadosMovil);
+      const resultadosEncima = movil && mostrarResultadosMovil;
 
-    const header = document.querySelector("header") as HTMLElement | null;
-    const originalHeaderDisplay = header?.style.display;
-    const originalOverflow = document.body.style.overflow;
-
-    if (header) header.style.display = "none";
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      if (header) header.style.display = originalHeaderDisplay ?? "";
-      document.body.style.overflow = originalOverflow;
+      document.body.classList.toggle("naia-movil-solo-chat", soloChat);
+      document.body.classList.toggle("naia-movil-resultados", resultadosEncima);
     };
-    // BA-001: al cerrar la ficha se vuelve a bloquear el scroll del panel móvil.
-  }, [mostrarResultadosMovil, seleccionada]);
+
+    aplicarCromo();
+    window.addEventListener("resize", aplicarCromo);
+    return () => {
+      window.removeEventListener("resize", aplicarCromo);
+      document.body.classList.remove("naia-movil-solo-chat", "naia-movil-resultados");
+    };
+  }, [enCapa, layoutVariant, estado, seleccionada, mostrarResultadosMovil]);
+
+  /**
+   * BA-028: en Explorar el FAB no monta otro chat.
+   * Cierra la capa de resultados y deja la ventana que ya está en la página.
+   */
+  useEffect(() => {
+    if (enCapa || layoutVariant !== "explorar") return;
+    const alPulsarFab = () => {
+      setMostrarResultadosMovil(false);
+      inputRef.current?.focus();
+    };
+    window.addEventListener(EVENTO_FAB_NAIA, alPulsarFab);
+    return () => window.removeEventListener(EVENTO_FAB_NAIA, alPulsarFab);
+  }, [enCapa, layoutVariant]);
 
   /**
    * Primera página del catálogo.
@@ -858,12 +894,47 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
     ? "lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.65fr)]"
     : "lg:grid-cols-[minmax(0,1.65fr)_minmax(360px,0.85fr)]";
 
+  /*
+    BA-027: en móvil, con resultados o ficha, la columna se reparte entre
+    la ventana de chat y el botón Explorar oferta.
+    BA-028: en la capa del FAB el alto lo da el contenedor, no el header.
+  */
+  const ajustarColumnaMovil = enCapa || mostrarResultados || Boolean(seleccionada);
+  const naiaPantallaCompleta =
+    !enCapa && layoutVariant === "naia" && (mostrarResultados || Boolean(seleccionada));
+
   return (
     <div
-      className="bg-[#f7f9fc] lg:mb-6 lg:overflow-hidden lg:pb-2"
-      style={alturaLayoutDesktop ? { height: `${alturaLayoutDesktop}px` } : undefined}
+      className={
+        enCapa
+          ? "flex h-full min-h-0 flex-col overflow-hidden bg-[#f7f9fc]"
+          : `bg-[#f7f9fc] lg:mb-6 lg:overflow-hidden lg:pb-2${
+              naiaPantallaCompleta ? " max-lg:h-dvh max-lg:overflow-hidden" : ""
+            }`
+      }
+      style={!enCapa && alturaLayoutDesktop ? { height: `${alturaLayoutDesktop}px` } : undefined}
     >
-      <div className={`mx-auto grid w-full max-w-[1600px] lg:h-full lg:min-h-0 ${gridClass}`}>
+      {/*
+        En escritorio este envoltorio no cambia el grid.
+        En móvil acota el alto para que el botón quede debajo de la ventana,
+        dentro de la pantalla, y no debajo del pie.
+      */}
+      <div
+        className={
+          enCapa
+            ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
+            : ajustarColumnaMovil
+              ? `mx-auto flex w-full max-w-[1600px] flex-col overflow-hidden lg:block lg:h-full ${
+                  naiaPantallaCompleta ? "h-full" : "h-[calc(100dvh-73px)] lg:h-full"
+                }`
+              : "contents"
+        }
+      >
+      <div
+        className={`mx-auto w-full max-w-[1600px] lg:grid lg:h-full lg:min-h-0 ${gridClass} ${
+          ajustarColumnaMovil ? "flex min-h-0 flex-1 flex-col" : "grid"
+        }`}
+      >
         {/*
           Columna del hilo en flex: el chat ocupa el alto restante y la barra
           inferior queda en el flujo. Así la franja de continuación no puede
@@ -871,7 +942,11 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
           BA-025: superficie gris y marco más pesado para que esta ventana
           se lea sobre el fondo del sitio, igual en /naia y /explorar.
         */}
-        <main className="naia-chat-window relative z-10 flex h-[calc(100dvh-73px)] min-h-0 min-w-0 flex-col overflow-hidden border-b-2 border-buscoedu-chat-edge px-5 pt-6 sm:px-8 lg:h-full lg:border-b-0 lg:border-r-2 lg:px-10 lg:pt-8">
+        <main
+          className={`naia-chat-window relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-b-2 border-buscoedu-chat-edge px-5 pt-6 sm:px-8 lg:h-full lg:border-b-0 lg:border-r-2 lg:px-10 lg:pt-8 ${
+            ajustarColumnaMovil ? "max-lg:flex-1" : "h-[calc(100dvh-73px)]"
+          }`}
+        >
           {/* Filete de marca: marca el borde superior de la ventana en web y móvil. */}
           <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-1 bg-buscoedu-teal" aria-hidden="true" />
           {mostrarResultados ? (
@@ -952,6 +1027,7 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
             <form onSubmit={enviar}>
               <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-2xl border border-buscoedu-chat-edge bg-white p-2 shadow-[0_10px_30px_rgba(17,45,84,0.12)]">
                 <textarea
+                  ref={inputRef}
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={(event) => {
@@ -989,19 +1065,10 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
               </div>
             )}
 
-            {/* Botón Explorar Resultados — solo móvil, cuando hay resultados disponibles */}
-            {mostrarResultados && !estaCargando && (
-              <div className="mt-3 lg:hidden">
-                <button
-                  type="button"
-                  onClick={() => setMostrarResultadosMovil(true)}
-                  className="w-full min-h-[44px] rounded-xl bg-buscoedu-blue px-4 py-3 text-sm font-semibold text-white"
-                >
-                  Explorar Resultados →
-                </button>
-              </div>
-            )}
-
+            {/*
+              BA-027: el llamado Explorar oferta vive debajo de la ventana,
+              no dentro del muelle. Aquí sigue "Puedes continuar con" (BA-026).
+            */}
             {sugerenciasParaMostrar.length > 0 && !estaCargando && (
               /*
                 BA-026: alto fijo en web y móvil. Si las frases no caben,
@@ -1156,6 +1223,25 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
         </aside>
       </div>
 
+        {/*
+          BA-027: único bloque bajo la ventana en móvil.
+          Abre la capa de resultados que ya existe. En escritorio el listado
+          sigue al lado y este botón no se muestra.
+        */}
+        {mostrarResultados && (
+          <div className="shrink-0 border-t border-buscoedu-border bg-white px-4 py-3 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMostrarResultadosMovil(true)}
+              disabled={estaCargando}
+              className="w-full min-h-11 rounded-xl bg-buscoedu-blue px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Explorar oferta
+            </button>
+          </div>
+        )}
+      </div>
+
       <MobileResultsModal
         open={mostrarResultadosMovil}
         onClose={() => setMostrarResultadosMovil(false)}
@@ -1179,8 +1265,15 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
         esExplorar={layoutVariant === "explorar"}
       />
 
-      {/* Franja disclaimer solicitada entre experiencia NaIA y footer global. */}
-      <section className="border-t border-buscoedu-border bg-slate-100 px-4 py-4 text-sm text-buscoedu-muted sm:px-6 lg:px-8">
+      {/*
+        Franja entre la experiencia y el pie.
+        BA-027: en NaIA móvil no entra en la pantalla (solo chat + Explorar oferta).
+      */}
+      <section
+        className={`border-t border-buscoedu-border bg-slate-100 px-4 py-4 text-sm text-buscoedu-muted sm:px-6 lg:px-8 ${
+          layoutVariant === "naia" ? "hidden lg:block" : ""
+        }`}
+      >
         <div className="mx-auto max-w-6xl leading-relaxed">
           BuscoEdu no es una universidad y no garantiza admisión, precios, becas ni cupos. La orientación ofrecida busca ayudarte a explorar opciones educativas. Cualquier decisión final, requisitos y condiciones dependen de cada universidad aliada.
         </div>

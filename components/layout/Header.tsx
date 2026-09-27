@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import NaiaEntryModal from "@/components/naia/NaiaEntryModal";
+import NaiaChatCapa from "@/components/naia/NaiaChatCapa";
+import { pedirChatNaia } from "@/components/naia/naiaFab";
 import Logo from "@/components/ui/Logo";
 import { useMyList } from "@/src/contexts/MyListContext";
 
@@ -54,6 +56,7 @@ export default function Header() {
     pathname.startsWith("/demoWapp");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [capaNaiaAbierta, setCapaNaiaAbierta] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMasOpen, setIsMasOpen] = useState(false);
   const [isMobileMasOpen, setIsMobileMasOpen] = useState(false);
@@ -70,6 +73,8 @@ export default function Header() {
     setIsMobileOpen(false);
     setIsMasOpen(false);
     setIsMobileMasOpen(false);
+    /* Al cambiar de página la capa del FAB no se queda encima de otra ruta. */
+    setCapaNaiaAbierta(false);
   }, [pathname, vista]);
 
   useEffect(() => {
@@ -351,21 +356,37 @@ export default function Header() {
       </aside>
 
       {/*
-        BA-022: en Explorar móvil el atajo sigue visible, por encima del pie y
-        del contenido, y más arriba para no tapar la barra del chat.
+        BA-028: el FAB de Explorar es el patrón del portal en móvil.
+        En /explorar abre la ventana de chat que ya está en la página.
+        En el resto abre esa misma experiencia en una capa.
+        BA-022: en Explorar queda más arriba para no tapar la barra del chat.
         En /naia no hace falta: la persona ya está en la conversación.
       */}
-      {!pathname.startsWith("/naia") && (
+      {!pathname.startsWith("/naia") && !isMobileOpen && (
         <button
           type="button"
-          onClick={() => setIsModalOpen(true)}
-          className={`fixed right-5 z-40 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-buscoedu-teal px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:scale-105 hover:brightness-95 md:hidden ${
-            pathname.startsWith("/explorar") ? "bottom-44" : "bottom-5"
+          onClick={() => {
+            if (pathname.startsWith("/explorar")) {
+              pedirChatNaia();
+              return;
+            }
+            setCapaNaiaAbierta(true);
+          }}
+          className={`fixed right-5 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-buscoedu-teal px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:scale-105 hover:brightness-95 md:hidden ${
+            pathname.startsWith("/explorar") ? "bottom-44 z-[75]" : "bottom-5 z-40"
           }`}
           aria-label="Hablar con NaIA"
         >
           NaIA
         </button>
+      )}
+
+      {/*
+        Capa del chat sobre la página. Explorar oferta abre otra capa
+        dentro de NaiaSearchExperience. Volver regresa aquí.
+      */}
+      {capaNaiaAbierta && !pathname.startsWith("/naia") && !pathname.startsWith("/explorar") && (
+        <NaiaChatCapa onCerrar={() => setCapaNaiaAbierta(false)} />
       )}
 
       <NaiaEntryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />

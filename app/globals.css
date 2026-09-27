@@ -32,6 +32,23 @@
   }
 }
 
+/*
+  BA-027: NaIA móvil con resultados o ficha, y panel de resultados.
+  El header no se pisa con un style en línea: estas clases lo ocultan.
+  El pie de /naia se oculta en Footer.
+*/
+@media (max-width: 1023px) {
+  body.naia-movil-solo-chat,
+  body.naia-movil-resultados {
+    overflow: hidden;
+  }
+
+  body.naia-movil-solo-chat header,
+  body.naia-movil-resultados header {
+    display: none !important;
+  }
+}
+
 html {
   scroll-behavior: smooth;
 }
