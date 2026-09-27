@@ -12,6 +12,7 @@ const PRODUCTO = [
   { label: "Mi lista", href: "/mi-lista" },
 ];
 
+/* BA-023: la entrada comercial para universidades va en Información. */
 const INFORMACION = [
   { label: "Cómo funciona", href: "/como-funciona" },
   { label: "Beneficios", href: "/beneficios" },
@@ -34,23 +35,30 @@ export default function Footer() {
   if (isPrivateArea) return null;
 
   return (
-    <footer className="mt-16 border-t border-buscoedu-border bg-white">
-      <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <Logo />
-          <p className="mt-3 max-w-md text-sm text-buscoedu-muted">
-            Orientación educativa neutral. BuscoEdu no es una universidad y no garantiza
-            admisión, precios, becas ni cupos.
-          </p>
-        </div>
-
-        <nav aria-label="Navegación de pie de página">
-          <div className="grid gap-8 sm:grid-cols-3">
-            <FooterColumn title="Producto" items={PRODUCTO} />
-            <FooterColumn title="Información" items={INFORMACION} />
-            <FooterColumn title="Legal" items={LEGAL} />
+    /*
+      BA-002: en md+ el pie va en una sola franja (marca + 3 columnas) con menos
+      padding y separación. En móvil se mantiene el bloque apilado, sin recortar
+      el texto ni sumar margen de más.
+    */
+    <footer className="mt-10 border-t border-buscoedu-border bg-white md:mt-6">
+      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 md:py-5 lg:px-8">
+        <div className="md:grid md:grid-cols-[minmax(14rem,18rem)_minmax(0,1fr)] md:items-start md:gap-8">
+          <div className="mb-8 md:mb-0">
+            <Logo />
+            <p className="mt-3 max-w-md text-sm leading-relaxed text-buscoedu-muted md:mt-2 md:text-[13px] md:leading-snug">
+              Orientación educativa neutral. BuscoEdu no es una universidad y no garantiza
+              admisión, precios, becas ni cupos.
+            </p>
           </div>
-        </nav>
+
+          <nav aria-label="Navegación de pie de página">
+            <div className="grid gap-8 sm:grid-cols-3 md:gap-6">
+              <FooterColumn title="Producto" items={PRODUCTO} />
+              <FooterColumn title="Información" items={INFORMACION} />
+              <FooterColumn title="Legal" items={LEGAL} />
+            </div>
+          </nav>
+        </div>
       </div>
     </footer>
   );
@@ -65,13 +73,13 @@ function FooterColumn({
 }) {
   return (
     <div>
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-buscoedu-blue">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-buscoedu-blue md:mb-1.5">
         {title}
       </h2>
-      <ul className="space-y-2 text-sm text-buscoedu-text">
+      <ul className="space-y-2 text-sm text-buscoedu-text md:space-y-1">
         {items.map((item) => (
           <li key={item.href + item.label}>
-            <Link className="hover:text-buscoedu-blue" href={item.href}>
+            <Link className="inline-flex py-0.5 hover:text-buscoedu-blue md:py-0" href={item.href}>
               {item.label}
             </Link>
           </li>

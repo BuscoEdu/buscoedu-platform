@@ -321,58 +321,29 @@ export class AgenteExecutor {
       habilitada: row.habilitada !== false
     }));
 
-    // 7) Resolver despliegue de IA con estrategia resiliente:
-    //    a) primero intenta el despliegue_id guardado en snapshot,
-    //    b) si falta, busca cualquier despliegue activo más reciente.
+    // 7) Resolver despliegue de IA fail-closed (BA-008):
+    //    solo el despliegue_id del snapshot de la versión. Sin fallback a
+    //    "cualquier despliegue activo reciente".
     const despliegueIdSnapshot =
       (version.configuracion_snapshot as Record<string, unknown> | null)?.['despliegue_id'];
 
-    let despliegue: any = null;
-    let despliegueError: any = null;
-
-    if (typeof despliegueIdSnapshot === 'string' && despliegueIdSnapshot) {
-      const resultadoPorSnapshot = await db
-        .from('despliegues_ia')
-        .select('id, identificador_externo, referencia_secreto, configuracion_tecnica')
-        .eq('activo', true)
-        .eq('estado', 'activo')
-        .eq('id', despliegueIdSnapshot)
-        .limit(1)
-        .maybeSingle();
-
-      despliegue = resultadoPorSnapshot.data;
-      despliegueError = resultadoPorSnapshot.error;
+    if (typeof despliegueIdSnapshot !== 'string' || !despliegueIdSnapshot) {
+      throw new AgenteEjecucionError('La versión no tiene despliegue seleccionado', 'sin_despliegue_asignado');
     }
 
-    if (!despliegue) {
-      // Fallback seguro: toma el despliegue activo más recientemente actualizado.
-      let resultadoFallback = await db
-        .from('despliegues_ia')
-        .select('id, identificador_externo, referencia_secreto, configuracion_tecnica')
-        .eq('activo', true)
-        .eq('estado', 'activo')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    const resultadoPorSnapshot = await db
+      .from('despliegues_ia')
+      .select('id, identificador_externo, referencia_secreto, configuracion_tecnica')
+      .eq('activo', true)
+      .eq('estado', 'activo')
+      .eq('id', despliegueIdSnapshot)
+      .limit(1)
+      .maybeSingle();
 
-      // Compatibilidad con esquemas que todavía usan actualizado_en.
-      if (!resultadoFallback.data && resultadoFallback.error) {
-        resultadoFallback = await db
-          .from('despliegues_ia')
-          .select('id, identificador_externo, referencia_secreto, configuracion_tecnica')
-          .eq('activo', true)
-          .eq('estado', 'activo')
-          .order('actualizado_en', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-      }
-
-      despliegue = resultadoFallback.data;
-      despliegueError = resultadoFallback.error;
-    }
+    const despliegue = resultadoPorSnapshot.data;
+    const despliegueError = resultadoPorSnapshot.error;
 
     if (despliegueError || !despliegue) {
-      // Conserva la semántica del error original cuando no hay despliegue utilizable.
       throw new AgenteEjecucionError('La versión no tiene despliegue seleccionado', 'sin_despliegue_asignado');
     }
     if (!despliegue.identificador_externo || !despliegue.referencia_secreto) {

@@ -59,11 +59,22 @@ export class AbacusAdapter {
       reqBody.deploymentConversationId = params.conversation_id;
     }
 
-    const abacusRes = await fetch(ABACUS_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(reqBody)
-    });
+    // BA-008: timeout explícito — sin él un hang de Abacus deja la request colgada.
+    const ABACUS_TIMEOUT_MS = 25_000;
+    let abacusRes: Response;
+    try {
+      abacusRes = await fetch(ABACUS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reqBody),
+        signal: AbortSignal.timeout(ABACUS_TIMEOUT_MS)
+      });
+    } catch (err) {
+      if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+        throw new Error(`Abacus.AI no respondió en ${ABACUS_TIMEOUT_MS}ms (timeout)`);
+      }
+      throw err;
+    }
 
     if (!abacusRes.ok) {
       throw new Error(`Abacus.AI respondió con estado ${abacusRes.status}`);

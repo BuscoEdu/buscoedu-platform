@@ -13,6 +13,7 @@ export default function ExplorarPage() {
       {/*
         /explorar hereda la lógica de /naia, pero prioriza visualmente resultados
         (columna derecha más amplia) y mantiene el chat como columna compacta.
+        BA-005: error de catálogo, vacío real y reintento viven en NaiaSearchExperience.
       */}
       <NaiaSearchExperience layoutVariant="explorar" />
     </Suspense>

@@ -20,6 +20,7 @@ BuscoEdu (www.buscoedu.com) es una plataforma de orientación educativa neutral 
 * **Copy exacto de funnel público:** **Guardar en Mi lista** / **Aplicar** / **Autorizar contacto**. Empty Mi lista incluye “Guardar no envía tus datos.”
 * **Cierres:** `ClosingCtas` en cómo-funciona, beneficios, contacto y para-universidades.
 * **Fuera de alcance:** admin, Lead Center (salvo label pública del consentimiento usada por el portal), Demo WApp, SQL/datos, identidad Fase 2.
+* **Ola BD BA septiembre 2026:** cierre y SQL operativo documentados en [`docs/bd/README-ola1-lote-ba-sep26.md`](docs/bd/README-ola1-lote-ba-sep26.md); no se ejecutó SQL en producción.
 
 ### Actualización Ronda 4 (payload 414 + mobile UX + optimización /universidades)
 
@@ -93,6 +94,10 @@ Base de datos:  Supabase (PostgreSQL)
 Deploy:         Vercel → www.buscoedu.com
 Cliente DB:     src/lib/supabase.ts (getSupabaseClient())
 ```
+
+## BA-009 — Lote sep26
+
+La decisión de fuente única y el corte de la API pública legacy de contexto NaIA están documentados en [`docs/ba-009-fuente-unica-contexto-naia.md`](docs/ba-009-fuente-unica-contexto-naia.md).
 
 ## 🏗️ Estructura del Proyecto
 
