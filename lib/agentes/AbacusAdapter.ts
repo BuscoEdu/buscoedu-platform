@@ -32,6 +32,11 @@ export class AbacusAdapter {
     conversation_id?: string;
     identificador_externo: string;
     referencia_secreto: string;
+    /**
+     * BA-024: temperature de Abacus (0–1). La voz natural no depende de un
+     * sampling extremo; el default vive en `TEMPERATURA_NAIA`.
+     */
+    temperature?: number;
   }): Promise<ResultadoAdaptador> {
     const deploymentId = process.env[params.identificador_externo];
     const deploymentToken = process.env[params.referencia_secreto];
@@ -57,6 +62,11 @@ export class AbacusAdapter {
 
     if (params.conversation_id) {
       reqBody.deploymentConversationId = params.conversation_id;
+    }
+
+    // BA-024: parámetro documentado del endpoint. No se manda si no es un número válido.
+    if (typeof params.temperature === 'number' && Number.isFinite(params.temperature)) {
+      reqBody.temperature = params.temperature;
     }
 
     // BA-008: timeout explícito — sin él un hang de Abacus deja la request colgada.

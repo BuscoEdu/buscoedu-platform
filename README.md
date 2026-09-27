@@ -95,6 +95,10 @@ Deploy:         Vercel → www.buscoedu.com
 Cliente DB:     src/lib/supabase.ts (getSupabaseClient())
 ```
 
+## BA-024 — Voz de NaIA (lote naia-wapp)
+
+NaIA responde de tú, en colombiano neutro, con markdown en el mensaje (negrita y viñetas cortas) y una sola pregunta por turno. Lo que el estudiante dice (ciudad, modalidad, presupuesto, nivel, intereses, contacto) queda en la sesión del hilo y no se vuelve a preguntar. No se inventan ofertas ni se abre lead a una universidad. Cierre: [`docs/backend/BA-024-voz-sesion-naia.md`](docs/backend/BA-024-voz-sesion-naia.md).
+
 ## BA-009 — Lote sep26
 
 La decisión de fuente única y el corte de la API pública legacy de contexto NaIA están documentados en [`docs/ba-009-fuente-unica-contexto-naia.md`](docs/ba-009-fuente-unica-contexto-naia.md).

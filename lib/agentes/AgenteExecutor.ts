@@ -17,7 +17,19 @@
 
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { AbacusAdapter } from './AbacusAdapter';
+import { cargarMemoriaSesion } from './sesionEstudianteStore';
 import type { ConfiguracionAgente, EntradaEjecucion, SalidaEjecucion } from './tipos';
+import {
+  BLOQUE_VOZ_NAIA,
+  acumularFiltros,
+  detectarAperturas,
+  extraerSlotsDeclarados,
+  fusionarSesion,
+  incorporarFiltrosDichos,
+  serializarSesion,
+  temperaturaNaia,
+  type SesionEstudiante
+} from './vozNaia';
 
 /** Error específico de la ejecución del agente. */
 export class AgenteEjecucionError extends Error {
@@ -32,69 +44,101 @@ export class AgenteEjecucionError extends Error {
 // externo idéntico al del endpoint /api/naia original).
 // ---------------------------------------------------------------------------
 
+/**
+ * BA-024: solo quita halagos vacíos de apertura.
+ * No borra “perfecto” a mitad de frase y no aplasta saltos de línea:
+ * el markdown del mensaje necesita los cortes.
+ */
 function limpiarTono(texto: string): string {
   return (texto || '')
-    .replace(/\b(¡)?excelente elección!?/gi, '')
-    .replace(/\b(qué bueno que te guste esta carrera\.?)/gi, '')
-    .replace(/\b(genial|perfecto)\.?\s*/gi, '')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/(^|[.!?]\s*)(?:¡\s*)?excelente elección!?\s*/gi, '$1')
+    .replace(/(^|[.!?]\s*)qué bueno que te guste esta carrera\.?\s*/gi, '$1')
+    .replace(/[ \t]{2,}/g, ' ')
     .trim();
 }
 
-function opcionesDeterministas(anchor: string): string[] {
-  const text = (anchor || '').toLowerCase();
-  if (text.includes('pregrado') && text.includes('posgrado')) {
-    return ['Me interesa pregrado', 'Me interesa posgrado', 'Explorar resultados'];
-  }
-  if (text.includes('modalidad')) {
-    return ['Prefiero modalidad virtual', 'Prefiero modalidad presencial', 'Explorar resultados'];
-  }
-  if (text.includes('ciudad') || text.includes('ubicación') || text.includes('pais')) {
-    return ['Quiero estudiar en Bogotá', 'Estoy abierto a cualquier ciudad', 'Explorar resultados'];
-  }
-  if (text.includes('beneficio') || text.includes('beca') || text.includes('descuento')) {
-    return ['Quiero opciones con beca', 'Quiero opciones con descuento', 'Explorar resultados'];
-  }
-  return ['Quiero filtrar por modalidad', 'Quiero ajustar por ciudad', 'Explorar resultados'];
+/**
+ * BA-024: si el modelo sugiere frases, se respetan (máximo 3).
+ * No se inventa la grilla “modalidad / ciudad / explorar”.
+ */
+function normalizarOpciones(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item) => typeof item === 'string' && item.trim())
+    .map((item) => (item as string).trim())
+    .slice(0, 3);
 }
 
-function normalizarOpciones(raw: unknown, anchor: string): string[] {
-  const opciones = Array.isArray(raw)
-    ? raw.filter((x) => typeof x === 'string' && x.trim()).map((x) => (x as string).trim())
-    : [];
-  if (opciones.length >= 2) {
-    return [opciones[0], opciones[1], 'Explorar resultados'];
+/**
+ * Un markdown con saltos de línea dentro del JSON a veces llega sin escapar.
+ * Antes de tirar la respuesta, se reparan esos saltos para no mostrar el JSON crudo.
+ */
+function repararJsonTexto(texto: string): string {
+  let salida = '';
+  let enCadena = false;
+  let escapado = false;
+
+  for (let index = 0; index < texto.length; index += 1) {
+    const char = texto[index];
+    if (escapado) {
+      salida += char;
+      escapado = false;
+      continue;
+    }
+    if (char === '\\' && enCadena) {
+      salida += char;
+      escapado = true;
+      continue;
+    }
+    if (char === '"') {
+      enCadena = !enCadena;
+      salida += char;
+      continue;
+    }
+    if (char === '\r' || char === '\n') {
+      if (char === '\r' && texto[index + 1] === '\n') index += 1;
+      salida += enCadena ? '\\n' : ' ';
+      continue;
+    }
+    salida += char;
   }
-  return opcionesDeterministas(anchor);
+  return salida;
+}
+
+function parsearJson(texto: string): Record<string, unknown> | null {
+  try {
+    const valor = JSON.parse(texto);
+    return valor && typeof valor === 'object' && !Array.isArray(valor)
+      ? (valor as Record<string, unknown>)
+      : null;
+  } catch {
+    try {
+      const reparado = JSON.parse(repararJsonTexto(texto));
+      return reparado && typeof reparado === 'object' && !Array.isArray(reparado)
+        ? (reparado as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
+  }
 }
 
 function extraerJson(texto: string): Record<string, unknown> | null {
   if (!texto) return null;
 
   const bloque = texto.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (bloque && bloque[1]) {
-    try {
-      return JSON.parse(bloque[1].trim());
-    } catch {
-      // continuar
-    }
+  if (bloque?.[1]) {
+    const parsed = parsearJson(bloque[1].trim());
+    if (parsed) return parsed;
   }
 
-  try {
-    return JSON.parse(texto.trim());
-  } catch {
-    // continuar
-  }
+  const directo = parsearJson(texto.trim());
+  if (directo) return directo;
 
   const inicio = texto.indexOf('{');
   const fin = texto.lastIndexOf('}');
   if (inicio !== -1 && fin !== -1 && fin > inicio) {
-    const posible = texto.slice(inicio, fin + 1);
-    try {
-      return JSON.parse(posible);
-    } catch {
-      // continuar
-    }
+    return parsearJson(texto.slice(inicio, fin + 1));
   }
   return null;
 }
@@ -301,8 +345,9 @@ export class AgenteExecutor {
       throw new AgenteEjecucionError('La versión no tiene contexto activo asociado', 'sin_contexto_activo');
     }
 
+    // BA-024: no se antepone “Tono para este canal: cercano”.
+    // Esa etiqueta era el parámetro que sonaba rígido. La voz está en BLOQUE_VOZ_NAIA.
     const reglasCanal = [
-      configuracionCanal.tono ? `Tono para este canal: ${configuracionCanal.tono}` : '',
       configuracionCanal.reglas_especificas ? `Reglas del canal: ${configuracionCanal.reglas_especificas}` : '',
       configuracionCanal.plantilla_respuesta ? `Formato de respuesta: ${configuracionCanal.plantilla_respuesta}` : ''
     ].filter(Boolean).join('\n');
@@ -428,26 +473,42 @@ export class AgenteExecutor {
       entrada.version_agente_id,
       entrada.modo_simulacion === true
     );
-        const promptSistema = construirPromptSistema(config.contextos);
+    const promptSistema = construirPromptSistema(config.contextos);
 
-    // Turno 1: enviamos prompt de sistema completo.
-    // Turno 2+: no reenviamos prompt_sistema para evitar crecer el payload.
+    // BA-024: lo ya dicho vive en ejecuciones_agente_ia. Si no hay hilo o falla
+    // la lectura, se sigue solo con este mensaje (no se inventa memoria).
+    const memoria = entrada.modo_simulacion
+      ? { sesion: {} as SesionEstudiante, filtros: {} }
+      : await cargarMemoriaSesion(entrada.conversation_id);
+    const slotsTurno = extraerSlotsDeclarados(entrada.mensaje_usuario);
+    const aperturas = detectarAperturas(entrada.mensaje_usuario);
+    let sesion = fusionarSesion(memoria.sesion, slotsTurno, aperturas);
+    const bloqueSesion = serializarSesion(sesion);
+
+    // Turno 1: prompt de base + voz + sesión (cabe en el system side).
+    // Turno 2+: no se reenvía el prompt largo (414). Sí viajan la voz corta y la sesión.
     const esTurnoSeguimiento = Boolean(entrada.conversation_id);
     const bloqueContextoOfertas = esTurnoSeguimiento ? construirBloqueContextoOfertas(entrada) : '';
-    const mensajeUsuarioEnriquecido = bloqueContextoOfertas
-      ? `${entrada.mensaje_usuario}
-
-${bloqueContextoOfertas}`
-      : entrada.mensaje_usuario;
+    const promptEfectivo = esTurnoSeguimiento
+      ? ''
+      : `${promptSistema}\n\n${BLOQUE_VOZ_NAIA}\n\n${bloqueSesion}`;
+    const mensajeUsuarioEnriquecido = esTurnoSeguimiento
+      ? `${BLOQUE_VOZ_NAIA}\n\n${bloqueSesion}\n\nMensaje del estudiante:\n${entrada.mensaje_usuario}${
+          bloqueContextoOfertas ? `\n\n${bloqueContextoOfertas}` : ''
+        }`
+      : bloqueContextoOfertas
+        ? `${entrada.mensaje_usuario}\n\n${bloqueContextoOfertas}`
+        : entrada.mensaje_usuario;
 
     let resultadoAdaptador;
     try {
       resultadoAdaptador = await this.adaptador.ejecutar({
-        prompt_sistema: esTurnoSeguimiento ? '' : promptSistema,
+        prompt_sistema: promptEfectivo,
         mensaje_usuario: mensajeUsuarioEnriquecido,
         conversation_id: entrada.conversation_id,
         identificador_externo: config.despliegue.identificador_externo,
-        referencia_secreto: config.despliegue.referencia_secreto
+        referencia_secreto: config.despliegue.referencia_secreto,
+        temperature: temperaturaNaia(config.despliegue.configuracion_tecnica)
       });
     } catch (err) {
       if (!entrada.modo_simulacion) {
@@ -483,22 +544,36 @@ ${bloqueContextoOfertas}`
           ? limpiarTono(parsed.pregunta_seguimiento.trim())
           : null;
 
-      const anchor = preguntaLimpia || mensajeLimpio;
+      const filtrosAnclados = acumularFiltros({
+        previos: memoria.filtros,
+        delModelo: normalizarFiltros(parsed.filtros),
+        textoUsuario: entrada.mensaje_usuario,
+        sesion,
+        aperturas
+      });
+      sesion = incorporarFiltrosDichos(sesion, filtrosAnclados, entrada.mensaje_usuario);
 
       salida = {
         mensaje: mensajeLimpio,
-        filtros: normalizarFiltros(parsed.filtros),
+        filtros: filtrosAnclados,
         pregunta_seguimiento: preguntaLimpia,
-        opciones_sugeridas: normalizarOpciones((parsed as any).opciones_sugeridas, anchor),
+        opciones_sugeridas: normalizarOpciones((parsed as any).opciones_sugeridas),
         conversationId: nuevaConversationId
       };
     } else {
       const limpio = limpiarTono((resultadoAdaptador.respuesta_texto || '').trim());
+      const filtrosAnclados = acumularFiltros({
+        previos: memoria.filtros,
+        delModelo: {},
+        textoUsuario: entrada.mensaje_usuario,
+        sesion,
+        aperturas
+      });
       salida = {
-        mensaje: limpio || 'Actualicé la búsqueda con lo que me indicaste.',
-        filtros: {},
+        mensaje: limpio || 'Te sigo. Cuéntame con tus palabras qué te gustaría estudiar.',
+        filtros: filtrosAnclados,
         pregunta_seguimiento: null,
-        opciones_sugeridas: normalizarOpciones([], limpio),
+        opciones_sugeridas: [],
         conversationId: nuevaConversationId
       };
     }
@@ -510,7 +585,11 @@ ${bloqueContextoOfertas}`
           entrada,
           estado: 'exitoso',
           duracion_ms: Date.now() - inicio,
-          respuesta: salida as unknown as Record<string, unknown>
+          respuesta: {
+            ...(salida as unknown as Record<string, unknown>),
+            // BA-024: la sesión no sale en el contrato público; queda en la bitácora del hilo.
+            sesion_estudiante: sesion
+          }
         });
 
     salida.ejecucion_id = ejecucionId;

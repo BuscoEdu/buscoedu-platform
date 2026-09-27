@@ -1,5 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  BLOQUE_VOZ_NAIA,
+  CONTRATO_JSON_WAPP,
+  TEMPERATURA_NAIA,
+  detectarAperturas,
+  extraerSlotsDeclarados,
+  fusionarSesion,
+  sanearSesion,
+  serializarSesion,
+  type SesionEstudiante
+} from '@/lib/agentes/vozNaia';
+import {
   CONVERSACION_ESTADO_ACTIVA,
   getOrCreateActiveConversation,
   updateConversationContext
@@ -83,28 +94,25 @@ async function callNaiaFromServer(input: {
   mensaje: string;
   conversationId?: string;
   contexto: Record<string, unknown>;
+  sesion: SesionEstudiante;
 }): Promise<NaiaStructuredResponse> {
   const deploymentId = process.env.ABACUS_NAIA_DEPLOYMENT_ID;
   const deploymentToken = process.env.ABACUS_NAIA_DEPLOYMENT_TOKEN;
-  const fallback = 'No pude procesar tu mensaje en este momento. ¿Podrías contarme de otra forma qué necesitas para avanzar con tu proceso?';
+  const fallback =
+    'Se me enredó la respuesta un momento. Cuéntame **con tus palabras** qué necesitas y lo retomamos.';
 
   if (!deploymentId || !deploymentToken) {
     return { mensaje: fallback, espera_respuesta: true, conversationId: input.conversationId };
   }
 
-  const instructions = [
-    'Eres NaIA, asesora de admisiones de BuscoEdu.',
-    'Responde en español, de manera tranquila, directa y útil; no seas aduladora.',
-    'Usa el contexto CRM y el historial para responder al mensaje real del estudiante.',
-    'No repitas preguntas si el estudiante ya respondió ni uses un guion fijo.',
-    'No inventes condiciones de oferta, admisión, becas o cupos.',
-    'Devuelve exclusivamente JSON válido con: mensaje, resumen_actualizado, intencion_detectada, siguiente_accion_sugerida, requiere_escalamiento, espera_respuesta.'
-  ].join(' ');
+  // BA-024: misma voz que el canal web. El JSON de este canal conserva sus campos de CRM.
+  const instructions = [BLOQUE_VOZ_NAIA, CONTRATO_JSON_WAPP, serializarSesion(input.sesion)].join('\n\n');
 
   try {
     const body: Record<string, unknown> = {
       deploymentId,
       deploymentToken,
+      temperature: TEMPERATURA_NAIA,
       message: `${instructions}\n\nContexto CRM: ${JSON.stringify(input.contexto)}\n\nMensaje actual del estudiante: ${input.mensaje}`
     };
     if (input.conversationId) body.deploymentConversationId = input.conversationId;
@@ -367,7 +375,7 @@ async function persistFactIfMissing(
     personaId: string;
     conversacionId: string;
     mensajeId: string;
-    clave: DemoWappCaptureKey;
+    clave: string;
     valor: string;
   }
 ) {
@@ -489,6 +497,51 @@ function detectNewFactsFromText(text: string): CapturedFacts {
   return captured;
 }
 
+/**
+ * BA-024: base de sesión con hechos confirmados y contacto que ya está
+ * en la persona. El turno actual y la corrección del hilo se fusionan
+ * después. No rellena lo que nadie declaró.
+ */
+function sesionPreviaDelHilo(contextoResumido: unknown): SesionEstudiante {
+  if (typeof contextoResumido !== 'string' || !contextoResumido.trim()) return {};
+  try {
+    const parsed = JSON.parse(contextoResumido) as { datos_ya_dichos?: unknown };
+    return sanearSesion(parsed?.datos_ya_dichos);
+  } catch {
+    return {};
+  }
+}
+
+function sesionDesdeHechos(input: {
+  confirmedFacts: Record<string, string>;
+  persona: any;
+  known: CapturedFacts;
+}): SesionEstudiante {
+  const base: SesionEstudiante = {};
+  const nombre = input.known.nombre_confirmado || input.confirmedFacts.nombre_confirmado;
+  if (nombre && !/^sin\s+nombre$/i.test(nombre)) base.contacto_nombre = nombre;
+  if (input.known.ciudad_interes || input.confirmedFacts.ciudad_interes) {
+    base.ciudad = input.known.ciudad_interes || input.confirmedFacts.ciudad_interes;
+  }
+  if (input.known.modalidad_preferida || input.confirmedFacts.modalidad_preferida) {
+    base.modalidad = input.known.modalidad_preferida || input.confirmedFacts.modalidad_preferida;
+  }
+  if (input.known.nivel_academico_interes || input.confirmedFacts.nivel_academico_interes) {
+    base.nivel = input.known.nivel_academico_interes || input.confirmedFacts.nivel_academico_interes;
+  }
+  if (input.confirmedFacts.presupuesto_declarado) base.presupuesto = input.confirmedFacts.presupuesto_declarado;
+  if (input.confirmedFacts.intereses_declarados) base.intereses = input.confirmedFacts.intereses_declarados;
+  if (input.confirmedFacts.contacto_correo) base.contacto_correo = input.confirmedFacts.contacto_correo;
+  if (input.confirmedFacts.contacto_celular) base.contacto_celular = input.confirmedFacts.contacto_celular;
+
+  const correoPersona = safeString(input.persona?.correo_principal);
+  const celularPersona = safeString(input.persona?.celular_e164 || input.persona?.telefono_principal);
+  if (correoPersona && !base.contacto_correo) base.contacto_correo = correoPersona;
+  if (celularPersona && !base.contacto_celular) base.contacto_celular = celularPersona;
+
+  return base;
+}
+
 function mergeKnown(current: CapturedFacts, updates: CapturedFacts): CapturedFacts {
   return {
     ...current,
@@ -496,6 +549,10 @@ function mergeKnown(current: CapturedFacts, updates: CapturedFacts): CapturedFac
   };
 }
 
+/**
+ * Guion histórico del perfil mínimo. BA-024 no lo usa como respuesta:
+ * NaIA pregunta de a una, con la voz del bloque, y no recorre este formulario.
+ */
 function nextQuestion(state: ProgressiveState, ofertaNombre: string | null): string {
   const next = state.missing[0];
   switch (next) {
@@ -757,7 +814,14 @@ export async function processInboundStudentMessage(
       getConfirmedFactsMap(db, input.personaId)
     )) || {};
   const initialState = inferKnownState({ persona, oferta, confirmedFacts });
+  // BA-024: la extracción de voz pisa al extractor viejo cuando reconoce
+  // ciudad, modalidad o nivel. No inventa: solo lo que está en el texto.
+  const slotsTurno = extraerSlotsDeclarados(input.texto);
   const newFactsRaw = detectNewFactsFromText(input.texto);
+  if (slotsTurno.ciudad) newFactsRaw.ciudad_interes = slotsTurno.ciudad;
+  if (slotsTurno.modalidad) newFactsRaw.modalidad_preferida = slotsTurno.modalidad;
+  if (slotsTurno.nivel) newFactsRaw.nivel_academico_interes = slotsTurno.nivel;
+  if (slotsTurno.contacto_nombre) newFactsRaw.nombre_confirmado = slotsTurno.contacto_nombre;
 
   const persistedFacts: CapturedFacts = {};
   for (const [k, value] of Object.entries(newFactsRaw) as [DemoWappCaptureKey, string][]) {
@@ -772,6 +836,27 @@ export async function processInboundStudentMessage(
       })
     );
     if (inserted) persistedFacts[k] = value;
+  }
+
+  // Slots que no mueven el funnel (presupuesto, intereses, contacto).
+  // Si el insert falla, el turno sigue y la sesión de este mensaje igual los tiene.
+  const slotsExtra: Array<[string, string | undefined]> = [
+    ['presupuesto_declarado', slotsTurno.presupuesto],
+    ['intereses_declarados', slotsTurno.intereses],
+    ['contacto_correo', slotsTurno.contacto_correo],
+    ['contacto_celular', slotsTurno.contacto_celular]
+  ];
+  for (const [clave, valor] of slotsExtra) {
+    if (!valor || confirmedFacts[clave]) continue;
+    await bestEffort(`guardar hecho ${clave}`, () =>
+      persistFactIfMissing(db, {
+        personaId: input.personaId,
+        conversacionId: conversacion.id,
+        mensajeId: inbound.id,
+        clave,
+        valor
+      })
+    );
   }
 
   await bestEffort('actualizar datos de persona', () =>
@@ -791,6 +876,21 @@ export async function processInboundStudentMessage(
     } as ProgressiveState;
   })();
 
+  // Hechos confirmados no se pisan en BD. El hilo sí: lo último dicho
+  // (contexto_resumido) gana, y este turno gana sobre eso. Una apertura
+  // (“cualquier ciudad”) borra solo ese dato.
+  const sesionNaia = fusionarSesion(
+    fusionarSesion(
+      sesionDesdeHechos({
+        confirmedFacts,
+        persona,
+        known: stateAfterCapture.known
+      }),
+      sesionPreviaDelHilo((conversacion as any).contexto_resumido)
+    ),
+    slotsTurno,
+    detectarAperturas(input.texto)
+  );
   const contextoNaia = {
     estudiante: persona,
     aplicacion: aplicacionRes.data || null,
@@ -800,12 +900,14 @@ export async function processInboundStudentMessage(
     resumenPrevio: (conversacion as any).resumen || null,
     contextoResumidoPrevio: (conversacion as any).contexto_resumido || null,
     mensajesRecientes: (historyRes.data || []).slice(-12),
-    capturaProgresiva: { known: stateAfterCapture.known, missing: stateAfterCapture.missing }
+    // BA-024: lo ya dicho, no la lista de faltantes del formulario.
+    datos_ya_dichos: sesionNaia
   };
   const naia = await callNaiaFromServer({
     mensaje: input.texto,
     conversationId: (conversacion as any).referencia_externa || undefined,
-    contexto: contextoNaia
+    contexto: contextoNaia,
+    sesion: sesionNaia
   });
   const reply = {
     mensaje: naia.mensaje,
@@ -864,6 +966,7 @@ export async function processInboundStudentMessage(
         origen: 'demowapp_abacus',
         known: stateAfterCapture.known,
         missing: stateAfterCapture.missing,
+        datos_ya_dichos: sesionNaia,
         intencion: naia.intencion_detectada || null,
         siguiente_accion: naia.siguiente_accion_sugerida || null,
         requiere_escalamiento: Boolean(naia.requiere_escalamiento),

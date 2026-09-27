@@ -75,12 +75,11 @@ function fallback(conversationId?: string, mensaje?: string): NaiaPayload {
   return {
     mensaje:
       mensaje ||
-      'Gracias por tu mensaje. Tu búsqueda sigue activa. Si quieres, indícame área, modalidad, nivel, ciudad o tipo de beneficio y ajusto los filtros.',
+      'Se me enredó la respuesta un momento. Cuéntame **qué te gustaría estudiar** y, si ya lo tienes, la **ciudad** o la **modalidad**.',
     filtros: {},
-    pregunta_seguimiento:
-      '¿Qué criterio quieres ajustar primero: área, modalidad, ciudad, nivel o beneficio?',
-    // Mantiene consistencia de copy con el botón móvil de resultados.
-    opciones_sugeridas: ['Quiero ajustar modalidad', 'Quiero ajustar ciudad', 'Explorar resultados'],
+    pregunta_seguimiento: '¿Qué te gustaría estudiar?',
+    // BA-024: sin grilla fija. El botón de explorar vive en la interfaz.
+    opciones_sugeridas: [],
     conversationId
   };
 }
