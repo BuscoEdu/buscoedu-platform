@@ -103,7 +103,7 @@ export default function MiListaPage() {
             </button>
           </div>
         ) : estado === 'vacio' ? (
-          /* Bloque vacío: solo se alcanza con ok:true y cero ofertas. */
+          /* BA-010: el vacío dice que Guardar no envía datos. No es un contacto a la universidad. */
           <div className="rounded-lg border border-buscoedu-border bg-white p-8 text-center">
             <p className="mb-2 font-semibold text-buscoedu-text">
               {myList.length === 0 ? 'Tu lista está vacía' : 'No encontramos tus opciones guardadas'}

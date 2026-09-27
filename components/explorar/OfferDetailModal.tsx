@@ -92,7 +92,18 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
   if (!oferta) return null;
 
   const inMyList = isInMyList(oferta.id);
-  const universidadNombre = oferta.universidad?.nombre ?? '';
+  // BA-016: un nombre vacío no se pinta como blanco; se dice que falta el dato.
+  const universidadNombre = (oferta.universidad?.nombre ?? '').trim();
+  const tituloPrograma = (oferta.programa?.nombre || oferta.nombre || '').trim() || 'Programa por confirmar';
+  const sedeNombre = (oferta.sede?.nombre ?? '').trim();
+  const ciudadSede = (oferta.sede?.ciudad ?? '').trim();
+  const paisSede = (oferta.sede?.pais ?? '').trim();
+  const lugarSede = [ciudadSede, paisSede].filter(Boolean).join(', ');
+  const textoInstitucion = [universidadNombre || 'Institución por confirmar', sedeNombre, lugarSede]
+    .filter(Boolean)
+    .join(' • ');
+  const nivelAcademico = (oferta.programa?.nivel_academico ?? '').trim();
+  const modalidadPrograma = (oferta.programa?.modalidad ?? '').trim();
   const universityColor = getUniversityColor(oferta.universidad_id, universidadNombre);
   const universityBorderColor = getUniversityBorderColor(oferta.universidad_id, universidadNombre);
   const universitySoftBg = getUniversitySoftBgColor(oferta.universidad_id, universidadNombre);
@@ -116,9 +127,12 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
 
   return (
     <>
-      {/* Overlay oscuro para enfoque y cierre con clic externo. */}
+      {/*
+        BA-001: la ficha va por encima del panel de resultados móvil (z-[70]).
+        En desktop el panel no es un overlay; subir el z-index no cambia el layout.
+      */}
       <div
-        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -128,7 +142,7 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
         role="dialog"
         aria-modal="true"
         aria-labelledby="detail-modal-title"
-        className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden p-2 sm:items-center sm:overflow-y-auto sm:p-4"
+        className="fixed inset-0 z-[80] flex items-end justify-center overflow-hidden p-2 sm:items-center sm:overflow-y-auto sm:p-4"
       >
         <div
           className="my-0 flex max-h-[calc(100dvh-1rem)] w-full min-w-0 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-lg border-t-4 bg-white shadow-2xl sm:my-8 sm:max-h-[calc(100dvh-2rem)] sm:max-w-3xl xl:max-w-4xl"
@@ -139,7 +153,7 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
           <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-buscoedu-border bg-white px-4 py-4 sm:px-6">
             <div className="min-w-0 flex-1 pr-1 sm:pr-4">
               <h2 id="detail-modal-title" className="break-words text-xl font-bold text-buscoedu-blue sm:text-2xl">
-                {oferta.programa?.nombre || oferta.nombre}
+                {tituloPrograma}
               </h2>
               <div className="mt-2 flex min-w-0 items-center gap-2">
                 <span
@@ -153,21 +167,26 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
                   className="min-w-0 break-words rounded-md px-2 py-1 text-sm"
                   style={{ backgroundColor: universitySoftBg, color: universityBorderColor }}
                 >
-                  {oferta.universidad?.nombre}
-                  {oferta.sede?.nombre && ` • ${oferta.sede.nombre}`}
-                  {oferta.sede?.ciudad && ` • ${oferta.sede.ciudad}`}
-                  {oferta.sede?.pais && `, ${oferta.sede.pais}`}
+                  {textoInstitucion}
                 </p>
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
-                {oferta.programa?.nivel_academico && (
+                {nivelAcademico ? (
                   <span className="inline-block rounded bg-buscoedu-blue/10 px-2 py-1 text-xs font-medium text-buscoedu-blue break-words">
-                    {oferta.programa.nivel_academico}
+                    {nivelAcademico}
+                  </span>
+                ) : (
+                  <span className="inline-block rounded bg-buscoedu-bg px-2 py-1 text-xs font-medium text-buscoedu-muted break-words">
+                    Nivel por confirmar
                   </span>
                 )}
-                {oferta.programa?.modalidad && (
+                {modalidadPrograma ? (
                   <span className="inline-block rounded bg-buscoedu-teal/10 px-2 py-1 text-xs font-medium text-buscoedu-teal break-words">
-                    {oferta.programa.modalidad}
+                    {modalidadPrograma}
+                  </span>
+                ) : (
+                  <span className="inline-block rounded bg-buscoedu-bg px-2 py-1 text-xs font-medium text-buscoedu-muted break-words">
+                    Modalidad por confirmar
                   </span>
                 )}
               </div>
@@ -254,7 +273,10 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
             )}
           </div>
 
-          {/* Acciones finales con anchos fluidos para no romper en pantallas angostas. */}
+          {/*
+            BA-010: Guardar en Mi lista no crea lead. Aplicar abre el funnel.
+            Autorizar contacto vive solo en el paso de consentimiento.
+          */}
           <div className="sticky bottom-0 flex flex-wrap gap-3 border-t border-buscoedu-border bg-white px-4 py-4 sm:px-6">
             <button
               onClick={handleToggleMyList}
@@ -296,7 +318,7 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
       {/* Overlay de solicitud enviada con cuenta regresiva. */}
       {mostrarExito && (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="exito-titulo"

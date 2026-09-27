@@ -16,6 +16,8 @@ import {
   getUniversityColor,
   getUniversityTextColor,
 } from "@/src/lib/university-colors";
+import { COPY_CERO_VIGENCIA, repararCopyFiltrado } from "@/components/naia/copyNaia";
+import { esSnapshotCompleto, type SnapshotNaia } from "@/components/naia/naiaSession";
 
 type EstadoBusqueda = "inicio" | "interpretando" | "consultando" | "listo" | "error";
 type Orden = "recomendado" | "virtual" | "beneficio" | "universidad";
@@ -96,10 +98,17 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
   const vistaParam = parseVista(searchParams.get("vista"));
   const hasProcessedInitialQuery = useRef(false);
   const hasProcessedVista = useRef(false);
+  const hasProcessedCatalogo = useRef(false);
+  const sesionRestaurada = useRef(false);
   const { isInMyList, addToMyList, removeFromMyList } = useMyList();
 
+  const arranqueCatalogoExplorar = layoutVariant === "explorar" && !initialQuery;
+
   const [input, setInput] = useState("");
-  const [estado, setEstado] = useState<EstadoBusqueda>("inicio");
+  // BA-011: /explorar no arranca en el vacío de NaIA.
+  const [estado, setEstado] = useState<EstadoBusqueda>(
+    arranqueCatalogoExplorar ? "consultando" : initialQuery ? "interpretando" : "inicio"
+  );
   const [vistaActiva, setVistaActiva] = useState<VistaExplorar | null>(vistaParam);
   const [respuesta, setRespuesta] = useState<NaiaResponse | null>(null);
   const [conversationId, setConversationId] = useState<string | undefined>();
@@ -114,30 +123,110 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
   const [mostrarResultadosMovil, setMostrarResultadosMovil] = useState(false);
   const reintentarRef = useRef<(() => void) | null>(null);
   const cargarMasRef = useRef<() => Promise<void>>(async () => {});
+  const cargarCatalogoVigenteRef = useRef<() => Promise<void>>(async () => {});
+  const buscarRef = useRef<(mensaje: string, opciones?: { reintento?: boolean }) => Promise<void>>(async () => {});
   const cargandoMasLock = useRef(false);
   const [alturaLayoutDesktop, setAlturaLayoutDesktop] = useState<number | null>(null);
+  const [hidratado, setHidratado] = useState(false);
   const historialRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * BA-014: restaura chat + resultados + filtros juntos.
+   * Si el corte está a medias, o la URL trae una búsqueda/vista nueva, no se aplica.
+   */
   useEffect(() => {
     try {
       const guardado = sessionStorage.getItem(NAIA_CHAT_STATE_KEY);
       if (!guardado) return;
-      const estadoGuardado = JSON.parse(guardado) as { conversationId?: string; mensajes?: MensajeChat[] };
-      if (estadoGuardado.conversationId) setConversationId(estadoGuardado.conversationId);
-      if (Array.isArray(estadoGuardado.mensajes)) setMensajes(estadoGuardado.mensajes);
+      const parsed = JSON.parse(guardado) as unknown;
+      if (!esSnapshotCompleto(parsed)) {
+        sessionStorage.removeItem(NAIA_CHAT_STATE_KEY);
+        return;
+      }
+      if (initialQuery || vistaParam) return;
+
+      sesionRestaurada.current = true;
+      hasProcessedCatalogo.current = true;
+      setConversationId(parsed.conversationId);
+      setMensajes(
+        parsed.mensajes.map((mensaje) =>
+          mensaje.autor === "naia"
+            ? { ...mensaje, contenido: repararCopyFiltrado(mensaje.contenido) }
+            : mensaje
+        )
+      );
+      setFiltrosActuales(parsed.filtros);
+      setOfertas(parsed.ofertas);
+      setTotal(parsed.total);
+      setOrden(parsed.orden);
+      setRespuesta(parsed.respuesta);
+      setEstado(parsed.estado);
+      setAvisoConsulta(parsed.avisoConsulta);
     } catch {
-      // Un estado local inválido no debe romper la experiencia.
+      try {
+        sessionStorage.removeItem(NAIA_CHAT_STATE_KEY);
+      } catch {
+        // Un storage ilegible no debe romper la pantalla.
+      }
+    } finally {
+      setHidratado(true);
     }
+    // Solo al montar: la URL de esta entrada decide si la sesión previa aplica.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (!mensajes.length) {
-      sessionStorage.removeItem(NAIA_CHAT_STATE_KEY);
-      return;
-    }
-    sessionStorage.setItem(NAIA_CHAT_STATE_KEY, JSON.stringify({ conversationId, mensajes }));
     historialRef.current?.scrollTo({ top: historialRef.current.scrollHeight, behavior: "smooth" });
-  }, [conversationId, mensajes]);
+  }, [mensajes]);
+
+  /**
+   * BA-014: solo se escribe un snapshot coherente (listo o error ya cerrado).
+   * Mientras NaIA interpreta o el catálogo consulta, se conserva el último corte completo.
+   */
+  useEffect(() => {
+    if (!hidratado) return;
+    if (estado === "inicio" || estado === "interpretando" || estado === "consultando") return;
+
+    const snapshot: SnapshotNaia = {
+      version: 2,
+      conversationId,
+      mensajes: mensajes.map((mensaje) =>
+        mensaje.autor === "naia" ? { ...mensaje, contenido: repararCopyFiltrado(mensaje.contenido) } : mensaje
+      ),
+      filtros: filtrosActuales,
+      ofertas,
+      total,
+      orden,
+      respuesta,
+      estado,
+      avisoConsulta,
+    };
+
+    try {
+      if (!esSnapshotCompleto(snapshot)) {
+        sessionStorage.removeItem(NAIA_CHAT_STATE_KEY);
+        return;
+      }
+      sessionStorage.setItem(NAIA_CHAT_STATE_KEY, JSON.stringify(snapshot));
+    } catch {
+      try {
+        sessionStorage.removeItem(NAIA_CHAT_STATE_KEY);
+      } catch {
+        // Si no cabe la sesión completa, preferimos no dejar un corte a medias.
+      }
+    }
+  }, [
+    hidratado,
+    estado,
+    conversationId,
+    mensajes,
+    filtrosActuales,
+    ofertas,
+    total,
+    orden,
+    respuesta,
+    avisoConsulta,
+  ]);
 
   /**
    * Altura robusta para desktop: reserva espacio de footer y evita doble scroll global.
@@ -190,7 +279,8 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
       if (header) header.style.display = originalHeaderDisplay ?? "";
       document.body.style.overflow = originalOverflow;
     };
-  }, [mostrarResultadosMovil]);
+    // BA-001: al cerrar la ficha se vuelve a bloquear el scroll del panel móvil.
+  }, [mostrarResultadosMovil, seleccionada]);
 
   /**
    * Primera página del catálogo.
@@ -218,7 +308,10 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
   };
 
   /** Solo para respuestas ok:true. Un fallo técnico no debe pasar por aquí. */
-  const construirMensajeConteo = (cantidad: number) => {
+  const construirMensajeConteo = (cantidad: number, filtros: FiltrosOferta = {}) => {
+    const hayFiltros = Object.values(filtros).some((valor) => typeof valor === "string" && valor.trim());
+    // BA-011 / BA-004: sin filtros, 0 es vigencia, no “esos criterios”.
+    if (!hayFiltros && cantidad <= 0) return COPY_CERO_VIGENCIA;
     if (cantidad <= 0) {
       return "No encontré resultados con esos criterios (0 resultados). Puedes ampliar la búsqueda o limpiar filtros para ver más opciones vigentes.";
     }
@@ -240,7 +333,7 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
         {
           id: `naia-reintento-${Date.now()}`,
           autor: "naia",
-          contenido: construirMensajeConteo(conteo),
+          contenido: repararCopyFiltrado(construirMensajeConteo(conteo, filtros)),
         },
       ]);
       setEstado("listo");
@@ -315,7 +408,7 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
           {
             id: `naia-error-catalogo-${Date.now()}`,
             autor: "naia",
-            contenido: `${siguienteRespuesta.mensaje}\n\n${COPY_ERROR_CATALOGO}`,
+            contenido: repararCopyFiltrado(`${siguienteRespuesta.mensaje}\n\n${COPY_ERROR_CATALOGO}`),
           },
         ]);
         return;
@@ -323,9 +416,11 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
 
       const conteo = Math.max(resultado.total, resultado.ofertas.length);
       const bloques = [
-        siguienteRespuesta.mensaje,
-        construirMensajeConteo(conteo),
-        conteo === 0 ? null : siguienteRespuesta.pregunta_seguimiento,
+        repararCopyFiltrado(siguienteRespuesta.mensaje),
+        construirMensajeConteo(conteo, filtros),
+        conteo === 0 ? null : siguienteRespuesta.pregunta_seguimiento
+          ? repararCopyFiltrado(siguienteRespuesta.pregunta_seguimiento)
+          : null,
       ].filter(Boolean);
 
       setMensajes((actuales) => [
@@ -355,6 +450,7 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
       ]);
     }
   };
+  buscarRef.current = buscar;
 
   /**
    * Página siguiente. Si ok:false, no altera ofertas ni total y no marca la búsqueda como exitosa.
@@ -430,7 +526,9 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
         {
           id: `naia-chip-${Date.now()}`,
           autor: "naia",
-          contenido: `Quité el filtro “${etiquetaFiltro(clave)}”. ${construirMensajeConteo(conteo)}`,
+          contenido: repararCopyFiltrado(
+            `Quité el filtro “${etiquetaFiltro(clave)}”. ${construirMensajeConteo(conteo, siguiente)}`
+          ),
         },
       ]);
       setEstado("listo");
@@ -471,7 +569,11 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
         {
           id: `naia-reset-${Date.now()}`,
           autor: "naia",
-          contenido: `Reinicié la búsqueda y limpié los filtros anteriores. ${construirMensajeConteo(conteo)}`,
+          contenido: repararCopyFiltrado(
+            conteo === 0
+              ? COPY_CERO_VIGENCIA
+              : `Reinicié la búsqueda y limpié los filtros anteriores. ${construirMensajeConteo(conteo, {})}`
+          ),
         },
       ]);
       setEstado("listo");
@@ -528,6 +630,7 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
               contenido: `No pude abrir ${etiqueta}. ${COPY_ERROR_CATALOGO}`,
             },
           ]);
+          if (window.innerWidth < 1024) setMostrarResultadosMovil(true);
           return;
         }
         const conteo = Math.max(resultado.total, resultado.ofertas.length);
@@ -539,10 +642,15 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
           {
             id: `naia-vista-${Date.now()}`,
             autor: "naia",
-            contenido: `${etiqueta} ${construirMensajeConteo(conteo)} Puedes seguir filtrando con NaIA cuando quieras.`,
+            contenido: repararCopyFiltrado(
+              conteo === 0
+                ? COPY_CERO_VIGENCIA
+                : `${etiqueta} ${construirMensajeConteo(conteo, {})} Puedes seguir filtrando con NaIA cuando quieras.`
+            ),
           },
         ]);
         setEstado("listo");
+        if (window.innerWidth < 1024) setMostrarResultadosMovil(true);
       } catch {
         setOfertas([]);
         setTotal(0);
@@ -551,12 +659,101 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
         reintentarRef.current = () => {
           void cargarVista();
         };
+        if (window.innerWidth < 1024) setMostrarResultadosMovil(true);
       }
     };
 
     void cargarVista();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vistaParam, initialQuery]);
+
+  /**
+   * BA-011: /explorar sin q ni vista carga vigentes
+   * (activo + publicado + validado + vigencia abierta).
+   * Si ya hay una sesión completa, no se pisa.
+   */
+  const cargarCatalogoVigente = async () => {
+    setEstado("consultando");
+    setAvisoConsulta(null);
+    try {
+      const resultado = await aplicarPrimeraPagina({}, () => {
+        void cargarCatalogoVigenteRef.current();
+      });
+      if (!resultado) {
+        setMensajes([
+          {
+            id: `naia-error-vigentes-${Date.now()}`,
+            autor: "naia",
+            contenido: COPY_ERROR_CATALOGO,
+          },
+        ]);
+        if (window.innerWidth < 1024) setMostrarResultadosMovil(true);
+        return;
+      }
+      const conteo = Math.max(resultado.total, resultado.ofertas.length);
+      setMensajes([
+        {
+          id: `naia-vigentes-${Date.now()}`,
+          autor: "naia",
+          contenido: repararCopyFiltrado(
+            conteo === 0
+              ? COPY_CERO_VIGENCIA
+              : `Estas son las ofertas vigentes del catálogo. ${construirMensajeConteo(conteo, {})} Puedes seguir filtrando con NaIA cuando quieras.`
+          ),
+        },
+      ]);
+      setEstado("listo");
+      if (window.innerWidth < 1024) setMostrarResultadosMovil(true);
+    } catch {
+      setOfertas([]);
+      setTotal(0);
+      setEstado("error");
+      setAvisoConsulta({ ambito: "resultados", mensaje: COPY_ERROR_CATALOGO });
+      reintentarRef.current = () => {
+        void cargarCatalogoVigenteRef.current();
+      };
+      setMensajes([
+        {
+          id: `naia-error-vigentes-${Date.now()}`,
+          autor: "naia",
+          contenido: COPY_ERROR_CATALOGO,
+        },
+      ]);
+      if (window.innerWidth < 1024) setMostrarResultadosMovil(true);
+    }
+  };
+  cargarCatalogoVigenteRef.current = cargarCatalogoVigente;
+
+  useEffect(() => {
+    if (layoutVariant !== "explorar" || initialQuery || vistaParam) return;
+    if (sesionRestaurada.current || hasProcessedCatalogo.current) return;
+    hasProcessedCatalogo.current = true;
+    void cargarCatalogoVigenteRef.current();
+  }, [layoutVariant, initialQuery, vistaParam]);
+
+  useEffect(() => {
+    if (!hidratado || !avisoConsulta) return;
+    if (avisoConsulta.ambito === "paginacion") {
+      reintentarRef.current = () => {
+        void cargarMasRef.current();
+      };
+      return;
+    }
+    if (avisoConsulta.ambito === "naia") {
+      const ultimo = [...mensajes].reverse().find((mensaje) => mensaje.autor === "estudiante");
+      const texto = ultimo?.contenido;
+      reintentarRef.current = () => {
+        if (texto) void buscarRef.current(texto, { reintento: true });
+      };
+      return;
+    }
+    const filtros = { ...filtrosActuales };
+    reintentarRef.current = () => {
+      void reconsultarCatalogo(filtros);
+    };
+    // reconsultarCatalogo se lee en el click, con los filtros de este corte.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hidratado, avisoConsulta, mensajes, filtrosActuales]);
 
   const ofertasOrdenadas = useMemo(() => {
     const copia = [...ofertas];
@@ -592,6 +789,9 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
 
   const mostrarResultados = estado !== "inicio";
   const estaCargando = estado === "interpretando" || estado === "consultando";
+  // BA-011 / BA-004: catálogo sin filtros y 0 filas reales. No es el vacío de NaIA ni un error.
+  const ceroPorVigencia =
+    estado === "listo" && !avisoConsulta && ofertas.length === 0 && chipsFiltros.length === 0;
 
   const enviar = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -620,7 +820,7 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
     (avisoConsulta?.ambito === "naia" && ofertasVista.length === 0);
 
   // Bloque título: un fallo no se rotula como “N opciones” ni como cero resultados.
-  let tituloResultados = "Tus opciones aparecerán aquí";
+  let tituloResultados = layoutVariant === "explorar" ? "Ofertas vigentes" : "Tus opciones aparecerán aquí";
   if (!mostrarResultados) {
     if (vistaActiva === "programas") tituloResultados = "Vista Programas";
     else if (vistaActiva === "universidades") tituloResultados = "Vista Universidades";
@@ -630,6 +830,8 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
     tituloResultados = "No pudimos consultar las opciones";
   } else if (avisoConsulta?.ambito === "naia") {
     tituloResultados = "No pudimos completar la búsqueda";
+  } else if (ceroPorVigencia) {
+    tituloResultados = "Sin ofertas vigentes";
   } else if (estado === "listo" && ofertas.length === 0) {
     tituloResultados = "Sin coincidencias en el catálogo";
   } else if (vistaActiva === "programas") {
@@ -683,7 +885,7 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
                     {mensaje.autor === "naia" && <p className="mb-1 text-xs font-semibold text-buscoedu-teal">NaIA</p>}
                     {mensaje.autor === "naia" ? (
                       <TypedText
-                        texto={mensaje.contenido}
+                        texto={repararCopyFiltrado(mensaje.contenido)}
                         onStep={() => {
                           historialRef.current?.scrollTo({
                             top: historialRef.current.scrollHeight,
@@ -825,7 +1027,15 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
                   </a>
                 </div>
               )}
-              <p className="mt-2 text-sm leading-relaxed text-buscoedu-muted">{mostrarResultados ? "Abre una ficha para ver requisitos, beneficios y cómo aplicar. Usa Guardar en Mi lista, Aplicar o Autorizar contacto según el paso." : "Cuando hables con NaIA, podrás comparar alternativas vigentes sin salir de la conversación."}</p>
+              <p className="mt-2 text-sm leading-relaxed text-buscoedu-muted">
+                {falloReemplazaListado
+                  ? "Puedes reintentar la consulta. Esto no significa que haya 0 resultados."
+                  : ceroPorVigencia
+                    ? "Hoy no hay opciones con vigencia abierta."
+                    : ofertasVista.length > 0
+                      ? "Abre una ficha para ver requisitos, beneficios y cómo aplicar. Usa Guardar en Mi lista, Aplicar o Autorizar contacto según el paso."
+                      : "Cuando hables con NaIA, podrás comparar alternativas vigentes sin salir de la conversación."}
+              </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {ORDENES.map((opcionOrden) => (
                   <button
@@ -907,9 +1117,14 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
                   </button>
                 ) : null}
               </div>
+            ) : ceroPorVigencia ? (
+              /* BA-004: 0 por vigencia. No reutilizar el vacío de NaIA. */
+              <div className="mt-6 rounded-2xl border border-dashed border-buscoedu-border bg-white p-6 text-sm leading-relaxed text-buscoedu-muted">{COPY_CERO_VIGENCIA}</div>
             ) : mostrarResultados && estado === "listo" && !avisoConsulta ? (
-              /* Bloque vacío real: catálogo ok con cero ofertas. */
+              /* Bloque vacío real: había filtros y el catálogo respondió con cero ofertas. */
               <div className="mt-6 rounded-2xl border border-dashed border-buscoedu-border bg-white p-6 text-sm leading-relaxed text-buscoedu-muted">No encontramos una coincidencia exacta todavía. Cuéntale a NaIA otra alternativa de área, ciudad, modalidad o nivel para ampliar la búsqueda.</div>
+            ) : layoutVariant === "explorar" ? (
+              <div className="mt-6 rounded-2xl border border-dashed border-buscoedu-border bg-white p-6 text-sm leading-relaxed text-buscoedu-muted" role="status">Cargando ofertas vigentes…</div>
             ) : (
               <EmptyResults />
             )}
@@ -936,6 +1151,8 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
         chips={chipsFiltros}
         onRemoveFilter={(clave) => void quitarFiltro(clave)}
         onResetFilters={() => void reiniciarBusqueda()}
+        vacioPorVigencia={ceroPorVigencia}
+        esExplorar={layoutVariant === "explorar"}
       />
 
       {/* Franja disclaimer solicitada entre experiencia NaIA y footer global. */}
@@ -1070,6 +1287,8 @@ function MobileResultsModal({
   chips,
   onRemoveFilter,
   onResetFilters,
+  vacioPorVigencia,
+  esExplorar,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1089,6 +1308,8 @@ function MobileResultsModal({
   chips: ChipFiltro[];
   onRemoveFilter: (clave: keyof FiltrosOferta) => void;
   onResetFilters: () => void;
+  vacioPorVigencia: boolean;
+  esExplorar: boolean;
 }) {
   if (!open) return null;
 
@@ -1149,9 +1370,14 @@ function MobileResultsModal({
                 ))}
               </div>
             </div>
+          ) : vacioPorVigencia ? (
+            /* BA-004: 0 por vigencia, también en el panel móvil. */
+            <div className="mt-2 rounded-2xl border border-dashed border-buscoedu-border bg-white p-4 text-sm leading-relaxed text-buscoedu-muted">{COPY_CERO_VIGENCIA}</div>
           ) : mostrarResultados && estado === "listo" && !avisoConsulta ? (
-            /* Bloque vacío real */
+            /* Bloque vacío real con filtros */
             <div className="mt-2 rounded-2xl border border-dashed border-buscoedu-border bg-white p-4 text-sm leading-relaxed text-buscoedu-muted">No encontré coincidencias todavía. Quita un filtro o amplía la búsqueda para ver más resultados.</div>
+          ) : esExplorar ? (
+            <div className="mt-2 rounded-2xl border border-dashed border-buscoedu-border bg-white p-4 text-sm leading-relaxed text-buscoedu-muted" role="status">Cargando ofertas vigentes…</div>
           ) : (
             <EmptyResults />
           )}
@@ -1232,21 +1458,23 @@ function EmptyResults() {
 }
 
 function MobileOfferRow({ oferta, onOpen }: { oferta: OfertaAcademica; onOpen: () => void }) {
-  const universityName = oferta.universidad?.nombre ?? "Institución educativa";
+  const universityName = (oferta.universidad?.nombre ?? "").trim() || "Institución por confirmar";
   const universityColor = getUniversityColor(oferta.universidad_id, universityName);
   const universityTextColor = getUniversityTextColor(oferta.universidad_id, universityName);
   const summary = [
-    nombreUniversidadCorto(universityName),
+    universityName === "Institución por confirmar" ? universityName : nombreUniversidadCorto(universityName),
     modalidadCorta(oferta.programa?.modalidad),
     beneficioOCiudad(oferta),
   ].filter(Boolean);
+  const resumen = summary.length > 0 ? summary.join(" | ") : "Datos por confirmar";
+  const titulo = (oferta.programa?.nombre || oferta.nombre || "").trim() || "Programa por confirmar";
 
   return (
     <button
       type="button"
       onClick={onOpen}
       className="flex w-full items-center gap-3 border-b border-buscoedu-border px-3 py-3 text-left transition hover:bg-buscoedu-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-buscoedu-blue focus-visible:ring-inset"
-      aria-label={`Abrir ${oferta.programa?.nombre || oferta.nombre}, ${universityName}`}
+      aria-label={`Abrir ${titulo}, ${universityName}`}
     >
       <span
         className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-bold"
@@ -1256,8 +1484,8 @@ function MobileOfferRow({ oferta, onOpen }: { oferta: OfertaAcademica; onOpen: (
         {universityName.charAt(0).toUpperCase()}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold text-buscoedu-blue">{oferta.programa?.nombre || oferta.nombre}</span>
-        <span className="mt-1 block truncate text-xs font-medium text-buscoedu-muted">{summary.join(" | ")}</span>
+        <span className="block truncate text-sm font-bold text-buscoedu-blue">{titulo}</span>
+        <span className="mt-1 block truncate text-xs font-medium text-buscoedu-muted">{resumen}</span>
       </span>
       <span className="shrink-0 text-lg text-buscoedu-teal" aria-hidden="true">›</span>
     </button>

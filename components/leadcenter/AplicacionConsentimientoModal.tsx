@@ -192,7 +192,8 @@ export default function AplicacionConsentimientoModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 sm:items-center">
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center">
+      {/* BA-001: queda encima de la ficha (z-[80]) y del panel de resultados móvil (z-[70]). */}
       <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-6 shadow-xl sm:rounded-2xl">
         <div className="mb-3 flex items-start justify-between">
           <h2 className="pr-4 text-lg font-semibold text-gray-900">Aplicar a: {ofertaNombre}</h2>

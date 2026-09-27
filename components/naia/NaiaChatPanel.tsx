@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import NaiaMessage from './NaiaMessage';
 import SuggestedActions from './SuggestedActions';
 import { callNaia, type NaiaResponse } from '@/src/lib/naia-real';
+import { repararCopyFiltrado } from '@/components/naia/copyNaia';
 
 export interface NaiaChatMessage {
   id: string;
@@ -160,8 +161,10 @@ export default function NaiaChatPanel({
         setConversationId(respuesta.conversationId);
       }
 
-      const respuestaLimpia = sanitizeTone(respuesta.mensaje) || 'Actualicé la búsqueda con tu mensaje.';
-      const preguntaLimpia = respuesta.pregunta_seguimiento ? sanitizeTone(respuesta.pregunta_seguimiento) : null;
+      const respuestaLimpia = repararCopyFiltrado(sanitizeTone(respuesta.mensaje)) || 'Actualicé la búsqueda con tu mensaje.';
+      const preguntaLimpia = respuesta.pregunta_seguimiento
+        ? repararCopyFiltrado(sanitizeTone(respuesta.pregunta_seguimiento))
+        : null;
       const textoBase = esInicial ? `Hola, soy NaIA. ${respuestaLimpia}` : respuestaLimpia;
 
       const contenidoNaia = textoBase + (preguntaLimpia ? `\n\n${preguntaLimpia}` : '');
