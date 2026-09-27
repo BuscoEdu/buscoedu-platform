@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AccionesOfertaEnHilo, CuerpoFunnelEnHilo } from './FunnelEnHilo';
 import WhatsAppMark from './WhatsAppMark';
 import { ofertaVisibleEnHilo, prepararBurbuja, trozosMarkdown } from './hiloTexto';
+import { useFunnelHilo } from './useFunnelHilo';
 
 interface ChatMessage {
   id: string;
@@ -40,6 +42,11 @@ interface Props {
   onAbrirOperacion?: () => void;
   /** Nombre de la oferta que se pinta como ficha dentro del hilo. */
   ofertaNombre?: string | null;
+  /**
+   * BA-031: id de la oferta del hilo. Con él se abre Aplicar o Mi lista
+   * dentro del chat. Sin id no hay funnel. No se usa en el CRM embebido.
+   */
+  ofertaId?: string | null;
   /** Aviso corto dentro del hilo (carga o error). No es un banner de portal. */
   avisoHilo?: string | null;
   /** Acción vacía dentro del hilo, por ejemplo elegir conversación. */
@@ -118,12 +125,15 @@ export default function DemoWappPanel({
   onCerrar,
   onAbrirOperacion,
   ofertaNombre,
+  ofertaId = null,
   avisoHilo,
   accionVacia
 }: Props) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const mensajesRef = useRef<HTMLDivElement>(null);
+  /* BA-031: el funnel vive en este hilo. Mi lista no comparte estado con Aplicar. */
+  const funnel = useFunnelHilo(ofertaId);
 
   // MEJORA A.1: mensajes optimistas del usuario (se muestran antes de que la
   // API responda) y el indicador de "NaIA está escribiendo...".
@@ -185,7 +195,7 @@ export default function DemoWappPanel({
   useEffect(() => {
     const panel = mensajesRef.current;
     if (panel) panel.scrollTop = panel.scrollHeight;
-  }, [sortedMessages.length, sortedMessages.at(-1)?.id, naiaEscribiendo, streamingMsgId]);
+  }, [sortedMessages.length, sortedMessages.at(-1)?.id, naiaEscribiendo, streamingMsgId, funnel.ancla]);
 
   const enviarTexto = async (textoCrudo: string) => {
     const text = textoCrudo.trim();
@@ -294,8 +304,20 @@ export default function DemoWappPanel({
                 <p className="font-semibold leading-snug">{nombreOferta}</p>
                 <p className="mt-1 text-xs leading-relaxed text-gray-500">
                   Pregúntame por esta opción aquí mismo.
+                  {ofertaId ? ' Aplicar y Mi lista siguen en este chat.' : ''}
                 </p>
               </div>
+              {/* BA-031: Aplicar y Mi lista salen de la ficha, sin salir del hilo. */}
+              <AccionesOfertaEnHilo funnel={funnel} />
+            </article>
+          </div>
+        ) : ofertaId ? (
+          <div className="flex justify-start">
+            <article className="max-w-[82%] overflow-hidden rounded-2xl bg-white text-sm text-gray-900 shadow">
+              <p className="px-3 py-2 text-xs leading-relaxed text-gray-500">
+                Puedes aplicar o guardar esta oferta sin salir del chat.
+              </p>
+              <AccionesOfertaEnHilo funnel={funnel} />
             </article>
           </div>
         ) : null}
@@ -349,6 +371,9 @@ export default function DemoWappPanel({
             </div>
           );
         })}
+
+        {/* BA-031: datos, permisos y confirmación van después de la conversación. */}
+        <CuerpoFunnelEnHilo funnel={funnel} />
 
         {/* MEJORA A.1: indicador "NaIA está escribiendo..." mientras espera la API */}
         {naiaEscribiendo && (

@@ -173,6 +173,7 @@ export default function DemoWappPage() {
       {/*
         BA-033: un solo hilo, de borde a borde, en móvil y en escritorio.
         BA-030: sin listado, sin filtros de Explorar y sin CRM en esta capa.
+        BA-031: ofertaId abre Aplicar y Mi lista dentro de este mismo hilo.
       */}
       <DemoWappPanel
         soloHilo
@@ -183,6 +184,7 @@ export default function DemoWappPage() {
         disabled={!detail || loadingDetail}
         onAbrirOperacion={() => setOpsAbierta(true)}
         ofertaNombre={detail?.oferta?.nombre_oferta || detail?.oferta?.nombre || null}
+        ofertaId={detail?.oferta?.id || null}
         avisoHilo={avisoHilo}
         accionVacia={
           detail
