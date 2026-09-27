@@ -1,8 +1,10 @@
-# Cierre Ola 4 Frontend — BA-002, BA-012, BA-013, BA-022
+# Cierre Ola 4 Frontend — BA-002, BA-012, BA-013, BA-022, BA-023
 
 **Rama:** `feat/lote-ba-sep26`  
 **Fecha:** 27 de septiembre de 2026  
-**Alcance:** UI de pie, header móvil, ficha y atajo NaIA. Sin PR. Sin BA-023. Sin SQL.
+**Alcance:** UI de pie, header móvil, ficha, atajo NaIA y separación estudiante / universidades. Sin PR. Sin SQL.
+
+BA-002, BA-012, BA-013 y BA-022 quedaron en el commit anterior. BA-023 va en un segundo commit de la misma rama.
 
 ## BA-002 — Footer más bajo en desktop
 
@@ -20,11 +22,19 @@ Abrir el detalle es un `<button>`. El corazón de Guardar en Mi lista es otro bo
 
 El chip **NaIA** vuelve a mostrarse en `/explorar` (sigue oculto en `/naia`). Queda fijo, por encima del contenido y del pie, y más arriba de la barra del chat para no tapar Enviar.
 
+## BA-023 — Estudiante y universidades separados
+
+El header, el home y el hero solo ofrecen el recorrido del estudiante: **Hablar con NaIA** y **Explorar ofertas**. No hay llamado B2B ni botón de WhatsApp ahí.
+
+**Para universidades** sigue solo en el menú Más y en la columna Información del pie. En `/para-universidades` los llamados son **Hablar con el equipo** y **Solicitar demo**. El formulario pide teléfono, no WhatsApp. Guardar, Aplicar y Autorizar contacto no se mueven de la ficha del estudiante.
+
 ## Archivos
 
 - `components/layout/Footer.tsx`
 - `components/layout/Header.tsx`
 - `components/explorar/OfferCard.tsx`
+- `components/naia/NaiaHomeHero.tsx`
+- `components/universidades/UniversidadesLanding.tsx`
 
 ## Checklist QA
 
@@ -33,3 +43,7 @@ El chip **NaIA** vuelve a mostrarse en `/explorar` (sigue oculto en `/naia`). Qu
 - [ ] Móvil, menú abierto: ir a Programas o Universidades cierra el drawer
 - [ ] OfferCard: Tab al detalle, Enter abre la ficha; Tab al corazón no abre la ficha
 - [ ] `/explorar` móvil: se ve el FAB NaIA y no queda debajo del pie ni de la barra del chat
+- [ ] Header y home: solo Hablar con NaIA y Explorar ofertas; cero B2B y cero WhatsApp
+- [ ] Más y pie (Información): enlace Para universidades
+- [ ] `/para-universidades`: Hablar con el equipo y Solicitar demo; sin vender WhatsApp
+- [ ] Ficha estudiante: Guardar en Mi lista, Aplicar y Autorizar contacto siguen en su paso

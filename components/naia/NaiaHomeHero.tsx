@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getOrCreateVisitorId } from "@/src/lib/visitor";
 import { trackNaiaModalOpened, trackSearchIntention } from "@/src/lib/events";
@@ -72,6 +73,24 @@ export default function NaiaHomeHero() {
             Puedes explorar sin registrarte. Tus datos solo se compartirán con una universidad si tú
             lo autorizas.
           </p>
+          {/*
+            BA-023: el hero de inicio solo abre el recorrido del estudiante.
+            Para universidades vive en Más y en el pie, no aquí.
+          */}
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/naia"
+              className="inline-flex items-center rounded-md bg-buscoedu-teal px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95"
+            >
+              Hablar con NaIA
+            </Link>
+            <Link
+              href="/explorar"
+              className="inline-flex items-center rounded-md border border-white/80 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+            >
+              Explorar ofertas
+            </Link>
+          </div>
         </div>
 
         {/* Columna de entrada de NaIA (protagonista) */}
@@ -112,7 +131,7 @@ export default function NaiaHomeHero() {
             onClick={() => iniciarConNaia()}
             className="mt-3 w-full rounded-lg bg-buscoedu-blue px-6 py-3 font-semibold text-white transition-colors hover:brightness-95"
           >
-            Empezar con NaIA
+            Hablar con NaIA
           </button>
 
           <div className="mt-4">

@@ -12,6 +12,7 @@ const PRODUCTO = [
   { label: "Mi lista", href: "/mi-lista" },
 ];
 
+/* BA-023: la entrada comercial para universidades va en Información. */
 const INFORMACION = [
   { label: "Cómo funciona", href: "/como-funciona" },
   { label: "Beneficios", href: "/beneficios" },

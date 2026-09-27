@@ -200,7 +200,10 @@ export default function Header() {
           </nav>
 
           <div className="flex items-center gap-2">
-            {/* CTA único del header. Explorar ya es ítem de nav. */}
+            {/*
+              BA-023: el llamado visible del header es solo de estudiante.
+              Para universidades queda en el menú Más, no junto a NaIA.
+            */}
             <button
               type="button"
               onClick={() => setIsModalOpen(true)}

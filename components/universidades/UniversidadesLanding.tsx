@@ -227,14 +227,21 @@ export default function UniversidadesLanding() {
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const boton = (event.nativeEvent as SubmitEvent).submitter;
+    const esDemo = boton instanceof HTMLButtonElement && boton.value === "demo";
     setEnviando(true);
     setMensaje(null);
+
+    const comentarios = [esDemo ? "Solicitud de demo." : "", form.comentarios]
+      .map((parte) => parte.trim())
+      .filter(Boolean)
+      .join(" ");
 
     try {
       const response = await fetch("/api/universidades/contacto", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, comentarios }),
       });
 
       const data = await response.json();
@@ -255,14 +262,12 @@ export default function UniversidadesLanding() {
 
   return (
     <div className="bg-white">
-      {/* CTA sticky móvil para mantener visibilidad durante el recorrido largo. */}
+      {/*
+        BA-023: llamados comerciales propios de universidades.
+        No se vende WhatsApp ni se usan Aplicar o Autorizar contacto.
+      */}
       <div className="sticky top-[64px] z-30 border-b border-buscoedu-border bg-white/95 px-4 py-2 backdrop-blur md:hidden">
-        <a
-          href="#form-alianza"
-          className="inline-flex w-full items-center justify-center rounded-lg bg-buscoedu-blue px-4 py-2.5 text-sm font-semibold text-white"
-        >
-          Solicitar una reunión de alianza
-        </a>
+        <CtasUniversidades apiladas />
       </div>
 
       {/* 1) HERO */}
@@ -282,19 +287,8 @@ export default function UniversidadesLanding() {
                   BuscoEdu orienta a futuros estudiantes, identifica sus necesidades académicas y económicas y conecta a cada persona con universidades que pueden responder a su perfil. La universidad recibe oportunidades con contexto, consentimiento y una propuesta comercial alineada con sus objetivos de matrícula.
                 </p>
 
-                <div className="mt-7 flex flex-wrap gap-3">
-                  <a
-                    href="#form-alianza"
-                    className="rounded-lg bg-buscoedu-blue px-5 py-3 text-sm font-semibold text-white transition hover:brightness-95"
-                  >
-                    Solicitar una reunión de alianza
-                  </a>
-                  <a
-                    href="#modelo"
-                    className="rounded-lg border border-buscoedu-blue px-5 py-3 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-blue/5"
-                  >
-                    Conocer el modelo
-                  </a>
+                <div className="mt-7">
+                  <CtasUniversidades />
                 </div>
 
                 <div className="mt-8 grid gap-2 sm:grid-cols-2">
@@ -508,12 +502,7 @@ export default function UniversidadesLanding() {
             </div>
 
             <div className="pt-2">
-              <a
-                href="#form-alianza"
-                className="inline-flex rounded-lg bg-buscoedu-blue px-5 py-3 text-sm font-semibold text-white transition hover:brightness-95"
-              >
-                Solicitar una reunión de alianza
-              </a>
+              <CtasUniversidades />
             </div>
           </section>
         </div>
@@ -608,10 +597,16 @@ export default function UniversidadesLanding() {
       <div className="bg-slate-50 py-14 sm:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <section id="form-alianza" className="fade-in-section rounded-3xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8">
-            <h2 className="text-3xl font-bold text-buscoedu-blue">Solicitar una reunión de alianza</h2>
+            <h2 className="text-3xl font-bold text-buscoedu-blue">Hablar con el equipo</h2>
             <p className="mt-2 max-w-4xl text-sm leading-relaxed text-buscoedu-muted">
-              Cuéntanos tus objetivos de captación y te propondremos un modelo de colaboración acorde con tus programas, mercado y convocatoria.
+              Cuéntanos tus objetivos de captación. El equipo comercial revisa la información y propone un modelo de colaboración acorde con tus programas, mercado y convocatoria.
             </p>
+            <div id="solicitar-demo" className="mt-4 rounded-xl border border-buscoedu-border bg-buscoedu-bg px-4 py-3">
+              <p className="text-sm font-semibold text-buscoedu-blue">Solicitar demo</p>
+              <p className="mt-1 text-sm leading-relaxed text-buscoedu-muted">
+                Si prefieres ver el modelo con tu equipo de admisiones, envía el formulario con el botón de demo. Es una presentación comercial del recorrido.
+              </p>
+            </div>
 
             <form onSubmit={onSubmit} className="mt-6 grid gap-4 md:grid-cols-2">
               <Input label="Nombre y apellidos" value={form.nombre_apellidos} onChange={(v) => setForm((f) => ({ ...f, nombre_apellidos: v }))} required />
@@ -619,7 +614,7 @@ export default function UniversidadesLanding() {
               <Input label="Universidad" value={form.universidad} onChange={(v) => setForm((f) => ({ ...f, universidad: v }))} required />
               <Input label="Correo institucional" type="email" value={form.correo_institucional} onChange={(v) => setForm((f) => ({ ...f, correo_institucional: v }))} required />
               <Input label="País o mercado" value={form.pais_mercado} onChange={(v) => setForm((f) => ({ ...f, pais_mercado: v }))} required />
-              <Input label="Teléfono o WhatsApp" value={form.telefono} onChange={(v) => setForm((f) => ({ ...f, telefono: v }))} required />
+              <Input label="Teléfono" value={form.telefono} onChange={(v) => setForm((f) => ({ ...f, telefono: v }))} required />
               <Input label="Programas prioritarios" value={form.programas_prioritarios} onChange={(v) => setForm((f) => ({ ...f, programas_prioritarios: v }))} required />
               <Input label="Modalidad que desea potenciar" value={form.modalidad_potenciar} onChange={(v) => setForm((f) => ({ ...f, modalidad_potenciar: v }))} required />
 
@@ -677,10 +672,21 @@ export default function UniversidadesLanding() {
               <div className="md:col-span-2 flex flex-wrap items-center gap-3">
                 <button
                   type="submit"
+                  name="accion"
+                  value="equipo"
                   disabled={enviando}
                   className="rounded-lg bg-buscoedu-blue px-5 py-3 text-sm font-semibold text-white transition hover:brightness-95 disabled:opacity-60"
                 >
-                  {enviando ? "Enviando solicitud..." : "Solicitar una reunión de alianza"}
+                  {enviando ? "Enviando solicitud..." : "Hablar con el equipo"}
+                </button>
+                <button
+                  type="submit"
+                  name="accion"
+                  value="demo"
+                  disabled={enviando}
+                  className="rounded-lg border border-buscoedu-blue px-5 py-3 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-blue/5 disabled:opacity-60"
+                >
+                  Solicitar demo
                 </button>
               </div>
 
@@ -705,6 +711,26 @@ export default function UniversidadesLanding() {
           transform: translateY(0);
         }
       `}</style>
+    </div>
+  );
+}
+
+function CtasUniversidades({ apiladas = false }: { apiladas?: boolean }) {
+  const ancho = apiladas ? "w-full" : "";
+  return (
+    <div className={apiladas ? "flex flex-col gap-2" : "flex flex-wrap gap-3"}>
+      <a
+        href="#form-alianza"
+        className={`inline-flex items-center justify-center rounded-lg bg-buscoedu-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95 ${ancho}`}
+      >
+        Hablar con el equipo
+      </a>
+      <a
+        href="#solicitar-demo"
+        className={`inline-flex items-center justify-center rounded-lg border border-buscoedu-blue bg-white px-5 py-2.5 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-blue/5 ${ancho}`}
+      >
+        Solicitar demo
+      </a>
     </div>
   );
 }
