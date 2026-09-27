@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import SessionList from '@/components/demowapp/SessionList';
 import DemoWappPanel from '@/components/demowapp/DemoWappPanel';
-import ContextPanel from '@/components/demowapp/ContextPanel';
-import WhatsAppMark from '@/components/demowapp/WhatsAppMark';
+import DemoWappOpsSheet from '@/components/demowapp/DemoWappOpsSheet';
 
+/**
+ * BA-030 / BA-033: consola Demo WApp.
+ * Lo que se ve al entrar es solo el hilo. Sesiones, búsqueda y CRM
+ * están en la hoja de operación, que tapa el chat y no queda a su lado.
+ */
 export default function DemoWappPage() {
-  const [started, setStarted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [sessions, setSessions] = useState<any[]>([]);
@@ -15,8 +17,10 @@ export default function DemoWappPage() {
   const [detail, setDetail] = useState<any>(null);
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
+  const [opsAbierta, setOpsAbierta] = useState(false);
   const refreshInFlight = useRef(false);
 
+  /* Lista de sesiones para la hoja de operación. No se pinta junto al hilo. */
   const loadSessions = async ({ silent = false } = {}) => {
     if (!silent) {
       setLoading(true);
@@ -42,6 +46,7 @@ export default function DemoWappPage() {
     }
   };
 
+  /* Mensajes de la conversación elegida. El CRM del detalle no entra al hilo. */
   const loadDetail = async (oportunidadId: string, { silent = false } = {}) => {
     if (!silent) {
       setSelectedId(oportunidadId);
@@ -63,14 +68,11 @@ export default function DemoWappPage() {
     }
   };
 
-  const handleStart = async () => {
-    setStarted(true);
-    await loadSessions();
-  };
-
+  /* Envío dentro del hilo. El texto no abre Explorar ni otra ruta. */
   const onSend = async (texto: string, clientMessageId: string) => {
     if (!selectedId) return;
     const oportunidadId = selectedId;
+    setError('');
     const optimista = { id: clientMessageId, remitente_tipo: 'persona', contenido: texto, enviado_en: new Date().toISOString(), creado_en: new Date().toISOString() };
     setDetail((actual: any) => actual ? { ...actual, mensajes: [...(actual.mensajes || []), optimista] } : actual);
     try {
@@ -121,6 +123,16 @@ export default function DemoWappPage() {
   };
 
   useEffect(() => {
+    void loadSessions();
+    const previo = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previo;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     if (!selectedId) return;
     const interval = window.setInterval(() => {
       void (async () => {
@@ -150,78 +162,50 @@ export default function DemoWappPage() {
     );
   }, [query, sessions]);
 
-  if (!started) {
-    return (
-      <main className="mx-auto max-w-3xl p-6">
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-            <WhatsAppMark className="h-9 w-9" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Demo WApp</h1>
-          <p className="mt-2 text-sm text-gray-500">
-            Simulación interna de conversación. No envía mensajes por WhatsApp.
-          </p>
-          <button
-            onClick={() => void handleStart()}
-            className="mt-6 rounded-xl bg-green-600 px-5 py-3 font-semibold text-white hover:bg-green-700"
-          >
-            Iniciar sesión
-          </button>
-        </div>
-      </main>
-    );
-  }
+  const avisoHilo = error
+    ? error
+    : loadingDetail
+      ? 'Cargando la conversación…'
+      : null;
 
   return (
-    <main className="mx-auto max-w-7xl space-y-4 p-4">
-      <header className="rounded-2xl border border-gray-200 bg-white p-4">
-        <div className="flex items-center gap-2"><WhatsAppMark /><h1 className="text-xl font-bold text-gray-900">Demo WApp</h1></div>
-        <p className="text-xs text-gray-500">NaIA · BuscoEdu · Simulación interna</p>
-      </header>
+    <div className="relative flex h-dvh min-h-0 flex-col">
+      {/*
+        BA-033: un solo hilo, de borde a borde, en móvil y en escritorio.
+        BA-030: sin listado, sin filtros de Explorar y sin CRM en esta capa.
+      */}
+      <DemoWappPanel
+        soloHilo
+        titulo="NaIA"
+        subtitulo="en línea"
+        mensajes={detail?.mensajes || []}
+        onEnviar={onSend}
+        disabled={!detail || loadingDetail}
+        onAbrirOperacion={() => setOpsAbierta(true)}
+        ofertaNombre={detail?.oferta?.nombre_oferta || detail?.oferta?.nombre || null}
+        avisoHilo={avisoHilo}
+        accionVacia={
+          detail
+            ? null
+            : { etiqueta: 'Elegir conversación', onClick: () => setOpsAbierta(true) }
+        }
+      />
 
-      {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr_320px]">
-        <section className="space-y-3">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filtrar por nombre, celular, oferta..."
-            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-          />
-          {loading ? (
-            <p className="text-sm text-gray-500">Cargando sesiones...</p>
-          ) : (
-            <SessionList
-              sessions={filteredSessions}
-              selectedId={selectedId}
-              onSelect={(id) => {
-                void loadDetail(id);
-              }}
-            />
-          )}
-        </section>
-
-        <section>
-          {loadingDetail && <p className="text-sm text-gray-500">Cargando conversación...</p>}
-          {detail && (
-            <DemoWappPanel
-              titulo={detail.oportunidad?.codigo || detail.oportunidad?.id?.slice(0, 8) || 'Oportunidad'}
-              nombreContacto={[detail.persona?.nombres, detail.persona?.apellidos].filter(Boolean).join(' ') || 'Estudiante'}
-              subtitulo={`NaIA · ${detail.oferta?.nombre_oferta || 'Oferta'} · ${detail.contexto?.etapa || 'Etapa'}`}
-              mensajes={detail.mensajes || []}
-              onEnviar={onSend}
-            />
-          )}
-          {!detail && !loadingDetail && (
-            <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500">
-              Selecciona una sesión para abrir el chat.
-            </div>
-          )}
-        </section>
-
-        <section>{detail && <ContextPanel persona={detail.persona} oferta={detail.oferta} aplicacion={detail.aplicacion} contexto={detail.contexto} />}</section>
-      </div>
-    </main>
+      {/* La operación tapa el hilo. Al cerrarla no queda ninguna columna. */}
+      {opsAbierta ? (
+        <DemoWappOpsSheet
+          onCerrar={() => setOpsAbierta(false)}
+          query={query}
+          onQuery={setQuery}
+          loading={loading}
+          sessions={filteredSessions}
+          selectedId={selectedId}
+          onSelect={(id) => {
+            void loadDetail(id);
+          }}
+          detail={detail}
+        />
+      ) : null}
+    </div>
   );
 }

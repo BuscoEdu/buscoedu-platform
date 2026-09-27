@@ -95,6 +95,10 @@ Deploy:         Vercel → www.buscoedu.com
 Cliente DB:     src/lib/supabase.ts (getSupabaseClient())
 ```
 
+## BA-030 y BA-033 — Demo WApp solo-hilo
+
+En `/demoWapp` y en el modal del estudiante el canal es un hilo a pantalla completa, en móvil y en escritorio. La oferta y las opciones van dentro del chat. Sesiones, búsqueda y CRM no se muestran al lado. El portal NaIA/Explorar (BA-025, BA-026, BA-027, BA-028) no cambia. Nota: [`docs/frontend/README-ba030-ba033.md`](docs/frontend/README-ba030-ba033.md).
+
 ## BA-024 — Voz de NaIA (lote naia-wapp)
 
 NaIA responde de tú, en colombiano neutro, con markdown en el mensaje (negrita y viñetas cortas) y una sola pregunta por turno. Lo que el estudiante dice (ciudad, modalidad, presupuesto, nivel, intereses, contacto) queda en la sesión del hilo y no se vuelve a preguntar. No se inventan ofertas ni se abre lead a una universidad. Cierre: [`docs/backend/BA-024-voz-sesion-naia.md`](docs/backend/BA-024-voz-sesion-naia.md).

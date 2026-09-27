@@ -22,15 +22,19 @@ function fecha(iso?: string) {
   return new Date(iso).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+/**
+ * BA-030: datos de CRM para quien opera el demo.
+ * Se monta solo dentro de la hoja de operación, no junto al hilo.
+ */
 export default function ContextPanel({ persona, oferta, aplicacion, contexto }: Props) {
   return (
-    <aside className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 text-sm">
+    <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 text-sm" aria-label="Contexto de la oportunidad">
       <h3 className="font-semibold text-gray-900">Contexto de oportunidad</h3>
       <div className="space-y-1 text-gray-700">
         <p><strong>Estudiante:</strong> {[persona?.nombres, persona?.apellidos].filter(Boolean).join(' ') || '—'}</p>
         <p><strong>Celular:</strong> {persona?.celular_e164 || persona?.telefono_principal || '—'}</p>
         <p><strong>Correo:</strong> {persona?.correo_principal || '—'}</p>
-        <p><strong>Oferta:</strong> {oferta?.nombre || '—'}</p>
+        <p><strong>Oferta:</strong> {oferta?.nombre_oferta || oferta?.nombre || '—'}</p>
         <p><strong>Estado aplicación:</strong> {aplicacion?.estado || '—'}</p>
         <p><strong>Etapa / subestado:</strong> {contexto?.etapa || '—'} / {contexto?.subestado || '—'}</p>
         <p><strong>Temperatura:</strong> {contexto?.temperatura || '—'}</p>
@@ -62,6 +66,6 @@ export default function ContextPanel({ persona, oferta, aplicacion, contexto }: 
           {!contexto?.tareas?.length && <li className="text-gray-400">Sin tareas recientes.</li>}
         </ul>
       </div>
-    </aside>
+    </section>
   );
 }
