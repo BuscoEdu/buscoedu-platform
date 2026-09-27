@@ -13,11 +13,15 @@ const PATRONES_ATAJO_WEB = [
   String.raw`\bquitar\s+vista\b`
 ];
 
-/** Línea que NaIA escribe como viñeta u opción numerada, no como prosa. */
-const LINEA_OPCION = /^\s*(?:[-•]|\d{1,2}[.)])\s+(.+?)\s*$/;
+/**
+ * Viñeta corta de NaIA (`-` o `•`). Eso sí puede ser una respuesta rápida.
+ * Una línea `1. …` se queda en la prosa: BA-031 numera así los permisos
+ * de consentimiento, y el párrafo de abajo pertenece a ese permiso.
+ */
+const LINEA_OPCION = /^\s*[-•]\s+(.+?)\s*$/;
 
 /** Marca de viñeta que quedó vacía al quitar un atajo web. */
-const LINEA_VACIA = /^\s*(?:[-•]|\d{1,2}[.)])\s*$/;
+const LINEA_VACIA = /^\s*[-•]\s*$/;
 
 export interface BurbujaHilo {
   cuerpo: string;
