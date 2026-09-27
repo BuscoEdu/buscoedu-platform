@@ -864,15 +864,20 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
       style={alturaLayoutDesktop ? { height: `${alturaLayoutDesktop}px` } : undefined}
     >
       <div className={`mx-auto grid w-full max-w-[1600px] lg:h-full lg:min-h-0 ${gridClass}`}>
-        <main className="relative min-h-[calc(100dvh-73px)] border-b border-buscoedu-border bg-white px-5 pb-44 pt-6 sm:px-8 lg:h-full lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:border-r lg:px-10 lg:pb-40 lg:pt-8">
+        {/*
+          Columna del hilo en flex: el chat ocupa el alto restante y la barra
+          inferior queda en el flujo. Así la franja de continuación no puede
+          crecer y tapar los mensajes (BA-026).
+        */}
+        <main className="relative flex h-[calc(100dvh-73px)] min-h-0 min-w-0 flex-col overflow-hidden border-b border-buscoedu-border bg-white px-5 pt-6 sm:px-8 lg:h-full lg:border-b-0 lg:border-r lg:px-10 lg:pt-8">
           {mostrarResultados ? (
-            <section className="mx-auto flex h-[calc(100dvh-180px)] max-w-3xl min-h-0 flex-col lg:h-full lg:max-h-full">
+            <section className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
               <div className="mb-4 shrink-0">
                 <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">Conversación con NaIA</p>
                 <h1 className="mt-1 text-2xl font-bold tracking-tight text-buscoedu-blue">Tu búsqueda educativa</h1>
               </div>
 
-              <div ref={historialRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-5 pr-1" aria-live="polite">
+              <div ref={historialRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-3 pr-1" aria-live="polite">
                 {mensajes.map((mensaje) => (
                   <div
                     key={mensaje.id}
@@ -911,7 +916,8 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
               </div>
             </section>
           ) : (
-            <section className="mx-auto flex min-h-[calc(100dvh-250px)] max-w-3xl flex-col justify-center pb-8">
+            /* El saludo cede el alto a la barra; si no cabe, scrollea él y no la página. */
+            <section className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col justify-center overflow-y-auto pb-4">
               <span className="inline-flex h-14 items-center justify-center rounded-2xl bg-buscoedu-teal/10 px-3 text-lg font-bold text-buscoedu-teal">NaIA</span>
               <p className="mt-7 text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">Tu búsqueda educativa, acompañada</p>
               <h1 className="mt-3 max-w-2xl text-4xl font-bold tracking-tight text-buscoedu-blue sm:text-5xl">Hola, soy NaIA.</h1>
@@ -928,11 +934,12 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
           )}
 
           {/*
-            Barra inferior del chat:
-            1) input de mensaje
-            2) sugerencias "Puedes continuar con" debajo del input (web y móvil)
+            Barra en el flujo (shrink-0), no absoluta: el hilo sigue siendo el
+            protagonista y esta zona no lo empuja ni lo cubre.
+            1) input
+            2) "Puedes continuar con" con alto fijo y scroll interno (web y móvil)
           */}
-          <div className="absolute bottom-0 left-0 right-0 z-20 border-t border-buscoedu-border bg-white/95 px-5 py-3 backdrop-blur sm:px-8 lg:px-10">
+          <div className="z-20 -mx-5 shrink-0 border-t border-buscoedu-border bg-white/95 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8 lg:-mx-10 lg:px-10">
             <form onSubmit={enviar}>
               <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-2xl border border-buscoedu-border bg-white p-2 shadow-[0_10px_30px_rgba(17,45,84,0.12)]">
                 <textarea
@@ -987,17 +994,25 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
             )}
 
             {sugerenciasParaMostrar.length > 0 && !estaCargando && (
-              <div className="mx-auto mt-3 hidden max-w-3xl border-t border-buscoedu-border/80 pt-3 lg:block" aria-label="Opciones debajo del input">
-                <div className="rounded-2xl border border-buscoedu-border bg-slate-100 p-4">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-buscoedu-muted">Puedes continuar con</p>
-                  <div className="flex gap-2 overflow-x-auto pb-1">
+              /*
+                BA-026: alto fijo en web y móvil. Si las frases no caben,
+                el scroll es interno y el hilo no pierde alto.
+              */
+              <div className="mx-auto mt-3 max-w-3xl border-t border-buscoedu-border/80 pt-3">
+                <div
+                  className="h-28 overflow-y-auto overscroll-contain rounded-2xl border border-buscoedu-border bg-slate-100 p-3 sm:h-32 sm:p-4"
+                  aria-label="Puedes continuar con"
+                >
+                  {/* El rótulo queda visible mientras las frases scrollean dentro del alto fijo. */}
+                  <p className="sticky top-0 z-10 -mx-3 mb-2 bg-slate-100 px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-buscoedu-muted sm:-mx-4 sm:px-4">Puedes continuar con</p>
+                  <div className="flex flex-wrap gap-2 pb-1">
                     {sugerenciasParaMostrar.map((opcion) => (
                       <button
                         key={opcion}
                         type="button"
                         onClick={() => ejecutarSugerencia(opcion)}
                         disabled={estaCargando}
-                        className="shrink-0 rounded-full border border-buscoedu-teal/40 bg-white px-3 py-2 text-sm font-medium text-buscoedu-blue transition hover:bg-buscoedu-teal/5 disabled:opacity-50"
+                        className="max-w-full rounded-full border border-buscoedu-teal/40 bg-white px-3 py-2 text-left text-sm font-medium leading-snug text-buscoedu-blue transition hover:bg-buscoedu-teal/5 disabled:opacity-50"
                       >
                         {opcion}
                       </button>
