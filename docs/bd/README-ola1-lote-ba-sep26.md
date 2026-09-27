@@ -3,8 +3,8 @@
 **Rama:** `feat/lote-ba-sep26`
 **Base:** `origin/main`
 **Fecha de cierre:** 27 de septiembre de 2026 (Madrid, UTC+2)
-**Alcance:** trabajo de documentación y preparación operativa de BD. No se
- ejecutó SQL en producción y no se abrió PR.
+**Alcance:** documentación + ops BD. **BA-004 ejecutado en prod** (2026-09-27,
+ Madrid UTC+2; script v2 sin TEMP TABLE). PR del lote: `feat/lote-ba-sep26`.
 
 ## Resumen de entregables
 
@@ -30,8 +30,9 @@
   Los precios históricos/inactivos no se tocan.
 - Incluye verificación previa y posterior, usa transacción y no hace DELETE
   físico.
-- **Pendiente operativo:** Orquestador debe pedirle a Jhon que revise y ejecute
-  el SQL en el proyecto Supabase correcto. Este lote no lo ejecuta.
+- **Estado prod:** **EJECUTADO** 2026-09-27. Verificación: ofertas
+  activo/publicado/validado con `vigente_hasta = 2026-12-31`. Script v2 sin
+  TEMP TABLE (compatible SQL Editor). **No re-correr.**
 
 ### BA-006 — Geografía
 
@@ -76,13 +77,13 @@
 
 ### BD / Supabase / ops
 
-- [ ] Verificar proyecto y entorno antes de pegar el SQL BA-004.
-- [ ] Ejecutar primero el SELECT previo del script y revisar el conjunto objetivo.
-- [ ] Ejecutar el script completo en una ventana operativa y guardar los
+- [x] Verificar proyecto y entorno antes de pegar el SQL BA-004.
+- [x] Ejecutar primero el SELECT previo del script y revisar el conjunto objetivo.
+- [x] Ejecutar el script completo en una ventana operativa y guardar los
       resultados de verificación posterior.
-- [ ] Revisar que ofertas, precios activos y beneficios activos queden con
+- [x] Revisar que ofertas, precios activos y beneficios activos queden con
       `vigente_hasta = 2026-12-31`.
-- [ ] No borrar filas ni modificar precios históricos/inactivos.
+- [x] No borrar filas ni modificar precios históricos/inactivos.
 - [ ] Para BA-006, obtener el dump de schema productivo antes de preparar seed.
 - [ ] Después de cualquier seed, revisar FKs, RLS y la correspondencia país →
       región → ciudad → sede.
@@ -97,7 +98,7 @@
 supabase/ops/20260927_ba004_renovar_vigencias.sql
 ```
 
-Es el único SQL de datos de este lote. No se ejecutó en producción.
+SQL de datos del lote. **Ejecutado en producción** 2026-09-27. No re-correr.
 
 ### BA-006
 
@@ -133,5 +134,6 @@ Se mantienen sin modificación de contenido:
   basada en suposiciones. Requiere dump de schema de producción.
 - **BA-009 depende de Backend:** cualquier corte de lectura legacy debe ocurrir
   en la API/backend; no se debe convertir `contexto_naia` en fuente de runtime.
-- **Aplicación de migraciones:** BA-019 solo cambia nombre; no se aplicaron
-  migraciones ni SQL productivo como parte de este lote.
+- **Aplicación de migraciones:** BA-019 solo cambia nombre.
+- **SQL prod:** BA-004 **ejecutado** 2026-09-27 (no re-correr). BA-020 ver
+  `README-ola2-ba020.md`.

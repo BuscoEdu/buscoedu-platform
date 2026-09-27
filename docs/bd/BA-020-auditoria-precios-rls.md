@@ -2,7 +2,7 @@
 
 **Rama:** `feat/lote-ba-sep26`  
 **Fecha:** 2026-09-27  
-**Alcance:** solo análisis + SQL correctivo opcional. No corrido en prod.
+**Alcance:** análisis + SQL correctivo. **Ejecutado en prod** 2026-09-27. No re-correr.
 
 ## Caminos de lectura en código
 
@@ -38,8 +38,8 @@ Visible vía anon solo si:
 
 ## SQL
 
-Listo-para-pegar (no ejecutado): `supabase/ops/20260927_ba020_estrechar_lectura_publica_precios.sql`  
-Pendiente: Orquestador → “Jhon, …” en SQL Editor prod tras revisar.
+Aplicado en prod: `supabase/ops/20260927_ba020_estrechar_lectura_publica_precios.sql`  
+**Estado:** EJECUTADO 2026-09-27. Verificado vía `pg_policies` (filtro activo+validado+vigente). **No re-correr.**
 
 ## Checklist verificación post-apply
 
