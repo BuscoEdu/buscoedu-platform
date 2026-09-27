@@ -12,12 +12,22 @@ import { getServiceRoleClient } from '@/src/lib/supabase-server';
  *
  * Recibe:  POST { mensaje: string, conversationId?: string }
  * Devuelve: { mensaje, filtros, pregunta_seguimiento, opciones_sugeridas, conversationId }
+ *
+ * BA-008: rate limit in-memory por IP + validación server-side de
+ * contexto_ofertas.ofertas_relevantes (activo+publicado+validado+vigente).
  */
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const CODIGO_CANAL = 'web';
+
+/** Ventana y tope del rate limit simple in-memory (BA-008). */
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 20;
+
+type RateBucket = { count: number; resetAt: number };
+const rateLimitBuckets = new Map<string, RateBucket>();
 
 interface NaiaPayload {
   mensaje: string;
@@ -31,6 +41,34 @@ interface ContextoOfertasPayload {
   filtros_actuales?: Record<string, string>;
   total_resultados?: number;
   ofertas_relevantes?: Array<Record<string, unknown>>;
+}
+
+function clientIp(req: NextRequest): string {
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) {
+    const first = forwarded.split(',')[0]?.trim();
+    if (first) return first;
+  }
+  return req.headers.get('x-real-ip')?.trim() || 'unknown';
+}
+
+/** true = permitido; false = excedió el cupo. */
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const bucket = rateLimitBuckets.get(ip);
+  if (!bucket || now >= bucket.resetAt) {
+    rateLimitBuckets.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    // Limpieza oportunista para no crecer sin límite en procesos longevos.
+    if (rateLimitBuckets.size > 5000) {
+      for (const [key, value] of rateLimitBuckets) {
+        if (now >= value.resetAt) rateLimitBuckets.delete(key);
+      }
+    }
+    return true;
+  }
+  if (bucket.count >= RATE_LIMIT_MAX) return false;
+  bucket.count += 1;
+  return true;
 }
 
 function fallback(conversationId?: string, mensaje?: string): NaiaPayload {
@@ -62,7 +100,66 @@ async function resolverAgenteDelCanal(codigoCanal: string): Promise<string> {
   return agente.codigo;
 }
 
+/**
+ * BA-008: valida IDs de ofertas_relevantes contra catálogo vigente.
+ * Descarta inválidas; no inventa fichas. Ante error de consulta → lista vacía
+ * (fail-closed respecto a datos no verificados).
+ */
+async function filtrarOfertasRelevantesValidas(
+  ofertas: Array<Record<string, unknown>> | undefined
+): Promise<Array<Record<string, unknown>> | undefined> {
+  if (!ofertas) return undefined;
+  if (ofertas.length === 0) return [];
+
+  const ids = [
+    ...new Set(
+      ofertas
+        .map((o) => (typeof o.id === 'string' ? o.id.trim() : ''))
+        .filter((id) => id.length > 0)
+    )
+  ];
+
+  if (ids.length === 0) return [];
+
+  const hoy = new Date().toISOString().slice(0, 10);
+  const { data, error } = await getServiceRoleClient()
+    .from('ofertas_academicas')
+    .select('id')
+    .in('id', ids)
+    .eq('activo', true)
+    .eq('estado_publicacion', 'publicado')
+    .eq('estado_validacion', 'validado')
+    .lte('vigente_desde', hoy)
+    .or(`vigente_hasta.is.null,vigente_hasta.gte.${hoy}`);
+
+  if (error) {
+    console.error('[api/naia] Error validando ofertas_relevantes:', error);
+    return [];
+  }
+
+  const validIds = new Set((data || []).map((row: { id: string }) => row.id));
+  return ofertas.filter((o) => typeof o.id === 'string' && validIds.has(o.id));
+}
+
 export async function POST(req: NextRequest) {
+  const ip = clientIp(req);
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: 'rate_limited',
+        message: 'Demasiadas solicitudes. Intenta de nuevo en un minuto.'
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': '60',
+          'Cache-Control': 'no-store'
+        }
+      }
+    );
+  }
+
   let mensaje = '';
   let conversationId: string | undefined;
   let contextoOfertas: ContextoOfertasPayload | undefined;
@@ -97,6 +194,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    if (contextoOfertas) {
+      contextoOfertas = {
+        ...contextoOfertas,
+        ofertas_relevantes: await filtrarOfertasRelevantesValidas(
+          contextoOfertas.ofertas_relevantes
+        )
+      };
+    }
+
     const codigoAgente = await resolverAgenteDelCanal(CODIGO_CANAL);
     const salida = await agenteExecutor.ejecutar({
       codigo_agente: codigoAgente,
