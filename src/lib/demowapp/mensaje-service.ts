@@ -685,6 +685,11 @@ async function advanceFunnelIfNeeded(
   return { changed: true, trigger };
 }
 
+/**
+ * BA-031 no entra por este turno. NaIA orienta y puede nombrar una oferta;
+ * Aplicar, el registro y el consentimiento viven en funnel-aplicar.ts.
+ * Este camino no crea oportunidad ni transferencia a universidad.
+ */
 export async function processInboundStudentMessage(
   db: SupabaseClient,
   input: {
