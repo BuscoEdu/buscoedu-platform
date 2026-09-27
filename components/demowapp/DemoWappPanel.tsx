@@ -146,8 +146,19 @@ export default function DemoWappPanel({
     );
   }, [mensajes, mensajesLocales]);
 
-  // Inicializa el conjunto de ids vistos con la carga inicial (sin animar nada).
+  /*
+    La primera tanda, con el hilo ya cargado, es historial: no se anima.
+    El panel de /demoWapp monta vacío y después recibe los mensajes; si se
+    marcaran como nuevos, el typewriter taparía las opciones del hilo.
+    Mientras `disabled` (está cargando), se olvida lo visto para no arrastrar
+    la conversación anterior.
+  */
   useEffect(() => {
+    if (disabled) {
+      idsVistos.current = null;
+      setStreamingMsgId(null);
+      return;
+    }
     if (idsVistos.current === null) {
       idsVistos.current = new Set((mensajes || []).map((m) => m.id));
       return;
@@ -169,7 +180,7 @@ export default function DemoWappPanel({
       /* Sin prosa no hay máquina de escribir: las opciones del hilo se muestran ya. */
       if (cuerpo) setStreamingMsgId(ultimoNaia);
     }
-  }, [mensajes]);
+  }, [mensajes, disabled]);
 
   useEffect(() => {
     const panel = mensajesRef.current;
