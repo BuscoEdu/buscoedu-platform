@@ -17,6 +17,8 @@
 
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { AbacusAdapter } from './AbacusAdapter';
+import { componenteContextoAplicaAlCanal, herramientaPermitidaEnCanal } from './canales';
+import { AgenteEjecucionError } from './errores';
 import { cargarMemoriaSesion } from './sesionEstudianteStore';
 import type { ConfiguracionAgente, EntradaEjecucion, SalidaEjecucion } from './tipos';
 import {
@@ -24,6 +26,7 @@ import {
   acumularFiltros,
   detectarAperturas,
   extraerSlotsDeclarados,
+  CONTRATO_JSON_WAPP,
   fusionarSesion,
   incorporarFiltrosDichos,
   serializarSesion,
@@ -31,13 +34,7 @@ import {
   type SesionEstudiante
 } from './vozNaia';
 
-/** Error específico de la ejecución del agente. */
-export class AgenteEjecucionError extends Error {
-  constructor(message: string, public readonly codigo: string) {
-    super(message);
-    this.name = 'AgenteEjecucionError';
-  }
-}
+export { AgenteEjecucionError };
 
 // ---------------------------------------------------------------------------
 // Helpers de parseo y normalización (portados para conservar el contrato
@@ -61,6 +58,10 @@ function limpiarTono(texto: string): string {
  * BA-024: si el modelo sugiere frases, se respetan (máximo 3).
  * No se inventa la grilla “modalidad / ciudad / explorar”.
  */
+function textoOpcional(valor: unknown): string | undefined {
+  return typeof valor === 'string' && valor.trim() ? valor.trim() : undefined;
+}
+
 function normalizarOpciones(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -237,6 +238,37 @@ function construirBloqueContextoOfertas(entrada: EntradaEjecucion): string {
   return `${prefijo}${contextoCompacto.slice(0, recorte)}...`;
 }
 
+/**
+ * BA-029: contexto CRM que Demo WApp ya armaba para NaIA.
+ * Viaja en el turno del usuario (no hay segundo bot). Se recorta para no
+ * inflar el payload hacia Abacus; el hilo sigue en conversation_id.
+ */
+function construirBloqueContextoCrm(entrada: EntradaEjecucion): string {
+  const partes: string[] = [];
+  const conversacion = (entrada.contexto_conversacion || '').trim();
+  if (conversacion) {
+    partes.push(`CONTEXTO_CONVERSACION=${conversacion.slice(0, 500)}`);
+  }
+
+  const persona = entrada.contexto_persona;
+  if (!persona || Object.keys(persona).length === 0) {
+    return partes.join('\n');
+  }
+
+  let json = JSON.stringify(persona);
+  const maximo = 1600;
+  if (json.length > maximo && 'mensajesRecientes' in persona) {
+    const resto = { ...persona };
+    delete resto.mensajesRecientes;
+    json = JSON.stringify(resto);
+  }
+  if (json.length > maximo) {
+    json = `${json.slice(0, Math.max(0, maximo - 3))}...`;
+  }
+  partes.push(`CONTEXTO_CRM=${json}`);
+  return partes.join('\n');
+}
+
 // ---------------------------------------------------------------------------
 // Motor principal
 // ---------------------------------------------------------------------------
@@ -292,21 +324,28 @@ export class AgenteExecutor {
       throw new AgenteEjecucionError('La versión activa no está publicada', 'version_no_publicada');
     }
 
-    // 3) Resolver canal operativo (web, whatsapp, etc.) para aplicar su configuración específica.
+    // 3) Resolver canal operativo (web, whatsapp). Inactivo = no usable (fail-closed).
     const { data: canal, error: canalError } = await db
       .from('canales_ia')
-      .select('id, codigo')
+      .select('id, codigo, activo')
       .eq('codigo', codigoCanal)
       .maybeSingle();
 
     if (canalError || !canal) {
       throw new AgenteEjecucionError(`Canal no encontrado: ${codigoCanal}`, 'canal_no_encontrado');
     }
+    if (canal.activo === false) {
+      throw new AgenteEjecucionError(
+        `El canal ${codigoCanal} no está activo.`,
+        'canal_no_configurado'
+      );
+    }
 
     // 4) Cargar reglas del canal para la versión activa (tono, plantilla y restricciones).
+    //    Sin fila activa no hay fallback a otro canal.
     const { data: configuracionCanal, error: configuracionCanalError } = await db
       .from('configuraciones_agente_canal')
-      .select('tono, reglas_especificas, plantilla_respuesta')
+      .select('tono, reglas_especificas, plantilla_respuesta, longitud_maxima_respuesta')
       .eq('version_agente_id', version.id)
       .eq('canal_id', canal.id)
       .eq('activo', true)
@@ -320,9 +359,13 @@ export class AgenteExecutor {
     }
 
     // 5) Cargar componentes de contexto asociados a la versión y su orden de ensamblado.
+    //    BA-029: los de tipo_contexto=canal se filtran por el canal activo para no
+    //    mezclar contexto web y WhatsApp en el mismo prompt.
     const { data: contextosRows, error: contextosError } = await db
       .from('versiones_agente_contextos')
-      .select('orden, rol_contexto, componentes_contexto_ia:componente_contexto_id(contenido, activo)')
+      .select(
+        'orden, rol_contexto, componentes_contexto_ia:componente_contexto_id(codigo, tipo_contexto, contenido, activo)'
+      )
       .eq('version_agente_id', version.id)
       .eq('activo', true)
       .order('orden', { ascending: true });
@@ -335,10 +378,20 @@ export class AgenteExecutor {
       .map((row: any) => ({
         orden: row.orden as number,
         rol_contexto: row.rol_contexto as string,
+        codigo: (row.componentes_contexto_ia?.codigo as string) || '',
+        tipo_contexto: (row.componentes_contexto_ia?.tipo_contexto as string) || '',
         contenido: (row.componentes_contexto_ia?.contenido as string) || '',
         activo: row.componentes_contexto_ia?.activo !== false
       }))
-      .filter((c) => c.activo && c.contenido.trim())
+      .filter(
+        (c) =>
+          c.activo &&
+          c.contenido.trim() &&
+          componenteContextoAplicaAlCanal(
+            { tipo_contexto: c.tipo_contexto, codigo: c.codigo },
+            codigoCanal
+          )
+      )
       .map(({ orden, rol_contexto, contenido }) => ({ orden, rol_contexto, contenido }));
 
     if (contextos.length === 0) {
@@ -346,25 +399,31 @@ export class AgenteExecutor {
     }
 
     // BA-024: no se antepone “Tono para este canal: cercano”.
-    // Esa etiqueta era el parámetro que sonaba rígido. La voz está en BLOQUE_VOZ_NAIA.
+    // Esa etiqueta sonaba a formulario; la voz vive en BLOQUE_VOZ_NAIA.
+    // BA-029: sí entran longitud, reglas y plantilla de ESTE canal (no del otro).
     const reglasCanal = [
+      typeof configuracionCanal.longitud_maxima_respuesta === 'number'
+        ? `Longitud máxima orientativa: ${configuracionCanal.longitud_maxima_respuesta} caracteres`
+        : '',
       configuracionCanal.reglas_especificas ? `Reglas del canal: ${configuracionCanal.reglas_especificas}` : '',
       configuracionCanal.plantilla_respuesta ? `Formato de respuesta: ${configuracionCanal.plantilla_respuesta}` : ''
     ].filter(Boolean).join('\n');
     if (reglasCanal) contextos.push({ orden: 100000, rol_contexto: 'canal', contenido: reglasCanal });
 
-    // 6) Registrar herramientas habilitadas (informativo para trazabilidad/configuración).
+    // 6) Herramientas habilitadas para ESTE canal (canales_permitidos). Informativo.
     const { data: herramientasRows } = await db
       .from('agente_herramientas')
-      .select('habilitada, herramientas_ia:herramienta_id(codigo, nombre)')
+      .select('habilitada, canales_permitidos, herramientas_ia:herramienta_id(codigo, nombre)')
       .eq('version_agente_id', version.id)
       .eq('activo', true);
 
-    const herramientas = (herramientasRows || []).map((row: any) => ({
-      codigo: (row.herramientas_ia?.codigo as string) || '',
-      nombre: (row.herramientas_ia?.nombre as string) || '',
-      habilitada: row.habilitada !== false
-    }));
+    const herramientas = (herramientasRows || [])
+      .filter((row: any) => herramientaPermitidaEnCanal(row.canales_permitidos, codigoCanal))
+      .map((row: any) => ({
+        codigo: (row.herramientas_ia?.codigo as string) || '',
+        nombre: (row.herramientas_ia?.nombre as string) || '',
+        habilitada: row.habilitada !== false
+      }));
 
     // 7) Resolver despliegue de IA fail-closed (BA-008):
     //    solo el despliegue_id del snapshot de la versión. Sin fallback a
@@ -482,23 +541,33 @@ export class AgenteExecutor {
       : await cargarMemoriaSesion(entrada.conversation_id);
     const slotsTurno = extraerSlotsDeclarados(entrada.mensaje_usuario);
     const aperturas = detectarAperturas(entrada.mensaje_usuario);
-    let sesion = fusionarSesion(memoria.sesion, slotsTurno, aperturas);
+    // BA-029: si Demo WApp trae la sesión BA-024 (hechos + hilo), esa base gana.
+    // Si no, sigue la bitácora del chat web. El texto de este turno se fusiona igual.
+    const baseSesion = entrada.sesion_previa
+      ? fusionarSesion({}, entrada.sesion_previa, [])
+      : memoria.sesion;
+    let sesion = fusionarSesion(baseSesion, slotsTurno, aperturas);
     const bloqueSesion = serializarSesion(sesion);
 
     // Turno 1: prompt de base + voz + sesión (cabe en el system side).
     // Turno 2+: no se reenvía el prompt largo (414). Sí viajan la voz corta y la sesión.
+    // WhatsApp suma el contrato JSON de CRM (BA-024) sin mezclar el contexto de canal web.
     const esTurnoSeguimiento = Boolean(entrada.conversation_id);
     const bloqueContextoOfertas = esTurnoSeguimiento ? construirBloqueContextoOfertas(entrada) : '';
+    const bloqueContextoCrm = construirBloqueContextoCrm(entrada);
+    const voz =
+      config.canal.codigo === 'whatsapp'
+        ? `${BLOQUE_VOZ_NAIA}\n\n${CONTRATO_JSON_WAPP}`
+        : BLOQUE_VOZ_NAIA;
     const promptEfectivo = esTurnoSeguimiento
       ? ''
-      : `${promptSistema}\n\n${BLOQUE_VOZ_NAIA}\n\n${bloqueSesion}`;
+      : `${promptSistema}\n\n${voz}\n\n${bloqueSesion}`;
+    const extrasUsuario = [bloqueContextoCrm, bloqueContextoOfertas].filter(
+      (parte) => typeof parte === 'string' && parte.trim()
+    );
     const mensajeUsuarioEnriquecido = esTurnoSeguimiento
-      ? `${BLOQUE_VOZ_NAIA}\n\n${bloqueSesion}\n\nMensaje del estudiante:\n${entrada.mensaje_usuario}${
-          bloqueContextoOfertas ? `\n\n${bloqueContextoOfertas}` : ''
-        }`
-      : bloqueContextoOfertas
-        ? `${entrada.mensaje_usuario}\n\n${bloqueContextoOfertas}`
-        : entrada.mensaje_usuario;
+      ? [voz, bloqueSesion, `Mensaje del estudiante:\n${entrada.mensaje_usuario}`, ...extrasUsuario].join('\n\n')
+      : [entrada.mensaje_usuario, ...extrasUsuario].join('\n\n');
 
     let resultadoAdaptador;
     try {
@@ -558,7 +627,12 @@ export class AgenteExecutor {
         filtros: filtrosAnclados,
         pregunta_seguimiento: preguntaLimpia,
         opciones_sugeridas: normalizarOpciones((parsed as any).opciones_sugeridas),
-        conversationId: nuevaConversationId
+        conversationId: nuevaConversationId,
+        resumen_actualizado: textoOpcional((parsed as any).resumen_actualizado),
+        intencion_detectada: textoOpcional((parsed as any).intencion_detectada),
+        siguiente_accion_sugerida: textoOpcional((parsed as any).siguiente_accion_sugerida),
+        requiere_escalamiento: (parsed as any).requiere_escalamiento === true,
+        espera_respuesta: (parsed as any).espera_respuesta !== false
       };
     } else {
       const limpio = limpiarTono((resultadoAdaptador.respuesta_texto || '').trim());

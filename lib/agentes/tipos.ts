@@ -5,6 +5,8 @@
  * ejecución (AgenteExecutor) y los adaptadores de proveedor (AbacusAdapter).
  */
 
+import type { SesionEstudiante } from './vozNaia';
+
 /** Configuración resuelta de un agente y su versión activa. */
 export interface ConfiguracionAgente {
   agente: {
@@ -49,6 +51,12 @@ export interface EntradaEjecucion {
   contexto_persona?: Record<string, unknown>;
   contexto_conversacion?: string;
   /**
+   * BA-024/BA-029: sesión ya armada por el llamador (Demo WApp: hechos + hilo).
+   * Si viene, prevalece sobre la bitácora de ejecuciones. El turno actual
+   * se fusiona encima.
+   */
+  sesion_previa?: SesionEstudiante;
+  /**
    * Contexto visible en UI (filtros + ofertas) para responder preguntas
    * sobre fichas sin inventar información fuera del catálogo.
    */
@@ -87,4 +95,10 @@ export interface SalidaEjecucion {
   opciones_sugeridas?: string[];
   conversationId: string | null;
   ejecucion_id?: string;
+  /** Campos extra del JSON de WhatsApp (BA-024). El chat web no los expone. */
+  resumen_actualizado?: string;
+  intencion_detectada?: string;
+  siguiente_accion_sugerida?: string;
+  requiere_escalamiento?: boolean;
+  espera_respuesta?: boolean;
 }

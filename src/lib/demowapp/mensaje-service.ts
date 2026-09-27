@@ -1,24 +1,25 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  BLOQUE_VOZ_NAIA,
-  CONTRATO_JSON_WAPP,
-  TEMPERATURA_NAIA,
+  agenteExecutor,
+  esErrorCanalFailClosed,
+  resolverAgenteDelCanal,
+  type SalidaEjecucion
+} from '@/lib/agentes';
+import {
   detectarAperturas,
   extraerSlotsDeclarados,
   fusionarSesion,
   sanearSesion,
-  serializarSesion,
   type SesionEstudiante
 } from '@/lib/agentes/vozNaia';
 import {
   CONVERSACION_ESTADO_ACTIVA,
+  DEMOWAPP_CANAL,
   getOrCreateActiveConversation,
   updateConversationContext
 } from './conversacion-service';
 import { scheduleSilenceReminderPush, cancelPendingSilencePushes } from './push-service';
 import { DEMOWAPP_CAPTURE_ORDER, type DemoWappCaptureKey } from './config';
-
-const ABACUS_ENDPOINT = 'https://api.abacus.ai/api/v0/getConversationResponse';
 
 interface NaiaStructuredResponse {
   mensaje: string;
@@ -30,120 +31,67 @@ interface NaiaStructuredResponse {
   conversationId?: string;
 }
 
-function safeString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
+const MENSAJE_FALLBACK_PROVEEDOR =
+  'Se me enredó la respuesta un momento. Cuéntame **con tus palabras** qué necesitas y lo retomamos.';
+
+/**
+ * BA-029: el hilo de WhatsApp solo guarda un texto. La pregunta de seguimiento
+ * del formato NaIA va en la misma burbuja. Las opciones tipo "Explorar resultados"
+ * son chips del canal web y no se pegan aquí.
+ */
+function textoVisibleEnHilo(salida: SalidaEjecucion): string {
+  const mensaje = (salida.mensaje || '').trim();
+  const pregunta = (salida.pregunta_seguimiento || '').trim();
+  if (!pregunta) return mensaje || MENSAJE_FALLBACK_PROVEEDOR;
+  if (mensaje.toLowerCase().includes(pregunta.toLowerCase())) return mensaje;
+  return `${mensaje}\n\n${pregunta}`.trim();
 }
 
-// Algunos despliegues devuelven JSON con saltos de línea literales dentro de
-// cadenas. Lo normalizamos antes de descartarlo para no convertir una respuesta
-// válida de NaIA en un fallback genérico.
-function repairJsonText(text: string) {
-  let output = '';
-  let inString = false;
-  let escaped = false;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-    if (escaped) {
-      output += char;
-      escaped = false;
-      continue;
-    }
-    if (char === '\\' && inString) {
-      output += char;
-      escaped = true;
-      continue;
-    }
-    if (char === '"') {
-      inString = !inString;
-      output += char;
-      continue;
-    }
-    if (char === '\r' || char === '\n') {
-      if (char === '\r' && text[index + 1] === '\n') index += 1;
-      output += inString ? '\\n' : ' ';
-      continue;
-    }
-    output += char;
-  }
-  return output;
-}
-
-function extractJson(text: string): any | null {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = fenced?.[1] || text.trim();
-  const parse = (value: string) => {
-    try { return JSON.parse(value); } catch { return null; }
-  };
-
-  const direct = parse(candidate) || parse(repairJsonText(candidate));
-  if (direct) return direct;
-
-  {
-    const start = candidate.indexOf('{');
-    const end = candidate.lastIndexOf('}');
-    if (start >= 0 && end > start) {
-      const objectCandidate = candidate.slice(start, end + 1);
-      return parse(objectCandidate) || parse(repairJsonText(objectCandidate));
-    }
-    return null;
-  }
-}
-
+/**
+ * BA-029: Demo WApp usa la misma NaIA del Centro IA, canal whatsapp.
+ * El prompt, el tono y el contexto de canal salen de configuraciones_agente_canal
+ * y de componentes tipo_contexto=canal filtrados. No llama a Abacus por su cuenta
+ * ni hereda el prompt del canal web.
+ *
+ * Fail-closed: canal inactivo, sin agente o sin config activa se propaga
+ * (canal_no_configurado / canal_no_encontrado / agente_canal_no_asignado).
+ * Un fallo del proveedor sigue con un mensaje de contingencia para no cortar el hilo.
+ */
 async function callNaiaFromServer(input: {
   mensaje: string;
   conversationId?: string;
   contexto: Record<string, unknown>;
   sesion: SesionEstudiante;
 }): Promise<NaiaStructuredResponse> {
-  const deploymentId = process.env.ABACUS_NAIA_DEPLOYMENT_ID;
-  const deploymentToken = process.env.ABACUS_NAIA_DEPLOYMENT_TOKEN;
-  const fallback =
-    'Se me enredó la respuesta un momento. Cuéntame **con tus palabras** qué necesitas y lo retomamos.';
-
-  if (!deploymentId || !deploymentToken) {
-    return { mensaje: fallback, espera_respuesta: true, conversationId: input.conversationId };
-  }
-
-  // BA-024: misma voz que el canal web. El JSON de este canal conserva sus campos de CRM.
-  const instructions = [BLOQUE_VOZ_NAIA, CONTRATO_JSON_WAPP, serializarSesion(input.sesion)].join('\n\n');
-
+  // BA-024 sigue en el executor (voz, sesión, contrato JSON de este canal).
+  // BA-029 pide codigo_canal=whatsapp: config y contexto de canal salen del Centro IA.
+  const codigoAgente = await resolverAgenteDelCanal(DEMOWAPP_CANAL);
   try {
-    const body: Record<string, unknown> = {
-      deploymentId,
-      deploymentToken,
-      temperature: TEMPERATURA_NAIA,
-      message: `${instructions}\n\nContexto CRM: ${JSON.stringify(input.contexto)}\n\nMensaje actual del estudiante: ${input.mensaje}`
-    };
-    if (input.conversationId) body.deploymentConversationId = input.conversationId;
-    const response = await fetch(ABACUS_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+    const salida = await agenteExecutor.ejecutar({
+      codigo_agente: codigoAgente,
+      codigo_canal: DEMOWAPP_CANAL,
+      mensaje_usuario: input.mensaje,
+      conversation_id: input.conversationId,
+      contexto_persona: input.contexto,
+      sesion_previa: input.sesion
     });
-    if (!response.ok) throw new Error(`abacus_${response.status}`);
-
-    const raw = await response.json();
-    const result = raw?.result ?? raw;
-    const conversationId = result?.deploymentConversationId || result?.deployment_conversation_id || input.conversationId;
-    const messages = Array.isArray(result?.messages) ? result.messages : [];
-    const bot = [...messages].reverse().find((m: any) => !(m?.is_user ?? m?.isUser));
-    const text = safeString(bot?.text ?? bot?.content);
-    if (!text) throw new Error('abacus_sin_mensaje');
-
-    const parsed = extractJson(text);
-    if (!parsed) return { mensaje: text, espera_respuesta: true, conversationId };
     return {
-      mensaje: safeString(parsed.mensaje) || safeString(parsed.respuesta) || fallback,
-      resumen_actualizado: safeString(parsed.resumen_actualizado) || undefined,
-      intencion_detectada: safeString(parsed.intencion_detectada) || undefined,
-      siguiente_accion_sugerida: safeString(parsed.siguiente_accion_sugerida) || undefined,
-      requiere_escalamiento: Boolean(parsed.requiere_escalamiento),
-      espera_respuesta: parsed.espera_respuesta !== false,
-      conversationId
+      mensaje: textoVisibleEnHilo(salida),
+      resumen_actualizado: salida.resumen_actualizado,
+      intencion_detectada: salida.intencion_detectada,
+      siguiente_accion_sugerida: salida.siguiente_accion_sugerida,
+      requiere_escalamiento: salida.requiere_escalamiento,
+      espera_respuesta: salida.espera_respuesta !== false,
+      conversationId: salida.conversationId || input.conversationId
     };
-  } catch {
-    return { mensaje: fallback, espera_respuesta: true, conversationId: input.conversationId };
+  } catch (err) {
+    if (esErrorCanalFailClosed(err)) throw err;
+    console.error('[demowapp] NaIA canal whatsapp', err);
+    return {
+      mensaje: MENSAJE_FALLBACK_PROVEEDOR,
+      espera_respuesta: true,
+      conversationId: input.conversationId
+    };
   }
 }
 
@@ -159,6 +107,10 @@ interface ProgressiveState {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function safeString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 function normalizeText(text: string) {
@@ -932,7 +884,8 @@ export async function processInboundStudentMessage(
     contenido: reply.mensaje,
     referenciaExterna: naiaRef,
     metadatos: {
-      origen: 'naia_abacus',
+      origen: 'naia_centro_ia',
+      codigo_canal: DEMOWAPP_CANAL,
       espera_respuesta: reply.esperaRespuesta,
       intencion_detectada: naia.intencion_detectada || null,
       siguiente_accion_sugerida: naia.siguiente_accion_sugerida || null,
@@ -963,7 +916,8 @@ export async function processInboundStudentMessage(
       estado: CONVERSACION_ESTADO_ACTIVA,
       resumen: naia.resumen_actualizado || (conversacion as any).resumen || 'Conversación NaIA Demowapp',
       contextoResumido: JSON.stringify({
-        origen: 'demowapp_abacus',
+        origen: 'demowapp_centro_ia',
+        codigo_canal: DEMOWAPP_CANAL,
         known: stateAfterCapture.known,
         missing: stateAfterCapture.missing,
         datos_ya_dichos: sesionNaia,

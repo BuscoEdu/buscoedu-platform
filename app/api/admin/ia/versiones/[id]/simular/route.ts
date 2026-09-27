@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { agenteExecutor } from '@/lib/agentes';
+import {
+  agenteExecutor,
+  esErrorCanalFailClosed,
+  estadoHttpErrorCanal,
+  resolverCodigoCanalExplicito
+} from '@/lib/agentes';
 import { protegerYObtenerServicio } from '@/lib/agentes/admin-crud';
 
 export const runtime = 'nodejs';
@@ -18,7 +23,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: false, error: 'json_invalido' }, { status: 400 });
   }
   const mensaje = String(body?.mensaje || '').trim();
-  const codigoCanal = String(body?.codigo_canal || 'web').trim();
+  // BA-029: mismo contrato que /api/naia. Omitido = web. Valor ajeno = canal_invalido.
+  let codigoCanal: string;
+  try {
+    codigoCanal = resolverCodigoCanalExplicito(body?.codigo_canal);
+  } catch (err) {
+    if (esErrorCanalFailClosed(err)) {
+      return NextResponse.json(
+        { ok: false, code: err.codigo, error: err.message },
+        { status: estadoHttpErrorCanal(err.codigo) }
+      );
+    }
+    throw err;
+  }
   if (!mensaje) return NextResponse.json({ ok: false, error: 'mensaje_requerido' }, { status: 400 });
 
   const { data: version, error } = await guard.service
@@ -58,6 +75,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     return NextResponse.json({ ok: true, principal, comparacion });
   } catch (err) {
+    // Canal sin config o inactivo: no simular como si fuera web.
+    if (esErrorCanalFailClosed(err)) {
+      return NextResponse.json(
+        { ok: false, code: err.codigo, error: err.message },
+        { status: estadoHttpErrorCanal(err.codigo) }
+      );
+    }
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : 'error_en_simulacion' }, { status: 409 });
   }
 }

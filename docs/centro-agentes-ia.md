@@ -102,19 +102,18 @@ Semilla: `supabase/seeds/centro_agentes_ia_seed.sql`.
 
 ## 4. Flujo de ejecución (petición a NaIA)
 
-1. El cliente llama a `POST /api/naia` con el mismo cuerpo de siempre.
-2. La ruta delega en `agenteExecutor.ejecutar({ codigo_agente: 'naia_asesora_educativa', codigo_canal: 'web', ... })`.
+1. El cliente llama a `POST /api/naia`. El cuerpo histórico sigue igual; opcionalmente incluye `codigo_canal` (`web` | `whatsapp`). Si se omite, el canal es `web`.
+2. La ruta resuelve el agente predeterminado de ese canal y delega en `agenteExecutor.ejecutar({ codigo_agente, codigo_canal, ... })`. Demo WApp usa el mismo executor con `codigo_canal: 'whatsapp'`.
 3. El executor:
    1. Busca el agente activo y su `version_activa_id`.
-   2. Carga la versión y sus **contextos** (ordenados) para construir el *prompt de sistema*.
-   3. Carga **herramientas** habilitadas y la **configuración de canal**.
-   4. Resuelve el **despliegue** activo (por snapshot o el primero activo).
+   2. Carga la versión y sus **contextos** (ordenados). Los de `tipo_contexto=canal` se filtran por el canal activo.
+   3. Carga **herramientas** habilitadas para ese canal y exige **configuración de canal** activa (`canal_no_configurado` si falta).
+   4. Resuelve el **despliegue** del snapshot de la versión.
    5. Llama a `AbacusAdapter`, que lee las credenciales de variables de entorno
       y llama a `https://api.abacus.ai/api/v0/getConversationResponse`.
    6. Normaliza la respuesta (tono, JSON, filtros, opciones sugeridas) y
       **registra la ejecución** en `ejecuciones_agente_ia`.
-4. Si algo falla, se usa el mismo **fallback** que antes, de modo que el contrato
-   externo (incluidas `opciones_sugeridas`) se mantiene idéntico.
+4. Un canal inválido, inactivo o sin config responde error (`canal_invalido`, `canal_no_encontrado`, `canal_no_configurado`, `agente_canal_no_asignado`) y no cae a `web`. Otros fallos del chat web conservan el fallback conversacional. Detalle: `docs/backend/README-ba029.md`.
 
 ---
 
@@ -134,7 +133,7 @@ Semilla: `supabase/seeds/centro_agentes_ia_seed.sql`.
 1. Panel `/admin/ia/canales` → **Nuevo canal** (código, nombre, tipo).
 2. En el editor de la versión del agente, pestaña **Canales** → agrega el canal y
    define tono / nombre público.
-3. Para exponerlo, invoca el executor con `codigo_canal: '<nuevo_canal>'`.
+3. Para exponerlo en runtime, invoca el executor con `codigo_canal` de ese canal. `POST /api/naia` y el simulador aceptan hoy `web` y `whatsapp`; un código nuevo hay que sumarlo a `CANALES_IA_SOPORTADOS` en `lib/agentes/canales.ts`.
 
 ### 5.3 Cambiar de proveedor / despliegue
 

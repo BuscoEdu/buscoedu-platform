@@ -30,7 +30,7 @@ En los turnos siguientes el bloque `SESION_ESTUDIANTE` viaja con la voz corta (s
 - `lib/agentes/AgenteExecutor.ts` — deja de emitir la etiqueta de tono y la grilla fija
 - `lib/agentes/AbacusAdapter.ts` — envía `temperature`
 - `app/api/naia/route.ts` — fallback sin grilla
-- `src/lib/demowapp/mensaje-service.ts` — misma voz; ya no manda la lista de faltantes al modelo
+- `src/lib/demowapp/mensaje-service.ts` — misma voz; ya no manda la lista de faltantes al modelo. BA-029 (mismo branch, commit posterior) deja de llamar a Abacus por su cuenta y pasa `sesion_previa` al executor con `codigo_canal=whatsapp`. La voz, la temperatura y esta sesión no se revierten.
 - `supabase/seeds/centro_agentes_ia_seed.sql` y `supabase/migrations/20260927190000_ba024_voz_naia.sql` — alinean el texto de fábrica si nadie lo editó
 
 ## Smoke conceptual (3 turnos)

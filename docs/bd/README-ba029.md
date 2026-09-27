@@ -45,3 +45,11 @@ Ver bloque VERIFY al final del SQL de ops.
 ## Handoff BE
 
 Demo WApp / APIs deben resolver `codigo_canal=whatsapp` y preferir config de ese canal. Filtrar componentes `tipo_contexto=canal` por canal para no mezclar web+WApp en el mismo prompt.
+
+## BE (Ola 1 #2) — runtime en esta branch
+
+Hecho. Contrato, superficies y errores fail-closed: `docs/backend/README-ba029.md`.
+
+- `POST /api/naia` acepta `codigo_canal` (`web` | `whatsapp`). Omitido = `web`.
+- Demo WApp pide `whatsapp` por el executor (ya no arma un prompt propio).
+- El executor filtra `tipo_contexto=canal` por el canal activo y sigue fallando `canal_no_configurado` si no hay config activa.

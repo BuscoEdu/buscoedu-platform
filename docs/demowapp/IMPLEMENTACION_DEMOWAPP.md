@@ -8,7 +8,9 @@ Se implementó un sistema de simulación de conversación tipo WhatsApp para Bus
 
 2. **Modal público temporal** para estudiante posterior a conversión exitosa, usando token firmado de corta vida.
 
-No se creó integración nueva con [Abacus.AI](http://Abacus.AI): se reutiliza la misma configuración (`ABACUS_NAIA_DEPLOYMENT_ID` y `ABACUS_NAIA_DEPLOYMENT_TOKEN`) en servidor.
+No se creó integración nueva con [Abacus.AI](http://Abacus.AI): el despliegue sigue saliendo del Centro IA (nombres de variables en `despliegues_ia`).
+
+**BA-029:** Demo WApp ya no arma un prompt propio. `src/lib/demowapp/mensaje-service.ts` ejecuta la misma NaIA con `codigo_canal=whatsapp`. Contrato y errores: `docs/backend/README-ba029.md`.
 
 ---
 
