@@ -8,7 +8,8 @@ export default function SuggestedActions({ isLoading, actions, onSelectAction }:
   if (!actions.length) return null;
 
   return (
-    <div className="mt-4 rounded-xl border border-buscoedu-border bg-white p-3">
+    /* Tarjeta blanca sobre la superficie gris del hilo (BA-025). */
+    <div className="naia-chat-bubble mt-4 rounded-xl p-3">
       <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-buscoedu-blue">
         Siguientes pasos sugeridos
       </p>

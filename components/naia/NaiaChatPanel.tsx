@@ -238,20 +238,27 @@ export default function NaiaChatPanel({
   };
 
   return (
-    <div className={`flex h-full flex-col ${className}`}>
-      <div className="border-b border-buscoedu-border bg-white p-4">
+    /*
+      BA-025: misma superficie gris y el mismo marco que la ventana de
+      NaiaSearchExperience. El hilo no hereda el fondo claro del sitio.
+    */
+    <div className={`naia-chat-window relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border-2 border-buscoedu-chat-edge ${className}`}>
+      {/* Filete de marca, igual que en la experiencia de búsqueda. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-1 rounded-t-2xl bg-buscoedu-teal" aria-hidden="true" />
+      <div className="border-b-2 border-buscoedu-chat-edge bg-white p-4">
         <h2 className="text-lg font-bold text-buscoedu-blue">Chat con NaIA</h2>
         <p className="text-sm text-buscoedu-muted">Tu asesora virtual educativa</p>
       </div>
 
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto bg-buscoedu-bg p-4"
+        className="flex-1 overflow-y-auto bg-buscoedu-chat p-4"
         onScroll={emitState}
       >
         {messages.length === 0 && !isLoading && (
           <div className="py-8 text-center">
-            <p className="text-sm text-buscoedu-muted">Hola, soy NaIA. ¿En qué puedo ayudarte hoy?</p>
+            {/* Mismo criterio de lectura que el saludo de NaiaSearchExperience. */}
+            <p className="text-sm text-buscoedu-text">Hola, soy NaIA. ¿En qué puedo ayudarte hoy?</p>
           </div>
         )}
 
@@ -267,7 +274,7 @@ export default function NaiaChatPanel({
 
         {isLoading && (
           <div className="mb-4 flex flex-col items-start">
-            <div className="rounded-lg border border-buscoedu-border bg-white px-4 py-3">
+            <div className="naia-chat-bubble rounded-lg px-4 py-3">
               <div className="flex items-center space-x-2">
                 <div className="flex space-x-1">
                   <div className="h-2 w-2 animate-bounce rounded-full bg-buscoedu-teal" style={{ animationDelay: '0ms' }}></div>
@@ -291,7 +298,8 @@ export default function NaiaChatPanel({
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t border-buscoedu-border bg-white p-4">
+      {/* Muelle blanco: el campo se separa de la superficie gris del hilo. */}
+      <div className="border-t-2 border-buscoedu-chat-edge bg-white p-4">
         <div className="flex space-x-2">
           <input
             type="text"

@@ -868,23 +868,29 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
           Columna del hilo en flex: el chat ocupa el alto restante y la barra
           inferior queda en el flujo. Así la franja de continuación no puede
           crecer y tapar los mensajes (BA-026).
+          BA-025: superficie gris y marco más pesado para que esta ventana
+          se lea sobre el fondo del sitio, igual en /naia y /explorar.
         */}
-        <main className="relative flex h-[calc(100dvh-73px)] min-h-0 min-w-0 flex-col overflow-hidden border-b border-buscoedu-border bg-white px-5 pt-6 sm:px-8 lg:h-full lg:border-b-0 lg:border-r lg:px-10 lg:pt-8">
+        <main className="naia-chat-window relative z-10 flex h-[calc(100dvh-73px)] min-h-0 min-w-0 flex-col overflow-hidden border-b-2 border-buscoedu-chat-edge px-5 pt-6 sm:px-8 lg:h-full lg:border-b-0 lg:border-r-2 lg:px-10 lg:pt-8">
+          {/* Filete de marca: marca el borde superior de la ventana en web y móvil. */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-1 bg-buscoedu-teal" aria-hidden="true" />
           {mostrarResultados ? (
             <section className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
               <div className="mb-4 shrink-0">
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">Conversación con NaIA</p>
+                {/* Rótulo teal sobre pastilla blanca: el teal de marca no contrasta sobre el gris del hilo. */}
+                <p className="inline-flex rounded-full bg-white px-3 py-1 text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal shadow-[0_2px_8px_rgba(18,58,111,0.08)]">Conversación con NaIA</p>
                 <h1 className="mt-1 text-2xl font-bold tracking-tight text-buscoedu-blue">Tu búsqueda educativa</h1>
               </div>
 
               <div ref={historialRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-3 pr-1" aria-live="polite">
+                {/* BA-025: burbuja blanca de NaIA sobre el gris; la del estudiante sigue en azul. */}
                 {mensajes.map((mensaje) => (
                   <div
                     key={mensaje.id}
                     className={
                       mensaje.autor === "estudiante"
-                        ? "ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-buscoedu-blue px-4 py-3 text-white"
-                        : "max-w-[92%] rounded-2xl rounded-bl-md border border-buscoedu-border bg-buscoedu-bg/60 px-4 py-3 text-buscoedu-text"
+                        ? "ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-buscoedu-blue px-4 py-3 text-white shadow-[0_6px_16px_rgba(18,58,111,0.18)]"
+                        : "naia-chat-bubble max-w-[92%] rounded-2xl rounded-bl-md px-4 py-3 text-buscoedu-text"
                     }
                   >
                     {mensaje.autor === "naia" && <p className="mb-1 text-xs font-semibold text-buscoedu-teal">NaIA</p>}
@@ -918,30 +924,33 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
           ) : (
             /* El saludo cede el alto a la barra; si no cabe, scrollea él y no la página. */
             <section className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col justify-center overflow-y-auto pb-4">
-              <span className="inline-flex h-14 items-center justify-center rounded-2xl bg-buscoedu-teal/10 px-3 text-lg font-bold text-buscoedu-teal">NaIA</span>
-              <p className="mt-7 text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">Tu búsqueda educativa, acompañada</p>
+              {/* Sello sobre blanco para que el teal no se pierda en la superficie gris. */}
+              <span className="naia-chat-bubble inline-flex h-14 items-center justify-center rounded-2xl px-3 text-lg font-bold text-buscoedu-teal">NaIA</span>
+              {/* Misma pastilla que en el hilo activo: teal legible sobre el gris. */}
+              <p className="mt-7 inline-flex rounded-full bg-white px-3 py-1 text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal shadow-[0_2px_8px_rgba(18,58,111,0.08)]">Tu búsqueda educativa, acompañada</p>
               <h1 className="mt-3 max-w-2xl text-4xl font-bold tracking-tight text-buscoedu-blue sm:text-5xl">Hola, soy NaIA.</h1>
-              <p className="mt-4 max-w-2xl text-lg leading-relaxed text-buscoedu-muted">Cuéntame qué quieres estudiar, dónde te gustaría hacerlo o qué necesitas para empezar. Te ayudaré a explorar opciones y compararlas con calma.</p>
+              {/* Texto principal sobre la superficie gris: color de cuerpo, no el muted pensado para blanco. */}
+              <p className="mt-4 max-w-2xl text-lg leading-relaxed text-buscoedu-text">Cuéntame qué quieres estudiar, dónde te gustaría hacerlo o qué necesitas para empezar. Te ayudaré a explorar opciones y compararlas con calma.</p>
               <div className="mt-8 flex flex-wrap gap-2">
                 {PROMPTS_INICIALES.map((prompt) => (
-                  <button key={prompt} type="button" onClick={() => void buscar(prompt)} className="rounded-full border border-buscoedu-border bg-white px-4 py-2.5 text-sm font-medium text-buscoedu-blue transition hover:border-buscoedu-teal hover:bg-buscoedu-teal/5">
+                  <button key={prompt} type="button" onClick={() => void buscar(prompt)} className="naia-chat-bubble rounded-full px-4 py-2.5 text-sm font-medium text-buscoedu-blue transition hover:border-buscoedu-teal hover:bg-buscoedu-teal/5">
                     {prompt}
                   </button>
                 ))}
               </div>
-              <p className="mt-8 max-w-xl text-sm leading-relaxed text-buscoedu-muted">Puedes explorar sin registrarte. Solo compartiremos tus datos con una institución si lo autorizas expresamente.</p>
+              <p className="mt-8 max-w-xl text-sm leading-relaxed text-buscoedu-text">Puedes explorar sin registrarte. Solo compartiremos tus datos con una institución si lo autorizas expresamente.</p>
             </section>
           )}
 
           {/*
-            Barra en el flujo (shrink-0), no absoluta: el hilo sigue siendo el
-            protagonista y esta zona no lo empuja ni lo cubre.
+            Muelle blanco sobre la superficie gris (BA-025). Va en el flujo
+            (shrink-0), no absoluto: no tapa el hilo.
             1) input
-            2) "Puedes continuar con" con alto fijo y scroll interno (web y móvil)
+            2) "Puedes continuar con" con alto fijo y scroll interno (BA-026, web y móvil)
           */}
-          <div className="z-20 -mx-5 shrink-0 border-t border-buscoedu-border bg-white/95 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8 lg:-mx-10 lg:px-10">
+          <div className="z-20 -mx-5 shrink-0 border-t-2 border-buscoedu-chat-edge bg-white px-5 py-3 sm:-mx-8 sm:px-8 lg:-mx-10 lg:px-10">
             <form onSubmit={enviar}>
-              <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-2xl border border-buscoedu-border bg-white p-2 shadow-[0_10px_30px_rgba(17,45,84,0.12)]">
+              <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-2xl border border-buscoedu-chat-edge bg-white p-2 shadow-[0_10px_30px_rgba(17,45,84,0.12)]">
                 <textarea
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
@@ -1206,7 +1215,7 @@ function TypedText({ texto, onStep }: { texto: string; onStep?: () => void }) {
 
 function ThinkingIndicator({ texto }: { texto: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-buscoedu-border bg-buscoedu-bg/60 px-4 py-3 text-sm text-buscoedu-text">
+    <div className="naia-chat-bubble flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-buscoedu-text">
       {/* Rebote alto para reforzar la percepción de procesamiento activo. */}
       <div className="flex items-center gap-1" aria-hidden="true">
         <span className="h-2 w-2 rounded-full bg-buscoedu-teal" style={{ animation: "naiaDotBounceHigh 0.82s infinite", animationDelay: "-0.24s" }} />

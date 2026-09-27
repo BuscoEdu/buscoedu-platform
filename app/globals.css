@@ -10,6 +10,26 @@
   --buscoedu-text: #1f2937;
   --buscoedu-muted: #6b7280;
   --buscoedu-border: #e5e7eb;
+  /* BA-025: gris frío del hilo, claramente más oscuro que --buscoedu-bg. */
+  --buscoedu-chat: #b7c6da;
+  --buscoedu-chat-edge: #6e86a6;
+}
+
+/*
+  BA-025: misma ventana en todas las pantallas del chat.
+  La superficie gris y el marco son el protagonista; las burbujas van en blanco.
+*/
+@layer components {
+  .naia-chat-window {
+    background-color: var(--buscoedu-chat);
+    box-shadow: 0 12px 32px rgba(18, 58, 111, 0.12);
+  }
+
+  .naia-chat-bubble {
+    background-color: #ffffff;
+    border: 1px solid var(--buscoedu-chat-edge);
+    box-shadow: 0 4px 14px rgba(18, 58, 111, 0.08);
+  }
 }
 
 html {

@@ -15,7 +15,10 @@ const config: Config = {
           bg: "#F7F9FC",
           text: "#1F2937",
           muted: "#6B7280",
-          border: "#E5E7EB"
+          border: "#E5E7EB",
+          /* BA-025: superficie del hilo, claramente más oscura que el fondo del sitio. */
+          chat: "#B7C6DA",
+          "chat-edge": "#6E86A6"
         }
       },
       boxShadow: {
