@@ -95,6 +95,10 @@ Deploy:         Vercel → www.buscoedu.com
 Cliente DB:     src/lib/supabase.ts (getSupabaseClient())
 ```
 
+## BA-009 — Lote sep26
+
+La decisión de fuente única y el corte de la API pública legacy de contexto NaIA están documentados en [`docs/ba-009-fuente-unica-contexto-naia.md`](docs/ba-009-fuente-unica-contexto-naia.md).
+
 ## 🏗️ Estructura del Proyecto
 
 ```

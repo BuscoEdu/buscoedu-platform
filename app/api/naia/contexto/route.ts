@@ -1,27 +1,25 @@
 import { NextResponse } from 'next/server';
-import { getServiceRoleClient } from '@/src/lib/supabase-server';
 
+// Este endpoint se mantiene como una respuesta de compatibilidad para clientes
+// que todavía intenten consultar la antigua API pública de contexto.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// La configuración pública de NaIA ya no se sirve desde contexto_naia: Centro IA
+// (agentes_ia, versiones y despliegues) es la única fuente canónica.
 export async function GET() {
-  try {
-    const db = getServiceRoleClient();
-    const { data, error } = await db
-      .from('contexto_naia')
-      .select('id, version, nombre, instrucciones_sistema, tono, prioridades_conversacionales, respuestas_guiadas, actualizado_en')
-      .eq('activo', true)
-      .eq('estado', 'publicado')
-      .order('version', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error || !data) {
-      return NextResponse.json({ ok: true, item: null });
-    }
-
-    return NextResponse.json({ ok: true, item: data });
-  } catch {
-    return NextResponse.json({ ok: true, item: null });
-  }
+  // Se informa explícitamente que la ruta quedó retirada para evitar exponer
+  // contexto legado o inducir a nuevos consumidores a usarlo como runtime.
+  return NextResponse.json(
+    {
+      ok: false,
+      code: 'contexto_naia_legacy',
+      message:
+        'La API pública de contexto NaIA fue retirada. La fuente canónica de NaIA es Centro IA (agentes_ia, versiones y despliegues).',
+    },
+    {
+      status: 410,
+      headers: { 'Cache-Control': 'no-store' },
+    },
+  );
 }
