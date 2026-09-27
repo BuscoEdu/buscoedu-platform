@@ -59,13 +59,32 @@ export interface FiltrosOferta {
   universidad?: string;
 }
 
-export interface ResultadoOfertas {
-  ofertas: OfertaAcademica[];
-  total: number;
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
-}
+/**
+ * Contrato discriminado (BA-005): el FE distingue éxito de fallo real.
+ * En error NO se simula "0 resultados" — eso ocultaba fallos de BD/red.
+ */
+export type ResultadoOfertas =
+  | {
+      ok: true;
+      ofertas: OfertaAcademica[];
+      total: number;
+      page: number;
+      pageSize: number;
+      hasMore: boolean;
+    }
+  | {
+      ok: false;
+      error: { code: string; message: string };
+      ofertas: [];
+      total: 0;
+      page: number;
+      pageSize: number;
+      hasMore: false;
+    };
+
+export type ResultadoOfertasPorIds =
+  | { ok: true; ofertas: OfertaAcademica[] }
+  | { ok: false; error: { code: string; message: string }; ofertas: [] };
 
 const PAGE_SIZE_DEFAULT = 20;
 
@@ -505,17 +524,38 @@ export async function obtenerOfertas(
 
     if (error) {
       console.error('Error obteniendo ofertas:', error);
-      return { ofertas: [], total: 0, page: safePage, pageSize: safeSize, hasMore: false };
+      return {
+        ok: false,
+        error: {
+          code: 'ofertas_query_failed',
+          message: error.message || 'No se pudieron consultar las ofertas académicas.'
+        },
+        ofertas: [],
+        total: 0,
+        page: safePage,
+        pageSize: safeSize,
+        hasMore: false
+      };
     }
 
     const ofertas: OfertaAcademica[] = (data || []).map((item: any) => mapearOferta(item, hoy));
     const total = count ?? ofertas.length;
     const hasMore = from + ofertas.length < total;
 
-    return { ofertas, total, page: safePage, pageSize: safeSize, hasMore };
+    return { ok: true, ofertas, total, page: safePage, pageSize: safeSize, hasMore };
   } catch (error) {
     console.error('Error en obtenerOfertas:', error);
-    return { ofertas: [], total: 0, page: safePage, pageSize: safeSize, hasMore: false };
+    const message =
+      error instanceof Error ? error.message : 'Error inesperado al consultar ofertas.';
+    return {
+      ok: false,
+      error: { code: 'ofertas_unexpected', message },
+      ofertas: [],
+      total: 0,
+      page: safePage,
+      pageSize: safeSize,
+      hasMore: false
+    };
   }
 }
 
@@ -526,8 +566,8 @@ export async function obtenerOfertas(
  * considera ofertas activas (no filtra por vigencia para no ocultar algo que
  * el usuario ya guardó, pero sí exige que sigan publicadas).
  */
-export async function obtenerOfertasPorIds(ids: string[]): Promise<OfertaAcademica[]> {
-  if (!ids || ids.length === 0) return [];
+export async function obtenerOfertasPorIds(ids: string[]): Promise<ResultadoOfertasPorIds> {
+  if (!ids || ids.length === 0) return { ok: true, ofertas: [] };
 
   try {
     const hoy = todayISO();
@@ -538,7 +578,14 @@ export async function obtenerOfertasPorIds(ids: string[]): Promise<OfertaAcademi
 
     if (error) {
       console.error('Error obteniendo ofertas por IDs:', error);
-      return [];
+      return {
+        ok: false,
+        error: {
+          code: 'ofertas_by_ids_query_failed',
+          message: error.message || 'No se pudieron consultar las ofertas por IDs.'
+        },
+        ofertas: []
+      };
     }
 
     const ofertas = (data || []).map((item: any) => mapearOferta(item, hoy));
@@ -547,10 +594,16 @@ export async function obtenerOfertasPorIds(ids: string[]): Promise<OfertaAcademi
     const orden = new Map(ids.map((id, index) => [id, index]));
     ofertas.sort((a, b) => (orden.get(a.id) ?? 0) - (orden.get(b.id) ?? 0));
 
-    return ofertas;
+    return { ok: true, ofertas };
   } catch (error) {
     console.error('Error en obtenerOfertasPorIds:', error);
-    return [];
+    const message =
+      error instanceof Error ? error.message : 'Error inesperado al consultar ofertas por IDs.';
+    return {
+      ok: false,
+      error: { code: 'ofertas_by_ids_unexpected', message },
+      ofertas: []
+    };
   }
 }
 

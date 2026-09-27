@@ -169,6 +169,9 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
 
   const consultarOfertas = async (filtros: FiltrosOferta) => {
     const resultado = await obtenerOfertas(filtros, 0, 10);
+    if (resultado.ok === false) {
+      throw new Error(resultado.error.message);
+    }
     setFiltrosActuales(filtros);
     setOfertas(resultado.ofertas);
     setTotal(Math.max(resultado.total, resultado.ofertas.length));
@@ -264,6 +267,10 @@ export default function NaiaSearchExperience({ layoutVariant = "naia" }: NaiaSea
     if (estaCargando || ofertas.length >= total) return;
     try {
       const resultado = await obtenerOfertas(filtrosActuales, ofertas.length, 10);
+      if (resultado.ok === false) {
+        setEstado("error");
+        return;
+      }
       setOfertas((actuales) => {
         const porId = new Map(actuales.map((oferta) => [oferta.id, oferta]));
         resultado.ofertas.forEach((oferta) => porId.set(oferta.id, oferta));

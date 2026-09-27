@@ -20,9 +20,9 @@ export default function MiListaPage() {
 
     async function cargar() {
       setLoading(true);
-      const data = await obtenerOfertasPorIds(myList);
+      const resultado = await obtenerOfertasPorIds(myList);
       if (!cancelado) {
-        setOfertas(data);
+        setOfertas(resultado.ok === true ? resultado.ofertas : []);
         setLoading(false);
       }
     }
