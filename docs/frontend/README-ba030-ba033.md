@@ -21,7 +21,7 @@ El estudiante, en Demo WhatsApp, ve solo un hilo a pantalla completa (móvil y e
 
 ## Fuera de este cambio
 
-Portal NaIA/Explorar (BA-025, BA-026, BA-027, BA-028), Meta/BA-032 y el funnel de aplicar/consentimiento (BA-031).
+Portal NaIA/Explorar (BA-025, BA-026, BA-027, BA-028) y Meta/BA-032. El funnel Aplicar → datos → consentimiento quedó cableado después en el mismo hilo: [`README-ba031-ui.md`](README-ba031-ui.md).
 
 ## Archivos
 
