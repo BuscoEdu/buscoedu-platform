@@ -5,23 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getOrCreateVisitorId } from "@/src/lib/visitor";
 import { trackNaiaModalOpened, trackSearchIntention } from "@/src/lib/events";
-
-/**
- * Hero de la Home con NaIA como protagonista.
- *
- * IMPORTANTE: no crea una segunda instancia de chat de NaIA. Reutiliza la
- * MISMA conexión/experiencia: al enviar el mensaje inicial (o elegir una
- * sugerencia) enruta a `/naia?q=...`, donde vive el chat real de NaIA
- * (la experiencia NaIA) y la ejecución del agente. De esta forma la conversación
- * continúa sin duplicar el agente ni su estado.
- */
+import { NOMBRES_ALIADAS } from "@/src/lib/aliadas-publicas";
 
 const SUGERENCIAS = [
-  "Quiero encontrar una carrera.",
-  "Busco una beca o descuento.",
+  "Quiero un posgrado virtual.",
+  "Busco un pregrado en las aliadas.",
   "Quiero estudiar virtual.",
-  "No sé qué estudiar todavía.",
-  "Quiero comparar universidades."
+  "No sé qué nivel me sirve todavía."
 ];
 
 export default function NaiaHomeHero() {
@@ -36,7 +26,6 @@ export default function NaiaHomeHero() {
       return;
     }
 
-    // Reutiliza el tracking existente y enruta a la experiencia real de NaIA.
     getOrCreateVisitorId()
       .then(() => {
         trackNaiaModalOpened();
@@ -57,51 +46,55 @@ export default function NaiaHomeHero() {
   return (
     <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-buscoedu-blue to-[#1d4d88] px-6 py-10 text-white sm:px-10 sm:py-12">
       <div className="grid items-center gap-8 lg:grid-cols-2">
-        {/* Columna de mensaje */}
         <div>
           <p className="text-sm font-semibold uppercase tracking-widest text-buscoedu-yellow">
-            Orientación educativa con NaIA
+            5 universidades aliadas
           </p>
           <h1 className="mt-4 text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
-            Encuentra opciones educativas que encajen contigo.
+            En 2 minutos ves los programas vigentes que sí te aplican.
           </h1>
           <p className="mt-5 text-base leading-relaxed text-slate-100 sm:text-lg">
-            Habla con NaIA, explora ofertas académicas vigentes y compara alternativas antes de
-            decidir cómo avanzar.
+            Oferta actual de Politécnico Grancolombiano, Areandina, Universidad Sergio
+            Arboleda, UNIR Colombia y Asturias. Si autorizas, BuscoEdu te acompaña.
           </p>
+          <ul className="mt-4 flex flex-wrap gap-2">
+            {NOMBRES_ALIADAS.map((nombre) => (
+              <li
+                key={nombre}
+                className="rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-medium text-white"
+              >
+                {nombre}
+              </li>
+            ))}
+          </ul>
           <p className="mt-4 text-sm text-slate-200">
-            Puedes explorar sin registrarte. Tus datos solo se compartirán con una universidad si tú
-            lo autorizas.
+            BuscoEdu no es una universidad y no garantiza admisión, precios ni becas.
+            Tus datos solo se comparten con la institución que tú marques.
           </p>
-          {/*
-            BA-023: el hero de inicio solo abre el recorrido del estudiante.
-            Para universidades vive en Más y en el pie, no aquí.
-          */}
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/naia"
+              href="/explorar"
               className="inline-flex items-center rounded-md bg-buscoedu-teal px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95"
             >
-              Hablar con NaIA
+              Encontrar opciones
             </Link>
             <Link
-              href="/explorar"
+              href="/naia"
               className="inline-flex items-center rounded-md border border-white/80 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
             >
-              Explorar ofertas
+              Hacerlo con NaIA
             </Link>
           </div>
         </div>
 
-        {/* Columna de entrada de NaIA (protagonista) */}
         <div className="rounded-2xl bg-white p-5 text-buscoedu-text shadow-card sm:p-6">
           <div className="mb-3 flex items-center gap-3">
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-buscoedu-teal/10 text-lg font-bold text-buscoedu-teal">
               N
             </span>
             <div>
-              <p className="text-base font-bold text-buscoedu-blue">Hola, soy NaIA</p>
-              <p className="text-xs text-buscoedu-muted">La asesora virtual de BuscoEdu</p>
+              <p className="text-base font-bold text-buscoedu-blue">NaIA puede acompañarte</p>
+              <p className="text-xs text-buscoedu-muted">Misma oferta de las aliadas, en conversación</p>
             </div>
           </div>
 
@@ -116,7 +109,7 @@ export default function NaiaHomeHero() {
               setMostrarAviso(false);
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Por ejemplo: Busco una maestría en administración, virtual, con beca..."
+            placeholder="Por ejemplo: Busco una maestría virtual en administración..."
             rows={3}
             className="w-full resize-none rounded-lg border border-buscoedu-border px-4 py-3 text-sm focus:border-transparent focus:ring-2 focus:ring-buscoedu-blue"
           />
@@ -129,9 +122,9 @@ export default function NaiaHomeHero() {
           <button
             type="button"
             onClick={() => iniciarConNaia()}
-            className="mt-3 w-full rounded-lg bg-buscoedu-blue px-6 py-3 font-semibold text-white transition-colors hover:brightness-95"
+            className="mt-3 w-full rounded-lg border border-buscoedu-blue px-6 py-3 font-semibold text-buscoedu-blue transition-colors hover:bg-buscoedu-blue/5"
           >
-            Hablar con NaIA
+            Hacerlo con NaIA
           </button>
 
           <div className="mt-4">

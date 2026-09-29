@@ -13,6 +13,7 @@
  */
 
 import { supabase } from './supabase';
+import { resolverIdsAliadas } from './aliadas';
 
 export interface OfertaAcademica {
   id: string;
@@ -121,7 +122,6 @@ function normalizarTermino(value: string): string {
     .trim();
 }
 
-/** Escapa caracteres especiales de PostgREST en patrones ILIKE. */
 function likePattern(value: string): string {
   const clean = value.trim().replace(/[%,()]/g, ' ').replace(/\s+/g, ' ').trim();
   return `%${clean}%`;
@@ -150,11 +150,6 @@ function construirTerminosBusqueda(entrada: string): string[] {
   return [...terminos].slice(0, 8);
 }
 
-/**
- * Mapa de etiquetas de beneficio (UI) a patrón ILIKE sobre la columna
- * `tipo_beneficio` (texto) de ofertas_academicas, cuyos valores en BD usan
- * códigos como `beca_postulacion`, `descuento`, `financiacion`, etc.
- */
 function patronTipoBeneficio(valor: string): string {
   const v = valor.trim().toLowerCase();
   if (v.startsWith('beca')) return '%beca%';
@@ -165,10 +160,6 @@ function patronTipoBeneficio(valor: string): string {
   return `%${v}%`;
 }
 
-/**
- * Expande sinónimos y agrupaciones comunes para mejorar coincidencias.
- * Devuelve una lista de términos alternativos a buscar (el original + expansiones).
- */
 function expandirSinonimos(termino: string, contexto: 'nivel' | 'area'): string[] {
   const t = normalizarTermino(termino);
 
@@ -200,7 +191,6 @@ function expandirSinonimos(termino: string, contexto: 'nivel' | 'area'): string[
   return [...new Set(sin)];
 }
 
-/** Devuelve IDs de una tabla catálogo cuyo `nombre` coincide (ILIKE). */
 async function idsPorNombre(tabla: string, termino: string): Promise<string[]> {
   const variantes = [...new Set([termino, normalizarTermino(termino)])].filter(Boolean);
   const condiciones = variantes.map((v) => `nombre.ilike.${likePattern(v)}`);
@@ -217,12 +207,6 @@ async function idsPorNombre(tabla: string, termino: string): Promise<string[]> {
   return (data || []).map((row: any) => row.id);
 }
 
-/**
- * Resuelve los IDs de programas que satisfacen el término de programa/área.
- * Coincide si: nombre_oficial, nombre_corto o titulo_otorgado ILIKE término
- * OR area_conocimiento_id ∈ áreas.
- * cuyo nombre coincide con el término (expandiendo sinónimos comunes).
- */
 async function resolverProgramasPorTexto(termino: string): Promise<string[]> {
   const terminosBusqueda = construirTerminosBusqueda(termino);
 
@@ -231,8 +215,6 @@ async function resolverProgramasPorTexto(termino: string): Promise<string[]> {
   const areaIdsArrays = await Promise.all(areaIdsPromises);
   const areaIds = [...new Set(areaIdsArrays.flat())];
 
-  // Algunas cargas históricas completan solo nombre_corto o titulo_otorgado;
-  // incluir los tres campos evita falsos negativos como la búsqueda Derecho.
   const condiciones = terminosBusqueda.flatMap((t) => {
     const patron = likePattern(t);
     return [
@@ -257,13 +239,6 @@ async function resolverProgramasPorTexto(termino: string): Promise<string[]> {
   return (data || []).map((row: any) => row.id);
 }
 
-/**
- * Resuelve IDs de programas que cumplen restricciones duras (nivel y/o
- * modalidad). Devuelve `null` cuando no hay ninguna de esas restricciones
- * activas (no se debe filtrar por programa en ese caso).
- * 
- * Expande "posgrado" a Especialización + Maestría + Doctorado.
- */
 async function resolverProgramasPorNivelModalidad(
   filtros: FiltrosOferta
 ): Promise<string[] | null> {
@@ -272,14 +247,11 @@ async function resolverProgramasPorNivelModalidad(
   let query = supabase.from('programas_academicos').select('id');
 
   if (filtros.nivel_academico) {
-    // Expandir sinónimos para niveles (ej: "posgrado" → Especialización + Maestría + Doctorado)
     const terminosNivel = expandirSinonimos(filtros.nivel_academico, 'nivel');
-    
-    // Buscar IDs de niveles que coincidan con cualquiera de los términos expandidos.
     const nivelIdsPromises = terminosNivel.map(t => idsPorNombre('niveles_academicos', t));
     const nivelIdsArrays = await Promise.all(nivelIdsPromises);
-    const nivelIds = [...new Set(nivelIdsArrays.flat())]; // Deduplica
-    
+    const nivelIds = [...new Set(nivelIdsArrays.flat())];
+
     if (nivelIds.length === 0) return [];
     query = query.in('nivel_academico_id', nivelIds);
   }
@@ -298,7 +270,6 @@ async function resolverProgramasPorNivelModalidad(
   return (data || []).map((row: any) => row.id);
 }
 
-/** Resuelve IDs de sedes según ciudad y/o país. `null` si no aplica. */
 async function resolverSedes(filtros: FiltrosOferta): Promise<string[] | null> {
   if (!filtros.ciudad && !filtros.pais) return null;
 
@@ -324,7 +295,6 @@ async function resolverSedes(filtros: FiltrosOferta): Promise<string[] | null> {
   return (data || []).map((row: any) => row.id);
 }
 
-/** Resuelve IDs de universidades por nombre oficial/corto/sigla. `null` si no aplica. */
 async function resolverUniversidades(filtros: FiltrosOferta): Promise<string[] | null> {
   if (!filtros.universidad) return null;
 
@@ -438,13 +408,6 @@ function mapearOferta(item: any, hoy: string): OfertaAcademica {
   };
 }
 
-/**
- * Obtiene ofertas académicas publicadas con filtros opcionales y paginación.
- *
- * @param filtros  Criterios de búsqueda.
- * @param page     Página solicitada (base 0).
- * @param pageSize Tamaño de página (por defecto 20).
- */
 export async function obtenerOfertas(
   filtros: FiltrosOferta = {},
   page: number = 0,
@@ -456,7 +419,18 @@ export async function obtenerOfertas(
   try {
     const hoy = todayISO();
 
-    // 1) Resolver restricciones relacionales a listas de IDs.
+    const aliadaIds = await resolverIdsAliadas();
+    if (aliadaIds.length === 0) {
+      return {
+        ok: true,
+        ofertas: [],
+        total: 0,
+        page: safePage,
+        pageSize: safeSize,
+        hasMore: false
+      };
+    }
+
     const [programasNivelMod, sedeIds, universidadIds] = await Promise.all([
       resolverProgramasPorNivelModalidad(filtros),
       resolverSedes(filtros),
@@ -468,14 +442,9 @@ export async function obtenerOfertas(
       ? await resolverProgramasPorTexto(terminoPrograma)
       : null;
 
-    // 2) Construir la consulta principal solo sobre columnas de ofertas.
     const from = safePage * safeSize;
     const to = from + safeSize - 1;
 
-    // Regla de vigencia obligatoria:
-    // se mantienen fuera las ofertas vencidas. Ejemplo diagnosticado (2026-09-20):
-    // en Derecho había ofertas activas/publicadas/validadas con vigente_hasta=2026-08-15,
-    // por lo que deben devolver 0 resultados hasta actualizar datos en BD.
     let query = supabase
       .from('ofertas_academicas')
       .select(SELECT_OFERTAS, { count: 'exact' })
@@ -485,7 +454,6 @@ export async function obtenerOfertas(
       .lte('vigente_desde', hoy)
       .or(`vigente_hasta.is.null,vigente_hasta.gte.${hoy}`);
 
-    // Filtro programa/área: nombre_oferta ILIKE término OR programa ∈ coincidencias.
     if (terminoPrograma) {
       const condiciones = construirTerminosBusqueda(terminoPrograma).map(
         (t) => `nombre_oferta.ilike.${likePattern(t)}`
@@ -496,22 +464,31 @@ export async function obtenerOfertas(
       query = query.or(condiciones.join(','));
     }
 
-    // Restricciones duras por nivel/modalidad (AND).
     if (programasNivelMod !== null) {
       query = query.in('programa_id', programasNivelMod);
     }
 
-    // Ubicación (ciudad/país) mediante sedes.
     if (sedeIds !== null) {
       query = query.in('sede_id', sedeIds);
     }
 
-    // Universidad.
     if (universidadIds !== null) {
-      query = query.in('universidad_id', universidadIds);
+      const cruzados = universidadIds.filter((id) => aliadaIds.includes(id));
+      if (cruzados.length === 0) {
+        return {
+          ok: true,
+          ofertas: [],
+          total: 0,
+          page: safePage,
+          pageSize: safeSize,
+          hasMore: false
+        };
+      }
+      query = query.in('universidad_id', cruzados);
+    } else {
+      query = query.in('universidad_id', aliadaIds);
     }
 
-    // Tipo de beneficio (columna de texto en ofertas_academicas).
     if (filtros.tipo_beneficio) {
       query = query.ilike('tipo_beneficio', patronTipoBeneficio(filtros.tipo_beneficio));
     }
@@ -559,13 +536,6 @@ export async function obtenerOfertas(
   }
 }
 
-/**
- * Obtiene ofertas académicas por una lista de IDs (para "Mi Lista").
- *
- * Devuelve las ofertas en el mismo orden en que se pasaron los IDs. Solo
- * considera ofertas activas (no filtra por vigencia para no ocultar algo que
- * el usuario ya guardó, pero sí exige que sigan publicadas).
- */
 export async function obtenerOfertasPorIds(ids: string[]): Promise<ResultadoOfertasPorIds> {
   if (!ids || ids.length === 0) return { ok: true, ofertas: [] };
 
@@ -589,8 +559,6 @@ export async function obtenerOfertasPorIds(ids: string[]): Promise<ResultadoOfer
     }
 
     const ofertas = (data || []).map((item: any) => mapearOferta(item, hoy));
-
-    // Reordenar según el orden en que el usuario las guardó.
     const orden = new Map(ids.map((id, index) => [id, index]));
     ofertas.sort((a, b) => (orden.get(a.id) ?? 0) - (orden.get(b.id) ?? 0));
 
@@ -607,13 +575,9 @@ export async function obtenerOfertasPorIds(ids: string[]): Promise<ResultadoOfer
   }
 }
 
-/**
- * Verifica si hay datos de ofertas en la base de datos.
- */
 export async function verificarDatosDemo(): Promise<boolean> {
   try {
     const { data, error } = await supabase.from('ofertas_academicas').select('id').limit(1);
-
     return !error && (data?.length || 0) > 0;
   } catch {
     return false;

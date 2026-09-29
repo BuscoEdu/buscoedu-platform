@@ -81,7 +81,7 @@ export default function InterestForm() {
             id="autorizaContacto"
             checked={formData.autorizaContacto}
             onChange={(checked) => setFormData((prev) => ({ ...prev, autorizaContacto: checked }))}
-            label="Autorizo ser contactado(a). BuscoEdu solo comparte información con universidades aliadas si lo autorizo expresamente."
+            label="Autorizo que BuscoEdu me contacte. Este formulario no envía datos a ninguna universidad. Si más adelante autorizo, será por nombre (Politécnico Grancolombiano, Areandina, Universidad Sergio Arboleda, UNIR Colombia o Asturias)."
           />
         </div>
 
@@ -97,7 +97,7 @@ export default function InterestForm() {
 
         {submitted && (
           <p className="rounded-md border border-buscoedu-teal bg-teal-50 p-3 text-sm text-buscoedu-blue" role="status">
-            Gracias. Pronto BuscoEdu podrá registrar tu interés y orientarte con NaIA.
+            Gracias. En esta fase el formulario no envía tus datos. Para ver programas vigentes usa Encontrar opciones.
           </p>
         )}
 
