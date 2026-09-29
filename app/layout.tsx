@@ -6,9 +6,9 @@ import Footer from "@/components/layout/Footer";
 import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "BuscoEdu | Orientación educativa con NaIA",
+  title: "BuscoEdu | Programas vigentes de universidades aliadas",
   description:
-    "BuscoEdu es una plataforma de orientación educativa para explorar opciones de estudio y conectarte con universidades aliadas solo con tu autorización."
+    "En minutos ves programas vigentes de cinco universidades aliadas. Si autorizas por nombre, BuscoEdu te acompaña. No es una universidad y no garantiza admisión."
 };
 
 export default function RootLayout({
