@@ -1,1 +1,591 @@
-placeholder-will-fail-if-too-short
+/**
+ * Funciones para consultar ofertas académicas desde Supabase.
+ *
+ * Estrategia de filtrado (robusta con PostgREST):
+ * - Los filtros que dependen de tablas relacionadas (programa, área de
+ *   conocimiento, nivel, modalidad, ciudad, país, universidad) se resuelven
+ *   primero a listas de IDs mediante consultas auxiliares. La consulta
+ *   principal filtra únicamente sobre columnas propias de `ofertas_academicas`
+ *   (ids + texto + estado), lo que evita problemas de OR entre tablas y hace
+ *   que el conteo total (count: 'exact') y la paginación (.range()) sean exactos.
+ * - Se embeben (LEFT JOIN) los datos relacionados solo para mostrarlos en las
+ *   tarjetas; el filtrado no depende de esos embeds.
+ */
+
+import { supabase } from './supabase';
+import { resolverIdsAliadas } from './aliadas';
+
+export interface OfertaAcademica {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  programa_id: string;
+  universidad_id: string;
+  sede_id?: string;
+  vigente: boolean;
+  cupos_disponibles?: number;
+  estado_publicacion?: string;
+  estado_validacion?: string;
+  tipo_beneficio?: string;
+  vigente_desde?: string;
+  vigente_hasta?: string;
+  programa?: {
+    nombre: string;
+    nivel_academico?: string;
+    duracion?: string;
+    modalidad?: string;
+    area?: string;
+  };
+  universidad?: {
+    nombre: string;
+  };
+  sede?: {
+    nombre: string;
+    ciudad?: string;
+    pais?: string;
+  };
+  beneficios?: Array<{
+    tipo: string;
+    descripcion?: string;
+  }>;
+}
+
+export interface FiltrosOferta {
+  programa_o_area?: string;
+  modalidad?: string;
+  ciudad?: string;
+  pais?: string;
+  nivel_academico?: string;
+  tipo_beneficio?: string;
+  universidad?: string;
+}
+
+/**
+ * Contrato discriminado (BA-005): el FE distingue éxito de fallo real.
+ * En error NO se simula "0 resultados" — eso ocultaba fallos de BD/red.
+ */
+export type ResultadoOfertas =
+  | {
+      ok: true;
+      ofertas: OfertaAcademica[];
+      total: number;
+      page: number;
+      pageSize: number;
+      hasMore: boolean;
+    }
+  | {
+      ok: false;
+      error: { code: string; message: string };
+      ofertas: [];
+      total: 0;
+      page: number;
+      pageSize: number;
+      hasMore: false;
+    };
+
+export type ResultadoOfertasPorIds =
+  | { ok: true; ofertas: OfertaAcademica[] }
+  | { ok: false; error: { code: string; message: string }; ofertas: [] };
+
+const PAGE_SIZE_DEFAULT = 20;
+
+const STOPWORDS_BUSQUEDA = new Set([
+  'quiero',
+  'buscar',
+  'busco',
+  'estudiar',
+  'en',
+  'de',
+  'la',
+  'el',
+  'los',
+  'las',
+  'con',
+  'para',
+  'por',
+  'que',
+  'una',
+  'un',
+  'del',
+  'al'
+]);
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function normalizarTermino(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function likePattern(value: string): string {
+  const clean = value.trim().replace(/[%,()]/g, ' ').replace(/\s+/g, ' ').trim();
+  return `%${clean}%`;
+}
+
+function construirTerminosBusqueda(entrada: string): string[] {
+  const raw = entrada.trim();
+  const normalizado = normalizarTermino(raw);
+
+  const tokens = normalizado
+    .split(/[^a-z0-9]+/)
+    .map((x) => x.trim())
+    .filter((x) => x.length >= 3 && !STOPWORDS_BUSQUEDA.has(x));
+
+  const terminos = new Set<string>([raw]);
+
+  for (const token of tokens) {
+    terminos.add(token);
+  }
+
+  for (let i = 0; i < tokens.length - 1; i++) {
+    const bigrama = `${tokens[i]} ${tokens[i + 1]}`;
+    if (bigrama.length >= 7) terminos.add(bigrama);
+  }
+
+  return [...terminos].slice(0, 8);
+}
+
+function patronTipoBeneficio(valor: string): string {
+  const v = valor.trim().toLowerCase();
+  if (v.startsWith('beca')) return '%beca%';
+  if (v.startsWith('descuento')) return '%descuento%';
+  if (v.startsWith('financ')) return '%financ%';
+  if (v.startsWith('convenio')) return '%convenio%';
+  if (v.startsWith('otro')) return '%otro%';
+  return `%${v}%`;
+}
+
+function expandirSinonimos(termino: string, contexto: 'nivel' | 'area'): string[] {
+  const t = normalizarTermino(termino);
+
+  if (contexto === 'nivel') {
+    if (t.includes('posgrado') || t.includes('postgrado')) {
+      return ['Especialización', 'Especializacion', 'Maestría', 'Maestria', 'Doctorado'];
+    }
+    return [termino];
+  }
+
+  const sin: string[] = [termino];
+
+  if (t.includes('empresa') || t.includes('negocio') || t.includes('administr')) {
+    sin.push('Administración', 'Administracion', 'Negocios', 'Empresariales', 'Gestión', 'Gestion');
+  }
+  if (t.includes('salud') || t.includes('medicina') || t.includes('medico')) {
+    sin.push('Salud', 'Medicina', 'Ciencias de la Salud');
+  }
+  if (t.includes('ingenier') || t.includes('ingeniero')) {
+    sin.push('Ingeniería', 'Ingenieria', 'Tecnología', 'Tecnologia');
+  }
+  if (t.includes('derecho') || t.includes('leyes') || t.includes('juridic')) {
+    sin.push('Derecho', 'Ciencias Jurídicas', 'Ciencias Juridicas', 'Leyes');
+  }
+  if (t.includes('comunic')) {
+    sin.push('Comunicación', 'Comunicacion', 'Periodismo');
+  }
+
+  return [...new Set(sin)];
+}
+
+async function idsPorNombre(tabla: string, termino: string): Promise<string[]> {
+  const variantes = [...new Set([termino, normalizarTermino(termino)])].filter(Boolean);
+  const condiciones = variantes.map((v) => `nombre.ilike.${likePattern(v)}`);
+
+  const { data, error } = await supabase
+    .from(tabla)
+    .select('id')
+    .or(condiciones.join(','));
+
+  if (error) {
+    console.error(`Error resolviendo IDs de ${tabla}:`, error);
+    return [];
+  }
+  return (data || []).map((row: any) => row.id);
+}
+
+async function resolverProgramasPorTexto(termino: string): Promise<string[]> {
+  const terminosBusqueda = construirTerminosBusqueda(termino);
+
+  const terminosArea = [...new Set(terminosBusqueda.flatMap((t) => expandirSinonimos(t, 'area')))];
+  const areaIdsPromises = terminosArea.map((t) => idsPorNombre('areas_conocimiento', t));
+  const areaIdsArrays = await Promise.all(areaIdsPromises);
+  const areaIds = [...new Set(areaIdsArrays.flat())];
+
+  const condiciones = terminosBusqueda.flatMap((t) => {
+    const patron = likePattern(t);
+    return [
+      `nombre_oficial.ilike.${patron}`,
+      `nombre_corto.ilike.${patron}`,
+      `titulo_otorgado.ilike.${patron}`
+    ];
+  });
+  if (areaIds.length > 0) {
+    condiciones.push(`area_conocimiento_id.in.(${areaIds.join(',')})`);
+  }
+
+  const { data, error } = await supabase
+    .from('programas_academicos')
+    .select('id')
+    .or(condiciones.join(','));
+
+  if (error) {
+    console.error('Error resolviendo programas por texto:', error);
+    return [];
+  }
+  return (data || []).map((row: any) => row.id);
+}
+
+async function resolverProgramasPorNivelModalidad(
+  filtros: FiltrosOferta
+): Promise<string[] | null> {
+  if (!filtros.nivel_academico && !filtros.modalidad) return null;
+
+  let query = supabase.from('programas_academicos').select('id');
+
+  if (filtros.nivel_academico) {
+    const terminosNivel = expandirSinonimos(filtros.nivel_academico, 'nivel');
+    const nivelIdsPromises = terminosNivel.map(t => idsPorNombre('niveles_academicos', t));
+    const nivelIdsArrays = await Promise.all(nivelIdsPromises);
+    const nivelIds = [...new Set(nivelIdsArrays.flat())];
+
+    if (nivelIds.length === 0) return [];
+    query = query.in('nivel_academico_id', nivelIds);
+  }
+
+  if (filtros.modalidad) {
+    const modalidadIds = await idsPorNombre('modalidades', filtros.modalidad);
+    if (modalidadIds.length === 0) return [];
+    query = query.in('modalidad_id', modalidadIds);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('Error resolviendo programas por nivel/modalidad:', error);
+    return [];
+  }
+  return (data || []).map((row: any) => row.id);
+}
+
+async function resolverSedes(filtros: FiltrosOferta): Promise<string[] | null> {
+  if (!filtros.ciudad && !filtros.pais) return null;
+
+  let query = supabase.from('sedes').select('id');
+
+  if (filtros.ciudad) {
+    const ciudadIds = await idsPorNombre('ciudades', filtros.ciudad);
+    if (ciudadIds.length === 0) return [];
+    query = query.in('ciudad_id', ciudadIds);
+  }
+
+  if (filtros.pais) {
+    const paisIds = await idsPorNombre('paises', filtros.pais);
+    if (paisIds.length === 0) return [];
+    query = query.in('pais_id', paisIds);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('Error resolviendo sedes:', error);
+    return [];
+  }
+  return (data || []).map((row: any) => row.id);
+}
+
+async function resolverUniversidades(filtros: FiltrosOferta): Promise<string[] | null> {
+  if (!filtros.universidad) return null;
+
+  const terminos = construirTerminosBusqueda(filtros.universidad);
+  const condiciones: string[] = [];
+  for (const t of terminos) {
+    const p = likePattern(t);
+    condiciones.push(`nombre_oficial.ilike.${p}`);
+    condiciones.push(`nombre_corto.ilike.${p}`);
+    condiciones.push(`sigla.ilike.${p}`);
+  }
+
+  const { data, error } = await supabase
+    .from('universidades')
+    .select('id')
+    .or(condiciones.join(','));
+
+  if (error) {
+    console.error('Error resolviendo universidades:', error);
+    return [];
+  }
+  return (data || []).map((row: any) => row.id);
+}
+
+const SELECT_OFERTAS = `
+  id,
+  nombre_oferta,
+  descripcion_comercial,
+  programa_id,
+  universidad_id,
+  sede_id,
+  activo,
+  cupos_disponibles,
+  estado_publicacion,
+  estado_validacion,
+  tipo_beneficio,
+  descripcion_beneficio,
+  vigente_desde,
+  vigente_hasta,
+  programa:programas_academicos(
+    nombre_oficial,
+    duracion_valor,
+    duracion_unidad,
+    nivel:niveles_academicos(nombre),
+    modalidad:modalidades(nombre),
+    area:areas_conocimiento(nombre)
+  ),
+  universidad:universidades(nombre_oficial),
+  sede:sedes(
+    nombre,
+    ciudad:ciudades(nombre),
+    pais:paises(nombre)
+  )
+`;
+
+function mapearOferta(item: any, hoy: string): OfertaAcademica {
+  const vigente =
+    Boolean(item.activo) &&
+    Boolean(item.vigente_desde) &&
+    item.vigente_desde <= hoy &&
+    (!item.vigente_hasta || item.vigente_hasta >= hoy);
+
+  const duracion =
+    item.programa?.duracion_valor != null
+      ? [item.programa.duracion_valor, item.programa.duracion_unidad]
+          .filter(Boolean)
+          .join(' ')
+      : undefined;
+
+  return {
+    id: item.id,
+    nombre: item.nombre_oferta,
+    descripcion: item.descripcion_comercial,
+    programa_id: item.programa_id,
+    universidad_id: item.universidad_id,
+    sede_id: item.sede_id,
+    vigente,
+    cupos_disponibles: item.cupos_disponibles,
+    estado_publicacion: item.estado_publicacion,
+    estado_validacion: item.estado_validacion,
+    tipo_beneficio: item.tipo_beneficio,
+    vigente_desde: item.vigente_desde,
+    vigente_hasta: item.vigente_hasta,
+    programa: item.programa
+      ? {
+          nombre: item.programa.nombre_oficial,
+          nivel_academico: item.programa.nivel?.nombre,
+          modalidad: item.programa.modalidad?.nombre,
+          area: item.programa.area?.nombre,
+          duracion
+        }
+      : undefined,
+    universidad: item.universidad
+      ? { nombre: item.universidad.nombre_oficial }
+      : undefined,
+    sede: item.sede
+      ? {
+          nombre: item.sede.nombre,
+          ciudad: item.sede.ciudad?.nombre,
+          pais: item.sede.pais?.nombre
+        }
+      : undefined,
+    beneficios: item.tipo_beneficio
+      ? [
+          {
+            tipo: String(item.tipo_beneficio).replaceAll('_', ' '),
+            descripcion: item.descripcion_beneficio || undefined
+          }
+        ]
+      : []
+  };
+}
+
+export async function obtenerOfertas(
+  filtros: FiltrosOferta = {},
+  page: number = 0,
+  pageSize: number = PAGE_SIZE_DEFAULT
+): Promise<ResultadoOfertas> {
+  const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 0;
+  const safeSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.floor(pageSize) : PAGE_SIZE_DEFAULT;
+
+  try {
+    const hoy = todayISO();
+
+    const aliadaIds = await resolverIdsAliadas();
+    if (aliadaIds.length === 0) {
+      return {
+        ok: true,
+        ofertas: [],
+        total: 0,
+        page: safePage,
+        pageSize: safeSize,
+        hasMore: false
+      };
+    }
+
+    const [programasNivelMod, sedeIds, universidadIds] = await Promise.all([
+      resolverProgramasPorNivelModalidad(filtros),
+      resolverSedes(filtros),
+      resolverUniversidades(filtros)
+    ]);
+
+    const terminoPrograma = filtros.programa_o_area?.trim();
+    const programasTexto = terminoPrograma
+      ? await resolverProgramasPorTexto(terminoPrograma)
+      : null;
+
+    const from = safePage * safeSize;
+    const to = from + safeSize - 1;
+
+    let query = supabase
+      .from('ofertas_academicas')
+      .select(SELECT_OFERTAS, { count: 'exact' })
+      .eq('activo', true)
+      .eq('estado_publicacion', 'publicado')
+      .eq('estado_validacion', 'validado')
+      .lte('vigente_desde', hoy)
+      .or(`vigente_hasta.is.null,vigente_hasta.gte.${hoy}`);
+
+    if (terminoPrograma) {
+      const condiciones = construirTerminosBusqueda(terminoPrograma).map(
+        (t) => `nombre_oferta.ilike.${likePattern(t)}`
+      );
+      if (programasTexto && programasTexto.length > 0) {
+        condiciones.push(`programa_id.in.(${programasTexto.join(',')})`);
+      }
+      query = query.or(condiciones.join(','));
+    }
+
+    if (programasNivelMod !== null) {
+      query = query.in('programa_id', programasNivelMod);
+    }
+
+    if (sedeIds !== null) {
+      query = query.in('sede_id', sedeIds);
+    }
+
+    if (universidadIds !== null) {
+      const cruzados = universidadIds.filter((id) => aliadaIds.includes(id));
+      if (cruzados.length === 0) {
+        return {
+          ok: true,
+          ofertas: [],
+          total: 0,
+          page: safePage,
+          pageSize: safeSize,
+          hasMore: false
+        };
+      }
+      query = query.in('universidad_id', cruzados);
+    } else {
+      query = query.in('universidad_id', aliadaIds);
+    }
+
+    if (filtros.tipo_beneficio) {
+      query = query.ilike('tipo_beneficio', patronTipoBeneficio(filtros.tipo_beneficio));
+    }
+
+    query = query
+      .order('creado_en', { ascending: false })
+      .range(from, to);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('Error obteniendo ofertas:', error);
+      return {
+        ok: false,
+        error: {
+          code: 'ofertas_query_failed',
+          message: error.message || 'No se pudieron consultar las ofertas académicas.'
+        },
+        ofertas: [],
+        total: 0,
+        page: safePage,
+        pageSize: safeSize,
+        hasMore: false
+      };
+    }
+
+    const ofertas: OfertaAcademica[] = (data || []).map((item: any) => mapearOferta(item, hoy));
+    const total = count ?? ofertas.length;
+    const hasMore = from + ofertas.length < total;
+
+    return { ok: true, ofertas, total, page: safePage, pageSize: safeSize, hasMore };
+  } catch (error) {
+    console.error('Error en obtenerOfertas:', error);
+    const message =
+      error instanceof Error ? error.message : 'Error inesperado al consultar ofertas.';
+    return {
+      ok: false,
+      error: { code: 'ofertas_unexpected', message },
+      ofertas: [],
+      total: 0,
+      page: safePage,
+      pageSize: safeSize,
+      hasMore: false
+    };
+  }
+}
+
+export async function obtenerOfertasPorIds(ids: string[]): Promise<ResultadoOfertasPorIds> {
+  if (!ids || ids.length === 0) return { ok: true, ofertas: [] };
+
+  try {
+    const hoy = todayISO();
+    const { data, error } = await supabase
+      .from('ofertas_academicas')
+      .select(SELECT_OFERTAS)
+      .in('id', ids);
+
+    if (error) {
+      console.error('Error obteniendo ofertas por IDs:', error);
+      return {
+        ok: false,
+        error: {
+          code: 'ofertas_by_ids_query_failed',
+          message: error.message || 'No se pudieron consultar las ofertas por IDs.'
+        },
+        ofertas: []
+      };
+    }
+
+    const ofertas = (data || []).map((item: any) => mapearOferta(item, hoy));
+    const orden = new Map(ids.map((id, index) => [id, index]));
+    ofertas.sort((a, b) => (orden.get(a.id) ?? 0) - (orden.get(b.id) ?? 0));
+
+    return { ok: true, ofertas };
+  } catch (error) {
+    console.error('Error en obtenerOfertasPorIds:', error);
+    const message =
+      error instanceof Error ? error.message : 'Error inesperado al consultar ofertas por IDs.';
+    return {
+      ok: false,
+      error: { code: 'ofertas_by_ids_unexpected', message },
+      ofertas: []
+    };
+  }
+}
+
+export async function verificarDatosDemo(): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.from('ofertas_academicas').select('id').limit(1);
+    return !error && (data?.length || 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
+export const __ofertaSearchTestUtils = {
+  normalizarTermino,
+  construirTerminosBusqueda,
+  expandirSinonimos
+};
