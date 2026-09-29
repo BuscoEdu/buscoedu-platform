@@ -6,7 +6,8 @@ export * from './tipos';
 export { AbacusAdapter } from './AbacusAdapter';
 export type { ResultadoAdaptador } from './AbacusAdapter';
 export { AgenteEjecucionError } from './errores';
-export { AgenteExecutor, agenteExecutor } from './AgenteExecutor';
+export { AgenteExecutor } from './AgenteExecutor';
+export { agenteExecutor } from './ejecutar-w1';
 export {
   CANALES_IA_SOPORTADOS,
   CODIGOS_ERROR_CANAL_FAIL_CLOSED,
