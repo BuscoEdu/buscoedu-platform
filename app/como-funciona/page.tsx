@@ -6,7 +6,7 @@ import ClosingCtas from "@/components/ui/ClosingCtas";
 export const metadata: Metadata = {
   title: "Cómo funciona | BuscoEdu",
   description:
-    "Conoce cómo BuscoEdu orienta tu decisión educativa con NaIA y consentimiento explícito para cualquier conexión con universidades aliadas."
+    "En minutos ves programas vigentes de cinco universidades aliadas. Si autorizas por nombre, BuscoEdu te contacta."
 };
 
 export default function ComoFuncionaPage() {
@@ -15,25 +15,29 @@ export default function ComoFuncionaPage() {
       <SectionHeading
         eyebrow="Proceso"
         title="Cómo funciona BuscoEdu"
-        description="BuscoEdu es una plataforma de orientación educativa. No es una universidad y no garantiza admisión, precios, becas ni cupos."
+        description="BuscoEdu no es una universidad y no garantiza admisión, precios, becas ni cupos. En esta fase solo mostramos oferta vigente de cinco instituciones con preacuerdo."
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <InfoCard
-          title="Paso 1: Cuéntanos tu objetivo"
-          description="Describe qué quieres estudiar, tu modalidad ideal y el contexto en el que quieres avanzar."
+          title="1) Dinos qué buscas"
+          description="Nivel, área y modalidad. Todavía no pedimos teléfono."
         />
         <InfoCard
-          title="Paso 2: Orientación con NaIA"
-          description="NaIA, la asesora virtual de BuscoEdu, te ayuda a aclarar posibilidades y priorizar rutas educativas."
+          title="2) Mira rutas vigentes"
+          description="Programas de Politécnico Grancolombiano, Areandina, Universidad Sergio Arboleda, UNIR Colombia y Asturias."
         />
         <InfoCard
-          title="Paso 3: Conexión autorizada"
-          description="Solo si autorizas expresamente, BuscoEdu puede compartir tu intención con universidades aliadas."
+          title="3) Autoriza por universidad"
+          description="Cada permiso lleva el nombre de la institución. No existe un sí genérico a aliadas."
+        />
+        <InfoCard
+          title="4) Te acompañamos"
+          description="Si autorizas, un asesor de BuscoEdu te contacta. NaIA es opcional para explicar las mismas fichas."
         />
       </div>
 
-      <ClosingCtas description="¿Listo para dar el siguiente paso? Habla con NaIA o explora ofertas vigentes." />
+      <ClosingCtas description="El camino principal es ver la oferta. NaIA explica si lo prefieres." />
     </div>
   );
 }
