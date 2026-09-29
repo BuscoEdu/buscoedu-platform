@@ -1,48 +1,24 @@
 /**
  * Tipos del Centro de Agentes IA.
- *
- * Define las estructuras que viajan entre la base de datos, el motor de
- * ejecución (AgenteExecutor) y los adaptadores de proveedor (AbacusAdapter).
  */
 
 import type { SesionEstudiante } from './vozNaia';
+import type { SesionHilo } from '@/src/lib/demowapp/sesion-hilo';
 
-/** Configuración resuelta de un agente y su versión activa. */
 export interface ConfiguracionAgente {
-  agente: {
-    id: string;
-    codigo: string;
-    nombre: string;
-    estado: string;
-  };
-  version: {
-    id: string;
-    numero_version: string;
-    estado: string;
-  };
+  agente: { id: string; codigo: string; nombre: string; estado: string };
+  version: { id: string; numero_version: string; estado: string };
   despliegue: {
     id: string;
     identificador_externo: string;
     referencia_secreto: string;
     configuracion_tecnica: Record<string, unknown> | null;
   };
-  canal: {
-    id: string;
-    codigo: string;
-  };
-  contextos: Array<{
-    orden: number;
-    rol_contexto: string;
-    contenido: string;
-  }>;
-  herramientas: Array<{
-    codigo: string;
-    nombre: string;
-    habilitada: boolean;
-  }>;
+  canal: { id: string; codigo: string };
+  contextos: Array<{ orden: number; rol_contexto: string; contenido: string }>;
+  herramientas: Array<{ codigo: string; nombre: string; habilitada: boolean }>;
 }
 
-/** Entrada de una ejecución de agente. */
 export interface EntradaEjecucion {
   mensaje_usuario: string;
   conversation_id?: string;
@@ -50,16 +26,8 @@ export interface EntradaEjecucion {
   codigo_agente: string;
   contexto_persona?: Record<string, unknown>;
   contexto_conversacion?: string;
-  /**
-   * BA-024/BA-029: sesión ya armada por el llamador (Demo WApp: hechos + hilo).
-   * Si viene, prevalece sobre la bitácora de ejecuciones. El turno actual
-   * se fusiona encima.
-   */
   sesion_previa?: SesionEstudiante;
-  /**
-   * Contexto visible en UI (filtros + ofertas) para responder preguntas
-   * sobre fichas sin inventar información fuera del catálogo.
-   */
+  sesion_hilo?: SesionHilo;
   contexto_ofertas?: {
     filtros_actuales?: Record<string, string>;
     total_resultados?: number;
@@ -77,17 +45,10 @@ export interface EntradaEjecucion {
       beneficios?: Array<Record<string, unknown>>;
     }>;
   };
-  /** Solo para el simulador administrativo: ejecuta una versión borrador concreta. */
   version_agente_id?: string;
   modo_simulacion?: boolean;
 }
 
-/**
- * Salida de una ejecución de agente.
- *
- * Incluye `opciones_sugeridas` para mantener idéntico el contrato externo
- * del endpoint público /api/naia.
- */
 export interface SalidaEjecucion {
   mensaje: string;
   filtros: Record<string, string | null>;
@@ -95,10 +56,10 @@ export interface SalidaEjecucion {
   opciones_sugeridas?: string[];
   conversationId: string | null;
   ejecucion_id?: string;
-  /** Campos extra del JSON de WhatsApp (BA-024). El chat web no los expone. */
   resumen_actualizado?: string;
   intencion_detectada?: string;
   siguiente_accion_sugerida?: string;
   requiere_escalamiento?: boolean;
   espera_respuesta?: boolean;
+  sesion_hilo?: SesionHilo;
 }
