@@ -15,15 +15,15 @@ const PRIMARY_NAV: Array<{
   href: string;
   isMyList?: boolean;
 }> = [
-  { label: "Explorar", href: "/explorar" },
+  { label: "Encontrar opciones", href: "/explorar" },
   { label: "NaIA", href: "/naia" },
-  { label: "Programas", href: "/explorar?vista=programas" },
-  { label: "Universidades", href: "/explorar?vista=universidades" },
   { label: "Mi lista", href: "/mi-lista", isMyList: true },
 ];
 
 /** Menú Más (exacto según brief). */
 const MAS_ITEMS = [
+  { label: "Programas", href: "/explorar?vista=programas" },
+  { label: "Universidades", href: "/explorar?vista=universidades" },
   { label: "Cómo funciona", href: "/como-funciona" },
   { label: "Beneficios", href: "/beneficios" },
   { label: "Contacto", href: "/contacto" },
@@ -36,7 +36,6 @@ function isActiveHref(pathname: string, href: string, vista: string | null): boo
   const [base, query] = href.split("?");
   if (pathname !== base) return false;
   if (!query) {
-    // /explorar sin vista no debe quedar activo si hay prefiltro Programas/Universidades
     if (base === "/explorar" && (vista === "programas" || vista === "universidades")) {
       return false;
     }
@@ -68,12 +67,10 @@ export default function Header() {
     setMounted(true);
   }, []);
 
-  // BA-012: cerrar el drawer también al cambiar ?vista= (misma ruta /explorar).
   useEffect(() => {
     setIsMobileOpen(false);
     setIsMasOpen(false);
     setIsMobileMasOpen(false);
-    /* Al cambiar de página la capa del FAB no se queda encima de otra ruta. */
     setCapaNaiaAbierta(false);
   }, [pathname, vista]);
 
@@ -205,16 +202,18 @@ export default function Header() {
           </nav>
 
           <div className="flex items-center gap-2">
-            {/*
-              BA-023: el llamado visible del header es solo de estudiante.
-              Para universidades queda en el menú Más, no junto a NaIA.
-            */}
+            <Link
+              href="/explorar"
+              className="hidden items-center rounded-md bg-buscoedu-teal px-3 py-2 text-sm font-semibold text-white transition hover:brightness-95 md:inline-flex md:px-4"
+            >
+              Encontrar opciones
+            </Link>
             <button
               type="button"
               onClick={() => setIsModalOpen(true)}
-              className="hidden items-center rounded-md bg-buscoedu-teal px-3 py-2 text-sm font-semibold text-white transition hover:brightness-95 md:inline-flex md:px-4"
+              className="hidden items-center rounded-md border border-buscoedu-border px-3 py-2 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-bg md:inline-flex md:px-4"
             >
-              Hablar con NaIA
+              NaIA
             </button>
 
             <button
@@ -341,27 +340,26 @@ export default function Header() {
               </li>
             </ul>
 
+            <Link
+              href="/explorar"
+              className="mt-6 block w-full rounded-md bg-buscoedu-teal px-4 py-3 text-center text-sm font-semibold text-white transition hover:brightness-95"
+            >
+              Encontrar opciones
+            </Link>
             <button
               type="button"
               onClick={() => {
                 setIsMobileOpen(false);
                 setIsModalOpen(true);
               }}
-              className="mt-6 w-full rounded-md bg-buscoedu-teal px-4 py-3 text-sm font-semibold text-white transition hover:brightness-95"
+              className="mt-2 w-full rounded-md border border-buscoedu-border px-4 py-3 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-bg"
             >
-              Hablar con NaIA
+              Hacerlo con NaIA
             </button>
           </nav>
         </div>
       </aside>
 
-      {/*
-        BA-028: el FAB de Explorar es el patrón del portal en móvil.
-        En /explorar abre la ventana de chat que ya está en la página.
-        En el resto abre esa misma experiencia en una capa.
-        BA-022: en Explorar queda más arriba para no tapar la barra del chat.
-        En /naia no hace falta: la persona ya está en la conversación.
-      */}
       {!pathname.startsWith("/naia") && !isMobileOpen && (
         <button
           type="button"
@@ -381,10 +379,6 @@ export default function Header() {
         </button>
       )}
 
-      {/*
-        Capa del chat sobre la página. Explorar oferta abre otra capa
-        dentro de NaiaSearchExperience. Volver regresa aquí.
-      */}
       {capaNaiaAbierta && !pathname.startsWith("/naia") && !pathname.startsWith("/explorar") && (
         <NaiaChatCapa onCerrar={() => setCapaNaiaAbierta(false)} />
       )}
