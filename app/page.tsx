@@ -6,43 +6,47 @@ import SectionHeading from "@/components/ui/SectionHeading";
 import InfoCard from "@/components/ui/InfoCard";
 import NaiaEntryModal from "@/components/naia/NaiaEntryModal";
 import NaiaHomeHero from "@/components/naia/NaiaHomeHero";
+import { NOMBRES_ALIADAS } from "@/src/lib/aliadas-publicas";
 
 const beneficios = [
   {
-    title: "Orientación personalizada",
+    title: "Opciones reales de aliadas",
     description:
-      "Recibe apoyo para entender tus intereses y construir una ruta educativa alineada con tus metas."
+      "Ves programas vigentes de cinco instituciones con preacuerdo, no un directorio nacional."
   },
   {
-    title: "Comparación de opciones",
+    title: "Tú eliges a quién autorizar",
     description:
-      "Revisa rutas de formación por áreas, modalidades y niveles académicos con información clara."
+      "Tu información solo se comparte con la universidad que marques por nombre."
   },
   {
-    title: "Modalidades flexibles",
+    title: "BuscoEdu te contacta primero",
     description:
-      "Explora alternativas presenciales, virtuales e híbridas según tu contexto personal y disponibilidad."
+      "Si autorizas, un asesor de BuscoEdu te escribe. La universidad no recibe un dato frío."
   },
   {
-    title: "Contacto con autorización",
+    title: "NaIA es opcional",
     description:
-      "Tu información solo se comparte con universidades aliadas si das tu autorización expresa."
+      "Puedes recorrer la oferta en silencio o pedir explicaciones a NaIA sobre las mismas fichas."
   }
 ];
 
 const pasos = [
   {
-    title: "1) Cuéntanos qué buscas",
-    description: "Comparte tus intereses de estudio y preferencias de forma simple y guiada."
+    title: "1) Dinos qué buscas",
+    description: "Nivel, área y modalidad. En pocos pasos, sin teléfono todavía."
   },
   {
-    title: "2) NaIA te ayuda a aclarar opciones",
-    description: "La asesora virtual de BuscoEdu te orienta con un enfoque cercano, neutral y práctico."
+    title: "2) Mira 2 a 5 rutas vigentes",
+    description: "Solo programas de las aliadas que encajan con lo que pediste."
   },
   {
-    title: "3) Si autorizas, conectamos tu perfil",
-    description:
-      "Solo con tu consentimiento, tu intención educativa puede compartirse con universidades aliadas."
+    title: "3) Autoriza por universidad",
+    description: "Cada permiso lleva el nombre de la institución. Nada de “aliadas” en genérico."
+  },
+  {
+    title: "4) Te acompañamos",
+    description: "BuscoEdu te contacta. La universidad entra solo con tu sí nominado."
   }
 ];
 
@@ -54,36 +58,53 @@ export default function HomePage() {
       <div className="mx-auto w-full max-w-6xl space-y-14 px-4 py-10 sm:px-6 lg:px-8">
         <NaiaHomeHero />
 
-        {/* Dos puertas: NaIA (primario) + Explorar (secundario) */}
         <section className="rounded-xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8">
           <SectionHeading
             title="Elige cómo empezar"
-            description="Habla con NaIA para orientarte, o explora las ofertas académicas vigentes por tu cuenta. Puedes combinar ambos caminos cuando quieras."
+            description="El camino principal es ver la oferta de las aliadas. NaIA explica las mismas opciones si lo prefieres."
           />
           <div className="flex flex-wrap gap-3">
+            <Link
+              href="/explorar"
+              className="inline-flex items-center rounded-md bg-buscoedu-teal px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95"
+            >
+              Encontrar opciones
+            </Link>
             <button
               type="button"
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center rounded-md bg-buscoedu-teal px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95"
-            >
-              Hablar con NaIA
-            </button>
-            <Link
-              href="/explorar"
               className="inline-flex items-center rounded-md border border-buscoedu-blue px-5 py-2.5 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-blue/5"
             >
-              Explorar ofertas
-            </Link>
+              Hacerlo con NaIA
+            </button>
           </div>
         </section>
 
         <section>
           <SectionHeading
-            eyebrow="Cómo funciona"
-            title="Un proceso simple para orientarte mejor"
-            description="BuscoEdu te acompaña paso a paso para que tomes decisiones informadas sin promesas irreales."
+            eyebrow="Aliadas"
+            title="Cinco instituciones con preacuerdo"
+            description="En esta fase el portal público no muestra otras universidades."
           />
-          <div className="grid gap-4 md:grid-cols-3">
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {NOMBRES_ALIADAS.map((nombre) => (
+              <li
+                key={nombre}
+                className="rounded-xl border border-buscoedu-border bg-white px-4 py-3 text-sm font-semibold text-buscoedu-blue shadow-card"
+              >
+                {nombre}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section>
+          <SectionHeading
+            eyebrow="Cómo funciona"
+            title="Un proceso corto para ver si hay cupo de verdad"
+            description="BuscoEdu no promete admisión. Promete programas vigentes de estas cinco y un contacto con tu permiso."
+          />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {pasos.map((paso) => (
               <InfoCard key={paso.title} title={paso.title} description={paso.description} />
             ))}
@@ -93,26 +114,11 @@ export default function HomePage() {
           </Link>
         </section>
 
-        <section className="rounded-xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8" id="naia-home">
-          <SectionHeading
-            eyebrow="Conoce a NaIA"
-            title="NaIA es la asesora virtual de BuscoEdu"
-            description="NaIA te ayuda a organizar tus ideas, entender opciones de formación y prepararte para conversar con instituciones aliadas cuando tú lo decidas."
-          />
-          <button
-            type="button"
-            onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center rounded-md bg-buscoedu-teal px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95"
-          >
-            Hablar con NaIA
-          </button>
-        </section>
-
         <section id="beneficios">
           <SectionHeading
-            eyebrow="Beneficios"
-            title="Beneficios para estudiantes"
-            description="Herramientas y orientación para explorar rutas educativas con mayor claridad y confianza."
+            eyebrow="Qué ganas"
+            title="Claridad antes del dato"
+            description="Primero el resultado. Después el permiso. Nunca al revés."
           />
           <div className="grid gap-4 sm:grid-cols-2">
             {beneficios.map((beneficio) => (
@@ -121,18 +127,19 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8" id="privacidad-consentimiento">
+        <section
+          className="rounded-xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8"
+          id="privacidad-consentimiento"
+        >
           <SectionHeading
-            eyebrow="Privacidad y consentimiento"
-            title="Tus datos solo se comparten si tú lo autorizas"
-            description="La privacidad es central en BuscoEdu. No transferimos datos personales a universidades aliadas sin autorización expresa y verificable."
+            eyebrow="Privacidad"
+            title="No hay autorización genérica a “universidades aliadas”"
+            description="El permiso es por institución, con nombre. Guardar en Mi lista no envía tus datos."
           />
           <Link href="/privacidad" className="inline-flex text-sm font-semibold text-buscoedu-blue underline">
             Ver política de privacidad
           </Link>
         </section>
-
-        {/* Formulario local del navegador demovido/oculto: las puertas son NaIA y Explorar. */}
       </div>
 
       <NaiaEntryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
