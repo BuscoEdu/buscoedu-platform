@@ -3,40 +3,36 @@
 @tailwind utilities;
 
 :root {
-  --buscoedu-blue: #123a6f;
-  --buscoedu-teal: #18b7b2;
-  --buscoedu-yellow: #f5b84b;
-  --buscoedu-bg: #f7f9fc;
-  --buscoedu-text: #1f2937;
-  --buscoedu-muted: #6b7280;
-  --buscoedu-border: #e5e7eb;
-  /* BA-025: gris frío del hilo, claramente más oscuro que --buscoedu-bg. */
+  --buscoedu-ink: #0b3a4a;
+  --buscoedu-action: #0e7490;
+  --buscoedu-growth: #0f766e;
+  --buscoedu-paper: #f4f7f6;
+  --buscoedu-sage: #d7edea;
+  --buscoedu-warn: #b45309;
+  --buscoedu-blue: #0b3a4a;
+  --buscoedu-teal: #0e7490;
+  --buscoedu-yellow: #b45309;
+  --buscoedu-bg: #f4f7f6;
+  --buscoedu-text: #0b3a4a;
+  --buscoedu-muted: #5b6b73;
+  --buscoedu-border: #d5dedc;
   --buscoedu-chat: #b7c6da;
   --buscoedu-chat-edge: #6e86a6;
 }
 
-/*
-  BA-025: misma ventana en todas las pantallas del chat.
-  La superficie gris y el marco son el protagonista; las burbujas van en blanco.
-*/
 @layer components {
   .naia-chat-window {
     background-color: var(--buscoedu-chat);
-    box-shadow: 0 12px 32px rgba(18, 58, 111, 0.12);
+    box-shadow: 0 12px 32px rgba(11, 58, 74, 0.12);
   }
 
   .naia-chat-bubble {
     background-color: #ffffff;
     border: 1px solid var(--buscoedu-chat-edge);
-    box-shadow: 0 4px 14px rgba(18, 58, 111, 0.08);
+    box-shadow: 0 4px 14px rgba(11, 58, 74, 0.08);
   }
 }
 
-/*
-  BA-027: NaIA móvil con resultados o ficha, y panel de resultados.
-  El header no se pisa con un style en línea: estas clases lo ocultan.
-  El pie de /naia se oculta en Footer.
-*/
 @media (max-width: 1023px) {
   body.naia-movil-solo-chat,
   body.naia-movil-resultados {
@@ -63,5 +59,5 @@ button,
 input,
 select,
 textarea {
-  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#18B7B2] focus-visible:ring-offset-2;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0E7490] focus-visible:ring-offset-2;
 }
