@@ -6,27 +6,27 @@ import ClosingCtas from "@/components/ui/ClosingCtas";
 export const metadata: Metadata = {
   title: "Beneficios | BuscoEdu",
   description:
-    "Conoce los beneficios de usar BuscoEdu para orientarte en decisiones de formación con apoyo de NaIA."
+    "Claridad antes del dato: programas vigentes de universidades con acuerdo y contacto solo con tu permiso.",
 };
 
 const beneficios = [
   {
     title: "Orientación clara",
-    description: "Aterriza tus objetivos de estudio con acompañamiento paso a paso."
+    description: "Aterriza qué buscar antes de dejar un dato.",
   },
   {
     title: "Comparación con contexto",
-    description: "Analiza alternativas según modalidad, nivel y objetivos personales."
+    description: "Ves programas vigentes de universidades con acuerdo, no un directorio nacional.",
   },
   {
-    title: "Apoyo en la decisión",
-    description: "Organiza información clave antes de conversar con instituciones aliadas."
+    title: "Tú autorizas a quién",
+    description: "El permiso va a una institución por nombre. No hay un sí genérico.",
   },
   {
-    title: "Información sobre financiación",
+    title: "Financiación con letra chica",
     description:
-      "Puedes conocer alternativas sujetas a condiciones definidas por cada universidad aliada."
-  }
+      "Becas y precios los define cada universidad. BuscoEdu no los garantiza.",
+  },
 ];
 
 export default function BeneficiosPage() {
@@ -35,7 +35,7 @@ export default function BeneficiosPage() {
       <SectionHeading
         eyebrow="Beneficios"
         title="Por qué usar BuscoEdu"
-        description="BuscoEdu orienta, acompaña y ayuda a comparar opciones. No promete becas, descuentos, admisión, precios ni cupos."
+        description="BuscoEdu orienta y compara. No promete becas, descuentos, admisión, precios ni cupos."
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -44,7 +44,7 @@ export default function BeneficiosPage() {
         ))}
       </div>
 
-      <ClosingCtas description="Empieza por conversar con NaIA o revisa las ofertas académicas vigentes." />
+      <ClosingCtas description="El camino principal es ver programas vigentes. NaIA explica si lo prefieres." />
     </div>
   );
 }
