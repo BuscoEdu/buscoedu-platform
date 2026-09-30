@@ -8,19 +8,14 @@ import NaiaChatCapa from "@/components/naia/NaiaChatCapa";
 import { pedirChatNaia } from "@/components/naia/naiaFab";
 import Logo from "@/components/ui/Logo";
 import { useMyList } from "@/src/contexts/MyListContext";
+import { CTA_VIGENTES } from "@/src/lib/marca-copy";
 
-/** Primer nivel (orden fijo del brief). */
-const PRIMARY_NAV: Array<{
-  label: string;
-  href: string;
-  isMyList?: boolean;
-}> = [
-  { label: "Encontrar opciones", href: "/explorar" },
+const PRIMARY_NAV: Array<{ label: string; href: string; isMyList?: boolean }> = [
+  { label: CTA_VIGENTES, href: "/explorar" },
   { label: "NaIA", href: "/naia" },
   { label: "Mi lista", href: "/mi-lista", isMyList: true },
 ];
 
-/** Menú Más (exacto según brief). */
 const MAS_ITEMS = [
   { label: "Programas", href: "/explorar?vista=programas" },
   { label: "Universidades", href: "/explorar?vista=universidades" },
@@ -36,13 +31,10 @@ function isActiveHref(pathname: string, href: string, vista: string | null): boo
   const [base, query] = href.split("?");
   if (pathname !== base) return false;
   if (!query) {
-    if (base === "/explorar" && (vista === "programas" || vista === "universidades")) {
-      return false;
-    }
+    if (base === "/explorar" && (vista === "programas" || vista === "universidades")) return false;
     return true;
   }
-  const expected = new URLSearchParams(query).get("vista");
-  return expected ? vista === expected : true;
+  return new URLSearchParams(query).get("vista") === vista;
 }
 
 export default function Header() {
@@ -63,10 +55,7 @@ export default function Header() {
   const masRef = useRef<HTMLLIElement>(null);
   const { myList } = useMyList();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
+  useEffect(() => setMounted(true), []);
   useEffect(() => {
     setIsMobileOpen(false);
     setIsMasOpen(false);
@@ -86,9 +75,7 @@ export default function Header() {
   useEffect(() => {
     if (!isMasOpen) return;
     const onClick = (e: MouseEvent) => {
-      if (masRef.current && !masRef.current.contains(e.target as Node)) {
-        setIsMasOpen(false);
-      }
+      if (masRef.current && !masRef.current.contains(e.target as Node)) setIsMasOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setIsMasOpen(false);
@@ -105,17 +92,13 @@ export default function Header() {
 
   const count = mounted ? myList.length : 0;
   const masActive = MAS_ITEMS.some((item) => pathname === item.href);
-
   const deskLink = (active: boolean) =>
     `whitespace-nowrap rounded px-0.5 py-1 transition ${
       active ? "font-semibold text-buscoedu-blue" : "hover:text-buscoedu-blue"
     }`;
-
   const mobLink = (active: boolean) =>
     `block rounded-md px-3 py-2 transition ${
-      active
-        ? "bg-buscoedu-bg font-semibold text-buscoedu-blue"
-        : "hover:bg-buscoedu-bg hover:text-buscoedu-blue"
+      active ? "bg-buscoedu-bg font-semibold text-buscoedu-blue" : "hover:bg-buscoedu-bg hover:text-buscoedu-blue"
     }`;
 
   return (
@@ -123,7 +106,6 @@ export default function Header() {
       <header className="sticky top-0 z-50 border-b border-buscoedu-border bg-white/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Logo />
-
           <nav aria-label="Navegación principal" className="hidden md:block">
             <ul className="flex flex-nowrap items-center gap-x-3 text-[13px] text-buscoedu-text lg:gap-x-4 lg:text-sm">
               {PRIMARY_NAV.map((item) => {
@@ -146,17 +128,12 @@ export default function Header() {
                 }
                 return (
                   <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={deskLink(active)}
-                      aria-current={active ? "page" : undefined}
-                    >
+                    <Link href={item.href} className={deskLink(active)} aria-current={active ? "page" : undefined}>
                       {item.label}
                     </Link>
                   </li>
                 );
               })}
-
               <li className="relative" ref={masRef}>
                 <button
                   type="button"
@@ -167,27 +144,18 @@ export default function Header() {
                 >
                   Más
                   <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path
-                      fillRule="evenodd"
-                      d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-                      clipRule="evenodd"
-                    />
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                   </svg>
                 </button>
                 {isMasOpen && (
-                  <ul
-                    role="menu"
-                    className="absolute right-0 top-full z-50 mt-2 min-w-[220px] rounded-lg border border-buscoedu-border bg-white py-1 shadow-lg"
-                  >
+                  <ul role="menu" className="absolute right-0 top-full z-50 mt-2 min-w-[220px] rounded-lg border border-buscoedu-border bg-white py-1 shadow-lg">
                     {MAS_ITEMS.map((item) => (
                       <li key={item.href} role="none">
                         <Link
                           role="menuitem"
                           href={item.href}
                           className={`block px-4 py-2 text-sm transition hover:bg-buscoedu-bg hover:text-buscoedu-blue ${
-                            pathname === item.href
-                              ? "font-semibold text-buscoedu-blue"
-                              : "text-buscoedu-text"
+                            pathname === item.href ? "font-semibold text-buscoedu-blue" : "text-buscoedu-text"
                           }`}
                           onClick={() => setIsMasOpen(false)}
                         >
@@ -200,13 +168,12 @@ export default function Header() {
               </li>
             </ul>
           </nav>
-
           <div className="flex items-center gap-2">
             <Link
               href="/explorar"
               className="hidden items-center rounded-md bg-buscoedu-teal px-3 py-2 text-sm font-semibold text-white transition hover:brightness-95 md:inline-flex md:px-4"
             >
-              Encontrar opciones
+              {CTA_VIGENTES}
             </Link>
             <button
               type="button"
@@ -215,7 +182,6 @@ export default function Header() {
             >
               NaIA
             </button>
-
             <button
               type="button"
               onClick={() => setIsMobileOpen((v) => !v)}
@@ -267,7 +233,6 @@ export default function Header() {
               </svg>
             </button>
           </div>
-
           <nav aria-label="Navegación principal móvil" className="overflow-y-auto">
             <ul className="space-y-1 text-sm text-buscoedu-text">
               {PRIMARY_NAV.map((item) => {
@@ -275,12 +240,7 @@ export default function Header() {
                 if (item.isMyList) {
                   return (
                     <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className={`inline-flex w-full items-center gap-2 ${mobLink(active)}`}
-                        aria-current={active ? "page" : undefined}
-                        aria-label={`Mi lista${count > 0 ? ` (${count} guardadas)` : ""}`}
-                      >
+                      <Link href={item.href} className={`inline-flex w-full items-center gap-2 ${mobLink(active)}`} aria-current={active ? "page" : undefined}>
                         <HeartIcon filled={count > 0} />
                         <span>Mi lista</span>
                         {count > 0 && <Badge count={count} />}
@@ -290,47 +250,24 @@ export default function Header() {
                 }
                 return (
                   <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={mobLink(active)}
-                      aria-current={active ? "page" : undefined}
-                    >
+                    <Link href={item.href} className={mobLink(active)} aria-current={active ? "page" : undefined}>
                       {item.label}
                     </Link>
                   </li>
                 );
               })}
-
               <li>
-                <button
-                  type="button"
-                  onClick={() => setIsMobileMasOpen((v) => !v)}
-                  className={`flex w-full items-center justify-between ${mobLink(masActive || isMobileMasOpen)}`}
-                  aria-expanded={isMobileMasOpen}
-                >
+                <button type="button" onClick={() => setIsMobileMasOpen((v) => !v)} className={`flex w-full items-center justify-between ${mobLink(masActive || isMobileMasOpen)}`} aria-expanded={isMobileMasOpen}>
                   <span>Más</span>
-                  <svg
-                    className={`h-4 w-4 transition ${isMobileMasOpen ? "rotate-180" : ""}`}
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-                      clipRule="evenodd"
-                    />
+                  <svg className={`h-4 w-4 transition ${isMobileMasOpen ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                   </svg>
                 </button>
                 {isMobileMasOpen && (
                   <ul className="ml-2 mt-1 space-y-1 border-l border-buscoedu-border pl-2">
                     {MAS_ITEMS.map((item) => (
                       <li key={item.href}>
-                        <Link
-                          href={item.href}
-                          className={mobLink(pathname === item.href)}
-                          aria-current={pathname === item.href ? "page" : undefined}
-                        >
+                        <Link href={item.href} className={mobLink(pathname === item.href)}>
                           {item.label}
                         </Link>
                       </li>
@@ -339,12 +276,8 @@ export default function Header() {
                 )}
               </li>
             </ul>
-
-            <Link
-              href="/explorar"
-              className="mt-6 block w-full rounded-md bg-buscoedu-teal px-4 py-3 text-center text-sm font-semibold text-white transition hover:brightness-95"
-            >
-              Encontrar opciones
+            <Link href="/explorar" className="mt-6 block w-full rounded-md bg-buscoedu-teal px-4 py-3 text-center text-sm font-semibold text-white transition hover:brightness-95">
+              {CTA_VIGENTES}
             </Link>
             <button
               type="button"
@@ -382,7 +315,6 @@ export default function Header() {
       {capaNaiaAbierta && !pathname.startsWith("/naia") && !pathname.startsWith("/explorar") && (
         <NaiaChatCapa onCerrar={() => setCapaNaiaAbierta(false)} />
       )}
-
       <NaiaEntryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </>
   );
@@ -390,19 +322,8 @@ export default function Header() {
 
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
-    <svg
-      className="h-4 w-4"
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth={2}
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-      />
+    <svg className="h-4 w-4" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
     </svg>
   );
 }

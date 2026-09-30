@@ -3,16 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "@/components/ui/Logo";
+import { CTA_VIGENTES } from "@/src/lib/marca-copy";
 
 const PRODUCTO = [
-  { label: "Explorar", href: "/explorar" },
+  { label: CTA_VIGENTES, href: "/explorar" },
   { label: "NaIA", href: "/naia" },
   { label: "Programas", href: "/explorar?vista=programas" },
   { label: "Universidades", href: "/explorar?vista=universidades" },
   { label: "Mi lista", href: "/mi-lista" },
 ];
 
-/* BA-023: la entrada comercial para universidades va en Información. */
 const INFORMACION = [
   { label: "Cómo funciona", href: "/como-funciona" },
   { label: "Beneficios", href: "/beneficios" },
@@ -34,18 +34,9 @@ export default function Footer() {
 
   if (isPrivateArea) return null;
 
-  /*
-    BA-027: en /naia móvil el pie no se muestra.
-    En lg+ sigue la franja de escritorio.
-  */
   const ocultarPieMovilNaia = pathname.startsWith("/naia");
 
   return (
-    /*
-      BA-002: en md+ el pie va en una sola franja (marca + 3 columnas) con menos
-      padding y separación. En móvil se mantiene el bloque apilado, sin recortar
-      el texto ni sumar margen de más.
-    */
     <footer
       className={`mt-10 border-t border-buscoedu-border bg-white md:mt-6 ${
         ocultarPieMovilNaia ? "hidden lg:block" : ""
@@ -60,7 +51,6 @@ export default function Footer() {
               admisión, precios, becas ni cupos.
             </p>
           </div>
-
           <nav aria-label="Navegación de pie de página">
             <div className="grid gap-8 sm:grid-cols-3 md:gap-6">
               <FooterColumn title="Producto" items={PRODUCTO} />
@@ -83,9 +73,7 @@ function FooterColumn({
 }) {
   return (
     <div>
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-buscoedu-blue md:mb-1.5">
-        {title}
-      </h2>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-buscoedu-blue md:mb-1.5">{title}</h2>
       <ul className="space-y-2 text-sm text-buscoedu-text md:space-y-1">
         {items.map((item) => (
           <li key={item.href + item.label}>
