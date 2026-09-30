@@ -7,11 +7,12 @@ import { getOrCreateVisitorId } from "@/src/lib/visitor";
 import { trackNaiaModalOpened, trackSearchIntention } from "@/src/lib/events";
 import { NOMBRES_ALIADAS } from "@/src/lib/aliadas-publicas";
 
+/** Sugerencias: no anclan el número de IES. */
 const SUGERENCIAS = [
   "Quiero un posgrado virtual.",
-  "Busco un pregrado en las aliadas.",
+  "Busco un pregrado en universidades con acuerdo.",
   "Quiero estudiar virtual.",
-  "No sé qué nivel me sirve todavía."
+  "No sé qué nivel me sirve todavía.",
 ];
 
 export default function NaiaHomeHero() {
@@ -44,18 +45,19 @@ export default function NaiaHomeHero() {
   };
 
   return (
-    <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-buscoedu-blue to-[#1d4d88] px-6 py-10 text-white sm:px-10 sm:py-12">
+    <section className="overflow-hidden rounded-2xl bg-buscoedu-ink px-6 py-10 text-white sm:px-10 sm:py-12">
       <div className="grid items-center gap-8 lg:grid-cols-2">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-widest text-buscoedu-yellow">
-            5 universidades aliadas
+          <p className="font-display text-sm font-semibold uppercase tracking-widest text-teal-200">
+            Universidades con acuerdo
           </p>
-          <h1 className="mt-4 text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
-            En 2 minutos ves los programas vigentes que sí te aplican.
+          <h1 className="mt-4 font-display text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
+            Programas vigentes de universidades con acuerdo.
           </h1>
           <p className="mt-5 text-base leading-relaxed text-slate-100 sm:text-lg">
-            Oferta actual de Politécnico Grancolombiano, Areandina, Universidad Sergio
-            Arboleda, UNIR Colombia y Asturias. Si autorizas, BuscoEdu te acompaña.
+            Instituciones que ya aceptaron trabajar con BuscoEdu. Si no hay para lo
+            que buscas, te lo decimos. El contacto va solo si tú lo autorizas, a una
+            universidad por nombre.
           </p>
           <ul className="mt-4 flex flex-wrap gap-2">
             {NOMBRES_ALIADAS.map((nombre) => (
@@ -74,9 +76,9 @@ export default function NaiaHomeHero() {
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               href="/explorar"
-              className="inline-flex items-center rounded-md bg-buscoedu-teal px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95"
+              className="inline-flex items-center rounded-md bg-buscoedu-action px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-buscoedu-actionHover"
             >
-              Encontrar opciones
+              Ver programas vigentes
             </Link>
             <Link
               href="/naia"
@@ -87,14 +89,16 @@ export default function NaiaHomeHero() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-5 text-buscoedu-text shadow-card sm:p-6">
+        <div className="rounded-2xl bg-white p-5 text-buscoedu-ink shadow-card sm:p-6">
           <div className="mb-3 flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-buscoedu-teal/10 text-lg font-bold text-buscoedu-teal">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-buscoedu-sage text-lg font-bold text-buscoedu-action">
               N
             </span>
             <div>
-              <p className="text-base font-bold text-buscoedu-blue">NaIA puede acompañarte</p>
-              <p className="text-xs text-buscoedu-muted">Misma oferta de las aliadas, en conversación</p>
+              <p className="font-display text-base font-semibold text-buscoedu-ink">
+                NaIA puede acompañarte
+              </p>
+              <p className="text-xs text-buscoedu-muted">Misma oferta con acuerdo, en conversación</p>
             </div>
           </div>
 
@@ -111,10 +115,10 @@ export default function NaiaHomeHero() {
             onKeyDown={handleKeyDown}
             placeholder="Por ejemplo: Busco una maestría virtual en administración..."
             rows={3}
-            className="w-full resize-none rounded-lg border border-buscoedu-border px-4 py-3 text-sm focus:border-transparent focus:ring-2 focus:ring-buscoedu-blue"
+            className="w-full resize-none rounded-lg border border-buscoedu-border px-4 py-3 text-sm focus:border-transparent focus:ring-2 focus:ring-buscoedu-action"
           />
           {mostrarAviso && (
-            <p className="mt-2 text-sm text-amber-600">
+            <p className="mt-2 text-sm text-buscoedu-warn">
               Escribe brevemente lo que buscas o elige una sugerencia.
             </p>
           )}
@@ -122,7 +126,7 @@ export default function NaiaHomeHero() {
           <button
             type="button"
             onClick={() => iniciarConNaia()}
-            className="mt-3 w-full rounded-lg border border-buscoedu-blue px-6 py-3 font-semibold text-buscoedu-blue transition-colors hover:bg-buscoedu-blue/5"
+            className="mt-3 w-full rounded-lg border border-buscoedu-ink px-6 py-3 font-semibold text-buscoedu-ink transition-colors hover:bg-buscoedu-sage"
           >
             Hacerlo con NaIA
           </button>
@@ -135,7 +139,7 @@ export default function NaiaHomeHero() {
                   key={sugerencia}
                   type="button"
                   onClick={() => iniciarConNaia(sugerencia)}
-                  className="rounded-full border border-buscoedu-border px-3 py-1.5 text-xs text-buscoedu-text transition-colors hover:border-buscoedu-teal hover:bg-buscoedu-teal/5"
+                  className="rounded-full border border-buscoedu-border px-3 py-1.5 text-xs text-buscoedu-ink transition-colors hover:border-buscoedu-action hover:bg-buscoedu-sage"
                 >
                   {sugerencia}
                 </button>

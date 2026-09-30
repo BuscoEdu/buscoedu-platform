@@ -6,7 +6,7 @@ import ClosingCtas from "@/components/ui/ClosingCtas";
 export const metadata: Metadata = {
   title: "Cómo funciona | BuscoEdu",
   description:
-    "En minutos ves programas vigentes de cinco universidades aliadas. Si autorizas por nombre, BuscoEdu te contacta."
+    "Ves programas vigentes de universidades con acuerdo. Si autorizas por nombre, BuscoEdu te contacta.",
 };
 
 export default function ComoFuncionaPage() {
@@ -15,7 +15,7 @@ export default function ComoFuncionaPage() {
       <SectionHeading
         eyebrow="Proceso"
         title="Cómo funciona BuscoEdu"
-        description="BuscoEdu no es una universidad y no garantiza admisión, precios, becas ni cupos. En esta fase solo mostramos oferta vigente de cinco instituciones con preacuerdo."
+        description="BuscoEdu no es una universidad y no garantiza admisión, precios, becas ni cupos. Mostramos oferta vigente de universidades con las que ya hay acuerdo."
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -25,11 +25,11 @@ export default function ComoFuncionaPage() {
         />
         <InfoCard
           title="2) Mira rutas vigentes"
-          description="Programas de Politécnico Grancolombiano, Areandina, Universidad Sergio Arboleda, UNIR Colombia y Asturias."
+          description="Programas de instituciones con acuerdo. Si no hay para lo que buscas, te lo decimos."
         />
         <InfoCard
           title="3) Autoriza por universidad"
-          description="Cada permiso lleva el nombre de la institución. No existe un sí genérico a aliadas."
+          description="Cada permiso lleva el nombre de la institución. No existe un sí genérico."
         />
         <InfoCard
           title="4) Te acompañamos"
@@ -37,7 +37,7 @@ export default function ComoFuncionaPage() {
         />
       </div>
 
-      <ClosingCtas description="El camino principal es ver la oferta. NaIA explica si lo prefieres." />
+      <ClosingCtas description="El camino principal es ver la oferta vigente. NaIA explica si lo prefieres." />
     </div>
   );
 }
