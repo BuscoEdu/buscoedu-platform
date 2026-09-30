@@ -5,7 +5,7 @@ interface ClosingCtasProps {
   className?: string;
 }
 
-/** Cierre estándar A1: Encontrar opciones + NaIA secundaria. */
+/** Cierre estándar: CTA primario de vigentes + NaIA secundaria. */
 export default function ClosingCtas({
   description = "Cuando quieras avanzar, elige cómo empezar.",
   className = "",
@@ -19,13 +19,13 @@ export default function ClosingCtas({
       <div className="flex flex-wrap gap-3">
         <Link
           href="/explorar"
-          className="inline-flex items-center rounded-md bg-buscoedu-teal px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95"
+          className="inline-flex items-center rounded-md bg-buscoedu-action px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-buscoedu-actionHover"
         >
-          Encontrar opciones
+          Ver programas vigentes
         </Link>
         <Link
           href="/naia"
-          className="inline-flex items-center rounded-md border border-buscoedu-blue px-5 py-2.5 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-blue/5"
+          className="inline-flex items-center rounded-md border border-buscoedu-ink px-5 py-2.5 text-sm font-semibold text-buscoedu-ink transition hover:bg-buscoedu-sage"
         >
           Hacerlo con NaIA
         </Link>
