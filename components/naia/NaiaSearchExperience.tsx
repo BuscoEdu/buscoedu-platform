@@ -19,6 +19,7 @@ import {
 import { COPY_CERO_VIGENCIA, repararCopyFiltrado } from "@/components/naia/copyNaia";
 import { esSnapshotCompleto, type SnapshotNaia } from "@/components/naia/naiaSession";
 import { EVENTO_FAB_NAIA } from "@/components/naia/naiaFab";
+import NaiaMarkdown from "@/components/naia/naiaMarkdown";
 
 type EstadoBusqueda = "inicio" | "interpretando" | "consultando" | "listo" | "error";
 type Orden = "recomendado" | "virtual" | "beneficio" | "universidad";
@@ -81,6 +82,15 @@ function filtrosConValor(filtros: NaiaResponse["filtros"]): FiltrosOferta {
   ) as FiltrosOferta;
 }
 
+/**
+ * Total del servidor, sin Math.max contra la página.
+ * Ese máximo inflaba el número que luego se guardaba y se restauraba de sessionStorage.
+ */
+function totalHonesto(total: number): number {
+  if (!Number.isFinite(total) || total < 0) return 0;
+  return Math.floor(total);
+}
+
 function etiquetaFiltro(clave: keyof FiltrosOferta): string {
   const etiquetas: Record<keyof FiltrosOferta, string> = {
     programa_o_area: "Área o programa",
@@ -128,6 +138,8 @@ export default function NaiaSearchExperience({
   const [seleccionada, setSeleccionada] = useState<OfertaAcademica | null>(null);
   const [mensajes, setMensajes] = useState<MensajeChat[]>([]);
   const [avisoConsulta, setAvisoConsulta] = useState<AvisoConsulta | null>(null);
+  /* La página siguiente vino vacía: no se infla el total para esconder el botón. */
+  const [finDeLista, setFinDeLista] = useState(false);
   const [cargandoMas, setCargandoMas] = useState(false);
   const [mostrarResultadosMovil, setMostrarResultadosMovil] = useState(false);
   const reintentarRef = useRef<(() => void) | null>(null);
@@ -167,7 +179,9 @@ export default function NaiaSearchExperience({
       );
       setFiltrosActuales(parsed.filtros);
       setOfertas(parsed.ofertas);
-      setTotal(parsed.total);
+      /* El snapshot guarda el total del servidor. No se vuelve a subir con Math.max. */
+      setTotal(totalHonesto(parsed.total));
+      setFinDeLista(false);
       setOrden(parsed.orden);
       setRespuesta(parsed.respuesta);
       setEstado(parsed.estado);
@@ -250,8 +264,9 @@ export default function NaiaSearchExperience({
       const header = document.querySelector("header");
       const footer = document.querySelector("footer");
       const altoHeader = header?.getBoundingClientRect().height ?? 0;
-      const altoFooter = footer?.getBoundingClientRect().height ?? 0;
-      const margenSeguridad = 28;
+      /* El pie completo dejaba el historial en ~60px junto al header y a BA-026. Se reserva un tope. */
+      const altoFooter = Math.min(footer?.getBoundingClientRect().height ?? 0, 120);
+      const margenSeguridad = 16;
       const disponible = Math.floor(window.innerHeight - altoHeader - altoFooter - margenSeguridad);
       setAlturaLayoutDesktop(Math.max(280, disponible));
     };
@@ -339,7 +354,8 @@ export default function NaiaSearchExperience({
     setAvisoConsulta(null);
     setFiltrosActuales(filtros);
     setOfertas(resultado.ofertas);
-    setTotal(Math.max(resultado.total, resultado.ofertas.length));
+    setFinDeLista(false);
+    setTotal(totalHonesto(resultado.total));
     return resultado;
   };
 
@@ -363,7 +379,7 @@ export default function NaiaSearchExperience({
         void reconsultarCatalogo(filtros);
       });
       if (!resultado) return;
-      const conteo = Math.max(resultado.total, resultado.ofertas.length);
+      const conteo = totalHonesto(resultado.total);
       setMensajes((actuales) => [
         ...actuales,
         {
@@ -450,7 +466,7 @@ export default function NaiaSearchExperience({
         return;
       }
 
-      const conteo = Math.max(resultado.total, resultado.ofertas.length);
+      const conteo = totalHonesto(resultado.total);
       const bloques = [
         repararCopyFiltrado(siguienteRespuesta.mensaje),
         construirMensajeConteo(conteo, filtros),
@@ -514,7 +530,9 @@ export default function NaiaSearchExperience({
       const hayNuevas = resultado.ofertas.some((oferta) => !yaCargadas.has(oferta.id));
       // Página vacía o repetida: no hay más filas reales. No es un error ni un éxito con ítems nuevos.
       if (resultado.ofertas.length === 0 || !hayNuevas) {
-        setTotal(ofertas.length);
+        /* No hay más filas. El total sigue siendo el del servidor; el botón se apaga aparte. */
+        setTotal(totalHonesto(resultado.total));
+        setFinDeLista(true);
         return;
       }
       setOfertas((actuales) => {
@@ -522,7 +540,7 @@ export default function NaiaSearchExperience({
         resultado.ofertas.forEach((oferta) => porId.set(oferta.id, oferta));
         return Array.from(porId.values());
       });
-      setTotal((totalActual) => Math.max(totalActual, resultado.total, resultado.ofertas.length));
+      setTotal(totalHonesto(resultado.total));
     } catch {
       setAvisoConsulta({ ambito: "paginacion", mensaje: COPY_ERROR_PAGINACION });
       reintentarRef.current = () => {
@@ -556,7 +574,7 @@ export default function NaiaSearchExperience({
         ]);
         return;
       }
-      const conteo = Math.max(resultado.total, resultado.ofertas.length);
+      const conteo = totalHonesto(resultado.total);
       setMensajes((actuales) => [
         ...actuales,
         {
@@ -600,7 +618,7 @@ export default function NaiaSearchExperience({
         ]);
         return;
       }
-      const conteo = Math.max(resultado.total, resultado.ofertas.length);
+      const conteo = totalHonesto(resultado.total);
       setMensajes([
         {
           id: `naia-reset-${Date.now()}`,
@@ -669,7 +687,7 @@ export default function NaiaSearchExperience({
           if (window.innerWidth < 1024) setMostrarResultadosMovil(true);
           return;
         }
-        const conteo = Math.max(resultado.total, resultado.ofertas.length);
+        const conteo = totalHonesto(resultado.total);
         const etiqueta =
           vistaParam === "programas"
             ? "Vista Programas: listado de ofertas agrupado por programa."
@@ -726,7 +744,7 @@ export default function NaiaSearchExperience({
         if (window.innerWidth < 1024) setMostrarResultadosMovil(true);
         return;
       }
-      const conteo = Math.max(resultado.total, resultado.ofertas.length);
+      const conteo = totalHonesto(resultado.total);
       setMensajes([
         {
           id: `naia-vigentes-${Date.now()}`,
@@ -943,21 +961,25 @@ export default function NaiaSearchExperience({
           se lea sobre el fondo del sitio, igual en /naia y /explorar.
         */}
         <main
-          className={`naia-chat-window relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-b-2 border-buscoedu-chat-edge px-5 pt-6 sm:px-8 lg:h-full lg:border-b-0 lg:border-r-2 lg:px-10 lg:pt-8 ${
-            ajustarColumnaMovil ? "max-lg:flex-1" : "h-[calc(100dvh-73px)]"
+          className={`naia-chat-window relative z-10 flex min-h-0 min-w-0 flex-col overflow-y-auto border-b-2 border-buscoedu-chat-edge px-5 pt-4 sm:px-8 lg:h-full lg:overflow-hidden lg:border-b-0 lg:border-r-2 lg:px-10 lg:pt-6 ${
+            ajustarColumnaMovil ? "max-lg:flex-1" : "h-[calc(100dvh-4.5rem)]"
           }`}
         >
           {/* Filete de marca: marca el borde superior de la ventana en web y móvil. */}
           <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-1 bg-buscoedu-teal" aria-hidden="true" />
           {mostrarResultados ? (
             <section className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
-              <div className="mb-4 shrink-0">
+              <div className="mb-2 shrink-0">
                 {/* Rótulo teal sobre pastilla blanca: el teal de marca no contrasta sobre el gris del hilo. */}
-                <p className="inline-flex rounded-full bg-white px-3 py-1 text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal shadow-[0_2px_8px_rgba(18,58,111,0.08)]">Conversación con NaIA</p>
-                <h1 className="mt-1 text-2xl font-bold tracking-tight text-buscoedu-blue">Tu búsqueda educativa</h1>
+                <p className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-buscoedu-teal shadow-[0_2px_8px_rgba(18,58,111,0.08)] sm:text-sm">Conversación con NaIA</p>
+                <h1 className="mt-1 text-lg font-bold tracking-tight text-buscoedu-blue sm:text-2xl">Tu búsqueda educativa</h1>
               </div>
 
-              <div ref={historialRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-3 pr-1" aria-live="polite">
+              {/*
+                El historial ocupa el alto que sobra y scrollea.
+                min-h evita la regresión de ~60px (header del hilo + franja BA-026).
+              */}
+              <div ref={historialRef} className="min-h-[12rem] min-w-0 flex-1 basis-0 space-y-4 overflow-y-auto overscroll-contain pb-3 pr-1" aria-live="polite">
                 {/* BA-025: burbuja blanca de NaIA sobre el gris; la del estudiante sigue en azul. */}
                 {mensajes.map((mensaje) => (
                   <div
@@ -1076,7 +1098,7 @@ export default function NaiaSearchExperience({
               */
               <div className="mx-auto mt-3 max-w-3xl border-t border-buscoedu-border/80 pt-3">
                 <div
-                  className="h-28 overflow-y-auto overscroll-contain rounded-2xl border border-buscoedu-border bg-slate-100 p-3 sm:h-32 sm:p-4"
+                  className="max-h-20 overflow-y-auto overscroll-contain rounded-2xl border border-buscoedu-border bg-slate-100 p-3 sm:max-h-24 sm:p-4"
                   aria-label="Puedes continuar con"
                 >
                   {/* El rótulo queda visible mientras las frases scrollean dentro del alto fijo. */}
@@ -1196,7 +1218,7 @@ export default function NaiaSearchExperience({
                     compact
                     className="mt-5"
                   />
-                ) : ofertas.length < total ? (
+                ) : ofertas.length < total && !finDeLista ? (
                   <button
                     type="button"
                     onClick={() => void cargarMasResultados()}
@@ -1251,6 +1273,7 @@ export default function NaiaSearchExperience({
         estado={estado}
         ofertas={ofertasVista}
         total={total}
+        finDeLista={finDeLista}
         cantidadCargada={ofertas.length}
         avisoConsulta={avisoConsulta}
         falloReemplazaListado={falloReemplazaListado}
@@ -1271,7 +1294,7 @@ export default function NaiaSearchExperience({
       */}
       <section
         className={`border-t border-buscoedu-border bg-slate-100 px-4 py-4 text-sm text-buscoedu-muted sm:px-6 lg:px-8 ${
-          layoutVariant === "naia" ? "hidden lg:block" : ""
+          layoutVariant === "naia" ? "hidden lg:block" : "max-md:pb-48 max-md:pr-6"
         }`}
       >
         <div className="mx-auto max-w-6xl leading-relaxed">
@@ -1303,7 +1326,13 @@ function TypedText({ texto, onStep }: { texto: string; onStep?: () => void }) {
     onStep?.();
   }, [onStep, visible]);
 
-  return <p className="whitespace-pre-line text-base leading-relaxed text-buscoedu-text" aria-live="polite">{visible}<span className={visible.length < texto.length ? "ml-0.5 inline-block h-4 border-l border-buscoedu-teal align-[-2px] animate-pulse" : ""} /></p>;
+  return (
+    <div className="text-base text-buscoedu-text" aria-live="polite">
+      {/* El tipeo revela el markdown ya parseado, no un muro de asteriscos. */}
+      <NaiaMarkdown texto={visible} />
+      <span className={visible.length < texto.length ? "ml-0.5 inline-block h-4 border-l border-buscoedu-teal align-[-2px] animate-pulse" : ""} />
+    </div>
+  );
 }
 
 function ThinkingIndicator({ texto }: { texto: string }) {
@@ -1394,6 +1423,7 @@ function MobileResultsModal({
   estado,
   ofertas,
   total,
+  finDeLista,
   cantidadCargada,
   avisoConsulta,
   falloReemplazaListado,
@@ -1415,6 +1445,7 @@ function MobileResultsModal({
   estado: EstadoBusqueda;
   ofertas: OfertaAcademica[];
   total: number;
+  finDeLista: boolean;
   cantidadCargada: number;
   avisoConsulta: AvisoConsulta | null;
   falloReemplazaListado: boolean;
@@ -1511,7 +1542,7 @@ function MobileResultsModal({
             />
           )}
 
-          {ofertas.length > 0 && cantidadCargada < total && !estaCargando && avisoConsulta?.ambito !== "paginacion" && (
+          {ofertas.length > 0 && cantidadCargada < total && !finDeLista && !estaCargando && avisoConsulta?.ambito !== "paginacion" && (
             <button
               type="button"
               onClick={onLoadMore}

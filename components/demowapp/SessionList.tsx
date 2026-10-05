@@ -5,7 +5,9 @@ interface DemoSessionItem {
   oportunidadId: string;
   codigoOportunidad?: string;
   nombre: string;
-  celular: string;
+  /** Máscara que ya mandó el servidor. No se vuelve a enmascarar aquí. */
+  telefonoEnmascarado?: string;
+  esQa?: boolean;
   oferta: string;
   estadoAplicacion: string;
   etapa: string;
@@ -48,10 +50,16 @@ export default function SessionList({ sessions, selectedId, onSelect }: Props) {
             <div>
               <p className="font-semibold text-gray-900">{s.codigoOportunidad || `OP-${s.oportunidadId.slice(0, 8)}`}</p>
               <p className="text-sm font-medium text-gray-700">{s.nombre}</p>
-              <p className="text-xs text-gray-500">{s.celular}</p>
+              {/* El teléfono ya viene enmascarado. Mostrarlo tal cual. */}
+              <p className="text-xs text-gray-500">{s.telefonoEnmascarado || '—'}</p>
               <p className="mt-1 text-sm text-gray-700">{s.oferta}</p>
             </div>
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">{s.temperatura}</span>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              {s.esQa ? (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">QA</span>
+              ) : null}
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">{s.temperatura}</span>
+            </div>
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-600">
             <span>Aplicación: {s.estadoAplicacion}</span>

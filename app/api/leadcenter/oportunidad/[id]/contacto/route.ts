@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase } from '@/src/lib/supabase-server';
+import { getServerSupabase, getServiceRoleClient } from '@/src/lib/supabase-server';
+import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
+import { oportunidadFueraDeBandeja } from '@/src/lib/demowapp/es-qa';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,6 +23,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   try {
     const supabase = await getServerSupabase();
+    const sesion = await getSesionLeadCenter();
+    /* Quien no es super-admin no registra gestión sobre un lead que no ve. */
+    if (await oportunidadFueraDeBandeja(getServiceRoleClient(), id, sesion.esSuper)) {
+      return NextResponse.json({ ok: false, error: 'no_encontrada' }, { status: 404 });
+    }
     const { data, error } = await supabase.rpc('fn_registrar_contacto', {
       p_oportunidad_id: id,
       p_persona_id: personaId || null,

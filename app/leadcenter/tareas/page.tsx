@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getServerSupabase } from '@/src/lib/supabase-server';
+import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,11 +31,28 @@ export default async function TareasPage({ searchParams }: { searchParams: Promi
 
   try {
     const supabase = await getServerSupabase();
+    const sesion = await getSesionLeadCenter();
     let q = supabase.from('tareas_crm').select('id, titulo, tipo_tarea, prioridad, estado, fecha_vencimiento, oportunidad_id, creado_en').order('fecha_vencimiento', { ascending: true, nullsFirst: false }).limit(250);
     if (estado !== 'todas') q = q.eq('estado', estado);
     const { data, error } = await q;
     if (error) errorMsg = error.message;
     filas = data || [];
+    /* tareas_crm no tiene es_qa: se ocultan las de oportunidades de prueba. */
+    if (!error && !sesion.esSuper && filas.length) {
+      const ids = Array.from(new Set(filas.map((t) => t.oportunidad_id).filter(Boolean)));
+      if (ids.length) {
+        const { data: pruebas, error: pruebasError } = await supabase
+          .from('oportunidades')
+          .select('id')
+          .in('id', ids)
+          .eq('es_qa', true);
+        if (pruebasError) errorMsg = pruebasError.message;
+        else {
+          const ocultas = new Set((pruebas || []).map((fila: { id: string }) => fila.id));
+          filas = filas.filter((t) => !t.oportunidad_id || !ocultas.has(t.oportunidad_id));
+        }
+      }
+    }
   } catch (e: any) { errorMsg = e?.message || 'No se pudieron cargar las tareas.'; }
 
   const ahora = Date.now();

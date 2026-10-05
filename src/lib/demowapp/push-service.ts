@@ -8,6 +8,7 @@ import {
 } from './conversacion-service';
 import { DEMOWAPP_PUSH_CATALOG, type DemoWappPushCode, renderPushTemplate } from './push-catalog';
 import { DEMOWAPP_TIMEOUTS } from './config';
+import { pushVaAUniversidad } from './es-qa';
 
 function nowIso() {
   return new Date().toISOString();
@@ -323,9 +324,39 @@ export async function processDuePushes(
 
   let processed = 0;
   const failed: string[] = [];
+  let omitidasQa = 0;
+
+  const oportunidadIds = Array.from(
+    new Set((data || []).map((row: { oportunidad_id?: string | null }) => row.oportunidad_id).filter(Boolean))
+  ) as string[];
+  const marcasQa = new Set<string>();
+  if (oportunidadIds.length) {
+    const { data: marcas, error: marcasError } = await db
+      .from('oportunidades')
+      .select('id, es_qa')
+      .in('id', oportunidadIds);
+    if (marcasError) throw new Error(marcasError.message);
+    for (const marca of marcas || []) {
+      if (marca.es_qa === true) marcasQa.add(marca.id as string);
+    }
+  }
 
   for (const row of data || []) {
     try {
+      /* Un hilo QA no empuja nada hacia la universidad. El recordatorio del demo sigue. */
+      if (row.oportunidad_id && marcasQa.has(row.oportunidad_id) && pushVaAUniversidad(row)) {
+        await db
+          .from('comunicaciones_transaccionales')
+          .update({
+            estado_envio: 'fallida',
+            error_envio: 'omitida_es_qa',
+            actualizado_en: nowIso()
+          })
+          .eq('id', row.id)
+          .eq('estado_envio', 'pendiente');
+        omitidasQa += 1;
+        continue;
+      }
       await deliverPushRow(db, row);
       processed += 1;
     } catch (e: any) {
@@ -346,6 +377,7 @@ export async function processDuePushes(
     ok: true,
     procesadas: processed,
     fallidas: failed.length,
-    ids_fallidas: failed
+    ids_fallidas: failed,
+    omitidas_qa: omitidasQa
   };
 }

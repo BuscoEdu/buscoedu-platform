@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import SessionList from './SessionList';
 import ContextPanel from './ContextPanel';
 
@@ -13,6 +13,10 @@ interface Props {
   selectedId: string | null;
   onSelect: (oportunidadId: string) => void;
   detail: any;
+  /** Alta QA. La página abre el hilo cuando el servidor responde 201. */
+  onCrearQa: (etiqueta: string) => Promise<string | null>;
+  creandoQa: boolean;
+  errorQa: string;
 }
 
 /**
@@ -28,8 +32,12 @@ export default function DemoWappOpsSheet({
   sessions,
   selectedId,
   onSelect,
-  detail
+  detail,
+  onCrearQa,
+  creandoQa,
+  errorQa
 }: Props) {
+  const [etiquetaQa, setEtiquetaQa] = useState('');
   useEffect(() => {
     const alTeclar = (evento: KeyboardEvent) => {
       if (evento.key === 'Escape') onCerrar();
@@ -63,13 +71,47 @@ export default function DemoWappOpsSheet({
       </header>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+        {/* Alta de hilo QA. Solo llega aquí quien ya pasó el guard de super admin. */}
+        <form
+          className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3"
+          onSubmit={(evento) => {
+            evento.preventDefault();
+            void onCrearQa(etiquetaQa).then((id) => {
+              if (id) setEtiquetaQa('');
+            });
+          }}
+        >
+          <p className="text-sm font-semibold text-amber-950">Nueva conversación QA</p>
+          <p className="text-xs leading-relaxed text-amber-900">
+            Abre un hilo de prueba. El lead, si el estudiante acepta, no sale a la universidad.
+          </p>
+          <label className="block text-sm text-gray-700">
+            <span className="mb-1 block font-medium">Etiqueta</span>
+            <input
+              value={etiquetaQa}
+              onChange={(evento) => setEtiquetaQa(evento.target.value)}
+              placeholder="Corredor medicina"
+              maxLength={80}
+              className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#075e54]"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={creandoQa || etiquetaQa.trim().length < 2}
+            className="min-h-11 rounded-full bg-amber-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {creandoQa ? 'Abriendo…' : 'Nueva conversación QA'}
+          </button>
+          {errorQa ? <p className="text-sm text-red-700" role="alert">{errorQa}</p> : null}
+        </form>
+
         {/* Búsqueda de sesiones. Vive aquí, no junto al hilo del estudiante. */}
         <label className="block text-sm text-gray-700">
           <span className="mb-1 block font-medium">Buscar conversación</span>
           <input
             value={query}
             onChange={(evento) => onQuery(evento.target.value)}
-            placeholder="Nombre, celular u oferta"
+            placeholder="Nombre, teléfono u oferta"
             className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#075e54]"
           />
         </label>
@@ -95,6 +137,7 @@ export default function DemoWappOpsSheet({
             oferta={detail.oferta}
             aplicacion={detail.aplicacion}
             contexto={detail.contexto}
+            esQa={detail.esQa === true || detail.es_qa === true || detail.persona?.es_qa === true}
           />
         ) : (
           <p className="rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500">

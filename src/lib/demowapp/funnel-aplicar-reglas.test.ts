@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { evaluarDecision, normalizarConsentimientos } from './funnel-aplicar-reglas';
+import {
+  coincidenciaHilo,
+  evaluarDecision,
+  httpDeCodigo,
+  normalizarConsentimientos,
+  validarOportunidadHilo
+} from './funnel-aplicar-reglas';
 
 const tipos = [
   {
@@ -142,6 +148,39 @@ describe('BA-031 reglas fail-closed', () => {
         false
       );
     }
+  });
+
+  it('sin uuid de hilo responde 400 hilo_requerido', () => {
+    for (const valor of [undefined, null, '', 'no-es-uuid', '11111111-1111-1111-1111-111111111111']) {
+      const leido = validarOportunidadHilo(valor);
+      assert.equal(leido.ok, false);
+      if (!leido.ok) assert.equal(leido.code, 'hilo_requerido');
+    }
+    assert.equal(httpDeCodigo('hilo_requerido'), 400);
+    assert.equal(httpDeCodigo('hilo_no_encontrado'), 404);
+  });
+
+  it('hilo distinto o nulo no hace replay y responde 409', () => {
+    const hiloA = '22222222-2222-4222-8222-222222222222';
+    const hiloB = '33333333-3333-4333-8333-333333333333';
+    const nulo = coincidenciaHilo(null, hiloA);
+    const ajeno = coincidenciaHilo(hiloB, hiloA);
+    const propio = coincidenciaHilo(hiloA, hiloA);
+    assert.equal(nulo.ok, false);
+    assert.equal(ajeno.ok, false);
+    if (!nulo.ok) assert.equal(nulo.code, 'hilo_no_coincide');
+    if (!ajeno.ok) assert.equal(ajeno.code, 'hilo_no_coincide');
+    assert.equal(propio.ok, true);
+    assert.equal(httpDeCodigo('hilo_no_coincide'), 409);
+  });
+
+  it('dos hilos de la misma oferta no cruzan la intención', () => {
+    const hiloA = '22222222-2222-4222-8222-222222222222';
+    const hiloB = '33333333-3333-4333-8333-333333333333';
+    const cruce = coincidenciaHilo(hiloA, hiloB);
+    assert.equal(cruce.ok, false);
+    if (!cruce.ok) assert.equal(cruce.code, 'hilo_no_coincide');
+    assert.notEqual(hiloA, hiloB);
   });
 
   it('por_lead con transferencia y obligatorio habilita el lead', () => {

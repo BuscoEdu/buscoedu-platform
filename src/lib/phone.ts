@@ -99,3 +99,21 @@ export function enmascararCelular(e164: string): string {
   const prefijo = e164.slice(0, 3);
   return `${prefijo}••••••${visibleFinal}`;
 }
+
+/**
+ * Máscara de la consola Demo WApp.
+ * Colombia móvil queda como `+57 3** *** **12`. Cualquier otro E.164
+ * conserva el prefijo de país y los dos últimos dígitos; nunca el número completo.
+ */
+export function enmascararTelefonoSesion(e164: string | null | undefined): string {
+  const limpio = String(e164 || '').trim();
+  const colombia = /^\+57(\d{10})$/.exec(limpio);
+  if (colombia) {
+    const nacional = colombia[1];
+    return `+57 ${nacional[0]}** *** **${nacional.slice(-2)}`;
+  }
+  const otro = /^\+(\d{1,3})(\d{4,})$/.exec(limpio);
+  if (!otro) return '';
+  const nacional = otro[2];
+  return `+${otro[1]} ${nacional[0]}** *** **${nacional.slice(-2)}`;
+}

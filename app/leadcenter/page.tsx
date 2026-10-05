@@ -1,7 +1,31 @@
 import { getServerSupabase } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
+import { consultaSinQa } from '@/src/lib/demowapp/es-qa';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * Las tareas no tienen es_qa. Se restan las de oportunidades de prueba
+ * para que el conteo del asesor no incluya leads que no van a la universidad.
+ */
+async function contarTareasSinQa(esSuper: boolean): Promise<number> {
+  try {
+    const supabase = await getServerSupabase();
+    let q = supabase.from('tareas_crm').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente');
+    if (!esSuper) {
+      const { data, error } = await supabase.from('oportunidades').select('id').eq('es_qa', true);
+      if (error) return 0;
+      const ids = (data || []).map((fila: { id: string }) => fila.id);
+      if (ids.length) {
+        q = q.or(`oportunidad_id.is.null,oportunidad_id.not.in.(${ids.join(',')})`);
+      }
+    }
+    const { count } = await q;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
 
 async function contar(tabla: string, filtros: (q: any) => any): Promise<number> {
   try {
@@ -18,12 +42,14 @@ async function contar(tabla: string, filtros: (q: any) => any): Promise<number> 
 export default async function DashboardPage() {
   const sesion = await getSesionLeadCenter();
 
-  // RLS filtra automáticamente por el asesor; super_admin ve todo.
+  // RLS filtra por asesor. Además, quien no es super-admin no cuenta filas es_qa.
   const [activas, calientes, tareasPend, transfPend] = await Promise.all([
-    contar('oportunidades', (q) => q.eq('estado', 'activa')),
-    contar('oportunidades', (q) => q.in('temperatura', ['caliente', 'muy_caliente']).eq('estado', 'activa')),
-    contar('tareas_crm', (q) => q.eq('estado', 'pendiente')),
-    contar('transferencias_universidad', (q) => q.eq('estado', 'pendiente'))
+    contar('oportunidades', (q) => consultaSinQa(q, sesion.esSuper).eq('estado', 'activa')),
+    contar('oportunidades', (q) =>
+      consultaSinQa(q, sesion.esSuper).in('temperatura', ['caliente', 'muy_caliente']).eq('estado', 'activa')
+    ),
+    contarTareasSinQa(sesion.esSuper),
+    contar('transferencias_universidad', (q) => consultaSinQa(q, sesion.esSuper).eq('estado', 'pendiente'))
   ]);
 
   const kpis = [

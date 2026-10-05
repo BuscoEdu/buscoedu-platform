@@ -1,15 +1,14 @@
 /**
- * W1: envuelve agenteExecutor solo en canal whatsapp.
- * No modifica AgenteExecutor.ts (archivo grande / riesgo de prod).
+ * W1: prepara el hilo de WhatsApp y lo pasa al motor en sesion_hilo.
+ * mensaje_usuario queda como lo escribió el estudiante. El bloque
+ * (contrato + mesa) lo arma AgenteExecutor una sola vez, dentro del
+ * prompt enriquecido del canal whatsapp.
  */
 
 import { agenteExecutor as motor } from "./AgenteExecutor";
 import type { EntradaEjecucion, SalidaEjecucion } from "./tipos";
 import { prepararTurnoHilo } from "@/src/lib/demowapp/preparar-turno-hilo";
-import {
-  SESION_HILO_VACIA,
-  serializarSesionHilo
-} from "@/src/lib/demowapp/sesion-hilo";
+import { SESION_HILO_VACIA } from "@/src/lib/demowapp/sesion-hilo";
 
 async function ejecutarConHilo(entrada: EntradaEjecucion): Promise<SalidaEjecucion> {
   if (entrada.codigo_canal !== "whatsapp") {
@@ -23,8 +22,9 @@ async function ejecutarConHilo(entrada: EntradaEjecucion): Promise<SalidaEjecuci
   });
 
   const mesa = hilo.ofertas_en_mesa;
-  return motor.ejecutar({
+  const salida = await motor.ejecutar({
     ...entrada,
+    mensaje_usuario: entrada.mensaje_usuario,
     sesion_hilo: hilo,
     contexto_ofertas:
       mesa.length > 0
@@ -39,9 +39,10 @@ async function ejecutarConHilo(entrada: EntradaEjecucion): Promise<SalidaEjecuci
               universidad: { nombre: item.universidad }
             }))
           }
-        : entrada.contexto_ofertas,
-    mensaje_usuario: `${serializarSesionHilo(hilo)}\n\nMensaje del estudiante:\n${entrada.mensaje_usuario}`
+        : entrada.contexto_ofertas
   });
+
+  return { ...salida, sesion_hilo: hilo };
 }
 
 export const agenteExecutor = new Proxy(motor, {

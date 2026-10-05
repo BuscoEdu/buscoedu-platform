@@ -7,6 +7,7 @@ import PanelCopiloto from '@/components/leadcenter/PanelCopiloto';
 import ComentariosNotaPanel from '@/components/leadcenter/ComentariosNotaPanel';
 import OpportunityWappPanel from '@/components/leadcenter/OpportunityWappPanel';
 import { calcularEstadoEstancamiento } from '@/src/lib/leadcenter/estancamiento';
+import { consultaSinQa } from '@/src/lib/demowapp/es-qa';
 import { TEMPERATURA_META, temperaturaDesdePuntaje } from '@/src/lib/leadcenter/salud';
 
 export const dynamic = 'force-dynamic';
@@ -30,6 +31,8 @@ export default async function FichaOportunidadPage({
   if (error || !op) notFound();
 
   const o = op as any;
+  /* La ficha muestra transferencia y propuesta. Quien no es super-admin no entra a un lead QA. */
+  if (!sesion.esSuper && o.es_qa === true) notFound();
 
   const [
     { data: persona },
@@ -112,11 +115,14 @@ export default async function FichaOportunidadPage({
       .select('id, version_actual, estado, fecha_emision')
       .eq('oportunidad_id', id)
       .order('fecha_emision', { ascending: false }),
-    supabase
-      .from('transferencias_universidad')
-      .select('id, estado, metodo_entrega, es_facturable, fecha_transferencia, creado_en')
-      .eq('oportunidad_id', id)
-      .order('creado_en', { ascending: false })
+    /* Entrega a la IES. La fila QA no entra en esta lista si la sesión no es super-admin. */
+    consultaSinQa(
+      supabase
+        .from('transferencias_universidad')
+        .select('id, estado, metodo_entrega, es_facturable, es_qa, fecha_transferencia, creado_en')
+        .eq('oportunidad_id', id),
+      sesion.esSuper
+    ).order('creado_en', { ascending: false })
     ,supabase
       .from('oportunidades_cierres')
       .select('id, tipo_cierre, comentario, causa_perdida_id, etapa_anterior_id, subestado_anterior_id, canal, actor_tipo, creado_en, reabierto_en, motivo_reapertura')
@@ -281,7 +287,13 @@ export default async function FichaOportunidadPage({
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{o.codigo || `OP-${String(o.id).slice(0, 8)}`}</p>
+            <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+              <span>{o.codigo || `OP-${String(o.id).slice(0, 8)}`}</span>
+              {/* La ficha QA solo llega si la sesión es super admin; el resto ya recibió 404. */}
+              {sesion.esSuper && o.es_qa === true ? (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold normal-case text-amber-800">QA</span>
+              ) : null}
+            </p>
             <Link href={`/leadcenter/personas/${o.persona_id}`} className="text-xl font-bold text-gray-900 hover:text-blue-600 hover:underline">{nombrePersona}</Link>
             <p className="text-sm text-gray-600">{nombreUniversidad}</p>
             <p className="text-sm text-gray-500">{programaOferta}</p>

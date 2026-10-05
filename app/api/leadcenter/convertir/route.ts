@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { normalizarE164 } from '@/src/lib/phone';
 import { scheduleWelcomePushFromConversion } from '@/src/lib/demowapp/push-service';
+import { marcarLeadQa } from '@/src/lib/demowapp/es-qa';
 import { createDemoWappToken, getDemoWappTokenTtlSeconds } from '@/src/lib/demowapp/token-service';
 
 export const runtime = 'nodejs';
@@ -237,11 +238,29 @@ export async function POST(req: NextRequest) {
       const [{ data: persona }, { data: oferta }] = await Promise.all([
         db
           .from('personas')
-          .select('id, nombres, apellidos, celular_e164')
+          .select('id, nombres, apellidos, celular_e164, es_qa')
           .eq('id', resultado.persona_id)
           .maybeSingle(),
         db.from('ofertas_academicas').select('id, nombre').eq('id', ofertaId).maybeSingle()
       ]);
+
+      if (persona?.es_qa === true && resultado.oportunidad_id) {
+        await marcarLeadQa(db, {
+          personaId: resultado.persona_id,
+          oportunidadId: resultado.oportunidad_id
+        });
+      }
+
+      if (persona?.es_qa === true) {
+        return NextResponse.json(
+          {
+            ...resultado,
+            es_qa: true,
+            demowapp: { omitido: 'es_qa' }
+          },
+          { status: 200 }
+        );
+      }
 
       await scheduleWelcomePushFromConversion(db, {
         oportunidadId: resultado.oportunidad_id,

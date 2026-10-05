@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 import { DEMOWAPP_CANAL, DEMOWAPP_META_CHANNEL } from '@/src/lib/demowapp/conversacion-service';
+import { enmascararTelefonoSesion } from '@/src/lib/phone';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,21 +50,29 @@ export async function GET(_req: NextRequest) {
     const ofertaIds = Array.from(new Set(aplicacionesCanonicas.map((a: any) => a.oferta_id).filter(Boolean)));
 
     const [oportunidadesRes, personasRes, ofertasRes, convRes, etapasRes, subestadosRes] = await Promise.all([
-      db
-        .from('oportunidades')
-        .select('id, codigo, estado, temperatura, etapa_id, subestado_id, puntaje, actualizado_en')
-        .in('id', oportunidadIds),
-      db
-        .from('personas')
-        .select('id, nombres, apellidos, celular_e164, telefono_principal, correo_principal')
-        .in('id', personaIds),
-      db.from('ofertas_academicas').select('id, nombre_oferta').in('id', ofertaIds),
-      db
-        .from('conversaciones')
-        .select('id, oportunidad_id, estado, ultima_actividad_en')
-        .eq('canal', DEMOWAPP_CANAL)
-        .eq('metadatos->>canal_simulado', DEMOWAPP_META_CHANNEL)
-        .in('oportunidad_id', oportunidadIds),
+      oportunidadIds.length
+        ? db
+            .from('oportunidades')
+            .select('id, codigo, estado, temperatura, etapa_id, subestado_id, puntaje, actualizado_en, es_qa, persona_id')
+            .in('id', oportunidadIds)
+        : Promise.resolve({ data: [] as any[] }),
+      personaIds.length
+        ? db
+            .from('personas')
+            .select('id, nombres, apellidos, celular_e164, telefono_principal, correo_principal, es_qa')
+            .in('id', personaIds)
+        : Promise.resolve({ data: [] as any[] }),
+      ofertaIds.length
+        ? db.from('ofertas_academicas').select('id, nombre_oferta').in('id', ofertaIds)
+        : Promise.resolve({ data: [] as any[] }),
+      oportunidadIds.length
+        ? db
+            .from('conversaciones')
+            .select('id, oportunidad_id, estado, ultima_actividad_en')
+            .eq('canal', DEMOWAPP_CANAL)
+            .eq('metadatos->>canal_simulado', DEMOWAPP_META_CHANNEL)
+            .in('oportunidad_id', oportunidadIds)
+        : Promise.resolve({ data: [] as any[] }),
       db.from('etapas_embudo').select('id, nombre'),
       db.from('subestados_oportunidad').select('id, nombre')
     ]);
@@ -86,7 +95,8 @@ export async function GET(_req: NextRequest) {
         codigoOportunidad: oportunidad.codigo || `OP-${String(a.oportunidad_id).slice(0, 8)}`,
         personaId: a.persona_id,
         nombre: nombreCompleto(persona),
-        celular: persona.celular_e164 || persona.telefono_principal || '—',
+        telefonoEnmascarado: enmascararTelefonoSesion(persona.celular_e164 || persona.telefono_principal),
+        esQa: oportunidad.es_qa === true || persona.es_qa === true,
         correo: persona.correo_principal || '—',
         oferta: oferta.nombre_oferta || 'Oferta',
         estadoAplicacion: a.estado,
@@ -99,6 +109,61 @@ export async function GET(_req: NextRequest) {
         ultimaActividad: conv?.ultima_actividad_en || oportunidad.actualizado_en || a.creado_en
       };
     });
+
+    /* Sesiones QA no tienen aplicación. Entran igual, sin número completo. */
+    const yaListadas = new Set(items.map((item) => item.oportunidadId));
+    const { data: qaRows, error: qaError } = await db
+      .from('oportunidades')
+      .select('id, codigo, estado, temperatura, etapa_id, subestado_id, puntaje, actualizado_en, es_qa, persona_id, nombre')
+      .eq('es_qa', true)
+      .order('actualizado_en', { ascending: false })
+      .limit(100);
+    if (qaError) {
+      return NextResponse.json({ ok: false, error: qaError.message }, { status: 500 });
+    }
+    const qaNuevas = (qaRows || []).filter((fila: any) => fila?.id && !yaListadas.has(fila.id));
+    const personasQaIds = Array.from(new Set(qaNuevas.map((fila: any) => fila.persona_id).filter(Boolean)));
+    const qaIds = qaNuevas.map((fila: any) => fila.id);
+    if (personasQaIds.length) {
+      const { data: personasQa } = await db
+        .from('personas')
+        .select('id, nombres, apellidos, celular_e164, telefono_principal, correo_principal, es_qa')
+        .in('id', personasQaIds);
+      for (const fila of personasQa || []) personas[fila.id] = fila;
+    }
+    if (qaIds.length) {
+      const { data: convQa } = await db
+        .from('conversaciones')
+        .select('id, oportunidad_id, estado, ultima_actividad_en')
+        .eq('canal', DEMOWAPP_CANAL)
+        .eq('metadatos->>canal_simulado', DEMOWAPP_META_CHANNEL)
+        .in('oportunidad_id', qaIds);
+      for (const fila of convQa || []) {
+        if (!conversaciones[fila.oportunidad_id]) conversaciones[fila.oportunidad_id] = fila;
+      }
+    }
+    for (const fila of qaNuevas) {
+      const persona = personas[fila.persona_id] || {};
+      items.push({
+        aplicacionId: null,
+        oportunidadId: fila.id,
+        codigoOportunidad: fila.codigo || `OP-${String(fila.id).slice(0, 8)}`,
+        personaId: fila.persona_id,
+        nombre: nombreCompleto(persona) || fila.nombre || 'Sin nombre',
+        telefonoEnmascarado: enmascararTelefonoSesion(persona.celular_e164 || persona.telefono_principal),
+        esQa: true,
+        correo: persona.correo_principal || '—',
+        oferta: '—',
+        estadoAplicacion: '—',
+        etapa: etapas[fila.etapa_id] || '—',
+        subestado: subestados[fila.subestado_id] || '—',
+        temperatura: fila.temperatura || '—',
+        fechaAplicacion: null,
+        conversacionExiste: Boolean(conversaciones[fila.id]),
+        conversacionEstado: conversaciones[fila.id]?.estado || null,
+        ultimaActividad: conversaciones[fila.id]?.ultima_actividad_en || fila.actualizado_en
+      });
+    }
 
     items.sort((x, y) => new Date(y.ultimaActividad || 0).getTime() - new Date(x.ultimaActividad || 0).getTime());
 

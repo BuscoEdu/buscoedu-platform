@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getServerSupabase } from '@/src/lib/supabase-server';
+import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
+import { consultaSinQa } from '@/src/lib/demowapp/es-qa';
 import PersonEditor from '@/components/leadcenter/PersonEditor';
 
 export const dynamic = 'force-dynamic';
@@ -14,16 +16,21 @@ export default async function FichaPersonaPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const supabase = await getServerSupabase();
 
+  const sesion = await getSesionLeadCenter();
   const { data: persona, error } = await supabase.from('personas').select('*').eq('id', id).single();
   if (error || !persona) notFound();
   const p = persona as any;
+  /* La ficha de una persona de prueba no se abre a quien no es super-admin. */
+  if (!sesion.esSuper && p.es_qa === true) notFound();
 
   const [{ data: oportunidades }, { data: consentimientos }, { data: notas }] = await Promise.all([
-    supabase
-      .from('oportunidades')
-      .select('id, nombre, estado, temperatura, etapa_id, actualizado_en')
-      .eq('persona_id', id)
-      .order('actualizado_en', { ascending: false }),
+    consultaSinQa(
+      supabase
+        .from('oportunidades')
+        .select('id, nombre, estado, temperatura, etapa_id, actualizado_en')
+        .eq('persona_id', id),
+      sesion.esSuper
+    ).order('actualizado_en', { ascending: false }),
     supabase
       .from('consentimientos_persona')
       .select('id, estado, autoriza_contacto, autoriza_whatsapp, autoriza_transferencia, fecha_otorgamiento')

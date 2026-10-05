@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 import { calcularEstadoEstancamiento } from '@/src/lib/leadcenter/estancamiento';
+import { consultaSinQa } from '@/src/lib/demowapp/es-qa';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from('oportunidades')
       .select(
-        'id, codigo, tipo_oportunidad, nombre, estado, temperatura, puntaje, fecha_proxima_accion, etapa_id, subestado_id, persona_id, universidad_id, programa_id, oferta_id, actualizado_en',
+        'id, codigo, tipo_oportunidad, nombre, estado, temperatura, puntaje, fecha_proxima_accion, etapa_id, subestado_id, persona_id, universidad_id, programa_id, oferta_id, actualizado_en, es_qa',
         { count: 'exact' }
       );
 
@@ -60,6 +61,8 @@ export async function GET(req: NextRequest) {
     if (qText) {
       query = query.ilike('nombre', `%${qText}%`);
     }
+    /* Quien no es super admin no ve filas de prueba. El lead QA existe, pero no en su bandeja. */
+    query = consultaSinQa(query, sesion.esSuper);
 
     const { data: baseRows, count, error } = await query
       .order('actualizado_en', { ascending: false })
@@ -150,6 +153,7 @@ export async function GET(req: NextRequest) {
           id: row.oferta_id,
           nombre: oferta.nombre_oferta || '—'
         },
+        es_qa: row.es_qa === true,
         estancamiento
       };
     });
