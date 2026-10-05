@@ -293,6 +293,10 @@ export default function Header() {
         </div>
       </aside>
 
+      {/*
+        BA-028: en inicio el FAB sube para no tapar el aviso de NaiaHomeHero.
+        En Explorar queda sobre la franja inferior del catálogo.
+      */}
       {!pathname.startsWith("/naia") && !isMobileOpen && (
         <button
           type="button"
@@ -303,8 +307,12 @@ export default function Header() {
             }
             setCapaNaiaAbierta(true);
           }}
-          className={`fixed right-5 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-buscoedu-teal px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:scale-105 hover:brightness-95 md:hidden ${
-            pathname.startsWith("/explorar") ? "bottom-44 z-[75]" : "bottom-5 z-40"
+          className={`fixed right-4 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-buscoedu-teal px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:scale-105 hover:brightness-95 md:hidden ${
+            pathname.startsWith("/explorar")
+              ? "bottom-44 z-[75]"
+              : pathname === "/"
+                ? "bottom-24 z-40"
+                : "bottom-5 z-40"
           }`}
           aria-label="Hablar con NaIA"
         >

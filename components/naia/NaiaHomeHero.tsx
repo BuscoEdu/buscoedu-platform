@@ -45,7 +45,8 @@ export default function NaiaHomeHero() {
   };
 
   return (
-    <section className="overflow-hidden rounded-2xl bg-buscoedu-ink px-6 py-10 text-white sm:px-10 sm:py-12">
+    {/* En móvil el FAB queda en el margen derecho: el texto y los botones no pasan por debajo. */}
+    <section className="overflow-hidden rounded-2xl bg-buscoedu-ink px-6 py-10 text-white max-md:pb-8 max-md:pr-28 sm:px-10 sm:py-12">
       <div className="grid items-center gap-8 lg:grid-cols-2">
         <div>
           <p className="font-display text-sm font-semibold uppercase tracking-widest text-teal-200">
@@ -69,7 +70,7 @@ export default function NaiaHomeHero() {
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-sm text-slate-200">
+          <p className="mt-4 text-sm text-slate-200 max-md:pr-2">
             BuscoEdu no es una universidad y no garantiza admisión, precios ni becas.
             Tus datos solo se comparten con la institución que tú marques.
           </p>

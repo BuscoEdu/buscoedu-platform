@@ -28,6 +28,8 @@ type Item = {
   universidad: { id?: string; nombre: string };
   programa: { id?: string; nombre: string };
   oferta: { id?: string; nombre: string };
+  /** El API ya omite estas filas si la sesión no es super admin. */
+  es_qa?: boolean;
   estancamiento?: {
     estado: 'normal' | 'proximo_a_vencer' | 'estancado';
     tiempo_legible: string;
@@ -255,7 +257,12 @@ export default function OportunidadesBoard({ etapas }: { etapas: Option[] }) {
                   <p className="truncate text-xs text-gray-500">
                     {descripcionAcademica(o.programa.nombre, o.oferta.nombre)}
                   </p>
-                  <p className="inline-flex w-fit rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{o.tipo_oportunidad === 'universidad' ? 'Universidad' : 'Estudiante'}</p>
+                  <p className="inline-flex w-fit items-center gap-1">
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{o.tipo_oportunidad === 'universidad' ? 'Universidad' : 'Estudiante'}</span>
+                    {o.es_qa ? (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">QA</span>
+                    ) : null}
+                  </p>
                   <p className="truncate text-[11px] text-gray-500">
                     {o.estancamiento?.tiempo_legible || '0 horas'} en esta etapa
                   </p>

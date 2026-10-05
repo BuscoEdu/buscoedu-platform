@@ -53,7 +53,7 @@ export default function HomePage() {
 
   return (
     <>
-      <div className="mx-auto w-full max-w-6xl space-y-14 px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl space-y-14 px-4 py-10 max-md:pb-28 sm:px-6 lg:px-8">
         <NaiaHomeHero />
 
         <section className="rounded-xl border border-buscoedu-border bg-white p-6 shadow-card sm:p-8">

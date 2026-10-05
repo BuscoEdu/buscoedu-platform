@@ -5,7 +5,9 @@ import {
   cuerpoIniciarHilo,
   declaracionesDesdeMarcas,
   fusionarError,
+  esErrorHiloReintento,
   normalizarCuerpo,
+  vistaErrorHilo,
   rotarSlot,
   vistaCargando,
   vistaSoloLista,
@@ -180,6 +182,27 @@ describe('BA-031 UI contrato del hilo', () => {
     assert.equal(otra.aplicar.clave, memoria.aplicar.clave);
     assert.equal(otra.aplicar.intencionId, 'int-9');
     assert.notEqual(otra.lista.clave, otra.aplicar.clave);
+  });
+
+  it('hilo_requerido y hilo_no_coincide dejan mensaje para reintentar', () => {
+    const pedido = vistaErrorHilo(
+      'hilo_requerido',
+      'Hace falta el hilo activo para aplicar. Elige la conversación y reintenta. No quedó ninguna solicitud.'
+    );
+    assert.equal(pedido.ok, false);
+    assert.equal(pedido.leadCreado, false);
+    assert.equal(esErrorHiloReintento(pedido.code), true);
+    assert.ok((pedido.mensajes[0]?.texto || '').length > 0);
+    const cruce = normalizarCuerpo({
+      ok: false,
+      code: 'hilo_no_coincide',
+      error: 'Esa clave pertenece a otro hilo.',
+      leadCreado: false,
+      ui: { estado: 'error', cargando: false, paso: null, leadCreado: false, acciones: [] }
+    });
+    assert.equal(cruce.code, 'hilo_no_coincide');
+    assert.equal(cruce.mensajes.length, 1);
+    assert.equal(cruce.leadCreado, false);
   });
 
   it('dos hilos de la misma oferta no cruzan memoria ni clave', () => {

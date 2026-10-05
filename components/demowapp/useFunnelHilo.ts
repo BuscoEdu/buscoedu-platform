@@ -13,6 +13,7 @@ import {
   rotarSlot,
   rutaConHilo,
   vistaCargando,
+  vistaErrorHilo,
   vistaRed,
   vistaSoloLista,
   type DecisionHilo,
@@ -46,6 +47,8 @@ export interface FunnelHilo {
   enviarDatos: () => void;
   decidir: (decision: DecisionHilo) => void;
   verPermisos: () => void;
+  /** Repite el último paso. Cubre 400 hilo_requerido y 409 hilo_no_coincide. */
+  reintentar: () => void;
 }
 
 async function leerJson(res: Response): Promise<VistaFunnel> {
@@ -85,6 +88,9 @@ export function useFunnelHilo(ofertaId: string | null, oportunidadId: string | n
   const ocupadoLista = useRef(false);
   const precargado = useRef<string | null>(null);
   const firmaMarcas = useRef('');
+  /* El reintento vuelve a este paso, no abre otro hilo. */
+  const ultimoPaso = useRef<'iniciar' | 'lista' | 'datos' | 'decidir' | 'permisos' | null>(null);
+  const ultimaDecision = useRef<DecisionHilo>('aceptar');
 
   /* Al cambiar de oferta se olvida el carril anterior y se restaura el de esta. */
   useEffect(() => {
@@ -196,7 +202,18 @@ export function useFunnelHilo(ofertaId: string | null, oportunidadId: string | n
   }, [oportunidadId]);
 
   const iniciarAplicar = useCallback(() => {
-    if (!ofertaId || !oportunidadId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
+    ultimoPaso.current = 'iniciar';
+    /* Sin hilo no se llama al servidor: la UI muestra el 400 y deja reintentar. */
+    if (!oportunidadId) {
+      setAplicar(
+        vistaErrorHilo(
+          'hilo_requerido',
+          'Hace falta el hilo activo para aplicar. Elige la conversación y reintenta. No quedó ninguna solicitud.'
+        )
+      );
+      return;
+    }
+    if (!ofertaId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
     ocupadoAplicar.current = true;
     const memoria = leerMemoria(almacenNavegador(), oportunidadId, ofertaId);
     if (esCierreAplicar(aplicar?.ui.paso)) {
@@ -232,7 +249,17 @@ export function useFunnelHilo(ofertaId: string | null, oportunidadId: string | n
 
   const guardarEnLista = useCallback(() => {
     /* La misma clave vuelve a la fila de Mi lista. No abre datos ni consentimiento. */
-    if (!ofertaId || !oportunidadId || miLista?.ui.cargando || ocupadoLista.current) return;
+    ultimoPaso.current = 'lista';
+    if (!oportunidadId) {
+      setMiLista(
+        vistaErrorHilo(
+          'hilo_requerido',
+          'Hace falta el hilo activo para guardar en Mi lista. Elige la conversación y reintenta.'
+        )
+      );
+      return;
+    }
+    if (!ofertaId || miLista?.ui.cargando || ocupadoLista.current) return;
     ocupadoLista.current = true;
     const memoria = leerMemoria(almacenNavegador(), oportunidadId, ofertaId);
     const seq = ++seqLista.current;
@@ -265,8 +292,18 @@ export function useFunnelHilo(ofertaId: string | null, oportunidadId: string | n
   }, [ofertaId, oportunidadId, miLista]);
 
   const enviarDatos = useCallback(() => {
+    ultimoPaso.current = 'datos';
     const intencionId = aplicar?.sesionDemo?.id;
-    if (!ofertaId || !oportunidadId || !intencionId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
+    if (!oportunidadId) {
+      setAplicar(
+        vistaErrorHilo(
+          'hilo_requerido',
+          'Hace falta el hilo activo para guardar tus datos. Elige la conversación y reintenta.'
+        )
+      );
+      return;
+    }
+    if (!ofertaId || !intencionId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
     if (aplicar.ui.paso === 'mi_lista') return;
     ocupadoAplicar.current = true;
     const seq = ++seqAplicar.current;
@@ -290,8 +327,19 @@ export function useFunnelHilo(ofertaId: string | null, oportunidadId: string | n
   }, [ofertaId, oportunidadId, aplicar, borrador, conTextos, publicarAplicar]);
 
   const decidir = useCallback((decision: DecisionHilo) => {
+    ultimoPaso.current = 'decidir';
+    ultimaDecision.current = decision;
     const intencionId = aplicar?.sesionDemo?.id;
-    if (!ofertaId || !oportunidadId || !intencionId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
+    if (!oportunidadId) {
+      setAplicar(
+        vistaErrorHilo(
+          'hilo_requerido',
+          'Hace falta el hilo activo para registrar el permiso. Elige la conversación y reintenta. No quedó ninguna solicitud.'
+        )
+      );
+      return;
+    }
+    if (!ofertaId || !intencionId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
     if (aplicar.ui.paso === 'mi_lista') return;
     ocupadoAplicar.current = true;
     const seq = ++seqAplicar.current;
@@ -315,8 +363,18 @@ export function useFunnelHilo(ofertaId: string | null, oportunidadId: string | n
 
   /* Si el POST de datos no trajo el catálogo, el hilo vuelve a pedir el texto. */
   const verPermisos = useCallback(() => {
+    ultimoPaso.current = 'permisos';
     const intencionId = aplicar?.sesionDemo?.id;
-    if (!ofertaId || !oportunidadId || !intencionId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
+    if (!oportunidadId) {
+      setAplicar(
+        vistaErrorHilo(
+          'hilo_requerido',
+          'Hace falta el hilo activo para ver los permisos. Elige la conversación y reintenta.'
+        )
+      );
+      return;
+    }
+    if (!ofertaId || !intencionId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
     if (aplicar.ui.paso !== 'consentimiento') return;
     ocupadoAplicar.current = true;
     const seq = ++seqAplicar.current;
@@ -333,6 +391,15 @@ export function useFunnelHilo(ofertaId: string | null, oportunidadId: string | n
       }
     })();
   }, [ofertaId, oportunidadId, aplicar, publicarAplicar]);
+
+  const reintentar = useCallback(() => {
+    const paso = ultimoPaso.current;
+    if (paso === 'lista') guardarEnLista();
+    else if (paso === 'datos') enviarDatos();
+    else if (paso === 'decidir') decidir(ultimaDecision.current);
+    else if (paso === 'permisos') verPermisos();
+    else iniciarAplicar();
+  }, [decidir, enviarDatos, guardarEnLista, iniciarAplicar, verPermisos]);
 
   const cambiarBorrador = useCallback((campo: keyof BorradorDatos, valor: string) => {
     setBorrador((actual) => ({ ...actual, [campo]: valor }));
@@ -364,8 +431,9 @@ export function useFunnelHilo(ofertaId: string | null, oportunidadId: string | n
     alternarMarca,
     iniciarAplicar,
     guardarEnLista,
-  enviarDatos,
-  decidir,
-  verPermisos
-};
+    enviarDatos,
+    decidir,
+    verPermisos,
+    reintentar
+  };
 }

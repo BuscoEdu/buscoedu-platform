@@ -419,6 +419,7 @@ export async function obtenerOfertas(
   try {
     const hoy = todayISO();
 
+    /* Aliadas: solo IDs. Lista vacía = cero ofertas publicables, no el universo nacional. */
     const aliadaIds = await resolverIdsAliadas();
     if (aliadaIds.length === 0) {
       return {
@@ -454,6 +455,7 @@ export async function obtenerOfertas(
       .lte('vigente_desde', hoy)
       .or(`vigente_hasta.is.null,vigente_hasta.gte.${hoy}`);
 
+    /* Programa o área */
     if (terminoPrograma) {
       const condiciones = construirTerminosBusqueda(terminoPrograma).map(
         (t) => `nombre_oferta.ilike.${likePattern(t)}`
@@ -464,14 +466,17 @@ export async function obtenerOfertas(
       query = query.or(condiciones.join(','));
     }
 
+    /* Nivel y modalidad */
     if (programasNivelMod !== null) {
       query = query.in('programa_id', programasNivelMod);
     }
 
+    /* Sede */
     if (sedeIds !== null) {
       query = query.in('sede_id', sedeIds);
     }
 
+    /* Universidad: cruce con aliadas. Sin cruce, el listado queda vacío. */
     if (universidadIds !== null) {
       const cruzados = universidadIds.filter((id) => aliadaIds.includes(id));
       if (cruzados.length === 0) {
@@ -489,6 +494,7 @@ export async function obtenerOfertas(
       query = query.in('universidad_id', aliadaIds);
     }
 
+    /* Beneficio */
     if (filtros.tipo_beneficio) {
       query = query.ilike('tipo_beneficio', patronTipoBeneficio(filtros.tipo_beneficio));
     }

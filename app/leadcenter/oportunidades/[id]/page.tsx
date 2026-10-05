@@ -287,7 +287,13 @@ export default async function FichaOportunidadPage({
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{o.codigo || `OP-${String(o.id).slice(0, 8)}`}</p>
+            <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+              <span>{o.codigo || `OP-${String(o.id).slice(0, 8)}`}</span>
+              {/* La ficha QA solo llega si la sesión es super admin; el resto ya recibió 404. */}
+              {sesion.esSuper && o.es_qa === true ? (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold normal-case text-amber-800">QA</span>
+              ) : null}
+            </p>
             <Link href={`/leadcenter/personas/${o.persona_id}`} className="text-xl font-bold text-gray-900 hover:text-blue-600 hover:underline">{nombrePersona}</Link>
             <p className="text-sm text-gray-600">{nombreUniversidad}</p>
             <p className="text-sm text-gray-500">{programaOferta}</p>

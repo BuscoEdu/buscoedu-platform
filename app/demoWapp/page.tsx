@@ -18,6 +18,8 @@ export default function DemoWappPage() {
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
   const [opsAbierta, setOpsAbierta] = useState(false);
+  const [creandoQa, setCreandoQa] = useState(false);
+  const [errorQa, setErrorQa] = useState('');
   const refreshInFlight = useRef(false);
 
   /* Lista de sesiones para la hoja de operación. No se pinta junto al hilo. */
@@ -43,6 +45,52 @@ export default function DemoWappPage() {
       setError('Error de red al cargar sesiones.');
     } finally {
       if (!silent) setLoading(false);
+    }
+  };
+
+  /* POST sesiones/qa. Al 201 se abre ese hilo; el error queda en la hoja, no en blanco. */
+  const crearConversacionQa = async (etiqueta: string) => {
+    const limpia = etiqueta.trim();
+    if (limpia.length < 2) {
+      setErrorQa('La etiqueta tiene que tener entre 2 y 80 caracteres.');
+      return null;
+    }
+    setCreandoQa(true);
+    setErrorQa('');
+    try {
+      const res = await fetch('/api/demowapp/sesiones/qa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ etiqueta: limpia })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok || !data.oportunidadId) {
+        setErrorQa(data.error || 'No pude abrir la conversación QA.');
+        return null;
+      }
+      const item = {
+        oportunidadId: data.oportunidadId,
+        codigoOportunidad: data.codigo,
+        nombre: limpia.startsWith('QA ') ? limpia : `QA ${limpia}`,
+        telefonoEnmascarado: data.telefonoEnmascarado,
+        esQa: data.esQa === true,
+        oferta: '—',
+        estadoAplicacion: '—',
+        etapa: '—',
+        subestado: '—',
+        temperatura: '—',
+        conversacionExiste: false
+      };
+      setSessions((actuales) => [item, ...actuales.filter((sesion) => sesion.oportunidadId !== data.oportunidadId)]);
+      await loadDetail(data.oportunidadId);
+      setOpsAbierta(false);
+      void loadSessions({ silent: true });
+      return data.oportunidadId as string;
+    } catch {
+      setErrorQa('Error de red al abrir la conversación QA.');
+      return null;
+    } finally {
+      setCreandoQa(false);
     }
   };
 
@@ -158,9 +206,12 @@ export default function DemoWappPage() {
     const term = query.trim().toLowerCase();
     if (!term) return sessions;
     return sessions.filter((s) =>
-      [s.nombre, s.celular, s.oferta, s.etapa, s.subestado].join(' ').toLowerCase().includes(term)
+      [s.nombre, s.telefonoEnmascarado, s.oferta, s.etapa, s.subestado, s.esQa ? 'qa' : ''].join(' ').toLowerCase().includes(term)
     );
   }, [query, sessions]);
+
+  const sesionActiva = sessions.find((sesion) => sesion.oportunidadId === selectedId);
+  const hiloQa = detail?.esQa === true || detail?.es_qa === true || sesionActiva?.esQa === true;
 
   const avisoHilo = error
     ? error
@@ -178,7 +229,8 @@ export default function DemoWappPage() {
       <DemoWappPanel
         soloHilo
         titulo="NaIA"
-        subtitulo="en línea"
+        subtitulo={hiloQa ? 'QA · en línea' : 'en línea'}
+        esQa={hiloQa}
         mensajes={detail?.mensajes || []}
         onEnviar={onSend}
         disabled={!detail || loadingDetail}
@@ -207,6 +259,9 @@ export default function DemoWappPage() {
             void loadDetail(id);
           }}
           detail={detail}
+          onCrearQa={crearConversacionQa}
+          creandoQa={creandoQa}
+          errorQa={errorQa}
         />
       ) : null}
     </div>

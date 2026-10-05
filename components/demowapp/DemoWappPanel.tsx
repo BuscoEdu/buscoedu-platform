@@ -49,6 +49,8 @@ interface Props {
   ofertaId?: string | null;
   /** Oportunidad del hilo abierto. Aplicar la manda en cada request para no cruzar contactos. */
   oportunidadId?: string | null;
+  /** Hilo de prueba. El teléfono no se repinta: la marca solo dice QA. */
+  esQa?: boolean;
   /** Aviso corto dentro del hilo (carga o error). No es un banner de portal. */
   avisoHilo?: string | null;
   /** Acción vacía dentro del hilo, por ejemplo elegir conversación. */
@@ -129,6 +131,7 @@ export default function DemoWappPanel({
   ofertaNombre,
   ofertaId = null,
   oportunidadId = null,
+  esQa = false,
   avisoHilo,
   accionVacia
 }: Props) {
@@ -270,7 +273,12 @@ export default function DemoWappPanel({
           <WhatsAppMark className="h-7 w-7 shrink-0" />
         )}
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold">{titulo}</p>
+          <p className="flex items-center gap-2 truncate font-semibold">
+            <span className="truncate">{titulo}</span>
+            {esQa ? (
+              <span className="shrink-0 rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-950">QA</span>
+            ) : null}
+          </p>
           <p className="truncate text-xs text-green-100">
             {nombreContacto ? `${nombreContacto} · ` : ''}
             {subtitulo || 'NaIA · BuscoEdu'}

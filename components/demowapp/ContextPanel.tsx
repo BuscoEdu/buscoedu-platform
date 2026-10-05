@@ -15,6 +15,8 @@ interface Props {
   oferta?: any;
   aplicacion?: any;
   contexto?: ContextData;
+  /** Marca del hilo. El teléfono visible es telefonoEnmascarado, no el E.164. */
+  esQa?: boolean;
 }
 
 function fecha(iso?: string) {
@@ -26,13 +28,21 @@ function fecha(iso?: string) {
  * BA-030: datos de CRM para quien opera el demo.
  * Se monta solo dentro de la hoja de operación, no junto al hilo.
  */
-export default function ContextPanel({ persona, oferta, aplicacion, contexto }: Props) {
+export default function ContextPanel({ persona, oferta, aplicacion, contexto, esQa }: Props) {
+  const qa = esQa === true || persona?.es_qa === true;
+  const telefono = persona?.telefonoEnmascarado || '—';
   return (
     <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 text-sm" aria-label="Contexto de la oportunidad">
-      <h3 className="font-semibold text-gray-900">Contexto de oportunidad</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-semibold text-gray-900">Contexto de oportunidad</h3>
+        {qa ? (
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">QA</span>
+        ) : null}
+      </div>
       <div className="space-y-1 text-gray-700">
         <p><strong>Estudiante:</strong> {[persona?.nombres, persona?.apellidos].filter(Boolean).join(' ') || '—'}</p>
-        <p><strong>Celular:</strong> {persona?.celular_e164 || persona?.telefono_principal || '—'}</p>
+        {/* Máscara del servidor. No se reconstruye el número en el cliente. */}
+        <p><strong>Celular:</strong> {telefono}</p>
         <p><strong>Correo:</strong> {persona?.correo_principal || '—'}</p>
         <p><strong>Oferta:</strong> {oferta?.nombre_oferta || oferta?.nombre || '—'}</p>
         <p><strong>Estado aplicación:</strong> {aplicacion?.estado || '—'}</p>

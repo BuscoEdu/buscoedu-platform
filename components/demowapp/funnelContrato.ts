@@ -298,6 +298,44 @@ export function normalizarCuerpo(data: unknown): VistaFunnel {
   };
 }
 
+/** 400/409 del hilo: hay mensaje y la UI puede reintentar. No es una pantalla vacía. */
+export const CODIGOS_HILO_REINTENTO = ['hilo_requerido', 'hilo_no_coincide'] as const;
+
+export type CodigoHiloReintento = (typeof CODIGOS_HILO_REINTENTO)[number];
+
+export function esErrorHiloReintento(code: string | null | undefined): code is CodigoHiloReintento {
+  return code === 'hilo_requerido' || code === 'hilo_no_coincide';
+}
+
+export function vistaErrorHilo(code: CodigoHiloReintento, texto: string): VistaFunnel {
+  return {
+    ok: false,
+    leadCreado: false,
+    idempotente: false,
+    code,
+    error: texto,
+    ui: {
+      estado: 'error',
+      cargando: false,
+      paso: null,
+      leadCreado: false,
+      acciones: ['reintentar']
+    },
+    mensajes: [
+      {
+        id: `hilo-${code}`,
+        rol: 'naia',
+        tipo: 'error',
+        texto,
+        en: ''
+      }
+    ],
+    sesionDemo: null,
+    oportunidadId: null,
+    consentimientos: []
+  };
+}
+
 /** Error de red o JSON ilegible. No inventa oportunidad. */
 export function vistaRed(texto: string): VistaFunnel {
   return {
