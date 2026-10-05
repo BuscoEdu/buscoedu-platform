@@ -37,11 +37,14 @@ async function leerEsQa(db: SupabaseClient, oportunidadId: string): Promise<bool
  * Marca el lead como prueba y retira la transferencia a la IES.
  * Primero borra la entrega: si el update falla, la universidad ya no la tiene en cola.
  */
+export async function oportunidadEsQa(db: SupabaseClient, oportunidadId: string): Promise<boolean> {
+  return leerEsQa(db, oportunidadId);
+}
+
 export async function marcarLeadQa(
   db: SupabaseClient,
   input: { personaId: string; oportunidadId: string }
 ): Promise<void> {
-  await retirarTransferenciaUniversidad(db, input.oportunidadId);
   const ahora = new Date().toISOString();
   const oportunidad = await db
     .from('oportunidades')
@@ -53,6 +56,12 @@ export async function marcarLeadQa(
     .update({ es_qa: true, actualizado_en: ahora })
     .eq('id', input.personaId);
   if (persona.error) throw new Error(persona.error.message);
+  const aplicacion = await db
+    .from('aplicaciones')
+    .update({ es_qa: true, actualizado_en: ahora })
+    .eq('oportunidad_id', input.oportunidadId);
+  if (aplicacion.error) throw new Error(aplicacion.error.message);
+  await retirarTransferenciaUniversidad(db, input.oportunidadId);
 }
 
 /**
@@ -67,8 +76,15 @@ export async function sellarLeadQa(
   await marcarLeadQa(db, input);
 }
 
-/** Quita la entrega a la IES de un lead que no debe salir del corredor de prueba. */
+/**
+ * La transferencia QA se conserva (la crea la conversión) pero no es entregable:
+ * es_qa y es_facturable en false, como el CHECK de BD.
+ */
 export async function retirarTransferenciaUniversidad(db: SupabaseClient, oportunidadId: string): Promise<void> {
-  const transferencia = await db.from('transferencias_universidad').delete().eq('oportunidad_id', oportunidadId);
+  const ahora = new Date().toISOString();
+  const transferencia = await db
+    .from('transferencias_universidad')
+    .update({ es_qa: true, es_facturable: false, actualizado_en: ahora })
+    .eq('oportunidad_id', oportunidadId);
   if (transferencia.error) throw new Error(transferencia.error.message);
 }

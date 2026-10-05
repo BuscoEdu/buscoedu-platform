@@ -7,13 +7,15 @@ Contrato de backend en `fix/a1-catalogo-demowapp`. No hay migración en este cam
 | Columna | Tipo supuesto | Uso |
 | --- | --- | --- |
 | `intenciones_aplicar_demowapp.oportunidad_hilo_id` | `uuid null`, FK a `oportunidades` | Hilo que abrió Aplicar. Nulo = fila anterior a este contrato. |
-| único `(clave_idempotencia, oportunidad_hilo_id)` | reemplaza el único solo de `clave_idempotencia` | La misma clave puede existir en otro hilo. El servidor igual no hace replay cruzado. |
-| `personas.es_qa` | `boolean not null default false` | Persona de prueba. |
-| `oportunidades.es_qa` | `boolean not null default false` | Hilo o lead de prueba. |
+| único `(clave_idempotencia, oportunidad_hilo_id)` | índice adicional | El único viejo de solo `clave_idempotencia` se conserva. Por eso la clave del cliente incluye el hilo: si no, el segundo contacto choca y recibe `409`. |
+| `personas.es_qa`, `oportunidades.es_qa`, `aplicaciones.es_qa`, `transferencias_universidad.es_qa` | `boolean not null default false` | Marca de prueba. |
+| CHECK `transferencias_universidad_qa_no_facturable` | `NOT (es_qa AND es_facturable)` | Una transferencia QA no puede cobrarse. |
 
-Un lead QA **sí se crea** y queda `es_qa = true`. No se entrega a la universidad: se borra `transferencias_universidad` de esa oportunidad y el procesador de pushes cancela el envío si la plantilla o los metadatos apuntan a IES (`universidad`, `transferencia`, `panel_b2b`, `ies`). Los recordatorios del chat demo no son envío a la IES y siguen.
+Migración de BD (no se reescribe aquí): `supabase/migrations/20261005090000_a1_demowapp_hilo_es_qa.sql`. `fn_ba031_convertir_si_consentido` hereda `es_qa` si el payload trae `es_qa: true` o si la persona u oportunidad ya lo son. Marca persona, oportunidad, aplicación y deja la transferencia `es_qa` con `es_facturable = false`. No la borra.
 
-`POST /api/leadcenter/convertir`, si la persona ya es QA, marca la oportunidad nueva, retira la transferencia y no programa la bienvenida ni el token del modal.
+Un lead QA **sí se crea**. No sale a la universidad: el servidor manda `es_qa: true` en el payload cuando el hilo es QA y, por las dudas, vuelve a marcar aplicación y transferencia. El procesador de pushes cancela el envío si la plantilla o los metadatos apuntan a IES (`universidad`, `transferencia`, `panel_b2b`, `ies`) y la oportunidad es QA. Los recordatorios del chat demo no son envío a la IES y siguen.
+
+`POST /api/leadcenter/convertir` usa `fn_convertir_aplicacion` (no hereda `es_qa` sola). Si la persona ya es QA, el servidor marca oportunidad, aplicación y transferencia (`es_facturable = false`) y no programa la bienvenida ni el token del modal.
 
 ## Auth
 
@@ -78,7 +80,7 @@ El cuerpo de error sigue el patrón `FunnelError` / `conFunnel`: `ok: false`, `c
 
 Replay (`idempotente: true`) solo si la fila existente tiene el mismo `oportunidad_hilo_id` y la misma acción (Mi lista no se mezcla con Aplicar: sigue `clave_en_uso`).
 
-Al insertar se guarda `oportunidad_hilo_id`. Si el hilo es `es_qa` y el estudiante acepta, el lead que crea `fn_ba031_convertir_si_consentido` se marca `es_qa` en persona y oportunidad y se borra su transferencia a la universidad.
+Al insertar se guarda `oportunidad_hilo_id`. Si el hilo es `es_qa` y el estudiante acepta, el payload lleva `es_qa: true`. El lead se crea marcado y la transferencia, si la hay, queda no facturable.
 
 ## 2. NaIA: el mensaje del estudiante queda limpio
 

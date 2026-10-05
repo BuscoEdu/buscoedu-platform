@@ -17,7 +17,7 @@ import {
   type ConsentimientoNormalizado,
   type PasoFunnel
 } from './funnel-aplicar-reglas';
-import { sellarLeadQa } from './es-qa';
+import { oportunidadEsQa, sellarLeadQa } from './es-qa';
 import {
   mensajeAbandono,
   mensajeConfirmacion,
@@ -856,6 +856,8 @@ async function aceptarYCrearLead(
   const { nombres, apellidos } = partirNombre(fila.nombre_completo);
   const claveRpc = `demowapp-ba031:${fila.id}`;
   const marca = new Date(Date.now() - 5000).toISOString();
+  /* fn_ba031 hereda es_qa del payload: el lead se crea y la transferencia queda no facturable. */
+  const hiloQa = fila.oportunidad_hilo_id ? await oportunidadEsQa(db, fila.oportunidad_hilo_id) : false;
   const payload = {
     consentimiento_aceptado: true,
     clave_idempotencia: claveRpc,
@@ -872,7 +874,8 @@ async function aceptarYCrearLead(
       codigo: item.codigo,
       otorgado: item.otorgado,
       version_texto: item.versionTexto
-    }))
+    })),
+    ...(hiloQa ? { es_qa: true } : {})
   };
 
   const { data, error } = await db.rpc('fn_ba031_convertir_si_consentido', { p_payload: payload });
