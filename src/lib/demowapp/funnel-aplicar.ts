@@ -6,15 +6,18 @@ import { getOrCreateActiveConversation } from './conversacion-service';
 import { appendConversationMessage } from './mensaje-service';
 import {
   accionesDePaso,
+  coincidenciaHilo,
   evaluarDecision,
   evaluarGuardadoDatos,
   esPasoFunnel,
   httpDeCodigo,
   mismoCierre,
   pasoTrasContacto,
+  validarOportunidadHilo,
   type ConsentimientoNormalizado,
   type PasoFunnel
 } from './funnel-aplicar-reglas';
+import { sellarLeadQa } from './es-qa';
 import {
   mensajeAbandono,
   mensajeConfirmacion,
@@ -130,6 +133,8 @@ interface FilaIntencion {
   oportunidad_id: string | null;
   aplicacion_id: string | null;
   motivo_cierre: string | null;
+  /** Oportunidad del hilo que abrió Aplicar. Nulo = fila anterior al cruce de sesión. */
+  oportunidad_hilo_id?: string | null;
 }
 
 interface OfertaAplicable {
@@ -272,14 +277,82 @@ async function porId(db: SupabaseClient, id: string): Promise<FilaIntencion> {
   return data as FilaIntencion;
 }
 
-async function porClave(db: SupabaseClient, clave: string): Promise<FilaIntencion | null> {
+/**
+ * La clave puede repetirse entre hilos (único compuesto en BD).
+ * No se usa maybeSingle: dos filas con la misma clave no son un error de lectura.
+ */
+async function filasPorClave(db: SupabaseClient, clave: string): Promise<FilaIntencion[]> {
   const { data, error } = await db
     .from('intenciones_aplicar_demowapp')
     .select('*')
-    .eq('clave_idempotencia', clave)
+    .eq('clave_idempotencia', clave);
+  if (error) mapDb(error);
+  return (data as FilaIntencion[]) || [];
+}
+
+/**
+ * Uuid del hilo y fila en oportunidades.
+ * Falta o formato inválido → 400. La oportunidad no existe → 404.
+ */
+async function exigirHiloActivo(db: SupabaseClient, valor: unknown): Promise<string> {
+  const leido = validarOportunidadHilo(valor);
+  if (!leido.ok) {
+    throw new FunnelError(
+      'hilo_requerido',
+      'Hace falta el id del hilo activo (oportunidadId).',
+      null
+    );
+  }
+  const { data, error } = await db
+    .from('oportunidades')
+    .select('id')
+    .eq('id', leido.oportunidadId)
     .maybeSingle();
   if (error) mapDb(error);
-  return (data as FilaIntencion) || null;
+  if (!data) {
+    throw new FunnelError('hilo_no_encontrado', 'No encontré el hilo de esta conversación.', null);
+  }
+  return leido.oportunidadId;
+}
+
+/** La intención solo se lee si su oportunidad_hilo_id es este hilo. Si no, 409 y no hay replay. */
+async function cargarIntencionDelHilo(
+  db: SupabaseClient,
+  intencionId: string,
+  oportunidadId: unknown
+): Promise<FilaIntencion> {
+  const hilo = await exigirHiloActivo(db, oportunidadId);
+  const fila = await porId(db, intencionId);
+  const coincide = coincidenciaHilo(fila.oportunidad_hilo_id, hilo);
+  if (!coincide.ok) {
+    throw new FunnelError(
+      'hilo_no_coincide',
+      'Esta aplicación pertenece a otro hilo. No la reabro aquí.',
+      esPasoFunnel(fila.paso) ? fila.paso : null
+    );
+  }
+  return fila;
+}
+
+/**
+ * Replay solo de la fila de este hilo.
+ * Si la clave ya está en otro hilo, o en una fila con hilo nulo, 409: nunca se reenvía esa intención.
+ */
+function elegirReplay(
+  filas: FilaIntencion[],
+  oportunidadHiloId: string,
+  accion: 'iniciar' | 'mi_lista'
+): FilaIntencion | null {
+  const propia = filas.find((fila) => fila.oportunidad_hilo_id === oportunidadHiloId);
+  if (propia) return replaySiMismaAccion(propia, accion);
+  if (filas.length > 0) {
+    throw new FunnelError(
+      'hilo_no_coincide',
+      'Esa clave ya se usó en otro hilo. No reutilizo la aplicación de otro contacto.',
+      esPasoFunnel(filas[0].paso) ? filas[0].paso : null
+    );
+  }
+  return null;
 }
 
 async function actualizar(
@@ -402,6 +475,7 @@ export async function iniciarEnHilo(
     accion: unknown;
     ofertaId: unknown;
     claveIdempotencia: unknown;
+    oportunidadId: unknown;
     nombreCompleto?: unknown;
     celular?: unknown;
     correo?: unknown;
@@ -418,13 +492,15 @@ export async function iniciarEnHilo(
   if (!ofertaId) {
     throw new FunnelError('oferta_requerida', 'Hace falta la oferta a la que aplica.', null);
   }
+  /* Sin hilo no se abre Aplicar: dos contactos de la misma oferta no comparten intención. */
+  const oportunidadHiloId = await exigirHiloActivo(db, input.oportunidadId);
   const clave = claveExigida(input.claveIdempotencia);
   const oferta = await cargarOferta(db, ofertaId);
   const nombreOferta = oferta.nombre_oferta || 'esta oferta';
 
-  const previa = await porClave(db, clave);
+  const previa = elegirReplay(await filasPorClave(db, clave), oportunidadHiloId, accion);
   if (previa) {
-    return cuerpoDe(replaySiMismaAccion(previa, accion), { idempotente: true });
+    return cuerpoDe(previa, { idempotente: true });
   }
 
   if (accion === 'mi_lista') {
@@ -432,7 +508,7 @@ export async function iniciarEnHilo(
     const { data, error } = await db
       .from('intenciones_aplicar_demowapp')
       .insert({
-        ...baseInsert(oferta, clave, 'mi_lista', mensajes, input.ip),
+        ...baseInsert(oferta, clave, 'mi_lista', mensajes, input.ip, oportunidadHiloId),
         motivo_cierre: 'mi_lista_no_es_aplicar',
         resuelto_en: ahoraIso(),
         traza_consentimiento: {
@@ -447,8 +523,8 @@ export async function iniciarEnHilo(
       .single();
     if (error) {
       if (error.code === '23505') {
-        const otra = await porClave(db, clave);
-        if (otra) return cuerpoDe(replaySiMismaAccion(otra, accion), { idempotente: true });
+        const otra = elegirReplay(await filasPorClave(db, clave), oportunidadHiloId, accion);
+        if (otra) return cuerpoDe(otra, { idempotente: true });
       }
       mapDb(error);
     }
@@ -476,7 +552,7 @@ export async function iniciarEnHilo(
   const { data, error } = await db
     .from('intenciones_aplicar_demowapp')
     .insert({
-      ...baseInsert(oferta, clave, paso, mensajes, input.ip),
+      ...baseInsert(oferta, clave, paso, mensajes, input.ip, oportunidadHiloId),
       nombre_completo: contacto.nombre || null,
       correo: contacto.correo,
       celular_e164: contacto.celular,
@@ -488,8 +564,8 @@ export async function iniciarEnHilo(
 
   if (error) {
     if (error.code === '23505') {
-      const otra = await porClave(db, clave);
-      if (otra) return cuerpoDe(replaySiMismaAccion(otra, accion), { idempotente: true });
+      const otra = elegirReplay(await filasPorClave(db, clave), oportunidadHiloId, accion);
+      if (otra) return cuerpoDe(otra, { idempotente: true });
     }
     mapDb(error);
   }
@@ -505,12 +581,15 @@ function baseInsert(
   clave: string,
   paso: PasoFunnel,
   mensajes: MensajeHilo[],
-  ip?: string | null
+  ip: string | null | undefined,
+  oportunidadHiloId: string
 ) {
   return {
     oferta_id: oferta.id,
     paso,
     clave_idempotencia: clave,
+    /* Ata la idempotencia a este hilo. Otro contacto con la misma oferta no hereda la fila. */
+    oportunidad_hilo_id: oportunidadHiloId,
     modelo_negocio: oferta.modelo_negocio || 'por_inscrito',
     oferta_nombre: oferta.nombre_oferta,
     mensajes,
@@ -566,13 +645,14 @@ export async function guardarDatosEnHilo(
   db: SupabaseClient,
   intencionId: string,
   input: {
+    oportunidadId: unknown;
     nombreCompleto?: unknown;
     celular?: unknown;
     correo?: unknown;
     pais?: unknown;
   }
 ): Promise<CuerpoFunnelOk> {
-  const fila = await porId(db, intencionId);
+  const fila = await cargarIntencionDelHilo(db, intencionId, input.oportunidadId);
   const paso = exigirPaso(fila);
   const permitido = evaluarGuardadoDatos(paso);
   if (permitido.ok === false) throw new FunnelError(permitido.code, permitido.mensaje, paso);
@@ -619,8 +699,12 @@ export async function guardarDatosEnHilo(
 }
 
 /** Vuelve a mostrar el texto legal. No marca casillas y no crea lead. */
-export async function presentarConsentimiento(db: SupabaseClient, intencionId: string): Promise<CuerpoFunnelOk> {
-  const fila = await porId(db, intencionId);
+export async function presentarConsentimiento(
+  db: SupabaseClient,
+  intencionId: string,
+  oportunidadId: unknown
+): Promise<CuerpoFunnelOk> {
+  const fila = await cargarIntencionDelHilo(db, intencionId, oportunidadId);
   const paso = exigirPaso(fila);
   if (paso !== 'consentimiento') {
     throw new FunnelError(
@@ -638,8 +722,12 @@ export async function presentarConsentimiento(db: SupabaseClient, intencionId: s
   return cuerpoDe(guardada || fila, { consentimientos: normalizadosVacios(tipos) });
 }
 
-export async function obtenerSesionDemo(db: SupabaseClient, intencionId: string): Promise<CuerpoFunnelOk> {
-  const fila = await porId(db, intencionId);
+export async function obtenerSesionDemo(
+  db: SupabaseClient,
+  intencionId: string,
+  oportunidadId: unknown
+): Promise<CuerpoFunnelOk> {
+  const fila = await cargarIntencionDelHilo(db, intencionId, oportunidadId);
   const paso = exigirPaso(fila);
   if (paso !== 'consentimiento') return cuerpoDe(fila);
   const tipos = await listarTiposConsentimientoActivos(db);
@@ -655,12 +743,13 @@ export async function resolverConsentimientoEnHilo(
   db: SupabaseClient,
   intencionId: string,
   input: {
+    oportunidadId: unknown;
     decision: unknown;
     consentimientos?: unknown;
     ip?: string | null;
   }
 ): Promise<CuerpoFunnelOk> {
-  const fila = await porId(db, intencionId);
+  const fila = await cargarIntencionDelHilo(db, intencionId, input.oportunidadId);
   const paso = exigirPaso(fila);
   const decision = String(input.decision || '').trim();
 
@@ -818,6 +907,20 @@ async function aceptarYCrearLead(
       'La oportunidad no tiene aplicación ligada. No marco el hilo como aceptado.',
       'consentimiento'
     );
+  }
+
+  /* Si Aplicar salió de un hilo QA, el lead queda marcado y no se entrega a la universidad. */
+  if (fila.oportunidad_hilo_id) {
+    try {
+      await sellarLeadQa(db, {
+        hiloId: fila.oportunidad_hilo_id,
+        personaId: resultado.persona_id,
+        oportunidadId: resultado.oportunidad_id
+      });
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No pude aislar el lead QA de la universidad.';
+      throw new FunnelError('server_error', mensaje, 'consentimiento');
+    }
   }
 
   const filasConsent = await ligarConsentimientos(db, {

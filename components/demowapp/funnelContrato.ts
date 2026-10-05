@@ -86,10 +86,39 @@ export interface MemoriaHilo {
 
 const PASOS_CIERRE_APLICAR = new Set(['aceptada', 'rechazada', 'abandonada']);
 
-/** Clave estable por oferta, acción e intento. Mi lista y Aplicar no comparten clave. */
-export function claveEstable(ofertaId: string, accion: AccionHilo, intento: number): string {
+/**
+ * Clave estable por hilo, oferta, acción e intento.
+ * Dos contactos de la misma oferta no comparten clave: el hilo entra en el texto.
+ */
+export function claveEstable(
+  oportunidadId: string,
+  ofertaId: string,
+  accion: AccionHilo,
+  intento: number
+): string {
   const n = Number.isInteger(intento) && intento > 0 ? intento : 1;
-  return `hilo-${accion}-${ofertaId}-${n}`;
+  return `hilo-${accion}-${oportunidadId}-${ofertaId}-${n}`;
+}
+
+/** Body de iniciar / Mi lista. El servidor exige oportunidadId para no cruzar hilos. */
+export function cuerpoIniciarHilo(input: {
+  accion: AccionHilo;
+  ofertaId: string;
+  oportunidadId: string;
+  claveIdempotencia: string;
+}): { accion: AccionHilo; ofertaId: string; oportunidadId: string; claveIdempotencia: string } {
+  return {
+    accion: input.accion,
+    ofertaId: input.ofertaId,
+    oportunidadId: input.oportunidadId,
+    claveIdempotencia: input.claveIdempotencia
+  };
+}
+
+/** Query del hilo en GET. Sin esto el servidor responde hilo_requerido. */
+export function rutaConHilo(ruta: string, oportunidadId: string): string {
+  const separador = ruta.includes('?') ? '&' : '?';
+  return `${ruta}${separador}oportunidadId=${encodeURIComponent(oportunidadId)}`;
 }
 
 export function esCierreAplicar(paso: string | null | undefined): boolean {
@@ -354,48 +383,63 @@ export function vistaSoloLista(vista: VistaFunnel): VistaFunnel {
   };
 }
 
-function slotNuevo(ofertaId: string, accion: AccionHilo, intento = 1): SlotMemoria {
+function slotNuevo(oportunidadId: string, ofertaId: string, accion: AccionHilo, intento = 1): SlotMemoria {
   return {
     intento,
-    clave: claveEstable(ofertaId, accion, intento),
+    clave: claveEstable(oportunidadId, ofertaId, accion, intento),
     intencionId: null
   };
 }
 
-function leerSlot(valor: unknown, ofertaId: string, accion: AccionHilo): SlotMemoria {
-  if (!valor || typeof valor !== 'object') return slotNuevo(ofertaId, accion);
+function leerSlot(valor: unknown, oportunidadId: string, ofertaId: string, accion: AccionHilo): SlotMemoria {
+  if (!valor || typeof valor !== 'object') return slotNuevo(oportunidadId, ofertaId, accion);
   const fila = valor as Record<string, unknown>;
   const intento = typeof fila.intento === 'number' && fila.intento > 0 ? Math.floor(fila.intento) : 1;
-  const clave = textoDe(fila.clave) || claveEstable(ofertaId, accion, intento);
+  const clave = textoDe(fila.clave) || claveEstable(oportunidadId, ofertaId, accion, intento);
   const intencionId = textoDe(fila.intencionId);
   return { intento, clave, intencionId };
 }
 
 const PREFIJO_MEMORIA = 'ba031-hilo:';
 
-export function leerMemoria(almacen: AlmacenHilo, ofertaId: string): MemoriaHilo {
+/** La memoria del navegador se indexa por hilo y oferta, no solo por la oferta. */
+export function claveMemoriaHilo(oportunidadId: string, ofertaId: string): string {
+  return `${PREFIJO_MEMORIA}${oportunidadId}:${ofertaId}`;
+}
+
+export function leerMemoria(almacen: AlmacenHilo, oportunidadId: string, ofertaId: string): MemoriaHilo {
   try {
-    const crudo = almacen.getItem(`${PREFIJO_MEMORIA}${ofertaId}`);
+    const crudo = almacen.getItem(claveMemoriaHilo(oportunidadId, ofertaId));
     const json = crudo ? (JSON.parse(crudo) as Record<string, unknown>) : {};
     return {
-      aplicar: leerSlot(json.aplicar, ofertaId, 'iniciar'),
-      lista: leerSlot(json.lista, ofertaId, 'mi_lista')
+      aplicar: leerSlot(json.aplicar, oportunidadId, ofertaId, 'iniciar'),
+      lista: leerSlot(json.lista, oportunidadId, ofertaId, 'mi_lista')
     };
   } catch {
     return {
-      aplicar: slotNuevo(ofertaId, 'iniciar'),
-      lista: slotNuevo(ofertaId, 'mi_lista')
+      aplicar: slotNuevo(oportunidadId, ofertaId, 'iniciar'),
+      lista: slotNuevo(oportunidadId, ofertaId, 'mi_lista')
     };
   }
 }
 
-export function guardarMemoria(almacen: AlmacenHilo, ofertaId: string, memoria: MemoriaHilo) {
-  almacen.setItem(`${PREFIJO_MEMORIA}${ofertaId}`, JSON.stringify(memoria));
+export function guardarMemoria(
+  almacen: AlmacenHilo,
+  oportunidadId: string,
+  ofertaId: string,
+  memoria: MemoriaHilo
+) {
+  almacen.setItem(claveMemoriaHilo(oportunidadId, ofertaId), JSON.stringify(memoria));
 }
 
 /** Nuevo intento después de un cierre. La clave anterior no se reutiliza. */
-export function rotarSlot(slot: SlotMemoria, ofertaId: string, accion: AccionHilo): SlotMemoria {
-  return slotNuevo(ofertaId, accion, slot.intento + 1);
+export function rotarSlot(
+  slot: SlotMemoria,
+  oportunidadId: string,
+  ofertaId: string,
+  accion: AccionHilo
+): SlotMemoria {
+  return slotNuevo(oportunidadId, ofertaId, accion, slot.intento + 1);
 }
 
 const memoriaEnProceso = new Map<string, string>();

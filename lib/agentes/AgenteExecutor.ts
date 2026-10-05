@@ -21,6 +21,7 @@ import { componenteContextoAplicaAlCanal, herramientaPermitidaEnCanal } from './
 import { AgenteEjecucionError } from './errores';
 import { cargarMemoriaSesion } from './sesionEstudianteStore';
 import type { ConfiguracionAgente, EntradaEjecucion, SalidaEjecucion } from './tipos';
+import { serializarSesionHilo } from '@/src/lib/demowapp/sesion-hilo';
 import {
   BLOQUE_VOZ_NAIA,
   acumularFiltros,
@@ -559,6 +560,15 @@ export class AgenteExecutor {
       config.canal.codigo === 'whatsapp'
         ? `${BLOQUE_VOZ_NAIA}\n\n${CONTRATO_JSON_WAPP}`
         : BLOQUE_VOZ_NAIA;
+    /*
+      W1 solo en whatsapp, y una sola vez: contrato + mesa van al prompt
+      enriquecido. mensaje_usuario sigue siendo el texto del estudiante
+      (slots, aperturas y filtros no ven el bloque ni un prefijo duplicado).
+    */
+    const bloqueW1 =
+      config.canal.codigo === 'whatsapp' && entrada.sesion_hilo
+        ? serializarSesionHilo(entrada.sesion_hilo)
+        : '';
     const promptEfectivo = esTurnoSeguimiento
       ? ''
       : `${promptSistema}\n\n${voz}\n\n${bloqueSesion}`;
@@ -566,8 +576,12 @@ export class AgenteExecutor {
       (parte) => typeof parte === 'string' && parte.trim()
     );
     const mensajeUsuarioEnriquecido = esTurnoSeguimiento
-      ? [voz, bloqueSesion, `Mensaje del estudiante:\n${entrada.mensaje_usuario}`, ...extrasUsuario].join('\n\n')
-      : [entrada.mensaje_usuario, ...extrasUsuario].join('\n\n');
+      ? [voz, bloqueSesion, bloqueW1, `Mensaje del estudiante:\n${entrada.mensaje_usuario}`, ...extrasUsuario]
+          .filter((parte) => typeof parte === 'string' && parte.trim())
+          .join('\n\n')
+      : [bloqueW1, entrada.mensaje_usuario, ...extrasUsuario]
+          .filter((parte) => typeof parte === 'string' && parte.trim())
+          .join('\n\n');
 
     let resultadoAdaptador;
     try {
@@ -632,7 +646,8 @@ export class AgenteExecutor {
         intencion_detectada: textoOpcional((parsed as any).intencion_detectada),
         siguiente_accion_sugerida: textoOpcional((parsed as any).siguiente_accion_sugerida),
         requiere_escalamiento: (parsed as any).requiere_escalamiento === true,
-        espera_respuesta: (parsed as any).espera_respuesta !== false
+        espera_respuesta: (parsed as any).espera_respuesta !== false,
+        json_parseado: true
       };
     } else {
       const limpio = limpiarTono((resultadoAdaptador.respuesta_texto || '').trim());
@@ -648,9 +663,12 @@ export class AgenteExecutor {
         filtros: filtrosAnclados,
         pregunta_seguimiento: null,
         opciones_sugeridas: [],
-        conversationId: nuevaConversationId
+        conversationId: nuevaConversationId,
+        json_parseado: false
       };
     }
+
+    if (entrada.sesion_hilo) salida.sesion_hilo = entrada.sesion_hilo;
 
     const ejecucionId = entrada.modo_simulacion
       ? undefined

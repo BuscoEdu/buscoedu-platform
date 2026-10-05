@@ -217,8 +217,40 @@ export function pasoTrasContacto(completo: boolean): 'datos' | 'consentimiento' 
   return completo ? 'consentimiento' : 'datos';
 }
 
+const UUID_HILO_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * El hilo activo es la oportunidad de la conversación.
+ * Sin uuid no hay a quién atribuir la intención: no se reutiliza la de otro contacto.
+ */
+export function validarOportunidadHilo(
+  valor: unknown
+): { ok: true; oportunidadId: string } | { ok: false; code: 'hilo_requerido' } {
+  const texto = typeof valor === 'string' ? valor.trim() : '';
+  if (!UUID_HILO_RE.test(texto)) return { ok: false, code: 'hilo_requerido' };
+  return { ok: true, oportunidadId: texto };
+}
+
+/**
+ * Replay solo si la fila ya pertenece a este hilo.
+ * Nulo (filas viejas) u otro uuid es cruce: nunca se devuelve esa intención.
+ */
+export function coincidenciaHilo(
+  hiloGuardado: string | null | undefined,
+  hiloSolicitado: string
+): { ok: true } | { ok: false; code: 'hilo_no_coincide' } {
+  if (!hiloGuardado || hiloGuardado !== hiloSolicitado) {
+    return { ok: false, code: 'hilo_no_coincide' };
+  }
+  return { ok: true };
+}
+
 const HTTP_POR_CODIGO: Record<string, number> = {
   json_invalido: 400,
+  hilo_requerido: 400,
+  hilo_no_encontrado: 404,
+  hilo_no_coincide: 409,
   oferta_requerida: 400,
   oferta_invalida: 400,
   accion_invalida: 400,

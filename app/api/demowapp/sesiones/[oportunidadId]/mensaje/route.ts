@@ -3,6 +3,7 @@ import { esErrorCanalFailClosed, estadoHttpErrorCanal } from '@/lib/agentes';
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 import { processInboundStudentMessage } from '@/src/lib/demowapp/mensaje-service';
+import { participantesDelHilo } from '@/src/lib/demowapp/participantes-hilo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,22 +45,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ opo
     // bloqueados por políticas RLS de solo lectura.
     const db = getServiceRoleClient();
 
-    const { data: app, error: appError } = await db
-      .from('aplicaciones')
-      .select('id, persona_id')
-      .eq('oportunidad_id', oportunidadId)
-      .order('creado_en', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (appError || !app) {
-      return NextResponse.json({ ok: false, error: 'aplicacion_no_encontrada' }, { status: 404 });
+    const participantes = await participantesDelHilo(db, oportunidadId);
+    if (!participantes) {
+      return NextResponse.json({ ok: false, error: 'hilo_no_encontrado' }, { status: 404 });
     }
 
     const result = await processInboundStudentMessage(db, {
       oportunidadId,
-      personaId: app.persona_id,
-      aplicacionId: app.id,
+      personaId: participantes.personaId,
+      aplicacionId: participantes.aplicacionId,
       texto,
       clientMessageId,
       origen: 'operador_simulacion'

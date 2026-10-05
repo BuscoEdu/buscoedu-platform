@@ -1,5 +1,7 @@
 # BA-031 — Funnel aplicar → registro → consentimiento en el hilo Demo WhatsApp
 
+> El cruce de hilo, la sesión QA y el enmascarado están en `docs/backend/README-a1-demowapp.md`. Desde ese cambio, `POST /api/demowapp/aplicar` exige `oportunidadId`.
+
 **Rama:** `feat/lote-ba-naia-wapp`  
 **Alcance:** backend del hilo `/demoWapp`. Sin PR. Sin Meta Cloud / BA-032. El SQL no se aplicó en producción.
 

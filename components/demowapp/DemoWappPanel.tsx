@@ -47,6 +47,8 @@ interface Props {
    * dentro del chat. Sin id no hay funnel. No se usa en el CRM embebido.
    */
   ofertaId?: string | null;
+  /** Oportunidad del hilo abierto. Aplicar la manda en cada request para no cruzar contactos. */
+  oportunidadId?: string | null;
   /** Aviso corto dentro del hilo (carga o error). No es un banner de portal. */
   avisoHilo?: string | null;
   /** Acción vacía dentro del hilo, por ejemplo elegir conversación. */
@@ -126,6 +128,7 @@ export default function DemoWappPanel({
   onAbrirOperacion,
   ofertaNombre,
   ofertaId = null,
+  oportunidadId = null,
   avisoHilo,
   accionVacia
 }: Props) {
@@ -133,7 +136,7 @@ export default function DemoWappPanel({
   const [sending, setSending] = useState(false);
   const mensajesRef = useRef<HTMLDivElement>(null);
   /* BA-031: el funnel vive en este hilo. Mi lista no comparte estado con Aplicar. */
-  const funnel = useFunnelHilo(ofertaId);
+  const funnel = useFunnelHilo(ofertaId, oportunidadId);
 
   // MEJORA A.1: mensajes optimistas del usuario (se muestran antes de que la
   // API responda) y el indicador de "NaIA está escribiendo...".

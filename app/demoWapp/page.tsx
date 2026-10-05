@@ -185,6 +185,7 @@ export default function DemoWappPage() {
         onAbrirOperacion={() => setOpsAbierta(true)}
         ofertaNombre={detail?.oferta?.nombre_oferta || detail?.oferta?.nombre || null}
         ofertaId={detail?.oferta?.id || null}
+        oportunidadId={selectedId}
         avisoHilo={avisoHilo}
         accionVacia={
           detail

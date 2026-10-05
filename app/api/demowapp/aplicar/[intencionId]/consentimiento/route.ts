@@ -9,9 +9,10 @@ export const dynamic = 'force-dynamic';
  * POST decision=aceptar|rechazar|abandonar.
  * Solo aceptar, y solo si las reglas pasan, crea la oportunidad.
  */
-export async function GET(_req: Request, { params }: { params: Promise<{ intencionId: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ intencionId: string }> }) {
   const { intencionId } = await params;
-  return conFunnel((db) => presentarConsentimiento(db, intencionId));
+  const oportunidadId = new URL(req.url).searchParams.get('oportunidadId');
+  return conFunnel((db) => presentarConsentimiento(db, intencionId, oportunidadId));
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ intencionId: string }> }) {
@@ -19,6 +20,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ intenci
   return conFunnel(async (db) => {
     const body = await leerJson(req);
     return resolverConsentimientoEnHilo(db, intencionId, {
+      oportunidadId: body.oportunidadId,
       decision: body.decision,
       consentimientos: body.consentimientos,
       ip: ipDe(req)

@@ -14,6 +14,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ intenci
   return conFunnel(async (db) => {
     const body = await leerJson(req);
     return guardarDatosEnHilo(db, intencionId, {
+      oportunidadId: body.oportunidadId,
       nombreCompleto: body.nombreCompleto,
       celular: body.celular,
       correo: body.correo,

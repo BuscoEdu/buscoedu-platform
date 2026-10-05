@@ -20,6 +20,7 @@ import {
 } from './conversacion-service';
 import { scheduleSilenceReminderPush, cancelPendingSilencePushes } from './push-service';
 import { DEMOWAPP_CAPTURE_ORDER, type DemoWappCaptureKey } from './config';
+import { leerSesionHiloDeContexto, type SesionHilo } from './sesion-hilo';
 
 interface NaiaStructuredResponse {
   mensaje: string;
@@ -39,10 +40,26 @@ const MENSAJE_FALLBACK_PROVEEDOR =
  * del formato NaIA va en la misma burbuja. Las opciones tipo "Explorar resultados"
  * son chips del canal web y no se pegan aquí.
  */
+/** Log de contingencia. Solo código, nombre y mensaje corto: sin texto del estudiante ni teléfono. */
+function logNaiaFallback(detalle: Record<string, unknown>) {
+  console.error('[demowapp] naia_fallback', detalle);
+}
+
+function mensajeSinPii(texto: string): string {
+  return texto.replace(/\+?\d[\d\s-]{6,}\d/g, '[redactado]').slice(0, 240);
+}
+
 function textoVisibleEnHilo(salida: SalidaEjecucion): string {
   const mensaje = (salida.mensaje || '').trim();
   const pregunta = (salida.pregunta_seguimiento || '').trim();
-  if (!pregunta) return mensaje || MENSAJE_FALLBACK_PROVEEDOR;
+  if (salida.json_parseado === false) {
+    logNaiaFallback({ motivo: 'json_no_parseable' });
+  }
+  if (!mensaje) {
+    if (salida.json_parseado !== false) logNaiaFallback({ motivo: 'respuesta_vacia' });
+    return MENSAJE_FALLBACK_PROVEEDOR;
+  }
+  if (!pregunta) return mensaje;
   if (mensaje.toLowerCase().includes(pregunta.toLowerCase())) return mensaje;
   return `${mensaje}\n\n${pregunta}`.trim();
 }
@@ -62,9 +79,11 @@ async function callNaiaFromServer(input: {
   conversationId?: string;
   contexto: Record<string, unknown>;
   sesion: SesionEstudiante;
-}): Promise<NaiaStructuredResponse> {
+  sesionHilo?: SesionHilo;
+}): Promise<NaiaStructuredResponse & { sesionHilo?: SesionHilo }> {
   // BA-024 sigue en el executor (voz, sesión, contrato JSON de este canal).
   // BA-029 pide codigo_canal=whatsapp: config y contexto de canal salen del Centro IA.
+  // El hilo W1 viaja en sesion_hilo; mensaje_usuario es solo el texto del estudiante.
   const codigoAgente = await resolverAgenteDelCanal(DEMOWAPP_CANAL);
   try {
     const salida = await agenteExecutor.ejecutar({
@@ -73,7 +92,8 @@ async function callNaiaFromServer(input: {
       mensaje_usuario: input.mensaje,
       conversation_id: input.conversationId,
       contexto_persona: input.contexto,
-      sesion_previa: input.sesion
+      sesion_previa: input.sesion,
+      sesion_hilo: input.sesionHilo
     });
     return {
       mensaje: textoVisibleEnHilo(salida),
@@ -82,15 +102,28 @@ async function callNaiaFromServer(input: {
       siguiente_accion_sugerida: salida.siguiente_accion_sugerida,
       requiere_escalamiento: salida.requiere_escalamiento,
       espera_respuesta: salida.espera_respuesta !== false,
-      conversationId: salida.conversationId || input.conversationId
+      conversationId: salida.conversationId || input.conversationId,
+      sesionHilo: salida.sesion_hilo || input.sesionHilo
     };
   } catch (err) {
     if (esErrorCanalFailClosed(err)) throw err;
-    console.error('[demowapp] NaIA canal whatsapp', err);
+    const error = err as { name?: string; code?: string; codigo?: string; message?: string };
+    logNaiaFallback({
+      motivo: 'excepcion',
+      name: typeof error?.name === 'string' ? error.name : 'Error',
+      code:
+        typeof error?.codigo === 'string'
+          ? error.codigo
+          : typeof error?.code === 'string'
+            ? error.code
+            : null,
+      message: mensajeSinPii(typeof error?.message === 'string' ? error.message : 'error_desconocido')
+    });
     return {
       mensaje: MENSAJE_FALLBACK_PROVEEDOR,
       espera_respuesta: true,
-      conversationId: input.conversationId
+      conversationId: input.conversationId,
+      sesionHilo: input.sesionHilo
     };
   }
 }
@@ -695,7 +728,7 @@ export async function processInboundStudentMessage(
   input: {
     oportunidadId: string;
     personaId: string;
-    aplicacionId: string;
+    aplicacionId?: string | null;
     texto: string;
     clientMessageId: string;
     origen: 'estudiante_modal' | 'operador_simulacion';
@@ -735,12 +768,14 @@ export async function processInboundStudentMessage(
       .select('id, nombres, apellidos, correo_principal, celular_e164, telefono_principal')
       .eq('id', input.personaId)
       .maybeSingle(),
-    db
-      .from('aplicaciones')
-      .select('estado, fecha_aplicacion, oferta_id, periodo_academico_id')
-      .eq('id', input.aplicacionId)
-      .eq('oportunidad_id', input.oportunidadId)
-      .maybeSingle(),
+    input.aplicacionId
+      ? db
+          .from('aplicaciones')
+          .select('estado, fecha_aplicacion, oferta_id, periodo_academico_id')
+          .eq('id', input.aplicacionId)
+          .eq('oportunidad_id', input.oportunidadId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
     db
       .from('oportunidades')
       .select('id, estado, temperatura, puntaje, etapa_id, subestado_id, actualizado_en')
@@ -757,7 +792,7 @@ export async function processInboundStudentMessage(
   const persona = personaRes.data || {};
   const oportunidad = oportunidadRes.data || {};
 
-  const ofertaId = aplicacionRes.data?.oferta_id;
+  const ofertaId = input.aplicacionId ? aplicacionRes.data?.oferta_id : null;
   const { data: oferta } = ofertaId
     ? await db
         .from('ofertas_academicas')
@@ -860,11 +895,13 @@ export async function processInboundStudentMessage(
     // BA-024: lo ya dicho, no la lista de faltantes del formulario.
     datos_ya_dichos: sesionNaia
   };
+  const sesionHiloPrevia = leerSesionHiloDeContexto((conversacion as any).contexto_resumido);
   const naia = await callNaiaFromServer({
     mensaje: input.texto,
     conversationId: (conversacion as any).referencia_externa || undefined,
     contexto: contextoNaia,
-    sesion: sesionNaia
+    sesion: sesionNaia,
+    sesionHilo: sesionHiloPrevia
   });
   const reply = {
     mensaje: naia.mensaje,
@@ -927,6 +964,7 @@ export async function processInboundStudentMessage(
         missing: stateAfterCapture.missing,
         datos_ya_dichos: sesionNaia,
         intencion: naia.intencion_detectada || null,
+        sesion_hilo: naia.sesionHilo || sesionHiloPrevia,
         siguiente_accion: naia.siguiente_accion_sugerida || null,
         requiere_escalamiento: Boolean(naia.requiere_escalamiento),
         funnel_advance_trigger: funnelAdvance.trigger,

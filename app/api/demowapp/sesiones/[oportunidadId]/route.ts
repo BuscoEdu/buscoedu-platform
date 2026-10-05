@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 import { DEMOWAPP_CANAL, getLatestConversationByOpportunity } from '@/src/lib/demowapp/conversacion-service';
+import { personaSinTelefonoCompleto } from '@/src/lib/demowapp/participantes-hilo';
+import { enmascararTelefonoSesion } from '@/src/lib/phone';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,23 +32,35 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ opo
       .limit(1)
       .maybeSingle();
 
-    if (appError || !app) {
-      return NextResponse.json({ ok: false, error: 'aplicacion_no_encontrada' }, { status: 404 });
+    if (appError) {
+      return NextResponse.json({ ok: false, error: appError.message }, { status: 500 });
     }
 
-    const [{ data: oportunidad }, { data: persona }, { data: oferta }, { data: notas }, { data: tareas }] =
+    const { data: oportunidad, error: oportunidadError } = await db
+      .from('oportunidades')
+      .select('id, codigo, estado, temperatura, etapa_id, subestado_id, puntaje, asesor_actual_id, actualizado_en, es_qa, persona_id')
+      .eq('id', oportunidadId)
+      .maybeSingle();
+
+    if (oportunidadError) {
+      return NextResponse.json({ ok: false, error: oportunidadError.message }, { status: 500 });
+    }
+
+    const personaId = app?.persona_id || oportunidad?.persona_id;
+    if (!personaId || !oportunidad) {
+      return NextResponse.json({ ok: false, error: 'hilo_no_encontrado' }, { status: 404 });
+    }
+
+    const [{ data: persona }, { data: oferta }, { data: notas }, { data: tareas }] =
       await Promise.all([
         db
-          .from('oportunidades')
-          .select('id, estado, temperatura, etapa_id, subestado_id, puntaje, asesor_actual_id, actualizado_en')
-          .eq('id', oportunidadId)
-          .single(),
-        db
           .from('personas')
-          .select('id, nombres, apellidos, celular_e164, telefono_principal, correo_principal')
-          .eq('id', app.persona_id)
+          .select('id, nombres, apellidos, celular_e164, telefono_principal, correo_principal, es_qa')
+          .eq('id', personaId)
           .single(),
-        db.from('ofertas_academicas').select('id, nombre_oferta').eq('id', app.oferta_id).maybeSingle(),
+        app?.oferta_id
+          ? db.from('ofertas_academicas').select('id, nombre_oferta').eq('id', app.oferta_id).maybeSingle()
+          : Promise.resolve({ data: null }),
         db
           .from('notas_crm')
           .select('id, contenido, creado_en')
@@ -83,13 +97,20 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ opo
         : Promise.resolve({ data: null } as any)
     ]);
 
+    const personaPublica = personaSinTelefonoCompleto(persona as Record<string, unknown> | null);
+    const telefonoEnmascarado =
+      (personaPublica as { telefonoEnmascarado?: string } | null)?.telefonoEnmascarado ||
+      enmascararTelefonoSesion(null);
+
     return NextResponse.json({
       ok: true,
       detalle: {
-        aplicacion: app,
+        aplicacion: app || null,
         oportunidad,
         oferta,
-        persona,
+        persona: personaPublica,
+        telefonoEnmascarado,
+        esQa: oportunidad.es_qa === true || (persona as { es_qa?: boolean } | null)?.es_qa === true,
         conversacion: conversacion || null,
         mensajes,
         contexto: {

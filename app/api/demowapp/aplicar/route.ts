@@ -16,6 +16,7 @@ export async function POST(req: Request) {
       accion: body.accion,
       ofertaId: body.ofertaId,
       claveIdempotencia: body.claveIdempotencia,
+      oportunidadId: body.oportunidadId,
       nombreCompleto: body.nombreCompleto,
       celular: body.celular,
       correo: body.correo,

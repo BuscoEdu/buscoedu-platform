@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   almacenNavegador,
+  cuerpoIniciarHilo,
   declaracionesDesdeMarcas,
   esCierreAplicar,
   fusionarError,
@@ -10,6 +11,7 @@ import {
   leerMemoria,
   normalizarCuerpo,
   rotarSlot,
+  rutaConHilo,
   vistaCargando,
   vistaRed,
   vistaSoloLista,
@@ -68,11 +70,11 @@ async function pedir(url: string, metodo: 'GET' | 'POST', cuerpo?: unknown): Pro
   }
 }
 
-function recordarIntencion(ofertaId: string, memoria: MemoriaHilo) {
-  guardarMemoria(almacenNavegador(), ofertaId, memoria);
+function recordarIntencion(oportunidadId: string, ofertaId: string, memoria: MemoriaHilo) {
+  guardarMemoria(almacenNavegador(), oportunidadId, ofertaId, memoria);
 }
 
-export function useFunnelHilo(ofertaId: string | null): FunnelHilo {
+export function useFunnelHilo(ofertaId: string | null, oportunidadId: string | null = null): FunnelHilo {
   const [aplicar, setAplicar] = useState<VistaFunnel | null>(null);
   const [miLista, setMiLista] = useState<VistaFunnel | null>(null);
   const [borrador, setBorrador] = useState<BorradorDatos>({ nombre: '', celular: '', correo: '' });
@@ -96,26 +98,29 @@ export function useFunnelHilo(ofertaId: string | null): FunnelHilo {
     setMarcas({});
     precargado.current = null;
     firmaMarcas.current = '';
-    if (!ofertaId) return;
+    if (!ofertaId || !oportunidadId) return;
 
     let cancelado = false;
-    const memoria = leerMemoria(almacenNavegador(), ofertaId);
+    const memoria = leerMemoria(almacenNavegador(), oportunidadId, ofertaId);
 
     const restaurarAplicar = async () => {
       if (!memoria.aplicar.intencionId) return;
       const seq = ++seqAplicar.current;
       setAplicar(vistaCargando(null, null));
-      let vista = await pedir(`/api/demowapp/aplicar/${memoria.aplicar.intencionId}`, 'GET');
+      let vista = await pedir(
+        rutaConHilo(`/api/demowapp/aplicar/${memoria.aplicar.intencionId}`, oportunidadId),
+        'GET'
+      );
       if (cancelado || seq !== seqAplicar.current) return;
       if (!vista.ok && vista.code === 'intencion_no_encontrada') {
         memoria.aplicar.intencionId = null;
-        recordarIntencion(ofertaId, memoria);
+        recordarIntencion(oportunidadId, ofertaId, memoria);
         setAplicar(null);
         return;
       }
       if (vista.ok && vista.ui.paso === 'consentimiento' && vista.sesionDemo?.id) {
         const textos = await pedir(
-          `/api/demowapp/aplicar/${vista.sesionDemo.id}/consentimiento`,
+          rutaConHilo(`/api/demowapp/aplicar/${vista.sesionDemo.id}/consentimiento`, oportunidadId),
           'GET'
         );
         if (cancelado || seq !== seqAplicar.current) return;
@@ -128,11 +133,13 @@ export function useFunnelHilo(ofertaId: string | null): FunnelHilo {
       if (!memoria.lista.intencionId) return;
       const seq = ++seqLista.current;
       setMiLista(vistaCargando(null, 'mi_lista'));
-      const vista = vistaSoloLista(await pedir(`/api/demowapp/aplicar/${memoria.lista.intencionId}`, 'GET'));
+      const vista = vistaSoloLista(
+        await pedir(rutaConHilo(`/api/demowapp/aplicar/${memoria.lista.intencionId}`, oportunidadId), 'GET')
+      );
       if (cancelado || seq !== seqLista.current) return;
       if (!vista.ok && vista.code === 'intencion_no_encontrada') {
         memoria.lista.intencionId = null;
-        recordarIntencion(ofertaId, memoria);
+        recordarIntencion(oportunidadId, ofertaId, memoria);
         setMiLista(null);
         return;
       }
@@ -144,7 +151,7 @@ export function useFunnelHilo(ofertaId: string | null): FunnelHilo {
     return () => {
       cancelado = true;
     };
-  }, [ofertaId]);
+  }, [ofertaId, oportunidadId]);
 
   /* Nombre y celular ya guardados vuelven al formulario si el paso sigue abierto. */
   useEffect(() => {
@@ -173,25 +180,28 @@ export function useFunnelHilo(ofertaId: string | null): FunnelHilo {
   const publicarAplicar = useCallback((seq: number, vista: VistaFunnel) => {
     if (seq !== seqAplicar.current) return;
     setAplicar(vista);
-    if (!ofertaId || !vista.sesionDemo?.id) return;
-    const memoria = leerMemoria(almacenNavegador(), ofertaId);
+    if (!ofertaId || !oportunidadId || !vista.sesionDemo?.id) return;
+    const memoria = leerMemoria(almacenNavegador(), oportunidadId, ofertaId);
     memoria.aplicar.intencionId = vista.sesionDemo.id;
-    recordarIntencion(ofertaId, memoria);
-  }, [ofertaId]);
+    recordarIntencion(oportunidadId, ofertaId, memoria);
+  }, [ofertaId, oportunidadId]);
 
   const conTextos = useCallback(async (vista: VistaFunnel) => {
-    if (!vista.ok || vista.ui.paso !== 'consentimiento' || !vista.sesionDemo?.id) return vista;
-    const textos = await pedir(`/api/demowapp/aplicar/${vista.sesionDemo.id}/consentimiento`, 'GET');
+    if (!oportunidadId || !vista.ok || vista.ui.paso !== 'consentimiento' || !vista.sesionDemo?.id) return vista;
+    const textos = await pedir(
+      rutaConHilo(`/api/demowapp/aplicar/${vista.sesionDemo.id}/consentimiento`, oportunidadId),
+      'GET'
+    );
     return textos.ok ? textos : fusionarError(vista, textos);
-  }, []);
+  }, [oportunidadId]);
 
   const iniciarAplicar = useCallback(() => {
-    if (!ofertaId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
+    if (!ofertaId || !oportunidadId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
     ocupadoAplicar.current = true;
-    const memoria = leerMemoria(almacenNavegador(), ofertaId);
+    const memoria = leerMemoria(almacenNavegador(), oportunidadId, ofertaId);
     if (esCierreAplicar(aplicar?.ui.paso)) {
-      memoria.aplicar = rotarSlot(memoria.aplicar, ofertaId, 'iniciar');
-      recordarIntencion(ofertaId, memoria);
+      memoria.aplicar = rotarSlot(memoria.aplicar, oportunidadId, ofertaId, 'iniciar');
+      recordarIntencion(oportunidadId, ofertaId, memoria);
       precargado.current = null;
       firmaMarcas.current = '';
       setBorrador({ nombre: '', celular: '', correo: '' });
@@ -202,56 +212,67 @@ export function useFunnelHilo(ofertaId: string | null): FunnelHilo {
     setAplicar(vistaCargando(base, 'iniciada'));
     void (async () => {
       try {
-        const vista = await pedir('/api/demowapp/aplicar', 'POST', {
-          accion: 'iniciar',
-          ofertaId,
-          claveIdempotencia: memoria.aplicar.clave
-        });
+        const vista = await pedir(
+          '/api/demowapp/aplicar',
+          'POST',
+          cuerpoIniciarHilo({
+            accion: 'iniciar',
+            ofertaId,
+            oportunidadId,
+            claveIdempotencia: memoria.aplicar.clave
+          })
+        );
         const lista = vista.ok ? await conTextos(vista) : fusionarError(base, vista);
         publicarAplicar(seq, lista);
       } finally {
         if (seq === seqAplicar.current) ocupadoAplicar.current = false;
       }
     })();
-  }, [ofertaId, aplicar, conTextos, publicarAplicar]);
+  }, [ofertaId, oportunidadId, aplicar, conTextos, publicarAplicar]);
 
   const guardarEnLista = useCallback(() => {
     /* La misma clave vuelve a la fila de Mi lista. No abre datos ni consentimiento. */
-    if (!ofertaId || miLista?.ui.cargando || ocupadoLista.current) return;
+    if (!ofertaId || !oportunidadId || miLista?.ui.cargando || ocupadoLista.current) return;
     ocupadoLista.current = true;
-    const memoria = leerMemoria(almacenNavegador(), ofertaId);
+    const memoria = leerMemoria(almacenNavegador(), oportunidadId, ofertaId);
     const seq = ++seqLista.current;
     setMiLista(vistaCargando(miLista, 'mi_lista'));
     void (async () => {
       try {
         const vista = vistaSoloLista(
-          await pedir('/api/demowapp/aplicar', 'POST', {
-            accion: 'mi_lista',
-            ofertaId,
-            claveIdempotencia: memoria.lista.clave
-          })
+          await pedir(
+            '/api/demowapp/aplicar',
+            'POST',
+            cuerpoIniciarHilo({
+              accion: 'mi_lista',
+              ofertaId,
+              oportunidadId,
+              claveIdempotencia: memoria.lista.clave
+            })
+          )
         );
         if (seq !== seqLista.current) return;
         const pintada = vista.ok ? vista : fusionarError(miLista, vista);
         setMiLista(vistaSoloLista(pintada));
         if (pintada.ok && pintada.sesionDemo?.id && pintada.ui.paso === 'mi_lista') {
           memoria.lista.intencionId = pintada.sesionDemo.id;
-          recordarIntencion(ofertaId, memoria);
+          recordarIntencion(oportunidadId, ofertaId, memoria);
         }
       } finally {
         if (seq === seqLista.current) ocupadoLista.current = false;
       }
     })();
-  }, [ofertaId, miLista]);
+  }, [ofertaId, oportunidadId, miLista]);
 
   const enviarDatos = useCallback(() => {
     const intencionId = aplicar?.sesionDemo?.id;
-    if (!ofertaId || !intencionId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
+    if (!ofertaId || !oportunidadId || !intencionId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
     if (aplicar.ui.paso === 'mi_lista') return;
     ocupadoAplicar.current = true;
     const seq = ++seqAplicar.current;
     setAplicar(vistaCargando(aplicar, aplicar.ui.paso));
     const cuerpo: Record<string, string> = {
+      oportunidadId,
       nombreCompleto: borrador.nombre,
       celular: borrador.celular,
       pais: 'CO'
@@ -266,16 +287,16 @@ export function useFunnelHilo(ofertaId: string | null): FunnelHilo {
         if (seq === seqAplicar.current) ocupadoAplicar.current = false;
       }
     })();
-  }, [ofertaId, aplicar, borrador, conTextos, publicarAplicar]);
+  }, [ofertaId, oportunidadId, aplicar, borrador, conTextos, publicarAplicar]);
 
   const decidir = useCallback((decision: DecisionHilo) => {
     const intencionId = aplicar?.sesionDemo?.id;
-    if (!ofertaId || !intencionId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
+    if (!ofertaId || !oportunidadId || !intencionId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
     if (aplicar.ui.paso === 'mi_lista') return;
     ocupadoAplicar.current = true;
     const seq = ++seqAplicar.current;
     setAplicar(vistaCargando(aplicar, aplicar.ui.paso));
-    const cuerpo: Record<string, unknown> = { decision };
+    const cuerpo: Record<string, unknown> = { decision, oportunidadId };
     if (decision === 'aceptar') {
       cuerpo.consentimientos = declaracionesDesdeMarcas(
         aplicar.consentimientos.map((item) => item.codigo),
@@ -290,25 +311,28 @@ export function useFunnelHilo(ofertaId: string | null): FunnelHilo {
         if (seq === seqAplicar.current) ocupadoAplicar.current = false;
       }
     })();
-  }, [ofertaId, aplicar, marcas, publicarAplicar]);
+  }, [ofertaId, oportunidadId, aplicar, marcas, publicarAplicar]);
 
   /* Si el POST de datos no trajo el catálogo, el hilo vuelve a pedir el texto. */
   const verPermisos = useCallback(() => {
     const intencionId = aplicar?.sesionDemo?.id;
-    if (!ofertaId || !intencionId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
+    if (!ofertaId || !oportunidadId || !intencionId || aplicar?.ui.cargando || ocupadoAplicar.current) return;
     if (aplicar.ui.paso !== 'consentimiento') return;
     ocupadoAplicar.current = true;
     const seq = ++seqAplicar.current;
     setAplicar(vistaCargando(aplicar, 'consentimiento'));
     void (async () => {
       try {
-        const textos = await pedir(`/api/demowapp/aplicar/${intencionId}/consentimiento`, 'GET');
+        const textos = await pedir(
+          rutaConHilo(`/api/demowapp/aplicar/${intencionId}/consentimiento`, oportunidadId),
+          'GET'
+        );
         publicarAplicar(seq, textos.ok ? textos : fusionarError(aplicar, textos));
       } finally {
         if (seq === seqAplicar.current) ocupadoAplicar.current = false;
       }
     })();
-  }, [ofertaId, aplicar, publicarAplicar]);
+  }, [ofertaId, oportunidadId, aplicar, publicarAplicar]);
 
   const cambiarBorrador = useCallback((campo: keyof BorradorDatos, valor: string) => {
     setBorrador((actual) => ({ ...actual, [campo]: valor }));
