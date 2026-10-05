@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { getServerSupabase } from '@/src/lib/supabase-server';
+import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
+import { consultaSinQa } from '@/src/lib/demowapp/es-qa';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,13 +28,16 @@ export default async function PersonasPage({
 
   try {
     const supabase = await getServerSupabase();
-    let q = supabase
-      .from('personas')
-      .select(
-        'id, nombres, apellidos, correo_principal, celular_e164, telefono_principal, telefono_verificado, estado_relacion, actualizado_en',
-        { count: 'exact' }
-      )
-      .neq('estado', 'inactivo');
+    const sesion = await getSesionLeadCenter();
+    let q = consultaSinQa(
+      supabase
+        .from('personas')
+        .select(
+          'id, nombres, apellidos, correo_principal, celular_e164, telefono_principal, telefono_verificado, estado_relacion, actualizado_en',
+          { count: 'exact' }
+        ),
+      sesion.esSuper
+    ).neq('estado', 'inactivo');
 
     if (sp.q) {
       q = q.or(

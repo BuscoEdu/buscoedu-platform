@@ -4,11 +4,13 @@ import { enmascararTelefonoSesion } from '@/src/lib/phone';
 
 /**
  * Alta de un hilo de prueba para Demo WApp.
- * Crea persona y oportunidad con es_qa. No crea aplicación ni lead a la universidad.
- * El teléfono es sintético (+57300000XXXX) para no pisar un celular real.
+ * Crea persona y oportunidad con es_qa. No crea aplicación ni transferencia.
+ * El celular sintético usa el rango móvil 399, no asignado en Colombia,
+ * para que fn_ba031 (busca persona por celular_e164) no ate el hilo a un estudiante real.
+ * Forma guardada: +57399000XXXX. Forma legible: +57 399 000 XXXX.
  */
 
-const PREFIJO_TELEFONO_QA = '+57300000';
+const PREFIJO_TELEFONO_QA = '+57399000';
 const VENTANA_MS = 60_000;
 const MAX_POR_VENTANA = 8;
 const golpes = new Map<string, number[]>();
@@ -32,13 +34,21 @@ export function permitirAltaQa(claveOperador: string, ahora = Date.now()): boole
   return true;
 }
 
+/**
+ * Cuatro dígitos al azar sobre +57 399 000.
+ * No inserta si ese E.164 ya está en celular_e164 o en telefono_principal.
+ */
 async function telefonoLibre(db: SupabaseClient): Promise<string | null> {
   for (let intento = 0; intento < 8; intento += 1) {
     const sufijo = String(randomInt(0, 10000)).padStart(4, '0');
     const e164 = `${PREFIJO_TELEFONO_QA}${sufijo}`;
-    const { data, error } = await db.from('personas').select('id').eq('celular_e164', e164).maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!data) return e164;
+    const [porCelular, porPrincipal] = await Promise.all([
+      db.from('personas').select('id').eq('celular_e164', e164).limit(1),
+      db.from('personas').select('id').eq('telefono_principal', e164).limit(1)
+    ]);
+    if (porCelular.error) throw new Error(porCelular.error.message);
+    if (porPrincipal.error) throw new Error(porPrincipal.error.message);
+    if ((porCelular.data || []).length === 0 && (porPrincipal.data || []).length === 0) return e164;
   }
   return null;
 }

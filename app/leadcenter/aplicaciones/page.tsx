@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { getServerSupabase } from '@/src/lib/supabase-server';
+import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
+import { consultaSinQa } from '@/src/lib/demowapp/es-qa';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,12 +32,17 @@ export default async function AplicacionesPage({
 
   try {
     const supabase = await getServerSupabase();
+    const sesion = await getSesionLeadCenter();
 
-    let q = supabase
-      .from('aplicaciones')
-      .select('id, oportunidad_id, persona_id, oferta_id, estado, fecha_aplicacion, creado_en', {
-        count: 'exact'
-      })
+    /* Bandeja de leads (aplicación = lead). Sin es_qa para quien no es super-admin. */
+    let q = consultaSinQa(
+      supabase
+        .from('aplicaciones')
+        .select('id, oportunidad_id, persona_id, oferta_id, estado, fecha_aplicacion, creado_en', {
+          count: 'exact'
+        }),
+      sesion.esSuper
+    )
       .order('creado_en', { ascending: false })
       .limit(200);
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 import { calcularEstadoEstancamiento } from '@/src/lib/leadcenter/estancamiento';
+import { consultaSinQa } from '@/src/lib/demowapp/es-qa';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
       query = query.ilike('nombre', `%${qText}%`);
     }
     /* Quien no es super admin no ve filas de prueba. El lead QA existe, pero no en su bandeja. */
-    if (!sesion.esSuper) query = query.eq('es_qa', false);
+    query = consultaSinQa(query, sesion.esSuper);
 
     const { data: baseRows, count, error } = await query
       .order('actualizado_en', { ascending: false })

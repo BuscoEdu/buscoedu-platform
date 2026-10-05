@@ -3,6 +3,7 @@ import { getServerSupabase } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
 import { generarSugerencia, ContextoCopiloto } from '@/src/lib/leadcenter/copiloto';
 import { calcularEstadoEstancamiento } from '@/src/lib/leadcenter/estancamiento';
+import { oportunidadFueraDeBandeja } from '@/src/lib/demowapp/es-qa';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,16 +18,34 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const supabase = await getServerSupabase();
 
+    const sesion = await getSesionLeadCenter();
     const { data: op, error } = await supabase
       .from('oportunidades')
       .select(
-        'id, persona_id, temperatura, estado, puntaje, fecha_proxima_accion, actualizado_en, fecha_entrada_subestado, etapa_id, subestado_id, modelo_negocio_snapshot'
+        'id, persona_id, temperatura, estado, puntaje, fecha_proxima_accion, actualizado_en, fecha_entrada_subestado, etapa_id, subestado_id, modelo_negocio_snapshot, es_qa'
       )
       .eq('id', id)
       .single();
 
     if (error || !op) {
       return NextResponse.json({ ok: false, error: 'no_encontrada' }, { status: 404 });
+    }
+
+    if (await oportunidadFueraDeBandeja(supabase, id, sesion.esSuper)) {
+      return NextResponse.json({ ok: false, error: 'no_encontrada' }, { status: 404 });
+    }
+
+    /* Aunque la vea un super-admin, el copiloto no pide transferir un lead de prueba. */
+    if ((op as { es_qa?: boolean }).es_qa === true) {
+      return NextResponse.json({
+        ok: true,
+        sugerencia: {
+          titulo: 'Lead de prueba',
+          mensaje: 'Esta oportunidad es QA. No se transfiere ni se notifica a la universidad.',
+          prioridad: 'baja',
+          acciones: [{ codigo: 'ignorar', etiqueta: 'Ignorar' }]
+        }
+      });
     }
 
     // Datos complementarios para las reglas.
@@ -42,7 +61,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         .from('transferencias_universidad')
         .select('id', { count: 'exact', head: true })
         .eq('oportunidad_id', id)
-        .eq('estado', 'pendiente'),
+        .eq('estado', 'pendiente')
+        .eq('es_qa', false),
       supabase.from('consentimientos_persona').select('id', { count: 'exact', head: true }).eq('persona_id', (op as any).persona_id).eq('estado', 'otorgado'),
       supabase.from('eventos_negocio').select('id', { count: 'exact', head: true }).eq('oportunidad_id', id).gte('creado_en', new Date(Date.now() - 7 * 86_400_000).toISOString()),
       supabase.from('reglas_estancamiento').select('id, etapa_id, subestado_id, tiempo_maximo_horas, horas_lenta, horas_estancada, bloque_recurrente_horas, descuento_lenta, descuento_estancada_por_bloque, limite_descuento_total, accion_recomendada, activo').eq('activo', true)

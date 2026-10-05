@@ -5,8 +5,9 @@
 // algún obligatorio, la lista de faltantes (no cierra en ese caso).
 // =====================================================================
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase } from '@/src/lib/supabase-server';
+import { getServerSupabase, getServiceRoleClient } from '@/src/lib/supabase-server';
 import { getSesionLeadCenter } from '@/src/lib/leadcenter/session';
+import { oportunidadEsQa } from '@/src/lib/demowapp/es-qa';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   try {
     const supabase = await getServerSupabase();
+    /* Cerrar ganada no debe empujar un lead de prueba hacia la universidad. */
+    if (await oportunidadEsQa(getServiceRoleClient(), id)) {
+      return NextResponse.json({ ok: false, error: 'omitida_es_qa' }, { status: 409 });
+    }
     const { data, error } = await supabase.rpc('fn_cerrar_ganada', {
       p_oportunidad_id: id,
       p_datos: datos,

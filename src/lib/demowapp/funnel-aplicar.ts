@@ -278,8 +278,9 @@ async function porId(db: SupabaseClient, id: string): Promise<FilaIntencion> {
 }
 
 /**
- * La clave puede repetirse entre hilos (único compuesto en BD).
- * No se usa maybeSingle: dos filas con la misma clave no son un error de lectura.
+ * BA-031 conserva el único de solo clave_idempotencia.
+ * Si esa clave ya existe, se lee la fila y no se inserta:
+ * otro hilo o hilo nulo responden 409 hilo_no_coincide.
  */
 async function filasPorClave(db: SupabaseClient, clave: string): Promise<FilaIntencion[]> {
   const { data, error } = await db
@@ -335,8 +336,8 @@ async function cargarIntencionDelHilo(
 }
 
 /**
- * Replay solo de la fila de este hilo.
- * Si la clave ya está en otro hilo, o en una fila con hilo nulo, 409: nunca se reenvía esa intención.
+ * Replay solo si la fila leída es de este hilo y de la misma acción.
+ * Clave ya usada en otro hilo, o con oportunidad_hilo_id nulo: 409 y no hay insert.
  */
 function elegirReplay(
   filas: FilaIntencion[],
@@ -498,6 +499,7 @@ export async function iniciarEnHilo(
   const oferta = await cargarOferta(db, ofertaId);
   const nombreOferta = oferta.nombre_oferta || 'esta oferta';
 
+  /* Misma clave con otro hilo: 409 aquí. No se llega al insert. */
   const previa = elegirReplay(await filasPorClave(db, clave), oportunidadHiloId, accion);
   if (previa) {
     return cuerpoDe(previa, { idempotente: true });
@@ -522,6 +524,7 @@ export async function iniciarEnHilo(
       .select('*')
       .single();
     if (error) {
+      /* Carrera contra el único de clave: se relee. Otro hilo sigue en 409, sin segundo insert. */
       if (error.code === '23505') {
         const otra = elegirReplay(await filasPorClave(db, clave), oportunidadHiloId, accion);
         if (otra) return cuerpoDe(otra, { idempotente: true });
@@ -563,6 +566,7 @@ export async function iniciarEnHilo(
     .single();
 
   if (error) {
+    /* Carrera contra el único de clave: se relee. Otro hilo sigue en 409, sin segundo insert. */
     if (error.code === '23505') {
       const otra = elegirReplay(await filasPorClave(db, clave), oportunidadHiloId, accion);
       if (otra) return cuerpoDe(otra, { idempotente: true });

@@ -2,9 +2,30 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Aislamiento de sesiones y leads de prueba.
- * El registro sí se crea (es_qa), pero no sale hacia la universidad:
- * no queda transferencia y los pushes con destino IES se cancelan.
+ * El lead sí se crea (aplicación + transferencia), marcado es_qa.
+ * La transferencia queda no facturable y no se notifica a la universidad.
+ * Quien no es super-admin no la ve en conteos, bandejas ni fichas.
  */
+
+/**
+ * Listados y conteos de negocio: el super-admin sigue viendo la fila de prueba.
+ * El resto de la consulta queda con es_qa = false.
+ * El builder de Supabase es any a propósito: el genérico se vuelve infinito.
+ */
+export function consultaSinQa(consulta: any, esSuper: boolean): any {
+  if (esSuper) return consulta;
+  return consulta.eq('es_qa', false);
+}
+
+/** La oportunidad es de prueba y esta sesión no debe verla ni operarla. */
+export async function oportunidadFueraDeBandeja(
+  db: SupabaseClient,
+  oportunidadId: string,
+  esSuper: boolean
+): Promise<boolean> {
+  if (esSuper) return false;
+  return leerEsQa(db, oportunidadId);
+}
 
 export function esQa(valor: unknown): boolean {
   return valor === true;
@@ -34,8 +55,8 @@ async function leerEsQa(db: SupabaseClient, oportunidadId: string): Promise<bool
 }
 
 /**
- * Marca el lead como prueba y retira la transferencia a la IES.
- * Primero borra la entrega: si el update falla, la universidad ya no la tiene en cola.
+ * Marca persona, oportunidad y aplicación. La transferencia se conserva
+ * pero deja de ser entregable a la universidad.
  */
 export async function oportunidadEsQa(db: SupabaseClient, oportunidadId: string): Promise<boolean> {
   return leerEsQa(db, oportunidadId);

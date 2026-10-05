@@ -7,7 +7,7 @@ Contrato de backend en `fix/a1-catalogo-demowapp`. No hay migración en este cam
 | Columna | Tipo supuesto | Uso |
 | --- | --- | --- |
 | `intenciones_aplicar_demowapp.oportunidad_hilo_id` | `uuid null`, FK a `oportunidades` | Hilo que abrió Aplicar. Nulo = fila anterior a este contrato. |
-| único `(clave_idempotencia, oportunidad_hilo_id)` | índice adicional | El único viejo de solo `clave_idempotencia` se conserva. Por eso la clave del cliente incluye el hilo: si no, el segundo contacto choca y recibe `409`. |
+| único `(clave_idempotencia, oportunidad_hilo_id)` | índice adicional | El único viejo de solo `clave_idempotencia` se conserva. La misma clave con otro hilo se lee y responde `409`; no se intenta el insert. |
 | `personas.es_qa`, `oportunidades.es_qa`, `aplicaciones.es_qa`, `transferencias_universidad.es_qa` | `boolean not null default false` | Marca de prueba. |
 | CHECK `transferencias_universidad_qa_no_facturable` | `NOT (es_qa AND es_facturable)` | Una transferencia QA no puede cobrarse. |
 
@@ -78,7 +78,7 @@ El cuerpo de error sigue el patrón `FunnelError` / `conFunnel`: `ok: false`, `c
 | `hilo_no_encontrado` | 404 | El uuid no existe en `oportunidades`. En el detalle de sesión, tampoco hay persona para ese hilo. |
 | `hilo_no_coincide` | 409 | La fila de la clave o de la intención tiene `oportunidad_hilo_id` distinto o nulo. No hay replay. |
 
-Replay (`idempotente: true`) solo si la fila existente tiene el mismo `oportunidad_hilo_id` y la misma acción (Mi lista no se mezcla con Aplicar: sigue `clave_en_uso`).
+Replay (`idempotente: true`) solo si la fila existente tiene el mismo `oportunidad_hilo_id` y la misma acción (Mi lista no se mezcla con Aplicar: sigue `clave_en_uso`). Si la clave ya existe con otro hilo o con `oportunidad_hilo_id` nulo, la respuesta es `409` `hilo_no_coincide` y no hay `INSERT`. El `23505` solo cubre la carrera contra el único de BA-031: se relee y se aplica la misma regla.
 
 Al insertar se guarda `oportunidad_hilo_id`. Si el hilo es `es_qa` y el estudiante acepta, el payload lleva `es_qa: true`. El lead se crea marcado y la transferencia, si la hay, queda no facturable.
 
@@ -116,7 +116,7 @@ Si `etiqueta` no empieza por `QA `, el servidor lo prefija. Largo 2–80 antes d
 
 Crea:
 
-- `personas` con `es_qa = true`, `estado_relacion = estudiante_registrado` (no es lead), teléfono sintético `+57300000XXXX` (4 dígitos, sin chocar con `celular_e164` existente).
+- `personas` con `es_qa = true`, `estado_relacion = estudiante_registrado` (no es lead), teléfono sintético en el rango móvil no asignado de Colombia `+57 399 000 XXXX` (E.164 `+57399000` + 4 dígitos). Antes de insertar se comprueba que no exista en `celular_e164` ni en `telefono_principal`, porque `fn_ba031_convertir_si_consentido` busca la persona por celular.
 - `oportunidades` con `es_qa = true`, `origen = demo_wapp_qa`, `tipo_oportunidad = estudiante`, código `QA-` + 8 hex, etapa inicial activa que no sea cierre. Sin oferta, sin universidad.
 
 No crea aplicación, consentimiento ni transferencia.
@@ -147,5 +147,24 @@ La sesión QA aparece en `GET /api/demowapp/sesiones` aunque no tenga aplicació
 `GET /api/demowapp/sesiones/:oportunidadId` igual: `detalle.telefonoEnmascarado`, `detalle.esQa`, y `detalle.persona` sin `celular_e164` ni `telefono_principal` (sí `telefonoEnmascarado` y `es_qa`). El hilo sin persona responde `404` `hilo_no_encontrado`.
 
 `GET /api/leadcenter/oportunidades` agrega `es_qa` en cada ítem. Si la sesión no es super admin, la consulta filtra `es_qa = false` antes de paginar. El filtro de tabla (RLS) no está en este cambio.
+
+No hay vistas SQL de cobro, conteos, B2B, notificaciones ni exportes. Esas lecturas viven en la app y, si quien consulta no es super-admin, quedan con `es_qa = false`:
+
+| Consulta | Qué excluye |
+| --- | --- |
+| `app/leadcenter/page.tsx` conteo `oportunidades` (activas y calientes) | `es_qa = false` |
+| `app/leadcenter/page.tsx` conteo `transferencias_universidad` pendientes | `es_qa = false` |
+| `app/leadcenter/page.tsx` conteo `tareas_crm` pendientes | tareas cuya oportunidad es QA (la tabla no tiene la columna) |
+| `app/leadcenter/aplicaciones/page.tsx` listado de `aplicaciones` | `es_qa = false` |
+| `app/leadcenter/personas/page.tsx` listado de `personas` | `es_qa = false` |
+| `app/leadcenter/personas/[id]/page.tsx` ficha y sus `oportunidades` | ficha 404 si la persona es QA; oportunidades `es_qa = false` |
+| `app/leadcenter/oportunidades/[id]/page.tsx` ficha y `transferencias_universidad` | ficha 404 si la oportunidad es QA; transferencias `es_qa = false` |
+| `app/leadcenter/tareas/page.tsx` listado `tareas_crm` | se quitan las de oportunidades QA |
+| `GET /api/leadcenter/oportunidades` | `es_qa = false` antes de paginar |
+| `GET /api/leadcenter/oportunidad/:id/copiloto` | 404 si no es super-admin; el conteo de transferencias pendientes exige `es_qa = false`. Si la oportunidad es QA, la sugerencia no pide transferencia a la IES |
+| `GET /api/leadcenter/oportunidad/:id/estancamiento` | 404 si no es super-admin |
+| `POST /api/leadcenter/oportunidad/:id/contacto` | 404 si no es super-admin |
+
+Hacia la universidad, aunque consulte un super-admin: el push con destino IES queda `omitida_es_qa`; `POST …/cerrar-ganada` responde `409` `omitida_es_qa` (esa RPC escribe `universidad_id` y cierra como ganada); la conversión manda `es_qa: true` y la transferencia queda `es_facturable = false`. No hay otro export ni notificación a la IES en `src/`, `app/api` ni `lib/`.
 
 La UI de la hoja de operación sigue leyendo `celular` hasta que frontend la pase a `telefonoEnmascarado`. El número completo ya no viaja en estas respuestas.
