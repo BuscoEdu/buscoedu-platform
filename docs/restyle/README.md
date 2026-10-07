@@ -200,6 +200,18 @@ La sección de la ficha y el filtro de Explorar (grupo y campo en «Más filtros
 
 `app/globals.css`, `components/home/HomeComoFunciona.tsx`, `components/home/HomeDemoNaia.tsx`, `components/home/HomeFaq.tsx`, `components/layout/Header.tsx`, `components/naia/NaiaSearchExperience.tsx`, `components/naia/NaiaChatCapa.tsx`, `components/naia/NaiaMessage.tsx`, `components/naia/NaiaEntryModal.tsx`, `components/naia/SuggestedActions.tsx`, `components/demowapp/DemoWappPanel.tsx`, `components/explorar/OfferCard.tsx`, `components/explorar/OfferDetailModal.tsx`, `components/explorar/FilterPanel.tsx`. El mapa vive en `src/lib/etiquetas-beneficio.ts` (commit de Backend `77a26ec`).
 
+## Ola 3 · fixes QA
+
+Look y accesibilidad. El funnel (Aplicar, OTP, consentimiento, conversión) no cambia de lógica.
+
+1. **Markdown en las burbujas de NaIA.** `components/naia/markdownNaia.tsx` pinta negrita, cursiva, listas, saltos de línea y enlaces `http(s)` con nodos de React. No hay HTML crudo. Un enlace con otro esquema no se crea. El color lo hereda la burbuja (banda `#ece8f7`, texto `#1a1830`).
+2. **Foco de la ficha.** `OfferDetailModal` atrapa Tab y Shift+Tab, enfoca el cierre al abrir y devuelve el foco al control que la abrió. Sigue `role="dialog"`, `aria-modal="true"` y `aria-labelledby`. El resto de la pantalla de Explorar/NaIA queda `inert`. Escape sigue cerrando.
+3. **Aplicar.** «Continuar» y «Verificar» son índigo `#3b2f8f` con el foco global (contorno índigo de 2px, separado 2px). Hover `#2a2166`. Deshabilitado: opacidad 50 %. El diálogo tiene `role="dialog"`, `aria-modal` y `aria-labelledby="aplicar-titulo"`. Nombre, correo y celular tienen `htmlFor`/`id`.
+4. **Plurales.** `1 opción encontrada` y `1 opción que coincide`. Con otro número, plural.
+5. **Casillas.** `input[type=checkbox|radio]` usa `accent-color: #3b2f8f`. Siguen sin marcar. «Autorizar contacto» sigue deshabilitado hasta el consentimiento obligatorio.
+6. **Código de demostración.** Lo pinta la UI si la respuesta trae `proveedorSimulado` y `codigoDemo` (`AplicacionConsentimientoModal` y `VerificacionCelularModal`). El API (`app/api/otp/request/route.ts`) lo agrega cuando `getOtpProvider().esSimulado` es true. El proveedor por defecto es `simulated` (`OTP_PROVIDER` vacío o `simulated` en `src/lib/otp/index.ts`). No había corte por `NODE_ENV` ni `VERCEL_ENV`: en producción, con el proveedor simulado, el código se veía. Ahora la UI lo oculta solo si `NEXT_PUBLIC_VERCEL_ENV` o `VERCEL_ENV` es `production` (`next.config.js` copia `VERCEL_ENV` al build). En local y en preview sigue visible.
+7. **Nivel que vaciaba resultados.** El nivel anterior vive en el estado de `NaiaSearchExperience` (y en `sessionStorage`) y se reenviaba en `filtros_actuales`. Cada consulta nueva lo quita si el mensaje no lo menciona, antes de consultar el catálogo. Si igual hay 0 filas, la burbuja que promete programas se cambia por «No encontré programas con esos filtros. Prueba quitando alguno.» y aparece «Quitar filtros» si queda algún filtro. El panel vacío sigue en borde punteado, distinto del error. El texto que promete fichas lo arma el modelo en `lib/agentes/AgenteExecutor.ts` (alrededor de la línea 609, `parsed.mensaje`) sin el conteo real; `acumularFiltros` en `lib/agentes/vozNaia.ts` (línea 382) arranca de los filtros previos de la memoria del hilo (`AgenteExecutor.ts` línea 621). Esa lógica de servidor no se tocó: el corte de la UI cubre el caso.
+
 **Fuera de estas olas, y no bloquea el look del Home:**
 
 - Subir los 5 logos con permiso de uso al bucket `logos-aliadas` (ver `docs/bd/README-restyle-logos-bucket.md`). Hasta entonces la franja no aparece.

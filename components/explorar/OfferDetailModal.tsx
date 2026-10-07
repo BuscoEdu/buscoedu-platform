@@ -33,6 +33,10 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
   const [mostrarExito, setMostrarExito] = useState(false);
   const [segundosRestantes, setSegundosRestantes] = useState(SEGUNDOS_CIERRE);
   const resultadoAplicacionRef = useRef<any>(null);
+  const capaRef = useRef<HTMLDivElement>(null);
+  const cerrarRef = useRef<HTMLButtonElement>(null);
+  /* El control que abrió la ficha, para devolverle el foco al cerrar. */
+  const focoAlCerrar = useRef<HTMLElement | null>(null);
 
   // Cierra el overlay de éxito y también la ficha de la oferta, notificando
   // al componente padre con el resultado de la aplicación.
@@ -95,6 +99,65 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [oferta, onClose, mostrarExito]);
 
+  /*
+    El Tab no sale a las tarjetas de atrás. Shift+Tab también se queda
+    dentro. Al cerrar, el foco vuelve al control que abrió la ficha.
+  */
+  useEffect(() => {
+    if (!oferta) {
+      focoAlCerrar.current?.focus();
+      focoAlCerrar.current = null;
+      return;
+    }
+    if (!focoAlCerrar.current && document.activeElement instanceof HTMLElement) {
+      focoAlCerrar.current = document.activeElement;
+    }
+    const capa = capaRef.current;
+    const focoInicial = cerrarRef.current;
+    focoInicial?.focus();
+
+    const inertos: HTMLElement[] = [];
+    const padre = capa?.parentElement;
+    if (capa && padre) {
+      for (const hijo of Array.from(padre.children)) {
+        if (hijo !== capa && hijo instanceof HTMLElement) {
+          hijo.setAttribute('inert', '');
+          hijo.setAttribute('aria-hidden', 'true');
+          inertos.push(hijo);
+        }
+      }
+    }
+
+    const alTab = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || !capa) return;
+      const focoables = Array.from(
+        capa.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
+      ).filter((el) => !el.hasAttribute('disabled') && el.tabIndex !== -1);
+      if (focoables.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const primero = focoables[0];
+      const ultimo = focoables[focoables.length - 1];
+      const actual = document.activeElement;
+      if (event.shiftKey && (actual === primero || !capa.contains(actual))) {
+        event.preventDefault();
+        ultimo.focus();
+      } else if (!event.shiftKey && (actual === ultimo || !capa.contains(actual))) {
+        event.preventDefault();
+        primero.focus();
+      }
+    };
+    document.addEventListener('keydown', alTab);
+    return () => {
+      document.removeEventListener('keydown', alTab);
+      inertos.forEach((el) => {
+        el.removeAttribute('inert');
+        el.removeAttribute('aria-hidden');
+      });
+    };
+  }, [oferta]);
+
   if (!oferta) return null;
 
   const inMyList = isInMyList(oferta.id);
@@ -144,7 +207,7 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
   };
 
   return (
-    <>
+    <div ref={capaRef} className="contents">
       {/*
         BA-001: la ficha va por encima del panel de resultados móvil (z-[70])
         y del FAB. Ola 2: jerarquía qué es → vigencia (si hay fecha) → becas → acciones.
@@ -169,6 +232,7 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
         >
           <div className="flex items-center justify-end px-4 pt-3 sm:px-6">
             <button
+              ref={cerrarRef}
               onClick={onClose}
               className="inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-[var(--color-text)] bg-white text-[var(--color-text)]"
               aria-label="Cerrar"
@@ -329,6 +393,6 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

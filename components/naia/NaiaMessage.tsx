@@ -5,6 +5,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import MarkdownNaia from '@/components/naia/markdownNaia';
 
 interface NaiaMessageProps {
   content: string;
@@ -62,13 +63,22 @@ export default function NaiaMessage({ content, isUser, timestamp, streaming = fa
         {!isUser && (
           <p className="text-xs font-semibold text-[var(--color-text)] mb-1">NaIA</p>
         )}
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">
-          {displayText}
-          {/* Cursor parpadeante mientras se escribe el mensaje */}
-          {conEfecto && !terminado && (
-            <span className="animate-pulse text-buscoedu-blue">|</span>
-          )}
-        </p>
+        {isUser ? (
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            {displayText}
+            {conEfecto && !terminado && (
+              <span className="animate-pulse text-white/80">|</span>
+            )}
+          </p>
+        ) : (
+          <div className="text-sm">
+            {/* Misma regla que el hilo: negrita y listas sin HTML crudo. */}
+            <MarkdownNaia texto={displayText} />
+            {conEfecto && !terminado && (
+              <span className="animate-pulse text-[var(--color-text)]">|</span>
+            )}
+          </div>
+        )}
         {timestamp && (
           <p className={`text-xs mt-2 ${isUser ? 'text-white/70' : 'text-buscoedu-muted'}`}>
             {timestamp.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}

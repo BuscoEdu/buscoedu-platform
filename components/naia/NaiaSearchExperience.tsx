@@ -15,6 +15,7 @@ import {
 } from "@/src/lib/ofertas";
 import { COPY_CERO_VIGENCIA, repararCopyFiltrado } from "@/components/naia/copyNaia";
 import { etiquetaBeneficio } from "@/src/lib/etiquetas-beneficio";
+import MarkdownNaia from "@/components/naia/markdownNaia";
 import { esSnapshotCompleto, type SnapshotNaia } from "@/components/naia/naiaSession";
 import { EVENTO_FAB_NAIA } from "@/components/naia/naiaFab";
 
@@ -40,6 +41,8 @@ const COPY_ERROR_PAGINACION =
   "No pudimos cargar más opciones. Las que ya ves siguen disponibles; no se agregó una página vacía.";
 /* N5: el fallo de NaIA no se escribe como «sin resultados». */
 const COPY_ERROR_NAIA = "No pude responder, intenta de nuevo.";
+/* Con 0 resultados no se promete un programa. El vacío no es un error. */
+const COPY_SIN_PROGRAMAS = "No encontré programas con esos filtros. Prueba quitando alguno.";
 type MensajeChat = { id: string; autor: "estudiante" | "naia"; contenido: string };
 type ChipFiltro = { clave: keyof FiltrosOferta; etiqueta: string; valor: string };
 type LayoutVariant = "naia" | "explorar";
@@ -78,6 +81,41 @@ function filtrosConValor(filtros: NaiaResponse["filtros"]): FiltrosOferta {
   return Object.fromEntries(
     Object.entries(filtros).filter(([, valor]) => typeof valor === "string" && valor.trim())
   ) as FiltrosOferta;
+}
+
+function plegarTexto(valor: string): string {
+  return valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+/**
+ * El nivel de una consulta anterior vive en el estado (y se reenvía en el
+ * contexto). Si esta frase no lo repite, no se vuelve a aplicar: un nivel
+ * que no está en el catálogo, o que choca con el programa pedido, deja el
+ * panel en cero.
+ */
+function filtrosDeEstaConsulta(filtros: FiltrosOferta, texto: string): FiltrosOferta {
+  const siguientes: FiltrosOferta = { ...filtros };
+  const nivel = (siguientes.nivel_academico ?? "").trim();
+  if (!nivel) return siguientes;
+  const dicho = plegarTexto(texto);
+  const pedido = plegarTexto(nivel);
+  const claves = ["pregrado", "posgrado", "tecnico", "tecnologo", "especializacion", "maestria", "doctorado", "continua"];
+  const loDice =
+    (pedido.length >= 3 && dicho.includes(pedido)) ||
+    claves.some((clave) => pedido.includes(clave) && dicho.includes(clave));
+  if (!loDice) delete siguientes.nivel_academico;
+  return siguientes;
+}
+
+/** La burbuja no puede prometer fichas cuando el listado real está vacío. */
+function prometeProgramas(texto: string): boolean {
+  const t = plegarTexto(texto);
+  return /te muestro|te mostrare|aqui tienes|aqui estan|aqui va|el programa|encontre \d|opciones? que coinciden/.test(t);
+}
+
+function textoVisibleNaia(contenido: string, sinProgramas: boolean): string {
+  if (sinProgramas && prometeProgramas(contenido)) return COPY_SIN_PROGRAMAS;
+  return contenido;
 }
 
 function etiquetaFiltro(clave: keyof FiltrosOferta): string {
@@ -350,10 +388,9 @@ export default function NaiaSearchExperience({
     const hayFiltros = Object.values(filtros).some((valor) => typeof valor === "string" && valor.trim());
     // BA-011 / BA-004: sin filtros, 0 es vigencia, no “esos criterios”.
     if (!hayFiltros && cantidad <= 0) return COPY_CERO_VIGENCIA;
-    if (cantidad <= 0) {
-      return "No encontré resultados con esos criterios (0 resultados). Puedes ampliar la búsqueda o limpiar filtros para ver más opciones vigentes.";
-    }
-    return `Encontré ${cantidad} ${cantidad === 1 ? "opción" : "opciones"} que coinciden con tu búsqueda.`;
+    if (cantidad <= 0) return COPY_SIN_PROGRAMAS;
+    if (cantidad === 1) return "Encontré 1 opción que coincide con tu búsqueda.";
+    return `Encontré ${cantidad} opciones que coinciden con tu búsqueda.`;
   };
 
   /** Reintenta solo el catálogo, sin repetir el mensaje del estudiante ni a NaIA. */
@@ -428,13 +465,13 @@ export default function NaiaSearchExperience({
       const siguienteRespuesta = await callNaia(
         texto,
         conversationId,
-        construirContextoOfertasParaNaia(ofertas, filtrosActuales, total)
+        construirContextoOfertasParaNaia(ofertas, filtrosDeEstaConsulta(filtrosActuales, texto), total)
       );
       setRespuesta(siguienteRespuesta);
       setConversationId(siguienteRespuesta.conversationId);
 
       setEstado("consultando");
-      const filtros = filtrosConValor(siguienteRespuesta.filtros);
+      const filtros = filtrosDeEstaConsulta(filtrosConValor(siguienteRespuesta.filtros), texto);
       const resultado = await aplicarPrimeraPagina(filtros, () => {
         void reconsultarCatalogo(filtros);
       });
@@ -453,13 +490,20 @@ export default function NaiaSearchExperience({
       }
 
       const conteo = Math.max(resultado.total, resultado.ofertas.length);
-      const bloques = [
-        repararCopyFiltrado(siguienteRespuesta.mensaje),
-        construirMensajeConteo(conteo, filtros),
-        conteo === 0 ? null : siguienteRespuesta.pregunta_seguimiento
-          ? repararCopyFiltrado(siguienteRespuesta.pregunta_seguimiento)
-          : null,
-      ].filter(Boolean);
+      /*
+        Con cero filas no se pega el texto del modelo: se escribió antes de
+        saber el conteo y puede prometer un programa que el panel no tiene.
+      */
+      const bloques =
+        conteo === 0
+          ? [COPY_SIN_PROGRAMAS]
+          : [
+              repararCopyFiltrado(siguienteRespuesta.mensaje),
+              construirMensajeConteo(conteo, filtros),
+              siguienteRespuesta.pregunta_seguimiento
+                ? repararCopyFiltrado(siguienteRespuesta.pregunta_seguimiento)
+                : null,
+            ].filter(Boolean);
 
       setMensajes((actuales) => [
         ...actuales,
@@ -874,6 +918,11 @@ export default function NaiaSearchExperience({
       setMostrarResultadosMovil(true);
       return;
     }
+    /* Atajo del vacío: limpia filtros. No se manda a NaIA como si fuera una búsqueda. */
+    if (normalizada === "quitar filtros" || normalizada === "limpiar filtros") {
+      void aplicarFiltrosManuales({});
+      return;
+    }
     void buscar(opcion);
   };
 
@@ -899,9 +948,9 @@ export default function NaiaSearchExperience({
   } else if (vistaActiva === "programas") {
     tituloResultados = `${ofertasVista.length} programas en vista`;
   } else if (vistaActiva === "universidades") {
-    tituloResultados = `${total} opciones por universidad`;
+    tituloResultados = total === 1 ? "1 opción por universidad" : `${total} opciones por universidad`;
   } else {
-    tituloResultados = `${total} opciones encontradas`;
+    tituloResultados = total === 1 ? "1 opción encontrada" : `${total} opciones encontradas`;
   }
 
   const reintentarConsulta = () => {
@@ -910,11 +959,15 @@ export default function NaiaSearchExperience({
 
   const sugerenciasParaMostrar = useMemo(() => {
     const base = respuesta?.opciones_sugeridas?.slice(0, 3) ?? [];
-    if (mostrarResultados && !base.some((x) => x.toLowerCase().includes("explorar resultados"))) {
-      return [...base, "Explorar resultados"].slice(0, 3);
+    const sinProgramas = estado === "listo" && !avisoConsulta && ofertas.length === 0 && chipsFiltros.length > 0;
+    const conQuitar = sinProgramas && !base.some((x) => /quitar filtros|limpiar filtros/i.test(x))
+      ? ["Quitar filtros", ...base]
+      : base;
+    if (mostrarResultados && !conQuitar.some((x) => x.toLowerCase().includes("explorar resultados"))) {
+      return [...conQuitar, "Explorar resultados"].slice(0, 3);
     }
-    return base;
-  }, [mostrarResultados, respuesta?.opciones_sugeridas]);
+    return conQuitar.slice(0, 3);
+  }, [mostrarResultados, respuesta?.opciones_sugeridas, estado, avisoConsulta, ofertas.length, chipsFiltros.length]);
 
   const gridClass = layoutVariant === "explorar"
     ? "lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.65fr)]"
@@ -1012,7 +1065,19 @@ export default function NaiaSearchExperience({
 
               <div ref={historialRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-3 pr-1" aria-live="polite">
                 {/* BA-025: burbuja blanca de NaIA sobre el gris; la del estudiante sigue en azul. */}
-                {mensajes.map((mensaje) => (
+                {mensajes.map((mensaje) => {
+                  /*
+                    Con el panel en cero, una burbuja que promete programas se
+                    cambia por el vacío. No se inventa una ficha.
+                  */
+                  const sinProgramas =
+                    mensaje.autor === "naia" &&
+                    estado === "listo" &&
+                    !avisoConsulta &&
+                    ofertas.length === 0 &&
+                    chipsFiltros.length > 0;
+                  const contenidoNaia = textoVisibleNaia(repararCopyFiltrado(mensaje.contenido), sinProgramas);
+                  return (
                   <div
                     key={mensaje.id}
                     className={
@@ -1024,7 +1089,7 @@ export default function NaiaSearchExperience({
                     {mensaje.autor === "naia" && <p className="mb-1 text-xs font-semibold text-[var(--color-text)]">NaIA</p>}
                     {mensaje.autor === "naia" ? (
                       <TypedText
-                        texto={repararCopyFiltrado(mensaje.contenido)}
+                        texto={contenidoNaia}
                         onStep={() => {
                           historialRef.current?.scrollTo({
                             top: historialRef.current.scrollHeight,
@@ -1036,7 +1101,8 @@ export default function NaiaSearchExperience({
                       <p className="whitespace-pre-line text-base leading-relaxed">{mensaje.contenido}</p>
                     )}
                   </div>
-                ))}
+                  );
+                })}
 
                 {estaCargando && (
                   <ThinkingIndicator
@@ -1393,7 +1459,15 @@ function TypedText({ texto, onStep }: { texto: string; onStep?: () => void }) {
     onStep?.();
   }, [onStep, visible]);
 
-  return <p className="whitespace-pre-line text-base leading-relaxed text-buscoedu-text" aria-live="polite">{visible}<span className={visible.length < texto.length ? "ml-0.5 inline-block h-4 border-l border-buscoedu-teal align-[-2px] animate-pulse" : ""} /></p>;
+  return (
+    <div className="text-[var(--color-text)]" aria-live="polite">
+      {/* El markdown se pinta con nodos. Los asteriscos no quedan en la burbuja. */}
+      <MarkdownNaia texto={visible} />
+      {visible.length < texto.length ? (
+        <span className="ml-0.5 inline-block h-4 border-l border-[var(--color-primary)] align-[-2px] animate-pulse" />
+      ) : null}
+    </div>
+  );
 }
 
 /** Indicador de escritura. No es el estado de error ni el de cero resultados. */

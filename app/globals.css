@@ -99,6 +99,15 @@ body {
  * que ya es índigo (Explora programas, Aplicar, Autorizar contacto).
  * Cubre enlaces, botones, campos y tarjetas clicables (role=button).
  */
+/*
+ * Casillas y radios nativos en índigo. No cambia si vienen marcadas:
+ * el consentimiento sigue arrancando sin marcar.
+ */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: #3b2f8f;
+}
+
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
