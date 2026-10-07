@@ -29,7 +29,7 @@ export default function BrandMark({
   const edu = inverse ? "text-teal-200" : "text-buscoedu-action";
 
   const word = (
-    <span className="font-display text-xl font-semibold tracking-tight">
+    <span className="font-sans text-xl font-bold tracking-tight">
       <span className={busco}>Busco</span>
       <span className={edu}>Edu</span>
     </span>

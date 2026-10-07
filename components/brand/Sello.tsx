@@ -21,25 +21,25 @@ export default function Sello({
       aria-hidden="true"
       className={`shrink-0 ${className}`}
     >
-      {/* Contenedor: recuadro de marca (teal de acción). */}
-      <rect width="32" height="32" rx="7" fill="#0E7490" />
+      {/* Contenedor: recuadro de marca en el primario A2. El trazo claro sigue legible encima. */}
+      <rect width="32" height="32" rx="7" fill="var(--color-primary)" />
       {/* Trazo izquierdo del pasillo (acuerdo). */}
       <path
         d="M11 9v14"
-        stroke="#F4F7F6"
+        stroke="var(--color-bg)"
         strokeWidth="2.4"
         strokeLinecap="round"
       />
       {/* Trazo que abre a la derecha sin cruzar en aspa. */}
       <path
         d="M11 16h11"
-        stroke="#F4F7F6"
+        stroke="var(--color-bg)"
         strokeWidth="2.4"
         strokeLinecap="round"
       />
       <path
         d="M18 12l4 4-4 4"
-        stroke="#F4F7F6"
+        stroke="var(--color-bg)"
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
