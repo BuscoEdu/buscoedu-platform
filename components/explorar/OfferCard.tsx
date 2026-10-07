@@ -1,6 +1,7 @@
 "use client";
 
 import type { OfertaAcademica } from "@/src/lib/ofertas";
+import { etiquetaBeneficio } from "@/src/lib/etiquetas-beneficio";
 
 interface OfferCardProps {
   oferta: OfertaAcademica;
@@ -25,19 +26,12 @@ function textoVisible(valor?: string | null): string {
 }
 
 /**
- * Chip del beneficio. Debe salir de `etiquetaBeneficio()`
- * (`src/lib/etiquetas-beneficio.ts`): null = no hay chip.
- * El import espera a que ese archivo esté en origin/feat/restyle-a2.
- * No hay un mapa local.
+ * Chip del beneficio. Una sola fuente: etiquetaBeneficio() sobre el código
+ * de la oferta. null (código vacío) = no hay chip. No se pinta el código crudo
+ * ni el tipo con los guiones bajos cambiados por espacios.
  */
 function textoBeca(oferta: OfertaAcademica): string | null {
-  const candidatos = [
-    textoVisible(oferta.tipo_beneficio),
-    ...(oferta.beneficios ?? []).map((beneficio) =>
-      [textoVisible(beneficio.tipo), textoVisible(beneficio.descripcion)].filter(Boolean).join(": ")
-    )
-  ].filter(Boolean);
-  return candidatos.find((texto) => /beca/i.test(texto)) ?? null;
+  return etiquetaBeneficio(oferta.tipo_beneficio);
 }
 
 /**
@@ -74,7 +68,7 @@ export default function OfferCard({ oferta, onCardClick, isInMyList = false, onT
         {nombreUniversidad ? <p className="mt-2 text-sm text-[var(--color-muted)]">{nombreUniversidad}</p> : null}
         {lugar ? <p className="mt-3 text-sm text-[var(--color-text)]">{lugar}</p> : null}
         {beca ? (
-          <span className="mt-3 inline-flex w-fit rounded-full border border-[var(--color-text)] bg-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[var(--color-text)]">
+          <span className="mt-3 inline-flex w-fit rounded-full border border-[var(--color-text)] bg-white px-2.5 py-1 text-[11px] font-bold text-[var(--color-text)]">
             {beca}
           </span>
         ) : null}

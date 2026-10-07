@@ -194,11 +194,11 @@ Se dejan los avisos que dicen que BuscoEdu **no garantiza** precios (pie, térmi
 
 La sección de la ficha y el filtro de Explorar (grupo y campo en «Más filtros», y el chip activo) se llaman «Becas y beneficios», porque cubren descuento y financiación. El atajo de la barra sigue diciendo «Con beca»: solo activa `tipo_beneficio = "Beca"`.
 
-**El import de `etiquetaBeneficio` no está cableado en este árbol** hasta que `src/lib/etiquetas-beneficio.ts` esté en `origin/feat/restyle-a2`. No hay un mapa local ni un stub.
+`OfferCard`, la ficha y el chip de la fila NaIA llaman a `etiquetaBeneficio(oferta.tipo_beneficio)`. Si devuelve null, no hay chip y no hay sección. El tipo que `obtenerOfertas` aplana cambiando `_` por espacio no se muestra.
 
 ### Archivos de esta ola
 
-`app/globals.css`, `components/home/HomeComoFunciona.tsx`, `components/home/HomeDemoNaia.tsx`, `components/home/HomeFaq.tsx`, `components/layout/Header.tsx`, `components/naia/NaiaSearchExperience.tsx`, `components/naia/NaiaChatCapa.tsx`, `components/naia/NaiaMessage.tsx`, `components/naia/NaiaEntryModal.tsx`, `components/naia/SuggestedActions.tsx`, `components/demowapp/DemoWappPanel.tsx`, `components/explorar/OfferDetailModal.tsx`, `components/explorar/FilterPanel.tsx`, `components/explorar/ExplorarFiltros.tsx`. `OfferCard` y el chip de la fila NaIA quedan listos para el import.
+`app/globals.css`, `components/home/HomeComoFunciona.tsx`, `components/home/HomeDemoNaia.tsx`, `components/home/HomeFaq.tsx`, `components/layout/Header.tsx`, `components/naia/NaiaSearchExperience.tsx`, `components/naia/NaiaChatCapa.tsx`, `components/naia/NaiaMessage.tsx`, `components/naia/NaiaEntryModal.tsx`, `components/naia/SuggestedActions.tsx`, `components/demowapp/DemoWappPanel.tsx`, `components/explorar/OfferCard.tsx`, `components/explorar/OfferDetailModal.tsx`, `components/explorar/FilterPanel.tsx`. El mapa vive en `src/lib/etiquetas-beneficio.ts` (commit de Backend `77a26ec`).
 
 **Fuera de estas olas, y no bloquea el look del Home:**
 

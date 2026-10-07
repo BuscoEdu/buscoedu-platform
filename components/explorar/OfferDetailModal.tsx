@@ -6,6 +6,7 @@ import { useMyList } from '@/src/contexts/MyListContext';
 import { trackOfferOpened, trackOfferClosed, trackApplyAttempt } from '@/src/lib/events';
 import AplicacionConsentimientoModal from '@/components/leadcenter/AplicacionConsentimientoModal';
 import PillButton from '@/components/restyle/PillButton';
+import { etiquetaBeneficio } from '@/src/lib/etiquetas-beneficio';
 
 function fechaLegible(iso?: string): string | null {
   const valor = (iso ?? '').trim();
@@ -104,7 +105,26 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
   const modalidadPrograma = (oferta.programa?.modalidad ?? '').trim();
   const meta = [universidadNombre, modalidadPrograma, ciudadSede].filter(Boolean).join(' · ');
   const vigenciaHasta = fechaLegible(oferta.vigente_hasta);
-  const becas = (oferta.beneficios ?? []).filter((beneficio) => (beneficio.tipo ?? '').trim() || (beneficio.descripcion ?? '').trim());
+  /*
+    La sección existe solo si el helper devuelve etiqueta. El código que se
+    le pasa es tipo_beneficio (con guion bajo). El tipo ya aplanado a espacios
+    no es el código y no se pinta. Una descripción que no es el código sí.
+  */
+  const etiquetaBeneficioVisible = etiquetaBeneficio(oferta.tipo_beneficio);
+  const codigoBeneficio = (oferta.tipo_beneficio ?? '').trim().toLowerCase();
+  const notasBeneficio = etiquetaBeneficioVisible
+    ? (oferta.beneficios ?? [])
+        .map((beneficio) => (beneficio.descripcion ?? '').trim())
+        .filter((texto) => {
+          if (!texto) return false;
+          const norm = texto.toLowerCase();
+          return (
+            norm !== etiquetaBeneficioVisible.toLowerCase() &&
+            norm !== codigoBeneficio &&
+            norm !== codigoBeneficio.replaceAll('_', ' ')
+          );
+        })
+    : [];
 
   const handleToggleMyList = () => {
     if (inMyList) {
@@ -129,8 +149,7 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
         BA-001: la ficha va por encima del panel de resultados móvil (z-[70])
         y del FAB. Ola 2: jerarquía qué es → vigencia (si hay fecha) → becas → acciones.
         No se pinta precio: la oferta no trae ese campo. Un dato ausente no se inventa.
-        El título de la sección es «Becas y beneficios». Ocultarla cuando
-        etiquetaBeneficio() devuelva null, en cuanto ese helper esté en la rama.
+        «Becas y beneficios» solo si etiquetaBeneficio() devuelve una etiqueta.
       */}
       <div
         className="fixed inset-0 z-[80] bg-[var(--color-text)]/50"
@@ -190,17 +209,19 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
                   </section>
                 ) : null}
 
-                {becas.length > 0 ? (
+                {etiquetaBeneficioVisible ? (
                   <section className="rounded-[var(--radius-card)] border-2 border-[var(--color-text)] bg-white p-4 shadow-[var(--shadow-hard)]">
                     <h3 className="text-lg font-bold text-[var(--color-text)]">Becas y beneficios</h3>
-                    <ul className="mt-2 space-y-2">
-                      {becas.map((beneficio, index) => (
-                        <li key={`${beneficio.tipo}-${index}`} className="break-words text-sm text-[var(--color-text)]">
-                          <span className="font-semibold">{beneficio.tipo}</span>
-                          {beneficio.descripcion ? <span className="text-[var(--color-muted)]">. {beneficio.descripcion}</span> : null}
-                        </li>
-                      ))}
-                    </ul>
+                    <p className="mt-2 break-words text-sm font-semibold text-[var(--color-text)]">{etiquetaBeneficioVisible}</p>
+                    {notasBeneficio.length > 0 ? (
+                      <ul className="mt-2 space-y-2">
+                        {notasBeneficio.map((nota) => (
+                          <li key={nota} className="break-words text-sm text-[var(--color-muted)]">
+                            {nota}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </section>
                 ) : null}
 

@@ -14,6 +14,7 @@ import {
   type ResultadoOfertas,
 } from "@/src/lib/ofertas";
 import { COPY_CERO_VIGENCIA, repararCopyFiltrado } from "@/components/naia/copyNaia";
+import { etiquetaBeneficio } from "@/src/lib/etiquetas-beneficio";
 import { esSnapshotCompleto, type SnapshotNaia } from "@/components/naia/naiaSession";
 import { EVENTO_FAB_NAIA } from "@/components/naia/naiaFab";
 
@@ -1749,14 +1750,13 @@ function modalidadCorta(modalidad?: string): string | null {
   return modalidad.slice(0, 8).toUpperCase();
 }
 
+/**
+ * Chip de la fila NaIA. Misma etiqueta que la tarjeta: null no pinta beneficio
+ * y se deja la ciudad. Nunca un código crudo ni un recorte en mayúsculas.
+ */
 function beneficioOCiudad(oferta: OfertaAcademica): string | null {
-  const beneficio = oferta.beneficios?.[0];
-  if (beneficio) {
-    const detalle = [beneficio.tipo, beneficio.descripcion].filter(Boolean).join(" ");
-    const porcentaje = detalle.match(/\d{1,3}(?:[.,]\d+)?\s*%/)?.[0]?.replace(/\s/g, "");
-    if (/descuent|dto/i.test(detalle)) return porcentaje ? `${porcentaje} DTO.` : "DTO.";
-    if (/beca/i.test(detalle)) return porcentaje ? `${porcentaje} BECA` : "BECA";
-    return beneficio.tipo.slice(0, 16).toUpperCase();
-  }
-  return oferta.sede?.ciudad ?? null;
+  const etiqueta = etiquetaBeneficio(oferta.tipo_beneficio);
+  if (etiqueta) return etiqueta;
+  const ciudad = (oferta.sede?.ciudad ?? "").trim();
+  return ciudad || null;
 }
