@@ -15,6 +15,7 @@
  * de servidor sin sesión de usuario final.
  */
 
+import { etiquetaBeneficio } from '@/src/lib/etiquetas-beneficio';
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { AbacusAdapter } from './AbacusAdapter';
 import { componenteContextoAplicaAlCanal, herramientaPermitidaEnCanal } from './canales';
@@ -197,21 +198,25 @@ function construirBloqueContextoOfertas(entrada: EntradaEjecucion): string {
     ? contexto.ofertas_relevantes
         .slice(0, 3)
         .filter((oferta) => typeof oferta?.nombre === 'string' && oferta.nombre.trim())
-        .map((oferta) => ({
-          nombre: oferta.nombre,
-          tipo_beneficio: oferta.tipo_beneficio,
-          vigente_hasta: oferta.vigente_hasta,
-          programa: {
-            modalidad: oferta.programa?.modalidad ?? null
-          },
-          universidad: {
-            nombre: oferta.universidad?.nombre ?? null
-          },
-          sede: {
-            ciudad: oferta.sede?.ciudad ?? null,
-            pais: oferta.sede?.pais ?? null
-          }
-        }))
+        .map((oferta) => {
+          // Sin código no hay beneficio: null no entra al prompt de NaIA.
+          const etiqueta = etiquetaBeneficio(oferta.tipo_beneficio);
+          return {
+            nombre: oferta.nombre,
+            ...(etiqueta ? { tipo_beneficio: etiqueta } : {}),
+            vigente_hasta: oferta.vigente_hasta,
+            programa: {
+              modalidad: oferta.programa?.modalidad ?? null
+            },
+            universidad: {
+              nombre: oferta.universidad?.nombre ?? null
+            },
+            sede: {
+              ciudad: oferta.sede?.ciudad ?? null,
+              pais: oferta.sede?.pais ?? null
+            }
+          };
+        })
     : [];
 
   const tieneFiltros = Object.keys(filtros).length > 0;

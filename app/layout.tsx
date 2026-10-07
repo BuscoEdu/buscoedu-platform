@@ -1,23 +1,31 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Plus_Jakarta_Sans, Source_Sans_3 } from "next/font/google";
+import { Anton, Archivo, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import Providers from "@/components/Providers";
 
-const jakarta = Plus_Jakarta_Sans({
+/* Anton para titulares, Archivo para el cuerpo, JetBrains Mono para chips y cifras de detalle. */
+const anton = Anton({
   subsets: ["latin"],
   variable: "--font-display",
   display: "swap",
-  weight: ["500", "600", "700"],
+  weight: "400",
 });
 
-const sourceSans = Source_Sans_3({
+const archivo = Archivo({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
-  weight: ["400", "600"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const jetbrains = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+  weight: "500",
 });
 
 export const metadata: Metadata = {
@@ -32,10 +40,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className={`${jakarta.variable} ${sourceSans.variable}`}>
+    <html lang="es" className={`${anton.variable} ${archivo.variable} ${jetbrains.variable}`}>
       <body className="min-h-screen bg-buscoedu-paper font-sans text-buscoedu-ink antialiased">
         <Providers>
-          <Suspense fallback={<div className="h-[57px] border-b border-buscoedu-border bg-white" />}>
+          <Suspense fallback={<div className="h-[57px] border-b border-[var(--color-line)] bg-[var(--color-bg)]" />}>
             <Header />
           </Suspense>
           <main>{children}</main>

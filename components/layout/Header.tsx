@@ -7,6 +7,7 @@ import NaiaEntryModal from "@/components/naia/NaiaEntryModal";
 import NaiaChatCapa from "@/components/naia/NaiaChatCapa";
 import { pedirChatNaia } from "@/components/naia/naiaFab";
 import Logo from "@/components/ui/Logo";
+import PillButton from "@/components/restyle/PillButton";
 import { useMyList } from "@/src/contexts/MyListContext";
 import { CTA_VIGENTES } from "@/src/lib/marca-copy";
 
@@ -52,6 +53,8 @@ export default function Header() {
   const [isMasOpen, setIsMasOpen] = useState(false);
   const [isMobileMasOpen, setIsMobileMasOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  /* El FAB se puede minimizar para no tapar un CTA. Sigue abriendo el mismo chat. */
+  const [fabMini, setFabMini] = useState(false);
   const masRef = useRef<HTMLLIElement>(null);
   const { myList } = useMyList();
 
@@ -103,7 +106,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-buscoedu-border bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-50 border-b border-[var(--color-line)] bg-[var(--color-bg)]/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Logo />
           <nav aria-label="Navegación principal" className="hidden md:block">
@@ -168,20 +171,16 @@ export default function Header() {
               </li>
             </ul>
           </nav>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/explorar"
-              className="hidden items-center rounded-md bg-buscoedu-teal px-3 py-2 text-sm font-semibold text-white transition hover:brightness-95 md:inline-flex md:px-4"
-            >
+          {/* Pastillas A2. Mismos destinos de antes: vigentes a Explorar, NaIA abre el modal. */}
+          <div className="hidden items-center gap-2 md:flex">
+            <PillButton href="/explorar" size="sm">
               {CTA_VIGENTES}
-            </Link>
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-              className="hidden items-center rounded-md border border-buscoedu-border px-3 py-2 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-bg md:inline-flex md:px-4"
-            >
+            </PillButton>
+            <PillButton type="button" variant="secondary" size="sm" onClick={() => setIsModalOpen(true)}>
               NaIA
-            </button>
+            </PillButton>
+          </div>
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setIsMobileOpen((v) => !v)}
@@ -276,40 +275,59 @@ export default function Header() {
                 )}
               </li>
             </ul>
-            <Link href="/explorar" className="mt-6 block w-full rounded-md bg-buscoedu-teal px-4 py-3 text-center text-sm font-semibold text-white transition hover:brightness-95">
+            <PillButton href="/explorar" size="sm" className="mt-6 w-full">
               {CTA_VIGENTES}
-            </Link>
-            <button
+            </PillButton>
+            <PillButton
               type="button"
+              variant="secondary"
+              size="sm"
+              className="mt-2 w-full"
               onClick={() => {
                 setIsMobileOpen(false);
                 setIsModalOpen(true);
               }}
-              className="mt-2 w-full rounded-md border border-buscoedu-border px-4 py-3 text-sm font-semibold text-buscoedu-blue transition hover:bg-buscoedu-bg"
             >
               Hacerlo con NaIA
-            </button>
+            </PillButton>
           </nav>
         </div>
       </aside>
 
       {!pathname.startsWith("/naia") && !isMobileOpen && (
-        <button
-          type="button"
-          onClick={() => {
-            if (pathname.startsWith("/explorar")) {
-              pedirChatNaia();
-              return;
-            }
-            setCapaNaiaAbierta(true);
-          }}
-          className={`fixed right-5 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-buscoedu-teal px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:scale-105 hover:brightness-95 md:hidden ${
-            pathname.startsWith("/explorar") ? "bottom-44 z-[75]" : "bottom-5 z-40"
-          }`}
-          aria-label="Hablar con NaIA"
-        >
-          NaIA
-        </button>
+        <div className="fixed bottom-5 right-5 z-40 flex items-end gap-2 md:hidden">
+          {/* Minimizar deja un botón chico. No cambia a dónde abre el chat. */}
+          {!fabMini ? (
+            <button
+              type="button"
+              onClick={() => setFabMini(true)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-[var(--color-text)] bg-white text-lg font-bold text-[var(--color-text)] shadow-[var(--shadow-hard)]"
+              aria-label="Minimizar NaIA"
+            >
+              –
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              if (fabMini) {
+                setFabMini(false);
+                return;
+              }
+              if (pathname.startsWith("/explorar")) {
+                pedirChatNaia();
+                return;
+              }
+              setCapaNaiaAbierta(true);
+            }}
+            className={`inline-flex items-center justify-center rounded-full border-2 border-[var(--color-text)] bg-[var(--color-primary)] font-bold text-white shadow-[var(--shadow-hard)] transition hover:bg-[#2a2166] motion-safe:hover:scale-105 ${
+              fabMini ? "h-11 w-11 text-sm" : "min-h-11 gap-1.5 px-4 py-3 text-sm"
+            }`}
+            aria-label={fabMini ? "Mostrar NaIA" : "Hablar con NaIA"}
+          >
+            {fabMini ? "N" : "NaIA"}
+          </button>
+        </div>
       )}
 
       {capaNaiaAbierta && !pathname.startsWith("/naia") && !pathname.startsWith("/explorar") && (

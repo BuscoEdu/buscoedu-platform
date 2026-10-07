@@ -42,7 +42,7 @@ export default function Footer() {
         ocultarPieMovilNaia ? "hidden lg:block" : ""
       }`}
     >
-      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 md:py-5 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-8 sm:px-6 md:py-5 lg:px-8">
         <div className="md:grid md:grid-cols-[minmax(14rem,18rem)_minmax(0,1fr)] md:items-start md:gap-8">
           <div className="mb-8 md:mb-0">
             <Logo />

@@ -2,34 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Tokens A2 (plan §8). Un solo origen para la plataforma.
+ * --color-accent (coral) no se usa como color de texto.
+ * --color-highlight no se pinta sobre --color-band.
+ */
 :root {
-  --buscoedu-ink: #0b3a4a;
-  --buscoedu-action: #0e7490;
-  --buscoedu-growth: #0f766e;
-  --buscoedu-paper: #f4f7f6;
-  --buscoedu-sage: #d7edea;
-  --buscoedu-warn: #b45309;
-  --buscoedu-blue: #0b3a4a;
-  --buscoedu-teal: #0e7490;
-  --buscoedu-yellow: #b45309;
-  --buscoedu-bg: #f4f7f6;
-  --buscoedu-text: #0b3a4a;
-  --buscoedu-muted: #5b6b73;
-  --buscoedu-border: #d5dedc;
-  --buscoedu-chat: #b7c6da;
-  --buscoedu-chat-edge: #6e86a6;
+  --color-primary: #3b2f8f;
+  --color-primary-rgb: 59 47 143;
+  --color-accent: #ff7a59;
+  --color-accent-rgb: 255 122 89;
+  --color-highlight: #b43c0b;
+  --color-highlight-rgb: 180 60 11;
+  --color-bg: #f7f4ee;
+  --color-bg-rgb: 247 244 238;
+  --color-band: #ece8f7;
+  --color-band-rgb: 236 232 247;
+  --color-text: #1a1830;
+  --color-text-rgb: 26 24 48;
+  --color-success: #1f7a4d;
+  --color-success-rgb: 31 122 77;
+  --color-error: #b42318;
+  --color-error-rgb: 180 35 24;
+  --color-surface: #ffffff;
+  --color-muted: #3e4654;
+  --color-muted-rgb: 62 70 84;
+  --color-line: #6f6a62;
+  --color-line-rgb: 111 106 98;
+  --radius-card: 16px;
+  --shadow-hard: 4px 4px 0 var(--color-text);
+
+  /*
+   * Alias de la marca anterior. El índigo ocupa el lugar del teal en botones
+   * con texto blanco, para que el coral no herede esos fondos.
+   */
+  --buscoedu-ink: var(--color-text);
+  --buscoedu-action: var(--color-primary);
+  --buscoedu-growth: var(--color-success);
+  --buscoedu-paper: var(--color-bg);
+  --buscoedu-sage: var(--color-band);
+  --buscoedu-warn: var(--color-error);
+  --buscoedu-blue: var(--color-text);
+  --buscoedu-teal: var(--color-primary);
+  --buscoedu-yellow: var(--color-error);
+  --buscoedu-bg: var(--color-bg);
+  --buscoedu-text: var(--color-text);
+  --buscoedu-muted: var(--color-muted);
+  --buscoedu-border: var(--color-line);
+  /*
+   * Ola 3: el hilo usa el fondo crema. La burbuja de NaIA es banda con texto tinta.
+   * La del estudiante es índigo con texto blanco (clases en el mensaje, no aquí).
+   */
+  --buscoedu-chat: var(--color-bg);
+  --buscoedu-chat-edge: var(--color-line);
 }
 
 @layer components {
+  /* Ventana del hilo. Crema, sin el gris anterior. */
   .naia-chat-window {
-    background-color: var(--buscoedu-chat);
-    box-shadow: 0 12px 32px rgba(11, 58, 74, 0.12);
+    background-color: var(--color-bg);
   }
 
+  /* Burbuja de NaIA: banda #ece8f7 y texto #1a1830. El coral no entra aquí. */
   .naia-chat-bubble {
-    background-color: #ffffff;
-    border: 1px solid var(--buscoedu-chat-edge);
-    box-shadow: 0 4px 14px rgba(11, 58, 74, 0.08);
+    background-color: var(--color-band);
+    color: var(--color-text);
+    border: 2px solid var(--color-text);
   }
 }
 
@@ -50,14 +88,59 @@ html {
 }
 
 body {
-  color: var(--buscoedu-text);
-  background: var(--buscoedu-bg);
+  color: var(--color-text);
+  background: var(--color-bg);
 }
 
-a,
-button,
-input,
-select,
-textarea {
-  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0E7490] focus-visible:ring-offset-2;
+/*
+ * Foco visible A2. Anillo índigo de 2px, separado 2px del control
+ * (outline-offset). El hueco deja ver el fondo real — crema de la página
+ * o blanco de una tarjeta — así el anillo no se pega al borde de un botón
+ * que ya es índigo (Explora programas, Aplicar, Autorizar contacto).
+ * Cubre enlaces, botones, campos y tarjetas clicables (role=button).
+ */
+/*
+ * Casillas y radios nativos en índigo. No cambia si vienen marcadas:
+ * el consentimiento sigue arrancando sin marcar.
+ */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: #3b2f8f;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible,
+[role="link"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/*
+ * Hueco del FAB de NaIA en móvil (bottom-5 + alto del botón).
+ * El contenido puede scrollear por encima del FAB y no queda tapado.
+ */
+@media (max-width: 767px) {
+  .a2-fab-safe {
+    padding-bottom: 6.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

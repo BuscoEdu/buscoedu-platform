@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node --experimental-strip-types --import ./scripts/register-ts-tests.mjs --test src/lib/cifras-catalogo.test.ts src/lib/logos-aliadas.test.ts src/lib/etiquetas-beneficio.test.ts src/lib/demowapp/funnel-aplicar-reglas.test.ts components/demowapp/funnelContrato.test.ts components/naia/markdownNaia.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

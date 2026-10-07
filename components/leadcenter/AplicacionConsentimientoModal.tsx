@@ -194,9 +194,14 @@ export default function AplicacionConsentimientoModal({
   return (
     <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center">
       {/* BA-001: queda encima de la ficha (z-[80]) y del panel de resultados móvil (z-[70]). */}
-      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-6 shadow-xl sm:rounded-2xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="aplicar-titulo"
+        className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-6 shadow-xl sm:rounded-2xl"
+      >
         <div className="mb-3 flex items-start justify-between">
-          <h2 className="pr-4 text-lg font-semibold text-gray-900">Aplicar a: {ofertaNombre}</h2>
+          <h2 id="aplicar-titulo" className="pr-4 text-lg font-semibold text-gray-900">Aplicar a: {ofertaNombre}</h2>
           <button onClick={onCerrar} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar">
             ✕
           </button>
@@ -210,18 +215,20 @@ export default function AplicacionConsentimientoModal({
         {paso === 'datos' && (
           <div className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Nombre completo</label>
+              <label htmlFor="aplicar-nombre" className="mb-1 block text-sm font-medium text-gray-700">Nombre completo</label>
               <input
+                id="aplicar-nombre"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
                 className="w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label htmlFor="aplicar-correo" className="mb-1 block text-sm font-medium text-gray-700">
                 Correo <span className="text-gray-400">(opcional)</span>
               </label>
               <input
+                id="aplicar-correo"
                 type="email"
                 value={correo}
                 onChange={(e) => setCorreo(e.target.value)}
@@ -229,8 +236,9 @@ export default function AplicacionConsentimientoModal({
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Celular</label>
+              <label htmlFor="aplicar-celular" className="mb-1 block text-sm font-medium text-gray-700">Celular</label>
               <input
+                id="aplicar-celular"
                 type="tel"
                 inputMode="tel"
                 value={celular}
@@ -243,7 +251,7 @@ export default function AplicacionConsentimientoModal({
             <button
               onClick={enviarDatos}
               disabled={cargando}
-              className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              className="w-full min-h-11 rounded-full border-2 border-[var(--color-text)] bg-[var(--color-primary)] py-3 font-bold text-white shadow-[var(--shadow-hard)] hover:bg-[#2a2166] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {cargando ? 'Enviando…' : 'Continuar'}
             </button>
@@ -276,7 +284,7 @@ export default function AplicacionConsentimientoModal({
             <button
               onClick={() => verificar(codigo)}
               disabled={cargando || codigo.length !== 6}
-              className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              className="w-full min-h-11 rounded-full border-2 border-[var(--color-text)] bg-[var(--color-primary)] py-3 font-bold text-white shadow-[var(--shadow-hard)] hover:bg-[#2a2166] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {cargando ? 'Verificando…' : 'Verificar'}
             </button>
@@ -321,11 +329,20 @@ export default function AplicacionConsentimientoModal({
                 </label>
               ))}
             </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-[var(--color-error)]">{error}</p>}
+            {/*
+              Autorizar contacto es índigo con texto blanco. No es coral ni rojo.
+              Sigue deshabilitado mientras falte un consentimiento obligatorio;
+              la casilla no viene marcada. La validación de convertir no cambia.
+            */}
             <button
               onClick={convertir}
-              disabled={cargando || enviandoConversion}
-              className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              disabled={
+                cargando ||
+                enviandoConversion ||
+                tipos.some((t) => t.es_obligatorio && !seleccion[t.codigo])
+              }
+              className="w-full rounded-full border-2 border-[var(--color-text)] bg-[var(--color-primary)] py-3 font-bold text-white shadow-[var(--shadow-hard)] hover:bg-[#2a2166] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {cargando || enviandoConversion ? 'Procesando…' : 'Autorizar contacto'}
             </button>

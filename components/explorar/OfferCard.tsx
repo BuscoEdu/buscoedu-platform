@@ -1,11 +1,7 @@
 "use client";
 
-import type { OfertaAcademica } from '@/src/lib/ofertas';
-import {
-  getUniversityBorderColor,
-  getUniversityColor,
-  getUniversityTextColor
-} from '@/src/lib/university-colors';
+import type { OfertaAcademica } from "@/src/lib/ofertas";
+import { etiquetaBeneficio } from "@/src/lib/etiquetas-beneficio";
 
 interface OfferCardProps {
   oferta: OfertaAcademica;
@@ -15,168 +11,81 @@ interface OfferCardProps {
 }
 
 function tituloSinDuplicado(valor?: string): string {
-  const titulo = (valor || '').trim().replace(/\s+/g, ' ');
-  if (!titulo) return 'Programa por confirmar';
-  const palabras = titulo.split(' ');
+  const titulo = (valor || "").trim().replace(/\s+/g, " ");
+  if (!titulo) return "Programa por confirmar";
+  const palabras = titulo.split(" ");
   if (palabras.length % 2 !== 0) return titulo;
   const mitad = palabras.length / 2;
-  const primera = palabras.slice(0, mitad).join(' ');
-  const segunda = palabras.slice(mitad).join(' ');
-  return primera.localeCompare(segunda, 'es', { sensitivity: 'base' }) === 0 ? primera : titulo;
+  const primera = palabras.slice(0, mitad).join(" ");
+  const segunda = palabras.slice(mitad).join(" ");
+  return primera.localeCompare(segunda, "es", { sensitivity: "base" }) === 0 ? primera : titulo;
 }
 
 function textoVisible(valor?: string | null): string {
-  return (valor ?? '').trim();
+  return (valor ?? "").trim();
 }
 
 /**
- * BA-016: si el dato no vino en la oferta, se muestra un placeholder honesto.
- * Nunca una etiqueta con el valor en blanco.
+ * Chip del beneficio. Una sola fuente: etiquetaBeneficio() sobre el código
+ * de la oferta. null (código vacío) = no hay chip. No se pinta el código crudo
+ * ni el tipo con los guiones bajos cambiados por espacios.
  */
-function valorOPorConfirmar(valor: string, placeholder: string): string {
-  return valor || placeholder;
+function textoBeca(oferta: OfertaAcademica): string | null {
+  return etiquetaBeneficio(oferta.tipo_beneficio);
 }
 
+/**
+ * Tarjeta de Explorar (Ola 2). Mismo tamaño y los mismos colores para todas
+ * las universidades: la única marca distinta es el chip «Aliada».
+ * El catálogo de esta pantalla sale de obtenerOfertas, que ya filtra aliadas.
+ * Si un dato no viene en la oferta, esa línea no se pinta.
+ * Guardar en Mi lista no abre el funnel de Aplicar.
+ */
 export default function OfferCard({ oferta, onCardClick, isInMyList = false, onToggleMyList }: OfferCardProps) {
   const nombreUniversidad = textoVisible(oferta.universidad?.nombre);
-  const universityNameOrSlug = nombreUniversidad;
-  const universityColor = getUniversityColor(oferta.universidad_id, universityNameOrSlug);
-  const universityBorderColor = getUniversityBorderColor(oferta.universidad_id, universityNameOrSlug);
-  const universityTextColor = getUniversityTextColor(oferta.universidad_id, universityNameOrSlug);
   const tituloPrograma = tituloSinDuplicado(oferta.programa?.nombre || oferta.nombre);
-  const nombreSede = textoVisible(oferta.sede?.nombre);
-  const etiquetaGuardar = isInMyList ? 'Quitar de Mi lista' : 'Guardar en Mi lista';
-
-  const nivelModalidad = [textoVisible(oferta.programa?.nivel_academico), textoVisible(oferta.programa?.modalidad)]
-    .filter(Boolean)
-    .join(' • ');
-  const ubicacion = [textoVisible(oferta.sede?.ciudad), textoVisible(oferta.sede?.pais)].filter(Boolean).join(', ');
-  const area = textoVisible(oferta.programa?.area);
-  const duracion = textoVisible(oferta.programa?.duracion);
-  const beneficio = textoVisible(oferta.beneficios?.[0]?.tipo) || textoVisible(oferta.tipo_beneficio);
-
-  // Campos de decisión. Los dos primeros siempre se ven, con placeholder si faltan.
-  const fields = [
-    {
-      label: 'Nivel y modalidad',
-      value: valorOPorConfirmar(nivelModalidad, 'Por confirmar')
-    },
-    {
-      label: 'Ubicación',
-      value: valorOPorConfirmar(ubicacion, 'Por confirmar')
-    },
-    area
-      ? {
-          label: 'Área',
-          value: area
-        }
-      : null,
-    duracion
-      ? {
-          label: 'Duración',
-          value: duracion
-        }
-      : null,
-    beneficio
-      ? {
-          label: 'Beneficio',
-          value: beneficio
-        }
-      : null
-  ].filter((field): field is { label: string; value: string } => Boolean(field && field.value)).slice(0, 5);
-
-  const lineaInstitucion = [nombreUniversidad || 'Institución por confirmar', nombreSede].filter(Boolean).join(' • ');
+  const modalidad = textoVisible(oferta.programa?.modalidad);
+  const ciudad = textoVisible(oferta.sede?.ciudad);
+  const lugar = [modalidad, ciudad].filter(Boolean).join(" · ");
+  const beca = textoBeca(oferta);
+  const etiquetaGuardar = isInMyList ? "Quitar de Mi lista" : "Guardar en Mi lista";
 
   return (
-    <article
-      className="relative self-start h-fit bg-white border border-buscoedu-border border-l-4 rounded-lg overflow-hidden hover:shadow-card transition-shadow"
-      style={{ borderLeftColor: universityBorderColor }}
-    >
+    <article className="flex h-full flex-col rounded-[var(--radius-card)] border-2 border-[var(--color-text)] bg-white p-4 shadow-[var(--shadow-hard)]">
       {/*
-        BA-013: abrir el detalle es un botón real (Tab, Enter y lector de pantalla).
-        El corazón queda fuera de ese botón para no anidar controles.
+        BA-013: abrir el detalle es un botón real. Guardar queda fuera
+        para no anidar controles. «Ver detalle» no es Aplicar.
       */}
       <button
         type="button"
         onClick={onCardClick}
-        className="block w-full rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-buscoedu-blue"
+        className="flex flex-1 flex-col rounded-xl text-left"
       >
-        <span className="sr-only">Abrir detalle. </span>
-        <div className="relative h-40 bg-gradient-to-br from-buscoedu-blue/10 to-buscoedu-teal/10">
-          <div className="absolute inset-0 flex items-center justify-center px-12">
-            <div className="text-center p-4">
-              <div
-                className="w-16 h-16 mx-auto rounded-full flex items-center justify-center font-bold text-2xl"
-                style={{ backgroundColor: universityColor, color: universityTextColor }}
-              >
-                {(nombreUniversidad || 'I').charAt(0).toUpperCase()}
-              </div>
-              <p className="mt-2 text-xs text-buscoedu-muted font-medium line-clamp-2">
-                {nombreUniversidad || 'Institución por confirmar'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4">
-          <h3 className="font-bold text-buscoedu-blue mb-1 line-clamp-2 text-base">
-            {tituloPrograma}
-          </h3>
-
-          <p className="text-sm text-buscoedu-muted mb-3">
-            {lineaInstitucion}
-          </p>
-
-          <div className="space-y-2">
-            {fields.map((field) => (
-              <div key={field.label} className="text-sm">
-                <span className="text-buscoedu-muted">{field.label}:</span>{' '}
-                <span className={`font-medium ${field.value === 'Por confirmar' ? 'text-buscoedu-muted' : 'text-buscoedu-text'}`}>
-                  {field.value}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <span className="inline-flex w-fit rounded-full bg-[var(--color-band)] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[var(--color-text)]">
+          Aliada
+        </span>
+        <h3 className="mt-3 font-display text-[28px] leading-[1.05] text-[var(--color-text)]">{tituloPrograma}</h3>
+        {nombreUniversidad ? <p className="mt-2 text-sm text-[var(--color-muted)]">{nombreUniversidad}</p> : null}
+        {lugar ? <p className="mt-3 text-sm text-[var(--color-text)]">{lugar}</p> : null}
+        {beca ? (
+          <span className="mt-3 inline-flex w-fit rounded-full border border-[var(--color-text)] bg-white px-2.5 py-1 text-[11px] font-bold text-[var(--color-text)]">
+            {beca}
+          </span>
+        ) : null}
+        <span className="mt-4 inline-flex w-fit items-center justify-center rounded-full border-2 border-[var(--color-text)] bg-white px-4 py-2 text-sm font-bold text-[var(--color-text)] shadow-[var(--shadow-hard)]">
+          Ver detalle
+        </span>
       </button>
 
       {/* BA-010: guardar en la lista local. No envía datos ni contacta a la universidad. */}
       <button
         type="button"
         onClick={onToggleMyList}
-        className="absolute top-3 right-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-md transition hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-buscoedu-blue"
-        aria-label={etiquetaGuardar}
+        className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-full border-2 border-[var(--color-text)] bg-white px-3 py-2 text-sm font-bold text-[var(--color-text)]"
         aria-pressed={isInMyList}
       >
-        <svg
-          className={`w-6 h-6 ${isInMyList ? 'fill-red-500 stroke-red-500' : 'fill-none stroke-buscoedu-text'}`}
-          stroke="currentColor"
-          strokeWidth={2}
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-          />
-        </svg>
+        {etiquetaGuardar}
       </button>
-
-      <div className="px-4 pb-4">
-        <button
-          type="button"
-          onClick={onToggleMyList}
-          className={`inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border-2 px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-buscoedu-blue ${
-            isInMyList
-              ? 'border-red-600 bg-red-50 text-red-600 hover:bg-red-100'
-              : 'border-buscoedu-blue bg-white text-buscoedu-blue hover:bg-buscoedu-blue/5'
-          }`}
-          aria-pressed={isInMyList}
-        >
-          {etiquetaGuardar}
-        </button>
-      </div>
     </article>
   );
 }

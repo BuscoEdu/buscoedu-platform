@@ -5,6 +5,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import MarkdownNaia from '@/components/naia/markdownNaia';
 
 interface NaiaMessageProps {
   content: string;
@@ -51,24 +52,33 @@ export default function NaiaMessage({ content, isUser, timestamp, streaming = fa
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-      {/* BA-025: la respuesta de NaIA es burbuja blanca; el estudiante mantiene el teal. */}
+      {/* Ola 3: estudiante en índigo con blanco; NaIA en banda con tinta. */}
       <div
-        className={`max-w-[80%] rounded-lg px-4 py-3 ${
+        className={`max-w-[80%] rounded-2xl border-2 border-[var(--color-text)] px-4 py-3 ${
           isUser
-            ? 'bg-buscoedu-teal text-white shadow-[0_6px_16px_rgba(18,58,111,0.16)]'
-            : 'naia-chat-bubble text-buscoedu-text'
+            ? 'bg-[var(--color-primary)] text-white'
+            : 'naia-chat-bubble'
         }`}
       >
         {!isUser && (
-          <p className="text-xs font-semibold text-buscoedu-blue mb-1">NaIA</p>
+          <p className="text-xs font-semibold text-[var(--color-text)] mb-1">NaIA</p>
         )}
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">
-          {displayText}
-          {/* Cursor parpadeante mientras se escribe el mensaje */}
-          {conEfecto && !terminado && (
-            <span className="animate-pulse text-buscoedu-blue">|</span>
-          )}
-        </p>
+        {isUser ? (
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            {displayText}
+            {conEfecto && !terminado && (
+              <span className="animate-pulse text-white/80">|</span>
+            )}
+          </p>
+        ) : (
+          <div className="text-sm">
+            {/* Misma regla que el hilo: negrita y listas sin HTML crudo. */}
+            <MarkdownNaia texto={displayText} />
+            {conEfecto && !terminado && (
+              <span className="animate-pulse text-[var(--color-text)]">|</span>
+            )}
+          </div>
+        )}
         {timestamp && (
           <p className={`text-xs mt-2 ${isUser ? 'text-white/70' : 'text-buscoedu-muted'}`}>
             {timestamp.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
