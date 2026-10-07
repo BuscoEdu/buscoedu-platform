@@ -14,7 +14,8 @@ import { ALIADAS_PUBLICAS } from "./aliadas-publicas";
 export { ALIADAS_PUBLICAS, NOMBRES_ALIADAS } from "./aliadas-publicas";
 export type { AliadaPublica } from "./aliadas-publicas";
 
-function idsDesdeEnv(): string[] {
+/** UUIDs de `NEXT_PUBLIC_ALIADAS_IDS`. Lo usan el corredor y los logos del Home. */
+export function idsAliadasDesdeEnv(): string[] {
   const raw = process.env.NEXT_PUBLIC_ALIADAS_IDS || "";
   return raw
     .split(",")
@@ -44,7 +45,7 @@ export async function resolverIdsAliadas(): Promise<string[]> {
 }
 
 async function resolverIdsAliadasSinCache(): Promise<string[]> {
-  const fromEnv = idsDesdeEnv();
+  const fromEnv = idsAliadasDesdeEnv();
   if (fromEnv.length > 0) return fromEnv;
 
   const condiciones = ALIADAS_PUBLICAS.flatMap((aliada) =>
