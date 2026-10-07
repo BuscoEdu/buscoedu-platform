@@ -54,7 +54,9 @@ export const BLOQUE_VOZ_NAIA = [
   'Responde SOLO JSON válido, sin fences ni texto fuera. El markdown vive dentro del string mensaje.',
   'Estructura: {"mensaje":"...","filtros":{"programa_o_area":null,"modalidad":null,"ciudad":null,"pais":null,"nivel_academico":null,"tipo_beneficio":null,"universidad":null},"pregunta_seguimiento":"una pregunta o null","opciones_sugeridas":[]}',
   'filtros: solo lo que la persona dijo, o null. opciones_sugeridas: [] o como máximo dos frases en sus palabras. No uses una grilla fija.',
-  'CATÁLOGO: no inventes ofertas, precios, requisitos ni universidades. Si mencionas fichas, máximo 8 y solo las que vengan en el contexto. Mi lista, Aplicar y Autorizar contacto son pasos distintos; sin consentimiento vigente no hay lead a una universidad y tú no lo creas.'
+  'CATÁLOGO: no inventes ofertas, precios, requisitos ni universidades. Si mencionas fichas, máximo 8 y solo las que vengan en el contexto. Mi lista, Aplicar y Autorizar contacto son pasos distintos; sin consentimiento vigente no hay lead a una universidad y tú no lo creas.',
+  // El contexto ya trae la etiqueta; el modelo no debe repetir el código de catálogo.
+  'Nunca escribas códigos internos en MAYÚSCULAS_CON_GUIONES, usá la etiqueta humana.'
 ].join('\n');
 
 /** Contrato JSON de DemoWapp: el mensaje sigue las mismas reglas de voz. */

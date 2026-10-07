@@ -66,7 +66,7 @@ npm test
 npm run build
 ```
 
-`npm test` corre `node --test` (el runner del repo, `node:test`) sobre estas cifras, estos logos y los tests que ya existían.
+`npm test` corre `node --test` (el runner del repo, `node:test`) sobre estas cifras, estos logos, la etiqueta de beneficio y los tests que ya existían.
 
 Con el servidor y las env de arriba:
 
@@ -76,3 +76,23 @@ curl -s http://localhost:3000/api/aliadas/logos
 ```
 
 Sin catálogo vigente o si la consulta falla, cifras responde `null`. Sin logos cargados o si la lectura falla, logos responde `[]`.
+
+## Etiqueta de beneficio
+
+`etiquetaBeneficio(codigo: string | null | undefined): string | null` está en `src/lib/etiquetas-beneficio.ts`. El mapa exportado es `ETIQUETAS_BENEFICIO` (Frontend puede importarlo). Los códigos son los 7 de `public.tipos_beneficio` en `supabase/migrations/20260129000400_create_tipos_beneficio.sql`. En las ofertas llegan en mayúscula. Antes de buscar se normaliza con `String(codigo ?? '').trim().toLowerCase()`.
+
+| Código | Etiqueta |
+|---|---|
+| `beca_postulacion` | Beca por postulación |
+| `beca_apropiacion_directa` | Beca directa (sin postulación) |
+| `descuento` | Descuento |
+| `financiacion` | Financiación |
+| `beneficio_convenio` | Beneficio por convenio |
+| `beneficio_temporal` | Beneficio temporal |
+| `otro` | Beneficio disponible |
+| cualquier otro código no vacío | Beneficio disponible |
+| `null`, `undefined` o vacío (también solo espacios) | `null` |
+
+No se devuelve el código crudo. `null`, `undefined` o vacío después de trim devuelven `null`: no se inventa un beneficio. «Beneficio disponible» solo aplica cuando hay un código no vacío sin etiqueta propia. Eso incluye `otro` y cualquier código desconocido.
+
+NaIA (`lib/agentes/AgenteExecutor.ts`, `lib/agentes/ejecutar-w1.ts`) y el Demo WApp (`src/lib/demowapp/buscar-ofertas-corredor.ts`) mandan la etiqueta al prompt. Si la función devuelve `null`, omiten el campo: no se manda texto de beneficio. La voz de NaIA (`lib/agentes/vozNaia.ts`) pide no escribir códigos en `MAYÚSCULAS_CON_GUIONES`.
