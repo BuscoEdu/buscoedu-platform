@@ -1,22 +1,17 @@
-import type { CifrasCatalogo } from "@/src/lib/cifras-catalogo";
 import HardCard from "@/components/restyle/HardCard";
+import HablaConNaiaButton from "@/components/restyle/HablaConNaiaButton";
 import SectionWrap from "@/components/restyle/SectionWrap";
-import { cifraPositiva, formatoEntero } from "@/components/restyle/formato";
 
 /**
- * Demo fija de NaIA. No llama al modelo: es un ejemplo marcado como tal.
- * El número, si aparece, es el total del catálogo (el mismo de las cifras).
- * No se nombra una universidad ni se arma una ficha inventada.
+ * Demo fija de NaIA (H5). No llama al modelo y no cita cifras ni universidades:
+ * el total del catálogo no es la respuesta a un filtro, y una ficha aquí
+ * destacaría a una institución. Explica el recorrido: pregunta, tipo de
+ * respuesta y el CTA para hablar con NaIA.
  */
-export default function HomeDemoNaia({ cifras }: { cifras: CifrasCatalogo | null }) {
-  const programas = cifras && cifraPositiva(cifras.programas) ? cifras.programas : null;
-  const respuesta = programas
-    ? `Encontré ${formatoEntero(programas)} programas vigentes en el catálogo. En el chat, NaIA te muestra fichas para que compares precio y becas. No elige una universidad por ti.`
-    : "NaIA responde solo con programas vigentes del catálogo y te muestra fichas para que compares precio y becas. No elige una universidad por ti.";
-
+export default function HomeDemoNaia() {
   return (
     <section className="bg-[var(--color-bg)]">
-      <SectionWrap className="text-center">
+      <SectionWrap className="a2-fab-safe text-center md:pb-[60px]">
         <h2 className="font-display text-[34px] leading-[1.02] text-[var(--color-primary)] sm:text-[48px]">
           Pregúntale a NaIA
         </h2>
@@ -26,17 +21,20 @@ export default function HomeDemoNaia({ cifras }: { cifras: CifrasCatalogo | null
             <span className="inline-flex rounded-full border border-[var(--color-primary)] bg-[var(--color-band)] px-2.5 py-1 font-mono text-xs uppercase tracking-wide text-[var(--color-text)]">
               NaIA
             </span>
-            <h3 className="mt-3 text-xl font-bold text-[var(--color-text)]">Te orienta según tu etapa</h3>
+            <h3 className="mt-3 text-xl font-bold text-[var(--color-text)]">Así responde</h3>
             <p className="mt-2 text-base leading-relaxed text-[var(--color-muted)]">
-              Explorar, comparar o aplicar. Neutral entre universidades.
+              Le escribes qué quieres estudiar. NaIA contesta con fichas del catálogo vigente para que compares.
+              No elige una universidad por ti.
             </p>
+            <HablaConNaiaButton className="mt-5" />
           </div>
           <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-3.5" aria-label="Ejemplo de conversación con NaIA">
             <p className="ml-auto max-w-[82%] rounded-[14px] border border-[var(--color-text)] bg-white px-3.5 py-2.5 text-sm text-[var(--color-text)]">
               Quiero estudiar administración virtual en Bogotá, ¿qué hay?
             </p>
             <p className="mt-1.5 max-w-[82%] rounded-[14px] bg-[var(--color-primary)] px-3.5 py-2.5 text-sm text-white">
-              {respuesta}
+              Te muestro fichas del catálogo vigente con modalidad, ciudad, precio y becas, solo cuando esos datos
+              existen. Tú comparas. Yo no te digo cuál universidad es la mejor.
             </p>
           </div>
         </HardCard>

@@ -41,7 +41,7 @@ Cargada con `next/font` en `app/layout.tsx`:
 - **Archivo** (`font-sans`): cuerpo, wordmark «BuscoEdu» y el resto del sitio.
 - **JetBrains Mono** (`font-mono`): número de paso y chip «NaIA».
 
-`prefers-reduced-motion: reduce` anula animaciones y transiciones. El foco visible es un anillo tinta de 2px.
+`prefers-reduced-motion: reduce` anula animaciones y transiciones. El foco visible es un anillo índigo de 2px (`outline: 2px solid var(--color-primary)`) separado 2px del control (`outline-offset: 2px`). El hueco muestra el fondo real, así el anillo no se pega al borde de un botón que ya es índigo. Aplica a enlaces, botones, campos y elementos con `role="button"`.
 
 ## Componentes base
 
@@ -54,7 +54,7 @@ En `components/restyle/`:
 | `SectionBand` | Fondo de banda a ancho completo. |
 | `SectionWrap` | Columna 1120px (760px si `narrow`). |
 | `FaqAccordion` | Acordeón. Botón nativo, Enter y Espacio, `aria-expanded` y `aria-controls`. |
-| `LogoStrip` | Logos `{url, alt}`. Es cliente por el `onError`. |
+| `LogoStrip` | Logos `{url, alt}`. Es cliente por el `onError`. Al montar, si la imagen ya falló (`complete` y `naturalWidth === 0`), se oculta igual: ese fallo ocurre antes de hidratar y no dispara `onError`. |
 | `HeroIllustration` | Birrete. Sobre banda, el pompón es índigo y no highlight. |
 | `HablaConNaiaButton` | Abre `NaiaEntryModal`, el mismo modal del header. |
 
@@ -65,12 +65,12 @@ En `components/restyle/`:
 1. **Hero** (`HomeHero`). Promesa, la palabra «carrera» en highlight, «Explora programas» → `/explorar`, «Habla con NaIA» → modal de NaIA. Los dos caben en el primer pantallazo a 1280 y a 390.
 2. **Logos y cifras**, dentro del hero, solo con dato real.
 3. **Cómo funciona** (`HomeComoFunciona`), sobre banda. Explora → Compara con NaIA → Aplica con tu permiso. El paso 3 dice que la universidad solo recibe los datos si tú autorizas el contacto.
-4. **Demo NaIA** (`HomeDemoNaia`). Hilo fijo, marcado como ejemplo, no es una llamada en vivo. El tono no recomienda «la mejor» universidad. Si hay cifra real de programas, la frase usa ese total del catálogo; si no, no inventa un número. No se pinta una ficha con nombre de universidad: mostrar una sola oferta aquí la destacaría.
+4. **Demo NaIA** (`HomeDemoNaia`). Hilo fijo, marcado como ejemplo, no es una llamada en vivo. Explica el recorrido (pregunta → tipo de respuesta → «Habla con NaIA»). No cita un número ni una universidad: el total del catálogo no es la respuesta a un filtro, y una ficha aquí destacaría a una institución.
 5. **FAQ** (`HomeFaq`), sobre banda. Las cuatro preguntas del criterio H6: ¿tiene costo?, ¿me contactan sin permiso?, ¿hace falta registrarse para explorar?, ¿qué es NaIA?
 
 No hay testimonios.
 
-El header y el FAB de NaIA siguen en su sitio. El FAB móvil abre la misma capa de chat de antes (`NaiaChatCapa` o el evento de Explorar). En el pie hay padding inferior en móvil para que ese FAB no tape los enlaces. Los CTA del hero quedan arriba, fuera del FAB.
+El header y el FAB de NaIA siguen en su sitio. El FAB móvil abre la misma capa de chat de antes (`NaiaChatCapa` o el evento de Explorar). En el pie hay padding inferior en móvil para que ese FAB no tape los enlaces. Los CTA del hero quedan arriba, fuera del FAB. En móvil, la clase `a2-fab-safe` suma 6.5rem bajo las cifras, la demo y el catálogo de Explorar para poder scrollear ese contenido por encima del FAB. Las cifras y las tarjetas de Explorar, además, dejan 6rem a la derecha (`max-md:pr-24`) para que el FAB no se siente encima de la tarjeta de ciudades ni de un CTA.
 
 ## Cifras y logos
 
@@ -132,15 +132,27 @@ Contrastes de referencia (texto normal, salvo donde se indica):
 | `#3b2f8f` sobre `#f7f4ee` | 9.62 |
 | `#1a1830` sobre `#f7f4ee` | 15.72 |
 
-## Pendiente para las olas 2 y 3
+## Correcciones de Home (en la Ola 2)
 
-**Ola 2 — Explorar, detalle y consentimiento (solo visual):**
+- **H5.** La demo ya no dice «Encontré N programas» para la pregunta de ejemplo. Ese N era el total del catálogo, no el filtro. El bloque explica cómo responde NaIA y cierra con «Habla con NaIA».
+- **T10.** El hero mantiene «catálogo de universidades aliadas»: Backend confirmó que `obtenerOfertas` solo devuelve aliadas. «Aplica en minutos» pasó a «aplica fácil».
+- **H6.** El acordeón no se tocó en esta ola. Las cuatro preguntas siguen en el HTML como botones con `aria-expanded`.
 
-- Tarjeta con modalidad, ciudad, precio vigente y beca. Chip «Aliada» del mismo tamaño para todas.
-- Filtros fijos en web y hoja inferior en móvil, con «Aplicar filtros» visible.
-- Estados de carga, vacío y error distintos entre sí.
-- Tres acciones que no se fusionan: Aplicar (índigo, texto blanco), Guardar en Mi lista (contorno), Autorizar contacto (paso propio, índigo con texto blanco, no coral).
-- Consentimiento en paso propio, casilla sin marcar, sin rojo de alarma. El error de validación sí puede usar `--color-error`, solo en el texto de ayuda.
+## Ola 2 · Explorar y detalle
+
+Solo visual. La consulta sigue siendo `obtenerOfertas` (activo + publicado + validado + vigente + aliadas). Guardar en Mi lista, Aplicar y Autorizar contacto siguen siendo tres acciones.
+
+| Pieza | Qué cambió |
+|---|---|
+| `components/explorar/OfferCard.tsx` | Tarjeta con sombra dura, chip «Aliada», modalidad y ciudad si vienen, beca solo si el beneficio lo dice. Sin precio inventado. «Ver detalle» abre la ficha. «Guardar en Mi lista» no aplica. Mismo tamaño para todas las universidades. |
+| `components/explorar/ExplorarFiltros.tsx` | En web, filtros fijos arriba (ciudad, modalidad, con beca) y «Aplicar filtros». En móvil, hoja inferior con cierre por botón, fondo o Escape. «Solo aliadas» es un rótulo, no un interruptor: el catálogo ya está filtrado. No hay filtro de precio porque ese dato no existe. |
+| `components/explorar/OfferDetailModal.tsx` | Orden: qué es, vigencia (si hay fecha), becas, acciones. Aplicar en índigo con texto blanco. Guardar en contorno, con el aviso «Guardado en Mi lista» o «Quitado de Mi lista». Autorizar contacto no está en esta tarjeta. |
+| `components/naia/NaiaSearchExperience.tsx` | En `/explorar` el catálogo es la página. El chat se abre con el FAB y se cierra con «Volver al catálogo»; no se re-skinea (Ola 3). Vacío: «No hay programas con esos filtros» y «Limpiar filtros». Error: borde `--color-error`, texto de error y «Reintentar». Carga: esqueleto. El conteo sale de `total` cuando la consulta respondió bien. |
+| `AplicacionConsentimientoModal` | El botón «Autorizar contacto» es índigo con texto blanco. Sigue deshabilitado si falta un consentimiento obligatorio. La casilla no viene marcada. El resto del funnel no cambia. |
+
+El coral no se usa como texto ni como relleno de Aplicar o de Autorizar contacto. El highlight de «programas» va sobre el fondo crema, no sobre una banda.
+
+## Pendiente para la Ola 3
 
 **Ola 3 — NaIA y Demo WApp, solo tokens:**
 

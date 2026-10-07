@@ -5,12 +5,15 @@ import type { OfertaAcademica } from '@/src/lib/ofertas';
 import { useMyList } from '@/src/contexts/MyListContext';
 import { trackOfferOpened, trackOfferClosed, trackApplyAttempt } from '@/src/lib/events';
 import AplicacionConsentimientoModal from '@/components/leadcenter/AplicacionConsentimientoModal';
-import {
-  getUniversityBorderColor,
-  getUniversityColor,
-  getUniversitySoftBgColor,
-  getUniversityTextColor
-} from '@/src/lib/university-colors';
+import PillButton from '@/components/restyle/PillButton';
+
+function fechaLegible(iso?: string): string | null {
+  const valor = (iso ?? '').trim();
+  if (!valor) return null;
+  const fecha = new Date(valor.length === 10 ? `${valor}T00:00:00` : valor);
+  if (Number.isNaN(fecha.getTime())) return null;
+  return new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }).format(fecha);
+}
 
 interface OfferDetailModalProps {
   oferta: OfertaAcademica | null;
@@ -21,6 +24,8 @@ interface OfferDetailModalProps {
 export default function OfferDetailModal({ oferta, onClose, onAplicacionCompletada }: OfferDetailModalProps) {
   const { isInMyList, addToMyList, removeFromMyList } = useMyList();
   const [mostrarAplicacion, setMostrarAplicacion] = useState(false);
+  /* Feedback de Guardar, distinto del de Aplicar y del de Autorizar contacto. */
+  const [avisoLista, setAvisoLista] = useState<string | null>(null);
 
   // Overlay de "solicitud enviada" con cuenta regresiva de cierre automático.
   const SEGUNDOS_CIERRE = 10;
@@ -95,26 +100,19 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
   // BA-016: un nombre vacío no se pinta como blanco; se dice que falta el dato.
   const universidadNombre = (oferta.universidad?.nombre ?? '').trim();
   const tituloPrograma = (oferta.programa?.nombre || oferta.nombre || '').trim() || 'Programa por confirmar';
-  const sedeNombre = (oferta.sede?.nombre ?? '').trim();
   const ciudadSede = (oferta.sede?.ciudad ?? '').trim();
-  const paisSede = (oferta.sede?.pais ?? '').trim();
-  const lugarSede = [ciudadSede, paisSede].filter(Boolean).join(', ');
-  const textoInstitucion = [universidadNombre || 'Institución por confirmar', sedeNombre, lugarSede]
-    .filter(Boolean)
-    .join(' • ');
-  const nivelAcademico = (oferta.programa?.nivel_academico ?? '').trim();
   const modalidadPrograma = (oferta.programa?.modalidad ?? '').trim();
-  const universityColor = getUniversityColor(oferta.universidad_id, universidadNombre);
-  const universityBorderColor = getUniversityBorderColor(oferta.universidad_id, universidadNombre);
-  const universitySoftBg = getUniversitySoftBgColor(oferta.universidad_id, universidadNombre);
-  const universityTextColor = getUniversityTextColor(oferta.universidad_id, universidadNombre);
-  const universityInitial = universidadNombre ? universidadNombre.charAt(0).toUpperCase() : 'U';
+  const meta = [universidadNombre, modalidadPrograma, ciudadSede].filter(Boolean).join(' · ');
+  const vigenciaHasta = fechaLegible(oferta.vigente_hasta);
+  const becas = (oferta.beneficios ?? []).filter((beneficio) => (beneficio.tipo ?? '').trim() || (beneficio.descripcion ?? '').trim());
 
   const handleToggleMyList = () => {
     if (inMyList) {
       removeFromMyList(oferta.id);
+      setAvisoLista('Quitado de Mi lista');
     } else {
       addToMyList(oferta.id);
+      setAvisoLista('Guardado en Mi lista');
     }
   };
 
@@ -128,16 +126,16 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
   return (
     <>
       {/*
-        BA-001: la ficha va por encima del panel de resultados móvil (z-[70]).
-        En desktop el panel no es un overlay; subir el z-index no cambia el layout.
+        BA-001: la ficha va por encima del panel de resultados móvil (z-[70])
+        y del FAB. Ola 2: jerarquía qué es → vigencia (si hay fecha) → becas → acciones.
+        No se pinta precio: la oferta no trae ese campo. Un dato ausente no se inventa.
       */}
       <div
-        className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-[80] bg-[var(--color-text)]/50"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Modal centrado que nunca excede el ancho del viewport en móvil ni desktop. */}
       <div
         role="dialog"
         aria-modal="true"
@@ -145,156 +143,94 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
         className="fixed inset-0 z-[80] flex items-end justify-center overflow-hidden p-2 sm:items-center sm:overflow-y-auto sm:p-4"
       >
         <div
-          className="my-0 flex max-h-[calc(100dvh-1rem)] w-full min-w-0 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-lg border-t-4 bg-white shadow-2xl sm:my-8 sm:max-h-[calc(100dvh-2rem)] sm:max-w-3xl xl:max-w-4xl"
-          style={{ borderTopColor: universityBorderColor }}
+          className="my-0 flex max-h-[calc(100dvh-1rem)] w-full min-w-0 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-[var(--radius-card)] border-2 border-[var(--color-text)] bg-[var(--color-bg)] shadow-[var(--shadow-hard)] sm:my-8 sm:max-h-[calc(100dvh-2rem)] sm:max-w-5xl"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header fijo con textos truncables para evitar desbordes horizontales. */}
-          <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-buscoedu-border bg-white px-4 py-4 sm:px-6">
-            <div className="min-w-0 flex-1 pr-1 sm:pr-4">
-              <h2 id="detail-modal-title" className="break-words text-xl font-bold text-buscoedu-blue sm:text-2xl">
-                {tituloPrograma}
-              </h2>
-              <div className="mt-2 flex min-w-0 items-center gap-2">
-                <span
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-                  style={{ backgroundColor: universityColor, color: universityTextColor }}
-                  aria-hidden="true"
-                >
-                  {universityInitial}
-                </span>
-                <p
-                  className="min-w-0 break-words rounded-md px-2 py-1 text-sm"
-                  style={{ backgroundColor: universitySoftBg, color: universityBorderColor }}
-                >
-                  {textoInstitucion}
-                </p>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {nivelAcademico ? (
-                  <span className="inline-block rounded bg-buscoedu-blue/10 px-2 py-1 text-xs font-medium text-buscoedu-blue break-words">
-                    {nivelAcademico}
-                  </span>
-                ) : (
-                  <span className="inline-block rounded bg-buscoedu-bg px-2 py-1 text-xs font-medium text-buscoedu-muted break-words">
-                    Nivel por confirmar
-                  </span>
-                )}
-                {modalidadPrograma ? (
-                  <span className="inline-block rounded bg-buscoedu-teal/10 px-2 py-1 text-xs font-medium text-buscoedu-teal break-words">
-                    {modalidadPrograma}
-                  </span>
-                ) : (
-                  <span className="inline-block rounded bg-buscoedu-bg px-2 py-1 text-xs font-medium text-buscoedu-muted break-words">
-                    Modalidad por confirmar
-                  </span>
-                )}
-              </div>
-            </div>
+          <div className="flex items-center justify-end px-4 pt-3 sm:px-6">
             <button
               onClick={onClose}
-              className="h-10 w-10 shrink-0 rounded-full transition-colors hover:bg-buscoedu-bg"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border-2 border-[var(--color-text)] bg-white text-sm font-bold text-[var(--color-text)]"
               aria-label="Cerrar ficha"
             >
-              <svg
-                className="h-6 w-6 text-buscoedu-text"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+              Cerrar
             </button>
           </div>
 
-          {/* Contenido con break-words y overflow controlado para evitar scroll lateral. */}
-          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6">
-            {oferta.descripcion && (
-              <section>
-                <h3 className="mb-3 text-lg font-bold text-buscoedu-blue">Información académica</h3>
-                <div className="space-y-2 text-sm">
-                  <p className="break-words leading-relaxed text-buscoedu-text">{oferta.descripcion}</p>
-
-                  {oferta.programa?.duracion && (
-                    <p className="break-words">
-                      <span className="font-semibold text-buscoedu-text">Duración:</span>{' '}
-                      <span className="text-buscoedu-muted">{oferta.programa.duracion}</span>
-                    </p>
-                  )}
+          <div className="a2-fab-safe min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-6 sm:px-6 md:pb-6">
+            <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="min-w-0 space-y-4">
+                <div>
+                  <span className="inline-flex rounded-full bg-[var(--color-band)] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[var(--color-text)]">
+                    Aliada
+                  </span>
+                  <h2 id="detail-modal-title" className="mt-3 break-words font-display text-[34px] leading-[1.05] text-[var(--color-text)] sm:text-[44px]">
+                    {tituloPrograma}
+                  </h2>
+                  {meta ? <p className="mt-2 break-words text-sm text-[var(--color-muted)]">{meta}</p> : null}
                 </div>
-              </section>
-            )}
 
-            {oferta.beneficios && oferta.beneficios.length > 0 && (
-              <section>
-                <h3 className="mb-3 text-lg font-bold text-buscoedu-blue">Oferta y beneficios</h3>
-                <div className="space-y-3">
-                  {oferta.beneficios.map((beneficio, index) => (
-                    <div key={index} className="rounded-lg bg-buscoedu-bg p-4">
-                      <p className="mb-1 break-words font-semibold text-buscoedu-blue">{beneficio.tipo}</p>
-                      {beneficio.descripcion && (
-                        <p className="break-words text-sm text-buscoedu-muted">{beneficio.descripcion}</p>
-                      )}
-                    </div>
-                  ))}
+                {oferta.descripcion ? (
+                  <section className="rounded-[var(--radius-card)] border-2 border-[var(--color-text)] bg-white p-4 shadow-[var(--shadow-hard)]">
+                    <h3 className="text-lg font-bold text-[var(--color-text)]">Qué es</h3>
+                    <p className="mt-2 break-words text-sm leading-relaxed text-[var(--color-text)]">{oferta.descripcion}</p>
+                    {oferta.programa?.duracion ? (
+                      <p className="mt-2 break-words text-sm text-[var(--color-muted)]">Duración: {oferta.programa.duracion}</p>
+                    ) : null}
+                  </section>
+                ) : null}
+
+                {vigenciaHasta ? (
+                  <section className="rounded-[var(--radius-card)] border-2 border-[var(--color-text)] bg-white p-4 shadow-[var(--shadow-hard)]">
+                    <h3 className="text-lg font-bold text-[var(--color-text)]">Vigencia</h3>
+                    <p className="mt-2 text-sm text-[var(--color-text)]">Vigente hasta {vigenciaHasta}</p>
+                  </section>
+                ) : null}
+
+                {becas.length > 0 ? (
+                  <section className="rounded-[var(--radius-card)] border-2 border-[var(--color-text)] bg-white p-4 shadow-[var(--shadow-hard)]">
+                    <h3 className="text-lg font-bold text-[var(--color-text)]">Becas</h3>
+                    <ul className="mt-2 space-y-2">
+                      {becas.map((beneficio, index) => (
+                        <li key={`${beneficio.tipo}-${index}`} className="break-words text-sm text-[var(--color-text)]">
+                          <span className="font-semibold">{beneficio.tipo}</span>
+                          {beneficio.descripcion ? <span className="text-[var(--color-muted)]">. {beneficio.descripcion}</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+
+                {oferta.cupos_disponibles !== undefined && oferta.cupos_disponibles !== null ? (
+                  <p className="break-words text-sm text-[var(--color-text)]">
+                    Cupos disponibles: {oferta.cupos_disponibles}
+                  </p>
+                ) : null}
+              </div>
+
+              {/*
+                D2: Aplicar es índigo. Guardar en Mi lista es contorno.
+                Autorizar contacto no está en esta tarjeta: es el paso de consentimiento.
+              */}
+              <section className="rounded-[var(--radius-card)] border-2 border-[var(--color-text)] bg-white p-4 shadow-[var(--shadow-hard)] lg:sticky lg:top-0">
+                <h3 className="text-lg font-bold text-[var(--color-text)]">¿Qué quieres hacer?</h3>
+                <div className="mt-4 flex flex-col gap-3">
+                  <PillButton type="button" onClick={handleApplyClick} className="w-full">
+                    Aplicar
+                  </PillButton>
+                  <PillButton type="button" variant="secondary" onClick={handleToggleMyList} className="w-full" aria-pressed={inMyList}>
+                    {inMyList ? 'Quitar de Mi lista' : 'Guardar en Mi lista'}
+                  </PillButton>
                 </div>
-              </section>
-            )}
-
-            <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <h3 className="mb-2 text-lg font-bold text-buscoedu-blue">Precios y condiciones</h3>
-              <p className="break-words text-sm text-amber-800">
-                Los precios específicos se consultarán directamente con la universidad. La información mostrada es orientativa y puede variar según condiciones, periodos y validaciones de la institución.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="mb-3 text-lg font-bold text-buscoedu-blue">Requisitos de acceso</h3>
-              <p className="mb-2 break-words text-sm text-buscoedu-muted">
-                Los requisitos específicos del programa y de la oferta se confirman con la institución educativa.
-              </p>
-              <p className="rounded bg-buscoedu-bg p-3 text-xs italic text-buscoedu-muted break-words">
-                La revisión definitiva de requisitos corresponde a la institución.
-              </p>
-            </section>
-
-            {oferta.cupos_disponibles !== undefined && oferta.cupos_disponibles !== null && (
-              <section>
-                <h3 className="mb-2 text-lg font-bold text-buscoedu-blue">Disponibilidad</h3>
-                <p className="break-words text-sm text-buscoedu-text">
-                  <span className="font-semibold">Cupos disponibles:</span> {oferta.cupos_disponibles}
+                {avisoLista ? (
+                  <p className="mt-3 text-sm font-semibold text-[var(--color-success)]" role="status">
+                    {avisoLista}
+                  </p>
+                ) : null}
+                <p className="mt-3 text-sm leading-relaxed text-[var(--color-muted)]">
+                  Guardar no envía tus datos. Aplicar no autoriza el contacto: eso es un paso aparte.
                 </p>
               </section>
-            )}
-          </div>
-
-          {/*
-            BA-010: Guardar en Mi lista no crea lead. Aplicar abre el funnel.
-            Autorizar contacto vive solo en el paso de consentimiento.
-          */}
-          <div className="sticky bottom-0 flex flex-wrap gap-3 border-t border-buscoedu-border bg-white px-4 py-4 sm:px-6">
-            <button
-              onClick={handleToggleMyList}
-              className={`min-w-0 flex-1 rounded-lg border-2 px-4 py-3 font-semibold transition-colors sm:min-w-[200px] sm:px-6 ${
-                inMyList
-                  ? 'border-red-600 bg-red-50 text-red-600 hover:bg-red-100'
-                  : 'border-buscoedu-blue bg-white text-buscoedu-blue hover:bg-buscoedu-blue/5'
-              }`}
-            >
-              {inMyList ? 'Quitar de Mi lista' : 'Guardar en Mi lista'}
-            </button>
-
-            <button
-              onClick={handleApplyClick}
-              className="min-w-0 flex-1 rounded-lg bg-buscoedu-teal px-4 py-3 font-semibold text-white transition-colors hover:bg-buscoedu-teal/90 sm:min-w-[200px] sm:px-6"
-            >
-              Aplicar
-            </button>
+            </div>
           </div>
         </div>
       </div>
@@ -341,11 +277,11 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
               </svg>
             </div>
 
-            <h2 id="exito-titulo" className="mb-2 text-2xl font-bold text-buscoedu-blue">
-              ¡Tu solicitud fue enviada exitosamente!
+            <h2 id="exito-titulo" className="mb-2 text-2xl font-bold text-[var(--color-text)]">
+              Autorización registrada
             </h2>
-            <p className="mb-6 break-words text-buscoedu-muted">
-              {oferta.programa?.nombre || oferta.nombre}
+            <p className="mb-6 break-words text-[var(--color-muted)]">
+              Tu solicitud quedó enviada para {oferta.programa?.nombre || oferta.nombre}. Esto no es lo mismo que guardarla en Mi lista.
             </p>
 
             <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-buscoedu-bg">
@@ -361,7 +297,7 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
 
             <button
               onClick={cerrarConExito}
-              className="w-full rounded-lg bg-buscoedu-teal px-6 py-3 font-semibold text-white transition-colors hover:bg-buscoedu-teal/90"
+              className="w-full rounded-full border-2 border-[var(--color-text)] bg-[var(--color-primary)] px-6 py-3 font-bold text-white"
             >
               Cerrar ahora
             </button>

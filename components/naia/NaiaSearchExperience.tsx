@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import OfferCard from "@/components/explorar/OfferCard";
 import OfferDetailModal from "@/components/explorar/OfferDetailModal";
+import ExplorarFiltros from "@/components/explorar/ExplorarFiltros";
 import { useMyList } from "@/src/contexts/MyListContext";
 import { callNaia, type NaiaResponse } from "@/src/lib/naia-real";
 import {
@@ -130,6 +131,8 @@ export default function NaiaSearchExperience({
   const [avisoConsulta, setAvisoConsulta] = useState<AvisoConsulta | null>(null);
   const [cargandoMas, setCargandoMas] = useState(false);
   const [mostrarResultadosMovil, setMostrarResultadosMovil] = useState(false);
+  /* En Explorar el catálogo es la página. El chat de NaIA se abre con el FAB (Ola 3 lo re-skinea). */
+  const [chatNaiaAbierto, setChatNaiaAbierto] = useState(false);
   const reintentarRef = useRef<(() => void) | null>(null);
   const cargarMasRef = useRef<() => Promise<void>>(async () => {});
   const cargarCatalogoVigenteRef = useRef<() => Promise<void>>(async () => {});
@@ -312,7 +315,8 @@ export default function NaiaSearchExperience({
     if (enCapa || layoutVariant !== "explorar") return;
     const alPulsarFab = () => {
       setMostrarResultadosMovil(false);
-      inputRef.current?.focus();
+      setChatNaiaAbierto(true);
+      window.setTimeout(() => inputRef.current?.focus(), 0);
     };
     window.addEventListener(EVENTO_FAB_NAIA, alPulsarFab);
     return () => window.removeEventListener(EVENTO_FAB_NAIA, alPulsarFab);
@@ -535,6 +539,30 @@ export default function NaiaSearchExperience({
   };
   cargarMasRef.current = cargarMasResultados;
 
+  /**
+   * Filtros del catálogo en Explorar. Usa obtenerOfertas, igual que NaIA,
+   * y no escribe un mensaje en el chat: el conteo se ve en la página.
+   */
+  const aplicarFiltrosManuales = async (filtros: FiltrosOferta) => {
+    setEstado("consultando");
+    setAvisoConsulta(null);
+    try {
+      const resultado = await aplicarPrimeraPagina(filtros, () => {
+        void aplicarFiltrosManuales(filtros);
+      });
+      if (!resultado) return;
+      setEstado("listo");
+    } catch {
+      setOfertas([]);
+      setTotal(0);
+      setEstado("error");
+      setAvisoConsulta({ ambito: "resultados", mensaje: COPY_ERROR_CATALOGO });
+      reintentarRef.current = () => {
+        void aplicarFiltrosManuales(filtros);
+      };
+    }
+  };
+
   const quitarFiltro = async (clave: keyof FiltrosOferta) => {
     const siguiente = { ...filtrosActuales };
     delete siguiente[clave];
@@ -666,7 +694,7 @@ export default function NaiaSearchExperience({
               contenido: `No pude abrir ${etiqueta}. ${COPY_ERROR_CATALOGO}`,
             },
           ]);
-          if (window.innerWidth < 1024) setMostrarResultadosMovil(true);
+          if (layoutVariant !== "explorar" && window.innerWidth < 1024) setMostrarResultadosMovil(true);
           return;
         }
         const conteo = Math.max(resultado.total, resultado.ofertas.length);
@@ -686,7 +714,7 @@ export default function NaiaSearchExperience({
           },
         ]);
         setEstado("listo");
-        if (window.innerWidth < 1024) setMostrarResultadosMovil(true);
+        if (layoutVariant !== "explorar" && window.innerWidth < 1024) setMostrarResultadosMovil(true);
       } catch {
         setOfertas([]);
         setTotal(0);
@@ -695,7 +723,7 @@ export default function NaiaSearchExperience({
         reintentarRef.current = () => {
           void cargarVista();
         };
-        if (window.innerWidth < 1024) setMostrarResultadosMovil(true);
+        if (layoutVariant !== "explorar" && window.innerWidth < 1024) setMostrarResultadosMovil(true);
       }
     };
 
@@ -723,7 +751,7 @@ export default function NaiaSearchExperience({
             contenido: COPY_ERROR_CATALOGO,
           },
         ]);
-        if (window.innerWidth < 1024) setMostrarResultadosMovil(true);
+        if (layoutVariant !== "explorar" && window.innerWidth < 1024) setMostrarResultadosMovil(true);
         return;
       }
       const conteo = Math.max(resultado.total, resultado.ofertas.length);
@@ -739,7 +767,7 @@ export default function NaiaSearchExperience({
         },
       ]);
       setEstado("listo");
-      if (window.innerWidth < 1024) setMostrarResultadosMovil(true);
+      if (layoutVariant !== "explorar" && window.innerWidth < 1024) setMostrarResultadosMovil(true);
     } catch {
       setOfertas([]);
       setTotal(0);
@@ -755,7 +783,7 @@ export default function NaiaSearchExperience({
           contenido: COPY_ERROR_CATALOGO,
         },
       ]);
-      if (window.innerWidth < 1024) setMostrarResultadosMovil(true);
+      if (layoutVariant !== "explorar" && window.innerWidth < 1024) setMostrarResultadosMovil(true);
     }
   };
   cargarCatalogoVigenteRef.current = cargarCatalogoVigente;
@@ -894,6 +922,9 @@ export default function NaiaSearchExperience({
     ? "lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.65fr)]"
     : "lg:grid-cols-[minmax(0,1.65fr)_minmax(360px,0.85fr)]";
 
+  /* Ola 2: en Explorar el catálogo ocupa la página. El hilo de NaIA queda para el FAB. */
+  const catalogoVisible = layoutVariant === "explorar" && !enCapa && !chatNaiaAbierto;
+
   /*
     BA-027: en móvil, con resultados o ficha, la columna se reparte entre
     la ventana de chat y el botón Explorar oferta.
@@ -906,13 +937,15 @@ export default function NaiaSearchExperience({
   return (
     <div
       className={
-        enCapa
+        catalogoVisible
+          ? "overflow-x-hidden bg-[var(--color-bg)]"
+          : enCapa
           ? "flex h-full min-h-0 flex-col overflow-hidden bg-[#f7f9fc]"
           : `bg-[#f7f9fc] lg:mb-6 lg:overflow-hidden lg:pb-2${
               naiaPantallaCompleta ? " max-lg:h-dvh max-lg:overflow-hidden" : ""
             }`
       }
-      style={!enCapa && alturaLayoutDesktop ? { height: `${alturaLayoutDesktop}px` } : undefined}
+      style={!enCapa && !catalogoVisible && alturaLayoutDesktop ? { height: `${alturaLayoutDesktop}px` } : undefined}
     >
       {/*
         En escritorio este envoltorio no cambia el grid.
@@ -921,7 +954,9 @@ export default function NaiaSearchExperience({
       */}
       <div
         className={
-          enCapa
+          catalogoVisible
+            ? "contents"
+            : enCapa
             ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
             : ajustarColumnaMovil
               ? `mx-auto flex w-full max-w-[1600px] flex-col overflow-hidden lg:block lg:h-full ${
@@ -931,9 +966,13 @@ export default function NaiaSearchExperience({
         }
       >
       <div
-        className={`mx-auto w-full max-w-[1600px] lg:grid lg:h-full lg:min-h-0 ${gridClass} ${
-          ajustarColumnaMovil ? "flex min-h-0 flex-1 flex-col" : "grid"
-        }`}
+        className={
+          catalogoVisible
+            ? "mx-auto w-full max-w-[1120px]"
+            : `mx-auto w-full max-w-[1600px] lg:grid lg:h-full lg:min-h-0 ${gridClass} ${
+                ajustarColumnaMovil ? "flex min-h-0 flex-1 flex-col" : "grid"
+              }`
+        }
       >
         {/*
           Columna del hilo en flex: el chat ocupa el alto restante y la barra
@@ -943,10 +982,25 @@ export default function NaiaSearchExperience({
           se lea sobre el fondo del sitio, igual en /naia y /explorar.
         */}
         <main
-          className={`naia-chat-window relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-b-2 border-buscoedu-chat-edge px-5 pt-6 sm:px-8 lg:h-full lg:border-b-0 lg:border-r-2 lg:px-10 lg:pt-8 ${
-            ajustarColumnaMovil ? "max-lg:flex-1" : "h-[calc(100dvh-73px)]"
-          }`}
+          className={
+            catalogoVisible
+              ? "hidden"
+              : chatNaiaAbierto && layoutVariant === "explorar"
+                ? "naia-chat-window fixed inset-0 z-[85] flex min-h-0 min-w-0 flex-col overflow-hidden px-5 pt-6 sm:px-8"
+                : `naia-chat-window relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-b-2 border-buscoedu-chat-edge px-5 pt-6 sm:px-8 lg:h-full lg:border-b-0 lg:border-r-2 lg:px-10 lg:pt-8 ${
+                    ajustarColumnaMovil ? "max-lg:flex-1" : "h-[calc(100dvh-73px)]"
+                  }`
+          }
         >
+          {chatNaiaAbierto && layoutVariant === "explorar" ? (
+            <button
+              type="button"
+              onClick={() => setChatNaiaAbierto(false)}
+              className="mb-3 inline-flex min-h-11 w-fit items-center rounded-full border-2 border-[var(--color-text)] bg-white px-4 text-sm font-bold text-[var(--color-text)]"
+            >
+              Volver al catálogo
+            </button>
+          ) : null}
           {/* Filete de marca: marca el borde superior de la ventana en web y móvil. */}
           <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-1 bg-buscoedu-teal" aria-hidden="true" />
           {mostrarResultados ? (
@@ -1100,11 +1154,37 @@ export default function NaiaSearchExperience({
           </div>
         </main>
 
-        <aside className="hidden bg-[#f7f9fc] px-5 py-0 sm:px-8 lg:block lg:h-full lg:min-h-0 lg:overflow-y-auto lg:px-6">
-          <div className="mx-auto max-w-3xl">
-            <div className="sticky top-0 z-20 -mx-5 border-b border-buscoedu-border bg-[#f7f9fc] px-5 py-4 sm:-mx-8 sm:px-8 lg:-mx-6 lg:px-6">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">RESULTADOS</p>
-              <h2 className="mt-2 text-2xl font-bold text-buscoedu-blue">{tituloResultados}</h2>
+        <aside
+          className={
+            catalogoVisible
+              ? "a2-fab-safe block overflow-x-hidden bg-[var(--color-bg)] px-4 py-6 sm:px-8"
+              : "hidden bg-[#f7f9fc] px-5 py-0 sm:px-8 lg:block lg:h-full lg:min-h-0 lg:overflow-y-auto lg:px-6"
+          }
+        >
+          <div className={catalogoVisible ? "mx-auto w-full" : "mx-auto max-w-3xl"}>
+            <div className={catalogoVisible ? "pb-2" : "sticky top-0 z-20 -mx-5 border-b border-buscoedu-border bg-[#f7f9fc] px-5 py-4 sm:-mx-8 sm:px-8 lg:-mx-6 lg:px-6"}>
+              {catalogoVisible ? (
+                <>
+                  {/* Título sobre crema: «programas» puede ir en highlight. No es una banda. */}
+                  <h1 className="font-display text-[40px] leading-[1.02] text-[var(--color-primary)] sm:text-[64px]">
+                    Explora <span className="text-[var(--color-highlight)]">programas</span>
+                  </h1>
+                  <ExplorarFiltros
+                    filtros={filtrosActuales}
+                    onAplicar={(siguientes) => void aplicarFiltrosManuales(siguientes)}
+                    disabled={estaCargando}
+                  />
+                  {estado === "listo" && !falloReemplazaListado ? (
+                    <p className="mt-2 text-sm text-[var(--color-muted)]" aria-live="polite">
+                      {total} {total === 1 ? "programa" : "programas"}
+                      {ofertasVista.length < total ? ` · mostrando ${ofertasVista.length}` : ""}
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-buscoedu-teal">RESULTADOS</p>
+              )}
+              {catalogoVisible ? null : <h2 className="mt-2 text-2xl font-bold text-buscoedu-blue">{tituloResultados}</h2>}
               {vistaActiva && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className="rounded-full bg-buscoedu-teal/10 px-3 py-1 text-xs font-semibold text-buscoedu-teal">
@@ -1175,7 +1255,7 @@ export default function NaiaSearchExperience({
                     compact
                   />
                 )}
-                <div className={`grid gap-4 ${layoutVariant === "explorar" ? "sm:grid-cols-2 xl:grid-cols-3" : ""}`}>
+                <div className={`grid gap-4 max-md:pr-24 md:pr-0 ${layoutVariant === "explorar" || catalogoVisible ? "sm:grid-cols-2 xl:grid-cols-3" : ""}`}>
                   {ofertasVista.map((oferta) => (
                     <OfferCard
                       key={oferta.id}
@@ -1210,10 +1290,19 @@ export default function NaiaSearchExperience({
               </div>
             ) : ceroPorVigencia ? (
               /* BA-004: 0 por vigencia. No reutilizar el vacío de NaIA. */
-              <div className="mt-6 rounded-2xl border border-dashed border-buscoedu-border bg-white p-6 text-sm leading-relaxed text-buscoedu-muted">{COPY_CERO_VIGENCIA}</div>
+              <div className="mt-6 rounded-[var(--radius-card)] border-2 border-dashed border-[var(--color-line)] bg-white p-6 text-sm leading-relaxed text-[var(--color-muted)]">{COPY_CERO_VIGENCIA}</div>
             ) : mostrarResultados && estado === "listo" && !avisoConsulta ? (
-              /* Bloque vacío real: había filtros y el catálogo respondió con cero ofertas. */
-              <div className="mt-6 rounded-2xl border border-dashed border-buscoedu-border bg-white p-6 text-sm leading-relaxed text-buscoedu-muted">No encontramos una coincidencia exacta todavía. Cuéntale a NaIA otra alternativa de área, ciudad, modalidad o nivel para ampliar la búsqueda.</div>
+              /* Bloque vacío real: había filtros y el catálogo respondió con cero ofertas. No es un error. */
+              <div className="mt-6 rounded-[var(--radius-card)] border-2 border-dashed border-[var(--color-line)] bg-white p-6">
+                <p className="text-base font-semibold text-[var(--color-text)]">No hay programas con esos filtros.</p>
+                <button
+                  type="button"
+                  onClick={() => void aplicarFiltrosManuales({})}
+                  className="mt-4 inline-flex min-h-11 items-center rounded-full border-2 border-[var(--color-text)] bg-white px-4 text-sm font-bold text-[var(--color-text)]"
+                >
+                  Limpiar filtros
+                </button>
+              </div>
             ) : layoutVariant === "explorar" ? (
               <div className="mt-6 rounded-2xl border border-dashed border-buscoedu-border bg-white p-6 text-sm leading-relaxed text-buscoedu-muted" role="status">Cargando ofertas vigentes…</div>
             ) : (
@@ -1228,7 +1317,7 @@ export default function NaiaSearchExperience({
           Abre la capa de resultados que ya existe. En escritorio el listado
           sigue al lado y este botón no se muestra.
         */}
-        {mostrarResultados && (
+        {mostrarResultados && !catalogoVisible && (
           <div className="shrink-0 border-t border-buscoedu-border bg-white px-4 py-3 lg:hidden">
             <button
               type="button"
@@ -1263,6 +1352,8 @@ export default function NaiaSearchExperience({
         onResetFilters={() => void reiniciarBusqueda()}
         vacioPorVigencia={ceroPorVigencia}
         esExplorar={layoutVariant === "explorar"}
+        enLista={isInMyList}
+        alternarLista={alternarLista}
       />
 
       {/*
@@ -1271,8 +1362,8 @@ export default function NaiaSearchExperience({
       */}
       <section
         className={`border-t border-buscoedu-border bg-slate-100 px-4 py-4 text-sm text-buscoedu-muted sm:px-6 lg:px-8 ${
-          layoutVariant === "naia" ? "hidden lg:block" : ""
-        }`}
+          layoutVariant === "explorar" ? "a2-fab-safe md:pb-4" : ""
+        } ${layoutVariant === "naia" ? "hidden lg:block" : ""}`}
       >
         <div className="mx-auto max-w-6xl leading-relaxed">
           BuscoEdu no es una universidad y no garantiza admisión, precios, becas ni cupos. La orientación ofrecida busca ayudarte a explorar opciones educativas. Cualquier decisión final, requisitos y condiciones dependen de cada universidad aliada.
@@ -1361,8 +1452,8 @@ function ActiveFiltersBar({
         </div>
       </div>
 
-      <div className="mt-2 overflow-x-auto">
-        <div className="flex min-w-max items-center gap-2 whitespace-nowrap pr-1">
+      <div className="mt-2">
+        <div className="flex flex-wrap items-center gap-2">
           {chips.length === 0 ? (
             <span className="text-sm text-buscoedu-muted">No hay filtros aplicados.</span>
           ) : (
@@ -1406,6 +1497,8 @@ function MobileResultsModal({
   onResetFilters,
   vacioPorVigencia,
   esExplorar,
+  enLista,
+  alternarLista,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1427,6 +1520,8 @@ function MobileResultsModal({
   onResetFilters: () => void;
   vacioPorVigencia: boolean;
   esExplorar: boolean;
+  enLista?: (id: string) => boolean;
+  alternarLista?: (oferta: OfertaAcademica) => void;
 }) {
   if (!open) return null;
 
@@ -1481,18 +1576,41 @@ function MobileResultsModal({
                   compact
                 />
               )}
-              <div className="overflow-hidden rounded-xl border border-buscoedu-border bg-white">
-                {ofertas.map((oferta) => (
-                  <MobileOfferRow key={oferta.id} oferta={oferta} onOpen={() => onOpenOffer(oferta)} />
-                ))}
-              </div>
+              {esExplorar ? (
+                <div className="grid gap-4">
+                  {ofertas.map((oferta) => (
+                    <OfferCard
+                      key={oferta.id}
+                      oferta={oferta}
+                      onCardClick={() => onOpenOffer(oferta)}
+                      isInMyList={enLista?.(oferta.id) ?? false}
+                      onToggleMyList={() => alternarLista?.(oferta)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-buscoedu-border bg-white">
+                  {ofertas.map((oferta) => (
+                    <MobileOfferRow key={oferta.id} oferta={oferta} onOpen={() => onOpenOffer(oferta)} />
+                  ))}
+                </div>
+              )}
             </div>
           ) : vacioPorVigencia ? (
             /* BA-004: 0 por vigencia, también en el panel móvil. */
             <div className="mt-2 rounded-2xl border border-dashed border-buscoedu-border bg-white p-4 text-sm leading-relaxed text-buscoedu-muted">{COPY_CERO_VIGENCIA}</div>
           ) : mostrarResultados && estado === "listo" && !avisoConsulta ? (
             /* Bloque vacío real con filtros */
-            <div className="mt-2 rounded-2xl border border-dashed border-buscoedu-border bg-white p-4 text-sm leading-relaxed text-buscoedu-muted">No encontré coincidencias todavía. Quita un filtro o amplía la búsqueda para ver más resultados.</div>
+            <div className="mt-2 rounded-[var(--radius-card)] border-2 border-dashed border-[var(--color-line)] bg-white p-4">
+              <p className="text-base font-semibold text-[var(--color-text)]">No hay programas con esos filtros.</p>
+              <button
+                type="button"
+                onClick={onResetFilters}
+                className="mt-4 inline-flex min-h-11 items-center rounded-full border-2 border-[var(--color-text)] bg-white px-4 text-sm font-bold"
+              >
+                Limpiar filtros
+              </button>
+            </div>
           ) : esExplorar ? (
             <div className="mt-2 rounded-2xl border border-dashed border-buscoedu-border bg-white p-4 text-sm leading-relaxed text-buscoedu-muted" role="status">Cargando ofertas vigentes…</div>
           ) : (
@@ -1548,11 +1666,11 @@ function AlertaErrorConsulta({
       role="alert"
       className={
         compact
-          ? `mb-4 rounded-xl border border-red-200 bg-red-50 p-4 ${className}`
-          : `mt-6 rounded-2xl border border-red-200 bg-red-50 p-6 ${className}`
+          ? `mb-4 rounded-[var(--radius-card)] border-2 border-[var(--color-error)] bg-white p-4 ${className}`
+          : `mt-6 rounded-[var(--radius-card)] border-2 border-[var(--color-error)] bg-white p-6 ${className}`
       }
     >
-      <p className="font-semibold text-buscoedu-blue">{titulo}</p>
+      <p className="font-semibold text-[var(--color-error)]">{titulo}</p>
       <p className="mt-2 text-sm leading-relaxed text-buscoedu-text">{mensaje}</p>
       <button
         type="button"
@@ -1567,7 +1685,7 @@ function AlertaErrorConsulta({
 }
 
 function ResultSkeleton() {
-  return <div className="mt-6 space-y-4" aria-live="polite"><div className="h-56 animate-pulse rounded-xl bg-slate-200" /><div className="h-56 animate-pulse rounded-xl bg-slate-200" /></div>;
+  return <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-live="polite" aria-busy="true"><div className="h-56 animate-pulse rounded-[var(--radius-card)] bg-[var(--color-band)]" /><div className="h-56 animate-pulse rounded-[var(--radius-card)] bg-[var(--color-band)]" /><div className="h-56 animate-pulse rounded-[var(--radius-card)] bg-[var(--color-band)]" /></div>;
 }
 
 function EmptyResults() {

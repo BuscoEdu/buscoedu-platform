@@ -88,13 +88,33 @@ body {
   background: var(--color-bg);
 }
 
-a,
-button,
-input,
-select,
-textarea,
-summary {
-  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1830] focus-visible:ring-offset-2;
+/*
+ * Foco visible A2. Anillo índigo de 2px, separado 2px del control
+ * (outline-offset). El hueco deja ver el fondo real — crema de la página
+ * o blanco de una tarjeta — así el anillo no se pega al borde de un botón
+ * que ya es índigo (Explora programas, Aplicar, Autorizar contacto).
+ * Cubre enlaces, botones, campos y tarjetas clicables (role=button).
+ */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible,
+[role="link"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/*
+ * Hueco del FAB de NaIA en móvil (bottom-5 + alto del botón).
+ * El contenido puede scrollear por encima del FAB y no queda tapado.
+ */
+@media (max-width: 767px) {
+  .a2-fab-safe {
+    padding-bottom: 6.5rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

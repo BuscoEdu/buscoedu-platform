@@ -29,7 +29,7 @@ export default function HomeHero({
           Tú decides quién te contacta.
         </h1>
         <p className="mx-auto mt-5 max-w-[560px] text-base leading-relaxed text-[var(--color-muted)] sm:text-lg">
-          Explora el catálogo de universidades aliadas, compara con NaIA y aplica en minutos. Gratis para
+          Explora el catálogo de universidades aliadas, compara con NaIA y aplica fácil. Gratis para
           estudiantes.
         </p>
         <div className="mx-auto mt-8 flex w-full max-w-md flex-col items-stretch gap-3 sm:max-w-none sm:flex-row sm:items-center sm:justify-center">

@@ -321,11 +321,20 @@ export default function AplicacionConsentimientoModal({
                 </label>
               ))}
             </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-[var(--color-error)]">{error}</p>}
+            {/*
+              Autorizar contacto es índigo con texto blanco. No es coral ni rojo.
+              Sigue deshabilitado mientras falte un consentimiento obligatorio;
+              la casilla no viene marcada. La validación de convertir no cambia.
+            */}
             <button
               onClick={convertir}
-              disabled={cargando || enviandoConversion}
-              className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              disabled={
+                cargando ||
+                enviandoConversion ||
+                tipos.some((t) => t.es_obligatorio && !seleccion[t.codigo])
+              }
+              className="w-full rounded-full border-2 border-[var(--color-text)] bg-[var(--color-primary)] py-3 font-bold text-white shadow-[var(--shadow-hard)] hover:bg-[#2a2166] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {cargando || enviandoConversion ? 'Procesando…' : 'Autorizar contacto'}
             </button>

@@ -14,7 +14,7 @@ import { getLogosAliadas, type LogoAliada } from "@/src/lib/logos-aliadas";
 export const metadata: Metadata = {
   title: "BuscoEdu | Encuentra tu carrera",
   description:
-    "Explora el catálogo de universidades aliadas, compara con NaIA y aplica en minutos. Gratis para estudiantes. La universidad solo te contacta si tú lo autorizas."
+    "Explora el catálogo de universidades aliadas, compara con NaIA y aplica fácil. Gratis para estudiantes. La universidad solo te contacta si tú lo autorizas."
 };
 
 export const dynamic = "force-dynamic";
@@ -39,7 +39,7 @@ export default async function HomePage() {
     <>
       <HomeHero cifras={cifras} logos={logos} />
       <HomeComoFunciona />
-      <HomeDemoNaia cifras={cifras} />
+      <HomeDemoNaia />
       <HomeFaq />
     </>
   );

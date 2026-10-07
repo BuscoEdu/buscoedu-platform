@@ -302,9 +302,7 @@ export default function Header() {
             }
             setCapaNaiaAbierta(true);
           }}
-          className={`fixed right-5 inline-flex min-h-11 items-center gap-1.5 rounded-full border-2 border-[var(--color-text)] bg-[var(--color-primary)] px-4 py-3 text-sm font-bold text-white shadow-[var(--shadow-hard)] transition hover:bg-[#2a2166] motion-safe:hover:scale-105 md:hidden ${
-            pathname.startsWith("/explorar") ? "bottom-44 z-[75]" : "bottom-5 z-40"
-          }`}
+          className="fixed bottom-5 right-5 z-40 inline-flex min-h-11 items-center gap-1.5 rounded-full border-2 border-[var(--color-text)] bg-[var(--color-primary)] px-4 py-3 text-sm font-bold text-white shadow-[var(--shadow-hard)] transition hover:bg-[#2a2166] motion-safe:hover:scale-105 md:hidden"
           aria-label="Hablar con NaIA"
         >
           NaIA

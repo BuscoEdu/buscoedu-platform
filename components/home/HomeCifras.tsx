@@ -20,7 +20,7 @@ export default function HomeCifras({ cifras }: { cifras: CifrasCatalogo | null }
 
   return (
     <div
-      className={`mx-auto mt-8 grid w-full max-w-[520px] gap-4 ${
+      className={`a2-fab-safe mx-auto mt-8 grid w-full max-w-[520px] gap-4 max-md:pr-24 md:pb-0 ${
         tarjetas.length > 1 ? "sm:grid-cols-2" : "grid-cols-1"
       }`}
       role="group"

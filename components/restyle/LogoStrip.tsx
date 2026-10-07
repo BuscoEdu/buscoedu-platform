@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LogoAliada } from "@/src/lib/logos-aliadas";
 
 /**
@@ -23,10 +23,26 @@ function logoPintable(logo: LogoAliada): boolean {
 export default function LogoStrip({ logos }: { logos: LogoAliada[] }) {
   const candidatos = logos.filter(logoPintable);
   const [rotos, setRotos] = useState<Record<string, true>>({});
+  const imagenes = useRef<Record<string, HTMLImageElement | null>>({});
+
+  const clave = (logo: LogoAliada, indice: number) => `${indice}:${logo.url}`;
+
+  /*
+   * Una imagen que falla antes de hidratar no dispara onError.
+   * Al montar, si el navegador ya la dio por terminada y no tiene píxeles,
+   * se marca rota con el mismo estado que usa onError.
+   */
+  useEffect(() => {
+    const detectados: Record<string, true> = {};
+    for (const [id, img] of Object.entries(imagenes.current)) {
+      if (img && img.complete && img.naturalWidth === 0) detectados[id] = true;
+    }
+    if (Object.keys(detectados).length === 0) return;
+    setRotos((previo) => ({ ...previo, ...detectados }));
+  }, []);
 
   if (candidatos.length === 0) return null;
 
-  const clave = (logo: LogoAliada, indice: number) => `${indice}:${logo.url}`;
   const visibles = candidatos.filter((logo, indice) => !rotos[clave(logo, indice)]);
   if (visibles.length === 0) return null;
 
@@ -49,6 +65,9 @@ export default function LogoStrip({ logos }: { logos: LogoAliada[] }) {
               className="flex h-16 items-center justify-center rounded-xl border border-[var(--color-line)] bg-white px-3"
             >
               <img
+                ref={(nodo) => {
+                  imagenes.current[id] = nodo;
+                }}
                 src={logo.url}
                 alt={logo.alt.trim()}
                 className="max-h-10 w-auto max-w-full object-contain"
