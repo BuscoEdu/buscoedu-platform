@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import OtpInput from './OtpInput';
 import { getOrCreateVisitorId } from '@/src/lib/visitor';
-import { codigoDemoVisible } from '@/src/lib/otp/codigoDemoVisible';
 
 export interface VerificacionExitosa {
   celular: string;
@@ -165,7 +164,7 @@ export default function VerificacionCelularModal({
               onCambio={setCodigo}
               disabled={cargando}
             />
-            {codigoDemoVisible(esSimulado, codigoDemo) && (
+            {esSimulado && codigoDemo && (
               <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
                 <p className="font-semibold">Código de demostración</p>
                 <p className="mt-1 font-mono text-lg tracking-widest">{codigoDemo}</p>
