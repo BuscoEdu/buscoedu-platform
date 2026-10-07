@@ -28,13 +28,13 @@ export default function HomeDemoNaia() {
             </p>
             <HablaConNaiaButton className="mt-5" />
           </div>
-          <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-3.5" aria-label="Ejemplo de conversación con NaIA">
-            <p className="ml-auto max-w-[82%] rounded-[14px] border border-[var(--color-text)] bg-white px-3.5 py-2.5 text-sm text-[var(--color-text)]">
+          <div className="max-md:pr-24 rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-3.5 md:pr-0" aria-label="Ejemplo de conversación con NaIA">
+            <p className="ml-auto max-w-[82%] rounded-[14px] border-2 border-[var(--color-text)] bg-[var(--color-primary)] px-3.5 py-2.5 text-sm text-white">
               Quiero estudiar administración virtual en Bogotá, ¿qué hay?
             </p>
-            <p className="mt-1.5 max-w-[82%] rounded-[14px] bg-[var(--color-primary)] px-3.5 py-2.5 text-sm text-white">
-              Te muestro fichas del catálogo vigente con modalidad, ciudad, precio y becas, solo cuando esos datos
-              existen. Tú comparas. Yo no te digo cuál universidad es la mejor.
+            <p className="mt-1.5 max-w-[82%] rounded-[14px] border-2 border-[var(--color-text)] bg-[var(--color-band)] px-3.5 py-2.5 text-sm text-[var(--color-text)]">
+              Te muestro fichas del catálogo vigente con modalidad, ciudad, becas y beneficios, y vigencia, solo
+              cuando esos datos existen. Tú comparas. Yo no te digo cuál universidad es la mejor.
             </p>
           </div>
         </HardCard>

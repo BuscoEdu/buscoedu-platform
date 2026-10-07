@@ -20,11 +20,7 @@ export default function SuggestedActions({ isLoading, actions, onSelectAction }:
             type="button"
             disabled={isLoading}
             onClick={() => onSelectAction(actionText)}
-            className={`w-full rounded-lg border px-4 py-2 text-left text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto ${
-              index % 2 === 0
-                ? 'border-buscoedu-blue text-buscoedu-blue hover:bg-buscoedu-blue hover:text-white'
-                : 'border-buscoedu-teal text-buscoedu-teal hover:bg-buscoedu-teal hover:text-white'
-            }`}
+            className="w-full rounded-full border-2 border-[var(--color-text)] bg-white px-4 py-2 text-left text-sm font-semibold text-[var(--color-text)] transition hover:bg-[var(--color-band)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             {actionText}
           </button>

@@ -53,6 +53,8 @@ export default function Header() {
   const [isMasOpen, setIsMasOpen] = useState(false);
   const [isMobileMasOpen, setIsMobileMasOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  /* El FAB se puede minimizar para no tapar un CTA. Sigue abriendo el mismo chat. */
+  const [fabMini, setFabMini] = useState(false);
   const masRef = useRef<HTMLLIElement>(null);
   const { myList } = useMyList();
 
@@ -293,20 +295,39 @@ export default function Header() {
       </aside>
 
       {!pathname.startsWith("/naia") && !isMobileOpen && (
-        <button
-          type="button"
-          onClick={() => {
-            if (pathname.startsWith("/explorar")) {
-              pedirChatNaia();
-              return;
-            }
-            setCapaNaiaAbierta(true);
-          }}
-          className="fixed bottom-5 right-5 z-40 inline-flex min-h-11 items-center gap-1.5 rounded-full border-2 border-[var(--color-text)] bg-[var(--color-primary)] px-4 py-3 text-sm font-bold text-white shadow-[var(--shadow-hard)] transition hover:bg-[#2a2166] motion-safe:hover:scale-105 md:hidden"
-          aria-label="Hablar con NaIA"
-        >
-          NaIA
-        </button>
+        <div className="fixed bottom-5 right-5 z-40 flex items-end gap-2 md:hidden">
+          {/* Minimizar deja un botón chico. No cambia a dónde abre el chat. */}
+          {!fabMini ? (
+            <button
+              type="button"
+              onClick={() => setFabMini(true)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-[var(--color-text)] bg-white text-lg font-bold text-[var(--color-text)] shadow-[var(--shadow-hard)]"
+              aria-label="Minimizar NaIA"
+            >
+              –
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              if (fabMini) {
+                setFabMini(false);
+                return;
+              }
+              if (pathname.startsWith("/explorar")) {
+                pedirChatNaia();
+                return;
+              }
+              setCapaNaiaAbierta(true);
+            }}
+            className={`inline-flex items-center justify-center rounded-full border-2 border-[var(--color-text)] bg-[var(--color-primary)] font-bold text-white shadow-[var(--shadow-hard)] transition hover:bg-[#2a2166] motion-safe:hover:scale-105 ${
+              fabMini ? "h-11 w-11 text-sm" : "min-h-11 gap-1.5 px-4 py-3 text-sm"
+            }`}
+            aria-label={fabMini ? "Mostrar NaIA" : "Hablar con NaIA"}
+          >
+            {fabMini ? "N" : "NaIA"}
+          </button>
+        </div>
       )}
 
       {capaNaiaAbierta && !pathname.startsWith("/naia") && !pathname.startsWith("/explorar") && (

@@ -129,6 +129,8 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
         BA-001: la ficha va por encima del panel de resultados móvil (z-[70])
         y del FAB. Ola 2: jerarquía qué es → vigencia (si hay fecha) → becas → acciones.
         No se pinta precio: la oferta no trae ese campo. Un dato ausente no se inventa.
+        El título de la sección es «Becas y beneficios». Ocultarla cuando
+        etiquetaBeneficio() devuelva null, en cuanto ese helper esté en la rama.
       */}
       <div
         className="fixed inset-0 z-[80] bg-[var(--color-text)]/50"
@@ -149,10 +151,12 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
           <div className="flex items-center justify-end px-4 pt-3 sm:px-6">
             <button
               onClick={onClose}
-              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border-2 border-[var(--color-text)] bg-white text-sm font-bold text-[var(--color-text)]"
-              aria-label="Cerrar ficha"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-[var(--color-text)] bg-white text-[var(--color-text)]"
+              aria-label="Cerrar"
             >
-              Cerrar
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
 
@@ -188,7 +192,7 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
 
                 {becas.length > 0 ? (
                   <section className="rounded-[var(--radius-card)] border-2 border-[var(--color-text)] bg-white p-4 shadow-[var(--shadow-hard)]">
-                    <h3 className="text-lg font-bold text-[var(--color-text)]">Becas</h3>
+                    <h3 className="text-lg font-bold text-[var(--color-text)]">Becas y beneficios</h3>
                     <ul className="mt-2 space-y-2">
                       {becas.map((beneficio, index) => (
                         <li key={`${beneficio.tipo}-${index}`} className="break-words text-sm text-[var(--color-text)]">

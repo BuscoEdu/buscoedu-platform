@@ -31,7 +31,7 @@ Reglas que QA marca como fallo automático:
 
 El botón principal del hero («Explora programas») es índigo con texto blanco. El render estático A2 pintaba ese botón de coral porque el CSS viejo usaba `--accent` como único relleno. El plan §8 y el contraste pedido separan los dos roles: principal = índigo, coral = relleno con texto tinta. En el Home el coral aparece en el birrete (ilustración, sin texto) y en el «+» del FAQ (círculo coral, signo en `#1a1830`).
 
-Los alias `bg-buscoedu-teal`, `bg-buscoedu-action` y `text-white` apuntan al índigo, no al coral. Así los botones de Explorar, NaIA, admin y formularios siguen legibles aunque esa pantalla todavía no esté rediseñada. El chat de NaIA conserva sus fondos (`--buscoedu-chat`) hasta la Ola 3.
+Los alias `bg-buscoedu-teal`, `bg-buscoedu-action` y `text-white` apuntan al índigo, no al coral. Así los botones de Explorar, NaIA, admin y formularios siguen legibles. El hilo de NaIA usa el fondo crema (`--buscoedu-chat`) y la burbuja de NaIA es banda con texto tinta.
 
 ## Tipografía
 
@@ -147,18 +147,58 @@ Solo visual. La consulta sigue siendo `obtenerOfertas` (activo + publicado + val
 | `components/explorar/OfferCard.tsx` | Tarjeta con sombra dura, chip «Aliada», modalidad y ciudad si vienen, beca solo si el beneficio lo dice. Sin precio inventado. «Ver detalle» abre la ficha. «Guardar en Mi lista» no aplica. Mismo tamaño para todas las universidades. |
 | `components/explorar/ExplorarFiltros.tsx` | En web, filtros fijos arriba (ciudad, modalidad, con beca) y «Aplicar filtros». En móvil, hoja inferior con cierre por botón, fondo o Escape. «Solo aliadas» es un rótulo, no un interruptor: el catálogo ya está filtrado. No hay filtro de precio porque ese dato no existe. |
 | `components/explorar/OfferDetailModal.tsx` | Orden: qué es, vigencia (si hay fecha), becas, acciones. Aplicar en índigo con texto blanco. Guardar en contorno, con el aviso «Guardado en Mi lista» o «Quitado de Mi lista». Autorizar contacto no está en esta tarjeta. |
-| `components/naia/NaiaSearchExperience.tsx` | En `/explorar` el catálogo es la página. El chat se abre con el FAB y se cierra con «Volver al catálogo»; no se re-skinea (Ola 3). Vacío: «No hay programas con esos filtros» y «Limpiar filtros». Error: borde `--color-error`, texto de error y «Reintentar». Carga: esqueleto. El conteo sale de `total` cuando la consulta respondió bien. |
+| `components/naia/NaiaSearchExperience.tsx` | En `/explorar` el catálogo es la página. El chat se abre con el FAB y se cierra con «Volver al catálogo». Vacío: «No hay programas con esos filtros» y «Limpiar filtros». Error: borde `--color-error`, texto de error y «Reintentar». Carga: esqueleto. El conteo sale de `total` cuando la consulta respondió bien. El re-skin del hilo está en la Ola 3. |
 | `AplicacionConsentimientoModal` | El botón «Autorizar contacto» es índigo con texto blanco. Sigue deshabilitado si falta un consentimiento obligatorio. La casilla no viene marcada. El resto del funnel no cambia. |
 
 El coral no se usa como texto ni como relleno de Aplicar o de Autorizar contacto. El highlight de «programas» va sobre el fondo crema, no sobre una banda.
 
-## Pendiente para la Ola 3
+## Ola 3 · NaIA y Demo WApp
 
-**Ola 3 — NaIA y Demo WApp, solo tokens:**
+Solo visual. No cambian prompts, el tope de ~8 fichas, la llamada a `/api/naia` ni el consentimiento (`FunnelEnHilo` y `AplicacionConsentimientoModal` siguen igual: casilla sin marcar, «Autorizar contacto» índigo y deshabilitado hasta el obligatorio).
 
-- Burbuja, chips y FAB con la paleta A2. Contraste de los dos lados del chat.
-- No se tocan prompts, consentimiento ni el tope de fichas.
-- El FAB no tapa CTA en 390 ni en 360.
+| Criterio | Cómo se ve |
+|---|---|
+| N1 | Burbujas, chips, FAB, input e indicador de escritura usan tokens A2. |
+| N2 | Las fichas dentro de NaIA son las mismas `OfferCard` (o la fila móvil neutra). Mismo tamaño para todas las universidades. |
+| N3 | El FAB se puede minimizar a un círculo «N». En móvil, `a2-fab-safe` y margen derecho dejan los CTA fuera del FAB. |
+| N4 | Guardar en Mi lista, Aplicar y Autorizar contacto siguen siendo tres acciones. La ficha es la real. |
+| N5 | Escribiendo: puntos en la burbuja de banda. Error de NaIA: «No pude responder, intenta de nuevo» y Reintentar. Sin resultados: borde punteado, sin color de error. |
+| N6 | Estudiante: índigo `#3b2f8f` y texto blanco. NaIA: banda `#ece8f7` y texto `#1a1830`. Coral nunca con texto blanco. |
+
+### Cómo probar
+
+1. Home, bloque «Pregúntale a NaIA»: el ejemplo no cita un precio ni un número. La burbuja de la persona es índigo; la de NaIA, banda.
+2. «Cómo funciona», paso 1: lista los filtros reales (programa o área, nivel, país, ciudad, universidad, modalidad y beneficio). No dice precio.
+3. `/naia`: enviar un mensaje. Mientras responde, se ve el indicador. Si `/api/naia` falla: «No pude responder, intenta de nuevo».
+4. `/explorar`: el FAB abre el hilo y «Volver al catálogo» lo cierra. En 390 y 360 el FAB no tapa Aplicar, Guardar ni el «+» del FAQ.
+5. Demo WApp: el hilo ya no usa el verde de WhatsApp en burbujas, cabecera ni enviar. El funnel no se rediseñó.
+
+### Textos de comparación (sin precio)
+
+NaIA puede prometer comparar modalidad, ciudad, becas y beneficios, y vigencia. No promete precio.
+
+| Dónde | Antes | Ahora |
+|---|---|---|
+| `HomeComoFunciona` paso 1 | «ciudad, modalidad, precio y beca» | «programa o área, nivel, país, ciudad, universidad, modalidad y beneficio» |
+| `HomeDemoNaia` | «modalidad, ciudad, precio y becas» | «modalidad, ciudad, becas y beneficios, y vigencia» |
+| Vacío de NaIA (`EmptyResults`) | comparaba con precio en copys anteriores | «modalidad, ciudad, becas y beneficios, y vigencia» |
+
+Se dejan los avisos que dicen que BuscoEdu **no garantiza** precios (pie, términos, cómo funciona, beneficios, héroe de NaIA y el descargo del hilo). También el admin de precios y el «¿Tiene costo para mí?» del FAQ.
+
+### QA de la Ola 2, en este mismo cambio
+
+1. **Etiquetas de beneficio.** Un solo mapa: `etiquetaBeneficio()` y `ETIQUETAS_BENEFICIO` en `src/lib/etiquetas-beneficio.ts` (Backend). La tarjeta, la ficha y el chip de NaIA importan esa función. Si devuelve `null` (código null, vacío o solo espacios) no hay chip y no hay sección. «Beneficio disponible» solo si el helper lo devuelve para un código que sí existe y no está en el mapa. No se pinta un código crudo. Mapa aprobado, normalizando con `toLowerCase()`: `beca_postulacion` «Beca por postulación»; `beca_apropiacion_directa` «Beca directa (sin postulación)»; `descuento` «Descuento»; `financiacion` «Financiación»; `beneficio_convenio` «Beneficio por convenio»; `beneficio_temporal` «Beneficio temporal»; `otro` u otro código desconocido «Beneficio disponible».
+2. **H5.** El demo del Home ya no dice «precio».
+3. **FAQ a 390.** El «+» de «¿Qué es NaIA?» no queda bajo el FAB: la sección tiene `a2-fab-safe` y el acordeón va en un envoltorio `max-md:pr-36`.
+4. **Cerrar de la ficha.** Icono X, `aria-label="Cerrar"`, blanco de toque 44px (`h-11 w-11`). El texto «Cerrar» ya no entra en el círculo.
+
+La sección de la ficha y el filtro de Explorar (grupo y campo en «Más filtros», y el chip activo) se llaman «Becas y beneficios», porque cubren descuento y financiación. El atajo de la barra sigue diciendo «Con beca»: solo activa `tipo_beneficio = "Beca"`.
+
+**El import de `etiquetaBeneficio` no está cableado en este árbol** hasta que `src/lib/etiquetas-beneficio.ts` esté en `origin/feat/restyle-a2`. No hay un mapa local ni un stub.
+
+### Archivos de esta ola
+
+`app/globals.css`, `components/home/HomeComoFunciona.tsx`, `components/home/HomeDemoNaia.tsx`, `components/home/HomeFaq.tsx`, `components/layout/Header.tsx`, `components/naia/NaiaSearchExperience.tsx`, `components/naia/NaiaChatCapa.tsx`, `components/naia/NaiaMessage.tsx`, `components/naia/NaiaEntryModal.tsx`, `components/naia/SuggestedActions.tsx`, `components/demowapp/DemoWappPanel.tsx`, `components/explorar/OfferDetailModal.tsx`, `components/explorar/FilterPanel.tsx`, `components/explorar/ExplorarFiltros.tsx`. `OfferCard` y el chip de la fila NaIA quedan listos para el import.
 
 **Fuera de estas olas, y no bloquea el look del Home:**
 

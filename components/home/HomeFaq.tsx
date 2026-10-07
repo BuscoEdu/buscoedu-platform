@@ -35,11 +35,19 @@ const PREGUNTAS = [
 export default function HomeFaq() {
   return (
     <SectionBand>
-      <SectionWrap narrow>
+      {/*
+        En 390 el FAB (minimizar + pastilla NaIA) tapa el «+» del ítem
+        «¿Qué es NaIA?» a media página. El margen derecho va en un envoltorio
+        sin px propio, para que no compita con el padding de SectionWrap.
+        a2-fab-safe deja aire abajo del último ítem.
+      */}
+      <SectionWrap narrow className="a2-fab-safe md:pb-[60px]">
         <h2 className="text-center font-display text-[34px] leading-[1.02] text-[var(--color-primary)] sm:text-[48px]">
           Preguntas frecuentes
         </h2>
-        <FaqAccordion items={PREGUNTAS} />
+        <div className="max-md:pr-36">
+          <FaqAccordion items={PREGUNTAS} />
+        </div>
       </SectionWrap>
     </SectionBand>
   );

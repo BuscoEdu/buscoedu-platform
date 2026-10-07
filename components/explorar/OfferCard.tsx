@@ -25,7 +25,10 @@ function textoVisible(valor?: string | null): string {
 }
 
 /**
- * Texto de beca solo si el beneficio lo dice. No se inventa un porcentaje.
+ * Chip del beneficio. Debe salir de `etiquetaBeneficio()`
+ * (`src/lib/etiquetas-beneficio.ts`): null = no hay chip.
+ * El import espera a que ese archivo esté en origin/feat/restyle-a2.
+ * No hay un mapa local.
  */
 function textoBeca(oferta: OfertaAcademica): string | null {
   const candidatos = [

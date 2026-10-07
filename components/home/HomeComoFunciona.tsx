@@ -12,7 +12,7 @@ const PASOS = [
   {
     numero: "1",
     titulo: "Explora",
-    texto: "Filtra por ciudad, modalidad, precio y beca. Sin registrarte."
+    texto: "Filtra por programa o área, nivel, país, ciudad, universidad, modalidad y beneficio. Sin registrarte."
   },
   {
     numero: "2",

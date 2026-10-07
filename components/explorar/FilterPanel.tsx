@@ -241,11 +241,14 @@ export default function FilterPanel({ filtros, onFiltrosChange }: FilterPanelPro
         </div>
       </FilterGroup>
 
-      {/* Grupo: Beneficios */}
-      <FilterGroup title="Beneficios" groupKey="beneficios">
+      {/*
+        El grupo cubre beca, descuento, financiación, convenio y otro.
+        El rótulo no se queda en «Becas».
+      */}
+      <FilterGroup title="Becas y beneficios" groupKey="beneficios">
         <div>
           <label htmlFor="tipo-beneficio" className="block text-sm font-medium text-buscoedu-text mb-1">
-            Tipo de beneficio
+            Becas y beneficios
           </label>
           <select
             id="tipo-beneficio"

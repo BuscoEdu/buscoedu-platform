@@ -156,7 +156,7 @@ export default function NaiaEntryModal({ isOpen, onClose }: NaiaEntryModalProps)
                 className="w-full px-4 py-3 border border-buscoedu-border rounded-lg focus:ring-2 focus:ring-buscoedu-blue focus:border-transparent resize-none"
               />
               {showWarning && (
-                <p className="mt-2 text-sm text-amber-600">
+                <p className="mt-2 text-sm text-[var(--color-error)]">
                   Por favor, describe brevemente lo que buscas o elige una de las sugerencias.
                 </p>
               )}
@@ -165,7 +165,7 @@ export default function NaiaEntryModal({ isOpen, onClose }: NaiaEntryModalProps)
             {/* Botón principal */}
             <button
               onClick={handleSearch}
-              className="w-full bg-buscoedu-blue text-white px-6 py-3 rounded-lg font-semibold hover:bg-buscoedu-blue/90 transition-colors"
+              className="w-full rounded-full border-2 border-[var(--color-text)] bg-[var(--color-primary)] px-6 py-3 font-semibold text-white shadow-[var(--shadow-hard)] transition-colors hover:bg-[#2a2166]"
             >
               Buscar con NaIA
             </button>
@@ -180,7 +180,7 @@ export default function NaiaEntryModal({ isOpen, onClose }: NaiaEntryModalProps)
                   <button
                     key={index}
                     onClick={() => handleSuggestionClick(suggestion)}
-                    className="w-full text-left px-4 py-3 border border-buscoedu-border rounded-lg hover:border-buscoedu-teal hover:bg-buscoedu-teal/5 transition-colors text-sm"
+                    className="w-full rounded-full border-2 border-[var(--color-text)] bg-white px-4 py-3 text-left text-sm font-semibold text-[var(--color-text)] transition-colors hover:bg-[var(--color-band)]"
                   >
                     {suggestion}
                   </button>

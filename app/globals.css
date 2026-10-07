@@ -49,21 +49,25 @@
   --buscoedu-text: var(--color-text);
   --buscoedu-muted: var(--color-muted);
   --buscoedu-border: var(--color-line);
-  /* Fondos del chat: la Ola 3 los re-skinea. Se dejan para no perder contraste. */
-  --buscoedu-chat: #b7c6da;
-  --buscoedu-chat-edge: #6e86a6;
+  /*
+   * Ola 3: el hilo usa el fondo crema. La burbuja de NaIA es banda con texto tinta.
+   * La del estudiante es índigo con texto blanco (clases en el mensaje, no aquí).
+   */
+  --buscoedu-chat: var(--color-bg);
+  --buscoedu-chat-edge: var(--color-line);
 }
 
 @layer components {
+  /* Ventana del hilo. Crema, sin el gris anterior. */
   .naia-chat-window {
-    background-color: var(--buscoedu-chat);
-    box-shadow: 0 12px 32px rgba(26, 24, 48, 0.12);
+    background-color: var(--color-bg);
   }
 
+  /* Burbuja de NaIA: banda #ece8f7 y texto #1a1830. El coral no entra aquí. */
   .naia-chat-bubble {
-    background-color: #ffffff;
-    border: 1px solid var(--buscoedu-chat-edge);
-    box-shadow: 0 4px 14px rgba(26, 24, 48, 0.08);
+    background-color: var(--color-band);
+    color: var(--color-text);
+    border: 2px solid var(--color-text);
   }
 }
 

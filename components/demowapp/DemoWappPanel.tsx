@@ -233,8 +233,13 @@ export default function DemoWappPanel({
   const marco = soloHilo ? 'h-full min-h-0 w-full flex-1' : `${alturaClase} rounded-2xl border border-gray-200`;
 
   return (
+    /*
+      Ola 3: solo el color del hilo. Fondo crema, cabecera índigo con texto blanco,
+      burbuja del estudiante índigo/blanco, burbuja de NaIA en banda/tinta.
+      El funnel, el envío y el consentimiento no cambian.
+    */
     <section
-      className={`flex min-h-0 flex-col overflow-hidden bg-[#efeae2] ${marco}`}
+      className={`flex min-h-0 flex-col overflow-hidden bg-[var(--color-bg)] ${marco}`}
       aria-label="Conversación con NaIA"
       style={
         soloHilo
@@ -250,7 +255,7 @@ export default function DemoWappPanel({
         No es el header del portal ni un acceso a Explorar.
       */}
       <header
-        className={`flex shrink-0 items-center gap-3 bg-[#075e54] px-3 py-3 text-white ${
+        className={`flex shrink-0 items-center gap-3 border-b-2 border-[var(--color-text)] bg-[var(--color-primary)] px-3 py-3 text-white ${
           soloHilo ? 'pt-[max(0.75rem,env(safe-area-inset-top))]' : ''
         }`}
       >
@@ -268,7 +273,7 @@ export default function DemoWappPanel({
         )}
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{titulo}</p>
-          <p className="truncate text-xs text-green-100">
+          <p className="truncate text-xs text-white/80">
             {nombreContacto ? `${nombreContacto} · ` : ''}
             {subtitulo || 'NaIA · BuscoEdu'}
           </p>
@@ -297,7 +302,7 @@ export default function DemoWappPanel({
         {nombreOferta ? (
           <div className="flex justify-start">
             <article className="max-w-[82%] overflow-hidden rounded-2xl bg-white text-sm text-gray-900 shadow">
-              <p className="bg-[#128c7e] px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
+              <p className="bg-[var(--color-primary)] px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
                 Oferta en este chat
               </p>
               <div className="px-3 py-2">
@@ -337,7 +342,9 @@ export default function DemoWappPanel({
               {textoBurbuja ? (
                 <div
                   className={`max-w-[82%] rounded-2xl px-3 py-2 text-sm shadow ${
-                    mine ? 'rounded-br-md bg-[#dcf8c6] text-gray-900' : 'rounded-bl-md bg-white text-gray-900'
+                    mine
+                      ? 'rounded-br-md border-2 border-[var(--color-text)] bg-[var(--color-primary)] text-white'
+                      : 'rounded-bl-md border-2 border-[var(--color-text)] bg-[var(--color-band)] text-[var(--color-text)]'
                   }`}
                 >
                   <MensajeTexto
@@ -345,7 +352,9 @@ export default function DemoWappPanel({
                     streaming={enStreaming}
                     onDone={() => setStreamingMsgId((actual) => (actual === m.id ? null : actual))}
                   />
-                  <p className="mt-1 text-right text-[10px] text-gray-500">{hora(m.enviado_en || m.creado_en)}</p>
+                  <p className={`mt-1 text-right text-[10px] ${mine ? 'text-white/80' : 'text-[var(--color-muted)]'}`}>
+                    {hora(m.enviado_en || m.creado_en)}
+                  </p>
                 </div>
               ) : null}
 
@@ -361,7 +370,7 @@ export default function DemoWappPanel({
                       type="button"
                       onClick={() => void enviarTexto(opcion)}
                       disabled={sending || disabled}
-                      className="block w-full border-t border-gray-100 px-3 py-2.5 text-center text-sm font-medium text-[#075e54] first:border-t-0 disabled:opacity-50"
+                      className="block w-full border-t border-[var(--color-line)] px-3 py-2.5 text-center text-sm font-medium text-[var(--color-text)] first:border-t-0 disabled:opacity-50"
                     >
                       {opcion}
                     </button>
@@ -378,7 +387,7 @@ export default function DemoWappPanel({
         {/* MEJORA A.1: indicador "NaIA está escribiendo..." mientras espera la API */}
         {naiaEscribiendo && (
           <div className="flex justify-start">
-            <div className="max-w-[82%] rounded-2xl rounded-bl-md bg-white px-3 py-2 text-sm text-gray-500 shadow">
+            <div className="max-w-[82%] rounded-2xl rounded-bl-md border-2 border-[var(--color-text)] bg-[var(--color-band)] px-3 py-2 text-sm text-[var(--color-text)]">
               <span className="inline-flex items-center gap-1">
                 NaIA está escribiendo
                 <span className="animate-pulse">…</span>
@@ -399,7 +408,7 @@ export default function DemoWappPanel({
             <button
               type="button"
               onClick={accionVacia.onClick}
-              className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#075e54] shadow"
+              className="rounded-full border-2 border-[var(--color-text)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-text)]"
             >
               {accionVacia.etiqueta}
             </button>
@@ -415,8 +424,8 @@ export default function DemoWappPanel({
       <footer
         className={`shrink-0 px-2 py-2 ${
           soloHilo
-            ? 'bg-[#f0f2f5] pb-[max(0.5rem,env(safe-area-inset-bottom))]'
-            : 'border-t border-gray-200 bg-white p-3'
+            ? 'bg-[var(--color-bg)] pb-[max(0.5rem,env(safe-area-inset-bottom))]'
+            : 'border-t border-[var(--color-line)] bg-white p-3'
         }`}
       >
         <div className="flex items-center gap-2">
@@ -432,13 +441,13 @@ export default function DemoWappPanel({
             disabled={sending || disabled}
             placeholder="Escribe un mensaje"
             aria-label="Mensaje para NaIA"
-            className="min-h-11 flex-1 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm outline-none focus:border-[#075e54]"
+            className="min-h-11 flex-1 rounded-full border-2 border-[var(--color-text)] bg-white px-4 py-2 text-sm text-[var(--color-text)] outline-none"
           />
           <button
             type="button"
             onClick={() => void enviarTexto(input)}
             disabled={sending || disabled || !input.trim()}
-            className="min-h-11 rounded-full bg-[#128c7e] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="min-h-11 rounded-full border-2 border-[var(--color-text)] bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             Enviar
           </button>

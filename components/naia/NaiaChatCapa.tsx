@@ -34,25 +34,25 @@ export default function NaiaChatCapa({ onCerrar }: NaiaChatCapaProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[65] flex flex-col bg-[#f7f9fc] md:hidden"
+      className="fixed inset-0 z-[65] flex flex-col bg-[var(--color-bg)] md:hidden"
       role="dialog"
       aria-modal="true"
       aria-label="Conversación con NaIA"
     >
       {/* Volver cierra esta capa y deja la página que estaba debajo. */}
-      <div className="flex shrink-0 items-center gap-3 border-b border-buscoedu-border bg-white px-3 py-2">
+      <div className="flex shrink-0 items-center gap-3 border-b-2 border-[var(--color-text)] bg-white px-3 py-2">
         <button
           type="button"
           onClick={onCerrar}
-          className="inline-flex min-h-11 items-center rounded-lg border border-buscoedu-blue px-3 text-sm font-semibold text-buscoedu-blue"
+          className="inline-flex min-h-11 items-center rounded-full border-2 border-[var(--color-text)] bg-white px-3 text-sm font-bold text-[var(--color-text)]"
         >
           ← Volver
         </button>
-        <p className="text-sm font-semibold text-buscoedu-blue">NaIA</p>
+        <p className="text-sm font-bold text-[var(--color-text)]">NaIA</p>
       </div>
 
       <div className="min-h-0 flex-1">
-        <Suspense fallback={<div className="h-full bg-[#f7f9fc]" />}>
+        <Suspense fallback={<div className="h-full bg-[var(--color-bg)]" />}>
           <NaiaSearchExperience enCapa />
         </Suspense>
       </div>
