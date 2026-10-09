@@ -53,7 +53,7 @@ Un logo por universidad: gana `es_principal`; si no hay principal, el `orden` me
 | Variable | Uso |
 |---|---|
 | `SUPABASE_LOGOS_BUCKET` | Bucket de los logos. Si falta o está en blanco: `logos-aliadas`. |
-| `NEXT_PUBLIC_ALIADAS_IDS` | UUIDs separados por coma. El parser es `idsAliadasDesdeEnv` en `src/lib/aliadas.ts`. |
+| `NEXT_PUBLIC_ALIADAS_IDS` | UUIDs separados por coma. El parser es `idsAliadasDesdeEnv` en `src/lib/aliadas.ts`. Es la fuente de verdad del corredor. Sin ella, el fallback es igualdad exacta de nombre (nunca `ilike` con `%`). Ver `docs/backend/README-aliadas-catalogo.md`. |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Las cifras usan el mismo cliente anónimo que Explorar. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Solo logos, en servidor. |
 

@@ -9,7 +9,7 @@ Corte en `main`: `71d262e` + este commit de publicación.
 - CTA primario: Encontrar opciones → `/explorar`
 - NaIA secundaria
 - `/como-funciona` con las 5 IES y permiso por nombre
-- `obtenerOfertas` solo aliadas (`NEXT_PUBLIC_ALIADAS_IDS` o match por nombre)
+- `obtenerOfertas` solo aliadas (`NEXT_PUBLIC_ALIADAS_IDS`, o igualdad exacta de nombre si esa variable no está). El detalle está en `docs/backend/README-aliadas-catalogo.md`.
 
 ## Hosting
 
