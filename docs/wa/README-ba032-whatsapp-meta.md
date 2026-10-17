@@ -1,6 +1,6 @@
 # BA-032 — WhatsApp real con Meta Cloud API
 
-Estado: **implementado en rama local `feat/wa-meta`, sin desplegar**. Migración escrita y **no ejecutada**.
+Estado: **desplegado en producción (2026-10-17) en piloto cerrado**: migración `wa_*` aplicada en Supabase, variables en Vercel, `WA_REAL_HABILITADO=false` y `WA_LEAD_CONVERSION_ENABLED=false`.
 Por defecto todo queda cerrado: sin allowlist de piloto no se le responde a nadie, y sin `WA_LEAD_CONVERSION_ENABLED='true'` no se crean leads.
 
 ## Arquitectura
@@ -169,5 +169,5 @@ Para recibir mensajes reales en local hace falta un túnel HTTPS (p. ej. ngrok) 
 |---|---|---|---|
 | 2026-10-17 | Webhook `/api/whatsapp/webhook` (GET verificación + POST firmado), cliente Graph, orquestador con consentimiento Ley 1581, catálogo ≤8 fichas, Mi lista ≠ Aplicar ≠ Autorizar contacto, ventana 24 h, BAJA/STOP, ASESOR, rate limit, idempotencia; migración `wa_*` (no ejecutada); 48 tests nuevos | BA-032: WhatsApp real con Meta Cloud API | Backend BuscoEdu (bot) |
 | 2026-10-17 | Piloto cerrado `WA_PILOTO_NUMEROS` (máx 5, fail-closed) e interruptor `WA_LEAD_CONVERSION_ENABLED` (solo `'true'`); tests de allowlist y de no-conversión con interruptor apagado o sin definir | Ajuste obligatorio de Producto/Orquestador: probar con el equipo sobre el catálogo actual sin generar leads facturables | Backend BuscoEdu (bot) |
-
 | 2026-10-17 | Textos de piloto: Autorizar contacto con interruptor apagado → «Estamos en piloto: tu autorización quedó registrada, pero todavía no enviamos datos a universidades.»; ASESOR → «Un asesor del equipo BuscoEdu te escribirá en horario hábil» (respuesta manual desde Meta). Criterio 8 ≈ parcial (historial en `wa_mensajes`). | Ajuste de Producto: no prometer envío ni asesor inexistente | Backend BuscoEdu (bot) |
+| 2026-10-17 | Deploy BA-032: migración `ba032_whatsapp_meta` aplicada en Supabase (5 tablas `wa_*`, RLS sin políticas), variables Meta/piloto en Vercel (Production y Preview), PR squash a `main` y deploy único a producción; smoke del webhook | Puesta en producción del piloto cerrado de WhatsApp | Orquestador BuscoEdu vía executor, con OK de Jhon |
