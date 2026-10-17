@@ -3,7 +3,6 @@
  * Español colombiano neutro, de tú. Sin promesas que el sistema no cumple.
  */
 
-import { TEXTO_HORARIO_ASESORES } from './comandos';
 import type { OfertaWa } from './tipos';
 
 export const URL_WEB = 'https://www.buscoedu.com';
@@ -41,10 +40,11 @@ export const BAJA_CONFIRMADA =
 
 export const VOLVER_MENU = '¡De vuelta conmigo, NaIA! ' + PEDIR_INTERES;
 
-export function textoAsesor(enHorario: boolean): string {
-  return enHorario
-    ? 'Listo, le paso tu conversación a un asesor de BuscoEdu. Te responde por este chat lo antes posible. Para volver conmigo escribe *MENU*.'
-    : `Listo, le paso tu conversación a un asesor de BuscoEdu. Ahora estamos fuera de horario (${TEXTO_HORARIO_ASESORES}); te responde apenas abramos. Para volver conmigo escribe *MENU*.`;
+// Bloque: ASESOR en piloto (Producto 17/10). Aún no hay pantalla en Lead Center:
+// el equipo contesta a mano desde Meta, así que no prometemos tiempos ni respuesta inmediata.
+// `enHorario` se conserva por compatibilidad; el texto es el mismo en ambos casos.
+export function textoAsesor(_enHorario: boolean): string {
+  return 'Un asesor del equipo BuscoEdu te escribirá en horario hábil. Para volver conmigo escribe *MENU*.';
 }
 
 export const ASESOR_SIN_CONSENTIMIENTO =
@@ -95,12 +95,10 @@ export function textoAutorizarContacto(oferta: string, universidad: string): str
 export const CONTACTO_NO_AUTORIZADO =
   'Entendido, no comparto tus datos con la universidad ni creo ninguna solicitud. La ficha sigue disponible en la web cuando quieras.';
 
-// Interruptor de conversión apagado: honestidad, sin prometer envío a la universidad.
-export function textoSolicitudRegistradaSinConversion(oferta: string): string {
-  return (
-    `Tu solicitud para *${oferta}* quedó registrada y un asesor de BuscoEdu la revisa. ` +
-    'Todavía no la enviamos a la universidad; si hace falta algo más, te escribimos por aquí.'
-  );
+// Bloque: interruptor de conversión apagado (piloto). Texto exacto de Producto 17/10:
+// nunca decir «tu solicitud fue enviada»; no se envían datos a universidades.
+export function textoSolicitudRegistradaSinConversion(_oferta: string): string {
+  return 'Estamos en piloto: tu autorización quedó registrada, pero todavía no enviamos datos a universidades.';
 }
 
 export function textoLeadCreado(oferta: string, universidad: string): string {

@@ -60,7 +60,7 @@ A cualquier otro número el bot no le contesta ni le guarda nada: solo queda un 
 
 Hay un interruptor llamado `WA_LEAD_CONVERSION_ENABLED`. **Está apagado por defecto.**
 
-- Apagado (o sin poner): el estudiante puede buscar, guardar en su lista, aplicar y tocar *Autorizo contacto*. Su solicitud queda **registrada** y le decimos con honestidad: *"Tu solicitud quedó registrada y un asesor de BuscoEdu la revisa. Todavía no la enviamos a la universidad."* **No se crea oportunidad ni transferencia facturable.**
+- Apagado (o sin poner): el estudiante puede buscar, guardar en su lista, aplicar y tocar *Autorizo contacto*. Su solicitud queda **registrada** y le decimos con honestidad: *"Estamos en piloto: tu autorización quedó registrada, pero todavía no enviamos datos a universidades."* **No se crea oportunidad ni transferencia facturable.**
 - Encendido (solo si escribes exactamente `true`, en minúsculas): ahí sí se crea el lead en Lead Center, con la conversación de WhatsApp.
 
 Lo dejamos apagado porque hoy en producción solo hay universidades de prueba y porque la creación de leads desde WhatsApp debe validarse primero. Encenderlo es una decisión tuya con Producto.
@@ -121,3 +121,7 @@ Con el piloto de 5 personas el consumo debería quedar dentro de los 1.000 grati
 | El estudiante pide asesor y nadie responde | Aún no hay pantalla para que un asesor conteste desde Lead Center | Pendiente técnico; mientras tanto, revisar la lista de escalamientos en la base |
 | Se agradece la solicitud pero no aparece lead en Lead Center | El interruptor `WA_LEAD_CONVERSION_ENABLED` está apagado (a propósito) | Ver sección 4 |
 | El bot dice "tuve un problema técnico" | Falla de base de datos, catálogo o de Meta | Avisar al equipo técnico con la hora aproximada; no se guarda nada a medias |
+
+
+## Piloto: si alguien escribe ASESOR
+El bot le responde: *"Un asesor del equipo BuscoEdu te escribirá en horario hábil."* Todavía no hay pantalla en Lead Center para contestar, así que **alguien del equipo debe responderle a mano desde Meta** (WhatsApp Manager) en horario hábil. Nunca prometemos una persona que no va a llegar.

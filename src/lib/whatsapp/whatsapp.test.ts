@@ -432,7 +432,7 @@ describe('BA-032 · BAJA/STOP y ASESOR', () => {
     await procesarMensajeEntrante(msg({ texto: 'asesor' }), e.deps);
     assert.equal(e.almacen.contactos.get(PILOTO)!.estado, 'humano');
     assert.equal(e.almacen.escalamientos.length, 1);
-    assert.match(e.enviados.at(-1)!.contenido, /asesor/);
+    assert.match(e.enviados.at(-1)!.contenido, /Un asesor del equipo BuscoEdu te escribirá en horario hábil/);
     assert.equal(await procesarMensajeEntrante(msg({ texto: 'hola' }), e.deps), 'silencio_humano');
     assert.equal(await procesarMensajeEntrante(msg({ texto: 'menu' }), e.deps), 'respondido');
     assert.equal(e.almacen.contactos.get(PILOTO)!.estado, 'activo');
@@ -475,8 +475,10 @@ describe('BA-032 · Mi lista ≠ Aplicar ≠ Autorizar contacto; interruptor de 
       assert.equal(e.almacen.intenciones[0].paso, 'consentimiento_registrado');
       assert.equal(e.almacen.intenciones[0].oportunidadId ?? null, null);
       const ultimo = e.enviados.at(-1)!.contenido;
-      assert.match(ultimo, /quedó registrada/);
-      assert.match(ultimo, /asesor/);
+      // Texto exacto de Producto para el piloto: no promete envío a la universidad.
+      assert.match(ultimo, /Estamos en piloto: tu autorización quedó registrada/);
+      assert.match(ultimo, /todavía no enviamos datos a universidades/);
+      assert.doesNotMatch(ultimo, /fue enviada/i);
       assert.doesNotMatch(ultimo, /te escribirán pronto/i);
     });
   }
