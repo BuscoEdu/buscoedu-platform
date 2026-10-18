@@ -10,7 +10,8 @@
 --   2. bitacora_topes_gasto_ia: quién, cuándo, valor anterior → nuevo (D1).
 --   3. precios_modelo_ia: precio por 1.000 tokens, versionado. Nunca se sobrescribe:
 --      se cierra la versión vigente y se inserta una nueva.
---   4. alertas_gasto_ia: alerta del umbral y corte al 100 %, una por día y canal (D5/D6).
+--   4. alertas_gasto_ia: alerta de umbral, corte al 100 % y sin_costo, una por día, canal y tipo (D5/D6).
+--   4b. Precio ESTIMADO de Abacus (modelo '*') para que el tope proteja al proveedor principal.
 --   5. Funciones (solo service_role):
 --      fn_ia_actualizar_tope, fn_ia_gasto_hoy, fn_ia_registrar_alerta_gasto,
 --      fn_ia_registrar_precio y fn_ia_precio_vigente.
@@ -110,6 +111,7 @@ CREATE TABLE IF NOT EXISTS public.precios_modelo_ia (
   version text NOT NULL,
   entrada_usd_1k numeric(12, 6) NOT NULL CHECK (entrada_usd_1k >= 0),
   salida_usd_1k numeric(12, 6) NOT NULL CHECK (salida_usd_1k >= 0),
+  es_estimado boolean NOT NULL DEFAULT false,
   vigente_desde timestamptz NOT NULL DEFAULT now(),
   vigente_hasta timestamptz,
   reemplaza_precio_id uuid REFERENCES public.precios_modelo_ia(id),
@@ -124,19 +126,36 @@ CREATE TABLE IF NOT EXISTS public.precios_modelo_ia (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_precios_modelo_ia_vigente
   ON public.precios_modelo_ia (proveedor_id, modelo) WHERE vigente_hasta IS NULL;
 
+-- Bloque 3c: precio ESTIMADO para Abacus (proveedor principal; decisión del Orquestador 18/10).
+-- Para qué: sin precio, el gasto de Abacus no suma y el tope no protege.
+-- Valor: tarifa publicada de Abacus RouteLLM, la más cara de su ruteo (Sonnet 5):
+-- USD 2,00 por 1 M de tokens de entrada y USD 10,00 por 1 M de salida
+-- (= 0,002 / 0,010 por 1.000). Fuente: https://abacus.ai/teams/routellm-apis (consultada 2026-10-18).
+-- Es ESTIMADO porque BuscoEdu usa un deployment de Abacus (no RouteLLM) y Abacus no
+-- informa tokens (se estiman por texto). Se elige el valor alto para no quedarse corto.
+-- El admin lo ajusta con fn_ia_registrar_precio (nueva versión, sin sobrescribir).
+INSERT INTO public.precios_modelo_ia (proveedor_id, modelo, version, entrada_usd_1k, salida_usd_1k, es_estimado, fuente)
+SELECT p.id, '*', 'estimado-2026-10', 0.002, 0.010, true,
+       'Estimado con la tarifa publicada de Abacus RouteLLM (máx. del ruteo, USD 2/10 por 1M): https://abacus.ai/teams/routellm-apis · 2026-10-18'
+FROM public.proveedores_ia p
+WHERE p.codigo = 'abacus_ai'
+  AND NOT EXISTS (SELECT 1 FROM public.precios_modelo_ia x WHERE x.proveedor_id = p.id AND x.modelo = '*');
+
 COMMENT ON TABLE public.precios_modelo_ia IS
   'BA-038. Precio USD por 1.000 tokens por proveedor+modelo, versionado (no se sobrescribe). Una sola fila vigente por modelo.';
+COMMENT ON COLUMN public.precios_modelo_ia.modelo IS 'Modelo exacto o ''*'' = cualquier modelo del proveedor (p. ej. Abacus, que no informa el modelo).';
+COMMENT ON COLUMN public.precios_modelo_ia.es_estimado IS 'true = precio aproximado (no tarifa exacta del contrato). El panel avisa «precio estimado» y el admin lo ajusta con una nueva versión.';
 COMMENT ON COLUMN public.precios_modelo_ia.fuente IS 'De dónde salió el precio (URL o nota). Nunca se inventa un precio.';
 
 -- -----------------------------------------------------
--- Bloque 4: alertas de gasto (D5 umbral, D6 corte). Una por canal, día y tipo.
+-- Bloque 4: alertas de gasto (D5 umbral, D6 corte, sin_costo = intentos sin precio). Una por canal, día y tipo.
 -- Para qué: que el panel muestre la alerta y quede registrada sin duplicarse en cada mensaje.
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.alertas_gasto_ia (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   canal_id uuid NOT NULL REFERENCES public.canales_ia(id),
   dia_bogota date NOT NULL,
-  tipo text NOT NULL CHECK (tipo IN ('umbral', 'corte')),
+  tipo text NOT NULL CHECK (tipo IN ('umbral', 'corte', 'sin_costo')),
   gasto_usd numeric(12, 6) NOT NULL,
   tope_usd numeric(10, 2) NOT NULL,
   umbral_pct smallint NOT NULL,
@@ -146,7 +165,7 @@ CREATE TABLE IF NOT EXISTS public.alertas_gasto_ia (
 );
 
 COMMENT ON TABLE public.alertas_gasto_ia IS
-  'BA-038 D5/D6. Alerta de umbral o corte por canal y día de Bogotá (una sola). vista_en = el admin la marcó como vista.';
+  'BA-038 D5/D6. Alerta de umbral, corte o intentos sin costo por canal y día de Bogotá (una sola). vista_en = el admin la marcó como vista.';
 
 -- Bloque 4b: índice para sumar el gasto de hoy por canal (consulta de fn_ia_gasto_hoy).
 CREATE INDEX IF NOT EXISTS idx_registros_costo_ia_canal_creado
@@ -246,11 +265,17 @@ $$;
 -- -----------------------------------------------------
 -- Bloque 7: fn_ia_gasto_hoy (D5, D6, D7, D8).
 -- Para qué: una sola consulta da el gasto estimado de hoy (día de Bogotá), el tope,
--- el % usado y el estado: 'normal' | 'alerta' (≥ umbral) | 'cortado' (≥ 100 %).
+-- el % usado y el estado: 'normal' | 'alerta' | 'cortado' (≥ 100 %).
 -- El backend la llama antes de cada llamada a la IA y el panel la muestra.
 -- La medianoche de Bogotá reinicia el día sola (D7), sin tareas programadas.
--- Cuenta todos los intentos con costo, incluidas las simulaciones (también cuestan
--- dinero). intentos_sin_costo avisa que el estimado es parcial (Abacus sin precio).
+-- Reglas (decisión del Orquestador, 18/10):
+--   · las simulaciones suman (cuestan dinero real);
+--   · si un intento llegó sin costo (Abacus hoy), se calcula aquí con sus tokens y el
+--     precio vigente del proveedor (exacto por modelo o comodín '*'), para que el tope
+--     proteja también al proveedor principal;
+--   · precio_estimado = true si algún costo de hoy usó un precio marcado como estimado
+--     (el panel avisa «precio estimado»);
+--   · intentos_sin_costo > 0 (ni con fallback se pudo calcular) = 'alerta'.
 -- Canal sin fila de tope → defaults 5 / 80 (D2), nunca sin límite.
 -- -----------------------------------------------------
 CREATE OR REPLACE FUNCTION public.fn_ia_gasto_hoy(p_canal_codigo text)
@@ -268,6 +293,7 @@ DECLARE
   v_umbral smallint := 80;
   v_gasto numeric(12, 6);
   v_sin_costo integer;
+  v_estimado boolean;
   v_pct numeric;
 BEGIN
   -- 7.1 Canal y tope (o valores por defecto).
@@ -280,12 +306,40 @@ BEGIN
   v_tope := coalesce(v_tope, 5.00);
   v_umbral := coalesce(v_umbral, 80);
 
-  -- 7.2 Gasto de hoy (desde las 00:00 de Bogotá) e intentos sin costo conocido.
-  SELECT coalesce(sum(r.costo_estimado_usd), 0),
-         count(*) FILTER (WHERE r.costo_estimado_usd IS NULL AND r.resultado IN ('exitoso', 'error', 'formato_invalido'))
-  INTO v_gasto, v_sin_costo
-  FROM public.registros_costo_ia r
-  WHERE r.canal_codigo = p_canal_codigo AND r.creado_en >= v_desde;
+  -- 7.2 Gasto de hoy desde las 00:00 de Bogotá.
+  --     costo = el registrado por el backend; si falta, tokens × precio vigente (fallback).
+  WITH hoy AS (
+    SELECT r.costo_estimado_usd, r.resultado, r.precio_version, r.proveedor_codigo,
+           r.tokens_entrada, r.tokens_salida, pv.entrada_usd_1k, pv.salida_usd_1k,
+           pv.es_estimado AS pv_estimado,
+           EXISTS (SELECT 1 FROM public.precios_modelo_ia pe
+                   JOIN public.proveedores_ia pp ON pp.id = pe.proveedor_id
+                   WHERE pp.codigo = r.proveedor_codigo AND pe.version = r.precio_version
+                     AND pe.es_estimado) AS version_estimada
+    FROM public.registros_costo_ia r
+    LEFT JOIN LATERAL (
+      SELECT pm.entrada_usd_1k, pm.salida_usd_1k, pm.es_estimado
+      FROM public.precios_modelo_ia pm
+      JOIN public.proveedores_ia p ON p.id = pm.proveedor_id
+      WHERE p.codigo = r.proveedor_codigo AND pm.vigente_hasta IS NULL
+        AND pm.modelo IN (coalesce(r.modelo, '*'), '*')
+      ORDER BY (pm.modelo = '*')  -- primero el precio exacto del modelo
+      LIMIT 1
+    ) pv ON r.costo_estimado_usd IS NULL
+    WHERE r.canal_codigo = p_canal_codigo AND r.creado_en >= v_desde
+  ), calc AS (
+    SELECT coalesce(costo_estimado_usd,
+                    CASE WHEN tokens_entrada IS NOT NULL AND tokens_salida IS NOT NULL AND entrada_usd_1k IS NOT NULL
+                         THEN tokens_entrada / 1000.0 * entrada_usd_1k + tokens_salida / 1000.0 * salida_usd_1k END) AS costo,
+           resultado,
+           (costo_estimado_usd IS NULL AND coalesce(pv_estimado, false)) OR version_estimada AS uso_estimado
+    FROM hoy
+  )
+  SELECT coalesce(sum(costo), 0),
+         count(*) FILTER (WHERE costo IS NULL AND resultado IN ('exitoso', 'error', 'formato_invalido')),
+         coalesce(bool_or(uso_estimado AND costo IS NOT NULL), false)
+  INTO v_gasto, v_sin_costo, v_estimado
+  FROM calc;
 
   -- 7.3 Porcentaje y estado.
   v_pct := round(v_gasto / v_tope * 100, 1);
@@ -299,8 +353,12 @@ BEGIN
     'umbral_alerta_pct', v_umbral,
     'pct_usado', v_pct,
     'estado', CASE WHEN v_gasto >= v_tope THEN 'cortado'
-                   WHEN v_pct >= v_umbral THEN 'alerta'
+                   WHEN v_pct >= v_umbral OR v_sin_costo > 0 THEN 'alerta'
                    ELSE 'normal' END,
+    'motivos_alerta', to_jsonb(array_remove(ARRAY[
+        CASE WHEN v_pct >= v_umbral THEN 'umbral' END,
+        CASE WHEN v_sin_costo > 0 THEN 'sin_costo' END], NULL)),
+    'precio_estimado', v_estimado,
     'intentos_sin_costo', v_sin_costo
   );
 END;
@@ -309,7 +367,8 @@ $$;
 -- -----------------------------------------------------
 -- Bloque 8: fn_ia_registrar_alerta_gasto (D5, D6: "la alerta queda registrada").
 -- Para qué: el backend la llama cuando fn_ia_gasto_hoy da 'alerta' o 'cortado'.
--- Guarda una sola alerta por canal, día y tipo (si ya existe, no duplica).
+-- Guarda una sola alerta por canal, día y tipo (umbral | corte | sin_costo).
+-- Al cortar también deja la de umbral (por si se saltó de golpe del 70 % al 100 %).
 -- -----------------------------------------------------
 CREATE OR REPLACE FUNCTION public.fn_ia_registrar_alerta_gasto(p_canal_codigo text)
 RETURNS jsonb
@@ -319,28 +378,32 @@ SET search_path = public
 AS $$
 DECLARE
   v_estado jsonb := public.fn_ia_gasto_hoy(p_canal_codigo);
-  v_tipo text;
-  v_nueva boolean := false;
+  v_tipos text[];
+  v_n integer;
 BEGIN
   IF NOT coalesce((v_estado->>'ok')::boolean, false) THEN
     RETURN v_estado;
   END IF;
-  v_tipo := CASE v_estado->>'estado' WHEN 'cortado' THEN 'corte' WHEN 'alerta' THEN 'umbral' END;
-  IF v_tipo IS NULL THEN
-    RETURN jsonb_build_object('ok', true, 'registrada', false, 'estado', 'normal');
+
+  -- 8.1 Tipos a registrar según el estado.
+  v_tipos := array_remove(ARRAY[
+    CASE WHEN v_estado->>'estado' = 'cortado' OR v_estado->'motivos_alerta' ? 'umbral' THEN 'umbral' END,
+    CASE WHEN v_estado->>'estado' = 'cortado' THEN 'corte' END,
+    CASE WHEN (v_estado->>'intentos_sin_costo')::int > 0 THEN 'sin_costo' END], NULL);
+  IF cardinality(v_tipos) = 0 THEN
+    RETURN jsonb_build_object('ok', true, 'registradas', 0, 'estado', v_estado->>'estado');
   END IF;
 
-  -- 8.1 Al cortar también queda la de umbral (por si se saltó de golpe del 70 % al 100 %).
+  -- 8.2 Insertar sin duplicar.
   INSERT INTO public.alertas_gasto_ia (canal_id, dia_bogota, tipo, gasto_usd, tope_usd, umbral_pct)
   SELECT c.id, (v_estado->>'dia_bogota')::date, t.tipo, (v_estado->>'gasto_usd')::numeric,
          (v_estado->>'tope_diario_usd')::numeric, (v_estado->>'umbral_alerta_pct')::smallint
-  FROM public.canales_ia c
-  CROSS JOIN (SELECT unnest(CASE WHEN v_tipo = 'corte' THEN ARRAY['umbral', 'corte'] ELSE ARRAY['umbral'] END) AS tipo) t
+  FROM public.canales_ia c CROSS JOIN unnest(v_tipos) AS t(tipo)
   WHERE c.codigo = p_canal_codigo
   ON CONFLICT (canal_id, dia_bogota, tipo) DO NOTHING;
-  v_nueva := FOUND;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
 
-  RETURN jsonb_build_object('ok', true, 'registrada', v_nueva, 'tipo', v_tipo, 'estado', v_estado->>'estado');
+  RETURN jsonb_build_object('ok', true, 'registradas', v_n, 'tipos', to_jsonb(v_tipos), 'estado', v_estado->>'estado');
 EXCEPTION WHEN OTHERS THEN
   RETURN jsonb_build_object('ok', false, 'error', 'error_interno', 'sqlstate', SQLSTATE);
 END;
@@ -348,9 +411,12 @@ $$;
 
 -- -----------------------------------------------------
 -- Bloque 9: fn_ia_registrar_precio (precio versionado, sin sobrescribir).
--- Para qué: cargar o cambiar el precio de un modelo. Cierra la versión vigente
--- (vigente_hasta = now()) e inserta la nueva enlazada con reemplaza_precio_id.
+-- Para qué: cargar o ajustar el precio de un modelo desde el panel. Cierra la versión
+-- vigente (vigente_hasta = now()) e inserta la nueva enlazada (reemplaza_precio_id).
+-- p_modelo = '*' → precio para cualquier modelo del proveedor (Abacus).
+-- p_es_estimado = true → el panel muestra «precio estimado».
 -- -----------------------------------------------------
+DROP FUNCTION IF EXISTS public.fn_ia_registrar_precio(text, text, numeric, numeric, text, text, uuid);
 CREATE OR REPLACE FUNCTION public.fn_ia_registrar_precio(
   p_proveedor_codigo text,
   p_modelo text,
@@ -358,6 +424,7 @@ CREATE OR REPLACE FUNCTION public.fn_ia_registrar_precio(
   p_salida_usd_1k numeric,
   p_version text,
   p_fuente text,
+  p_es_estimado boolean,
   p_actor_usuario_id uuid
 )
 RETURNS jsonb
@@ -387,14 +454,14 @@ BEGIN
   END IF;
 
   -- 9.2 Cerrar la vigente (si hay) e insertar la nueva.
-  UPDATE public.precios_modelo_ia SET vigente_hasta = now()
+  UPDATE public.precios_modelo_ia SET vigente_hasta = clock_timestamp()
   WHERE proveedor_id = v_proveedor_id AND modelo = trim(p_modelo) AND vigente_hasta IS NULL
   RETURNING id INTO v_anterior;
 
   INSERT INTO public.precios_modelo_ia (proveedor_id, modelo, version, entrada_usd_1k, salida_usd_1k,
-    vigente_desde, reemplaza_precio_id, fuente, creado_por)
+    es_estimado, vigente_desde, reemplaza_precio_id, fuente, creado_por)
   VALUES (v_proveedor_id, trim(p_modelo), trim(p_version), p_entrada_usd_1k, p_salida_usd_1k,
-    clock_timestamp(), v_anterior, p_fuente, p_actor_usuario_id)
+    coalesce(p_es_estimado, false), clock_timestamp(), v_anterior, p_fuente, p_actor_usuario_id)
   RETURNING id INTO v_nuevo;
 
   RETURN jsonb_build_object('ok', true, 'precio_id', v_nuevo, 'reemplaza_precio_id', v_anterior);
@@ -405,9 +472,9 @@ $$;
 
 -- -----------------------------------------------------
 -- Bloque 10: fn_ia_precio_vigente.
--- Para qué: que el backend lea el precio vigente con la misma forma que PreciosModelo
--- ({entrada_usd_1k, salida_usd_1k, version}). Sin precio → NULL; el costo queda en
--- null y no se inventa (igual que hoy en BA-034).
+-- Para qué: que el backend lea el precio vigente con la forma de PreciosModelo
+-- ({entrada_usd_1k, salida_usd_1k, version}) + es_estimado. Busca primero el modelo
+-- exacto y si no hay, el comodín '*' del proveedor. Sin precio → NULL (no se inventa).
 -- -----------------------------------------------------
 CREATE OR REPLACE FUNCTION public.fn_ia_precio_vigente(p_proveedor_codigo text, p_modelo text)
 RETURNS jsonb
@@ -416,10 +483,14 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT jsonb_build_object('entrada_usd_1k', pm.entrada_usd_1k, 'salida_usd_1k', pm.salida_usd_1k, 'version', pm.version)
+  SELECT jsonb_build_object('entrada_usd_1k', pm.entrada_usd_1k, 'salida_usd_1k', pm.salida_usd_1k,
+                            'version', pm.version, 'es_estimado', pm.es_estimado, 'modelo', pm.modelo)
   FROM public.precios_modelo_ia pm
   JOIN public.proveedores_ia p ON p.id = pm.proveedor_id
-  WHERE p.codigo = p_proveedor_codigo AND pm.modelo = p_modelo AND pm.vigente_hasta IS NULL;
+  WHERE p.codigo = p_proveedor_codigo AND pm.vigente_hasta IS NULL
+    AND pm.modelo IN (coalesce(p_modelo, '*'), '*')
+  ORDER BY (pm.modelo = '*')
+  LIMIT 1;
 $$;
 
 -- -----------------------------------------------------
@@ -430,18 +501,18 @@ REVOKE ALL ON FUNCTION public.fn_ia_tope_por_defecto() FROM PUBLIC, anon, authen
 REVOKE ALL ON FUNCTION public.fn_ia_actualizar_tope(text, numeric, integer, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.fn_ia_gasto_hoy(text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.fn_ia_registrar_alerta_gasto(text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.fn_ia_registrar_precio(text, text, numeric, numeric, text, text, uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.fn_ia_registrar_precio(text, text, numeric, numeric, text, text, boolean, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.fn_ia_precio_vigente(text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_ia_actualizar_tope(text, numeric, integer, uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.fn_ia_gasto_hoy(text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.fn_ia_registrar_alerta_gasto(text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.fn_ia_registrar_precio(text, text, numeric, numeric, text, text, uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.fn_ia_registrar_precio(text, text, numeric, numeric, text, text, boolean, uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.fn_ia_precio_vigente(text, text) TO service_role;
 
 COMMENT ON FUNCTION public.fn_ia_actualizar_tope(text, numeric, integer, uuid) IS 'BA-038 D1/D3/D4. Guarda tope y umbral validados + bitácora. Solo service_role.';
 COMMENT ON FUNCTION public.fn_ia_gasto_hoy(text) IS 'BA-038 D5–D8. Gasto de hoy (Bogotá), tope, % y estado normal|alerta|cortado. Solo service_role.';
 COMMENT ON FUNCTION public.fn_ia_registrar_alerta_gasto(text) IS 'BA-038 D5/D6. Registra la alerta de umbral o corte, una por día. Solo service_role.';
-COMMENT ON FUNCTION public.fn_ia_registrar_precio(text, text, numeric, numeric, text, text, uuid) IS 'BA-038. Nueva versión de precio; cierra la anterior. Solo service_role.';
+COMMENT ON FUNCTION public.fn_ia_registrar_precio(text, text, numeric, numeric, text, text, boolean, uuid) IS 'BA-038. Nueva versión de precio; cierra la anterior. Solo service_role.';
 COMMENT ON FUNCTION public.fn_ia_precio_vigente(text, text) IS 'BA-038. Precio vigente {entrada_usd_1k, salida_usd_1k, version} o NULL. Solo service_role.';
 
 COMMIT;

@@ -15,6 +15,7 @@ DROP FUNCTION IF EXISTS public.fn_ia_tope_por_defecto();
 DROP FUNCTION IF EXISTS public.fn_ia_actualizar_tope(text, numeric, integer, uuid);
 DROP FUNCTION IF EXISTS public.fn_ia_registrar_alerta_gasto(text);
 DROP FUNCTION IF EXISTS public.fn_ia_gasto_hoy(text);
+DROP FUNCTION IF EXISTS public.fn_ia_registrar_precio(text, text, numeric, numeric, text, text, boolean, uuid);
 DROP FUNCTION IF EXISTS public.fn_ia_registrar_precio(text, text, numeric, numeric, text, text, uuid);
 DROP FUNCTION IF EXISTS public.fn_ia_precio_vigente(text, text);
 
