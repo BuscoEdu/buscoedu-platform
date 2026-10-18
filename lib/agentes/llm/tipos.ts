@@ -46,11 +46,16 @@ export interface AdaptadorLLM {
   generar(peticion: PeticionLLM): Promise<RespuestaLLM>;
 }
 
-/** Precios por 1.000 tokens (USD), versionados. Salen de `despliegues_ia.configuracion_tecnica`. */
+/**
+ * Precios por 1.000 tokens (USD), versionados. Salen de `fn_ia_precio_vigente` (BA-038)
+ * o, como respaldo, de `despliegues_ia.configuracion_tecnica` (BA-034).
+ */
 export interface PreciosModelo {
   entrada_usd_1k: number;
   salida_usd_1k: number;
   version: string;
+  /** true = precio estimado (p. ej. Abacus `estimado-2026-10`), no la tarifa real. */
+  es_estimado?: boolean;
 }
 
 /**

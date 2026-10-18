@@ -24,7 +24,8 @@ import { AgenteEjecucionError, ErrorSinIa } from './errores';
 import { construirCadena } from './llm/cadena';
 import { ejecutarConRespaldo, esRespuestaNaiaValida, type ResultadoMotor } from './llm/motor';
 import { despliegueDesdeFila, type FilaDespliegue } from './llm/proveedores';
-import { lectorClavesSupabase, registroCostoSupabase } from './llm/supabase';
+import { prepararLlamadaIa, type PreparacionLlamada } from './llm/preparar';
+import { controlGastoSupabase, lectorClavesSupabase, registroCostoSupabase, resolutorPreciosSupabase } from './llm/supabase';
 import type { DespliegueLLM } from './llm/tipos';
 import { cargarMemoriaSesion } from './sesionEstudianteStore';
 import type { ConfiguracionAgente, EntradaEjecucion, SalidaEjecucion } from './tipos';
@@ -628,7 +629,40 @@ export class AgenteExecutor {
     // BA-034: la llamada pasa por la capa IA. Con un único principal Abacus (hoy),
     // AbacusAdapter recibe exactamente los mismos parámetros que antes (B5 / E2).
     // Si hay respaldos, se prueban en orden; si nadie responde, C3 (ErrorSinIa).
-    const cadena = construirCadena(config.despliegue.llm, config.respaldos, {
+    // E1 · BA-038: antes de llamar a la IA, tope diario del canal (D6, fail-closed) y
+    // precio vigente de cada modelo (costo_estimado_usd + precio_version). Las
+    // simulaciones también pasan por aquí y suman al gasto (decisión del Orquestador).
+    const contextoLlamada = {
+      agente_codigo: config.agente.codigo,
+      version_agente_id: config.version.id,
+      canal_codigo: config.canal.codigo,
+      modo_simulacion: entrada.modo_simulacion === true
+    };
+    const preparacion = await prepararLlamadaIa({
+      control: controlGastoSupabase,
+      precios: resolutorPreciosSupabase,
+      registroCosto: registroCostoSupabase,
+      contexto: contextoLlamada,
+      principal: config.despliegue.llm,
+      respaldos: config.respaldos
+    });
+    if (!preparacion.ok) {
+      const bloqueo = preparacion as Extract<PreparacionLlamada, { ok: false }>;
+      if (!entrada.modo_simulacion) {
+        await this.registrarEjecucion({
+          config,
+          entrada,
+          estado: 'error',
+          duracion_ms: Date.now() - inicio,
+          error: `error_bot:${bloqueo.motivo}`
+        });
+      }
+      // Mismo texto que C3 (decisión del Orquestador para el corte por tope).
+      throw new ErrorSinIa(bloqueo.mensaje_estudiante, bloqueo.motivo);
+    }
+    const listos = preparacion as Extract<PreparacionLlamada, { ok: true }>;
+
+    const cadena = construirCadena(listos.principal, listos.respaldos, {
       lector: lectorClavesSupabase,
       clienteAbacus: this.adaptador
     });
@@ -643,12 +677,7 @@ export class AgenteExecutor {
         conversacion_externa_id: entrada.conversation_id
       },
       validarFormato: esRespuestaNaiaValida,
-      contexto: {
-        agente_codigo: config.agente.codigo,
-        version_agente_id: config.version.id,
-        canal_codigo: config.canal.codigo,
-        modo_simulacion: entrada.modo_simulacion === true
-      },
+      contexto: contextoLlamada,
       deps: { registroCosto: registroCostoSupabase }
     });
 

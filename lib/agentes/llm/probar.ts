@@ -8,7 +8,7 @@
  * sin una prueba exitosa.
  */
 
-import { clasificarErrorLLM, MOTIVO_LEGIBLE } from './errores';
+import { clasificarErrorLLM, MOTIVO_LEGIBLE, type TipoErrorLLM } from './errores';
 import type { AdaptadorLLM } from './tipos';
 
 /** Mensaje fijo de prueba. Nunca lleva datos de estudiantes. */
@@ -19,6 +19,8 @@ export interface ResultadoPrueba {
   latencia_ms: number;
   modelo: string | null;
   motivo: string | null;
+  /** E1 M4: tipo de error (para `pruebas_conexion_ia.motivo_codigo`); null si salió bien. */
+  motivo_codigo: TipoErrorLLM | null;
 }
 
 export async function probarConexion(adaptador: AdaptadorLLM, ahora: () => number = Date.now): Promise<ResultadoPrueba> {
@@ -34,11 +36,12 @@ export async function probarConexion(adaptador: AdaptadorLLM, ahora: () => numbe
       ok,
       latencia_ms: ahora() - inicio,
       modelo: r.modelo_usado || adaptador.modelo,
-      motivo: ok ? null : MOTIVO_LEGIBLE.respuesta_invalida
+      motivo: ok ? null : MOTIVO_LEGIBLE.respuesta_invalida,
+      motivo_codigo: ok ? null : 'respuesta_invalida'
     };
   } catch (err) {
     const e = clasificarErrorLLM(err);
-    return { ok: false, latencia_ms: ahora() - inicio, modelo: null, motivo: MOTIVO_LEGIBLE[e.tipo] };
+    return { ok: false, latencia_ms: ahora() - inicio, modelo: null, motivo: MOTIVO_LEGIBLE[e.tipo], motivo_codigo: e.tipo };
   }
 }
 

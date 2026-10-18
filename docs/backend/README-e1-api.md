@@ -1,8 +1,8 @@
 # E1 · Ola 3/4 · Contrato API admin de IA (BA-036 + BA-037 + BA-038 parte API)
 
-**Fecha:** 2026-10-18 · **Autor:** Backend BuscoEdu (bot) · **Estado:** FASE 1 = solo contrato. **Ningún endpoint nuevo está implementado todavía.** Rama local `feat/e1-integra`, sin push.
+**Fecha:** 2026-10-18 · **Autor:** Backend BuscoEdu (bot) · **Estado:** FASE 2 = **implementado** (ver «Estado de implementación»). Rama local `feat/e1-integra`, sin push.
 **Spec:** `buscoedu-knowledge/briefs/e1-ia-multiproveedor.md` (A1–A9, B1–B4, C1, D1–D8) · `ux-panel-roles.md` §3 · `centro-control-wa-spec.md` §8.4–8.5, §9, §10.5.
-**Base ya hecha:** BA-034 (capa IA `lib/agentes/llm/`), BA-035 (Vault), BA-038 BD (`20261018140000`, contrato v2: commits b4cf029, 081ba33, f590fd6).
+**Base ya hecha:** BA-034 (capa IA `lib/agentes/llm/`), BA-035 (Vault), BA-038 BD (`20261018140000`, contrato v2: commits b4cf029, 081ba33, f590fd6) y BD N1–N8 (`20261018150000_ba036_037_soporte_panel_ia.sql`, commit 787554a, contrato `docs/bd/README-e1-n1-n8-panel-ia-20261018.md`).
 
 ## Qué es y para qué sirve
 - **Qué:** el contrato de todas las rutas `/api/admin/ia/...` que Frontend necesita para cuatro cosas:
@@ -11,6 +11,52 @@
   - el tope de gasto diario;
   - las alertas.
 - **Para qué:** que Frontend construya las pantallas en paralelo sin adivinar campos ni errores, y que Base de datos sepa qué le falta crear (sección final).
+
+## Estado de implementación (fase 2, 2026-10-18)
+
+Todo pasa por `lib/admin-ia/ruta.ts` → `requireSuperAdminApi` (solo `super_admin`, 403 «No tienes permiso para esta sección.»). La lógica vive en servicios puros (`lib/admin-ia/servicio*.ts`) que se prueban con una BD en memoria (`lib/admin-ia/e1-api.test.ts`). **Ningún endpoint queda bloqueado por BD**: N1–N8 están en 787554a. Si una migración no está aplicada en un entorno, la ruta responde 503 `dependencia_bd_pendiente` (red de seguridad, no un estado esperado).
+
+| # | Endpoint | Estado | Dónde / cómo |
+|---|---|---|---|
+| P1 | `GET proveedores/presets` | ✅ | `listarPresets` |
+| P2 | `GET proveedores` | ✅ | `listarProveedores` (estado de panel, clave sin valor, uso, salud) |
+| P3 | `POST proveedores` | ✅ | `crearProveedor` (columnas N6: preset, adaptador, URL, asistente) |
+| P4 | `GET proveedores/[id]` | ✅ | `verProveedor` (bitácora N3 + claves, asistente N6) |
+| P5 | `PATCH proveedores/[id]` | ✅ | `editarProveedor` (borrador sin claves, URL solo `otro_compatible` y apagado; N2 `config_actualizada_en`) |
+| — | `DELETE proveedores/[id]` | ✅ | `archivarProveedor` (exige apagado antes; ver desvíos) |
+| P6 | `PUT proveedores/[id]/clave` | ✅ | `fn_ia_guardar_clave` |
+| P7 | `POST proveedores/[id]/clave/revocar` | ✅ | impacto + `confirmar` + `impacto_hash`, `fn_ia_revocar_clave` |
+| P8 | `GET proveedores/[id]/impacto` | ✅ | `impactoProveedor` |
+| P9 | `POST proveedores/[id]/encender` | ✅ | clave + un modelo con `fn_ia_prueba_vigente`; **transaccional** con N4 `fn_ia_cambiar_interruptor` |
+| P10 | `POST proveedores/[id]/apagar` | ✅ | impacto + confirmación; N4 |
+| M1 | `GET despliegues` | ✅ | `listarModelos` (+ `GET despliegues/[id]` = `verModelo`) |
+| M2 | `POST despliegues` | ✅ | `crearModelo` (precio primero vía `fn_ia_registrar_precio`, nace apagado) |
+| M3 | `PATCH despliegues/[id]` | ✅ | `editarModelo` (N2: cambio de conexión invalida la prueba) · `DELETE` = archivar (exige apagado) |
+| M4 | `POST despliegues/[id]/probar` | ✅ | prueba real (mismo camino que el motor) → N1 `pruebas_conexion_ia`; máx. 6/min por modelo; canal `panel` |
+| M5 | `POST despliegues/[id]/encender` | ✅ | `fn_ia_prueba_vigente` → N4 |
+| M6 | `POST despliegues/[id]/apagar` | ✅ | impacto + confirmación → N4 |
+| M7 | `GET despliegues/[id]/impacto` | ✅ | `impactoModelo` |
+| M8 | `GET/POST precios` | ✅ | `precios_modelo_ia` / `fn_ia_registrar_precio` |
+| B-1 | `GET modelos-disponibles` | ✅ | `fn_ia_modelo_disponible` (prueba vigente + encendido) |
+| B-2 | `PUT versiones/[id]/modelo` | ✅ | solo borrador; B1; aviso `sin_respaldo`; `compatibilidad` (B3) |
+| B-3 | `POST versiones/[id]/duplicar` | ✅ | `duplicarVersion` (copia contextos, canales, herramientas, fuentes) |
+| B-4 | `simular` / `pruebas/[id]/ejecutar` | ✅ sin cambios | las simulaciones ahora pasan por el tope y suman gasto |
+| B-5 | `POST versiones/[id]/publicar` | ✅ ampliado | + `validarModelosParaPublicar` (409 `modelo_no_disponible` / `respaldo_incompatible`) |
+| B-6 | `POST versiones/[id]/restaurar` | ✅ | **transaccional** con N5 `fn_ia_restaurar_version` |
+| T1 | `GET topes` | ✅ | `fn_ia_gasto_hoy` por canal activo, avisos «precio estimado» / «Hay llamadas sin precio: carga el precio» |
+| T2 | `GET topes/[canal_codigo]` | ✅ | + `bitacora_topes_gasto_ia` con nombre del actor |
+| T3 | `PUT topes/[canal_codigo]` | ✅ | validación local (incl. máx. USD 1000) + `fn_ia_actualizar_tope` |
+| T4 | `GET consumo` | ✅ | `registros_costo_ia` del día de Bogotá; costo null → tokens × precio vigente |
+| T5 | `GET alertas` | ✅ | `alertas_gasto_ia` |
+| T6 | `POST alertas/[id]/vista` | ✅ | N7 `fn_ia_marcar_alerta_vista` (idempotente) |
+| Motor | `AgenteExecutor` | ✅ | `lib/agentes/llm/gasto.ts`, `precios.ts`, `preparar.ts` (ver «Comportamiento del motor») |
+
+### Desvíos respecto a la fase 1
+- **Tope mayor que USD 1000:** el código es `tope_maximo` · «El tope máximo es USD 1000 al día» (igual que la BD), no `tope_muy_alto`. El máximo quedó confirmado por el Orquestador.
+- **Conexión del proveedor:** se guarda en las columnas N6 (`preset_codigo`, `tipo_adaptador`, `url_base`, `asistente_paso`, `asistente_borrador`), no en `capacidades`.
+- **Archivar (DELETE):** en vez de repetir el protocolo de confirmación de P10, exige que el proveedor o modelo esté **apagado** (409 `apaga_antes_de_archivar`). Así el aviso de impacto se ve una sola vez, al apagar.
+- **Interruptor, restaurar:** transaccionales con N4/N5; ya no hay dos escrituras.
+- **Compatibilidad con el panel actual:** las listas de proveedores y modelos también devuelven `estado`, `activo` y `tipo_proveedor`. El formulario genérico viejo (`PaginaCatalogo`) no puede cambiar `estado` (400 `campo_no_editable`) ni crear sin `preset_codigo`: lo reemplaza el asistente de Frontend.
 
 ---
 
@@ -548,7 +594,7 @@ Error: 404 `canal_inexistente` · «El número o canal no existe.».
 - **Validación previa en la API**, antes de la RPC:
   - En `tope_diario_usd`, el string vacío, `null` explícito, 0, un negativo, `Infinity`, `"sin límite"` o cualquier valor no numérico → 400 `tope_invalido` · **«El tope es obligatorio y mayor que 0»**, con `campo: "tope_diario_usd"` (D3). No existe la opción sin límite.
   - `umbral_alerta_pct` que no sea entero entre 1 y 99 → 400 `umbral_invalido` · **«El umbral de alerta debe estar entre 1 y 99 %»**, con `campo: "umbral_alerta_pct"` (D4).
-  - Un tope mayor que USD 1000 → 400 `tope_muy_alto` · «Ese tope es muy alto; revisa el valor.». Es una guarda contra errores de digitación; el límite está pendiente de confirmar (ver Dudas).
+  - Un tope mayor que USD 1000 → 400 `tope_maximo` · **«El tope máximo es USD 1000 al día»**, con `campo: "tope_diario_usd"`. Confirmado por el Orquestador; la BD también lo valida (CHECK + mismo error en `fn_ia_actualizar_tope`).
 - **Efecto:** `rpc('fn_ia_actualizar_tope', { p_canal_codigo, p_tope_diario_usd, p_umbral_alerta_pct, p_actor_usuario_id })`. Si la RPC devuelve `ok: false`, se responde 400 o 404 con su `error` y su `motivo` como `mensaje`.
 - **Respuesta 200:** `{ ok, item: <estado de gasto recalculado>, aplica_en_s: 60 }`. Si se subió el tope por encima del gasto, `estado` vuelve a `normal` o `alerta` y la IA se reanuda (D7).
 - **Idempotencia:** guardar los mismos valores no agrega fila en la bitácora (la BD solo registra cambios reales). Responde 200. Sin ningún campo: 400 `sin_cambios` · «No hay valores para guardar.».
@@ -580,7 +626,7 @@ Error: 400 `dia_invalido` · «Usa una fecha AAAA-MM-DD de los últimos 90 días
 - Marca `vista_en = now()`. Si ya estaba vista, responde 200 con `sin_cambios: true`.
 - Escribe con service_role tras verificar super_admin. Quién la marcó: ver Necesidades de BD.
 
-### Comportamiento del motor (no es un endpoint; se implementa en la fase 2, en `AgenteExecutor`)
+### Comportamiento del motor (no es un endpoint; implementado en `AgenteExecutor` → `prepararLlamadaIa`)
 
 1. **Antes de llamar a la IA:** `rpc('fn_ia_gasto_hoy', { p_canal_codigo })`.
 2. **Si el estado es `cortado`:**
@@ -589,10 +635,12 @@ Error: 400 `dia_invalido` · «Usa una fecha AAAA-MM-DD de los últimos 90 días
    - `rpc('fn_ia_registrar_alerta_gasto', { p_canal_codigo })`;
    - se deja un registro de costo con `resultado = 'sin_ia'`, `tipo_error = 'tope_diario'` y `evento = 'error_bot'`. `sin_ia` no suma gasto ni cuenta como intento sin costo.
 3. **Si el estado es `alerta`:** `fn_ia_registrar_alerta_gasto` (no se duplica en el día; devuelve `{ registradas, tipos }`) y la conversación sigue. Los demás canales no se afectan.
-4. **Si falla la RPC de gasto: fail-closed = C3** (propuesta de Backend). Sin saber el gasto no se puede garantizar «nunca sin límite». Lo confirma el Orquestador (ver Dudas).
+4. **Si falla la RPC de gasto o responde `ok: false`: fail-closed = C3** (confirmado por el Orquestador). Sin saber el gasto no se puede garantizar «nunca sin límite». Registro `sin_ia` con `tipo_error = 'gasto_no_disponible'`. Incluye `canal_inexistente` para cualquier canal que no sea `panel`.
 5. **Costo:** se calcula con `fn_ia_precio_vigente(proveedor_codigo, modelo)` (exacto → `'*'`) y se guarda `costo_estimado_usd` + `precio_version`. Abacus usa `'*'` `estimado-2026-10` (0,002 / 0,010).
-   - Pendiente de la fase 2: hoy BA-034 lee `configuracion_tecnica.costo_usd_1k_*`. Se cambiará a la RPC, con la configuración como respaldo.
-6. **Pruebas de conexión (M4):** `canal_codigo = 'panel'`, que no tiene fila de tope y no corta a nadie.
+   - Se lee con caché de 60 s y se aplica al principal y a cada respaldo. Si la RPC falla o no hay precio, queda el de `configuracion_tecnica` (BA-034); si tampoco hay, costo null (la BD lo cuenta en `intentos_sin_costo`).
+6. **Pruebas de conexión (M4): canal `panel`.** El canal `panel` **no existe** en `canales_ia` (N8), así que `fn_ia_gasto_hoy('panel')` respondería `canal_inexistente`. Regla: con `canal_codigo = 'panel'` el motor **no** consulta `fn_ia_gasto_hoy` **ni** registra alertas; la prueba no cuenta para ningún tope. Solo la lanza un `super_admin` y está limitada a 6 por minuto por modelo. Los canales reales siempre consultan.
+7. **Simulaciones** (`modo_simulacion`): pasan por el mismo control y suman al gasto del canal.
+8. Si registrar la alerta falla, solo se avisa en el log; no cambia la decisión.
 
 ---
 
@@ -630,6 +678,8 @@ Error: 400 `dia_invalido` · «Usa una fecha AAAA-MM-DD de los últimos 90 días
 - **Falta, y se pide a BD:** encender/apagar proveedor o modelo (con la confirmación y el impacto visto), editar proveedor o modelo, asignar modelo a una versión y restaurar una versión. Ver N3.
 
 ## Necesidades de BD (solo lo que falta después de b4cf029, 081ba33 y f590fd6)
+
+> **Actualización fase 2:** N1–N8 entregadas por BD en 787554a (`20261018150000_ba036_037_soporte_panel_ia.sql`) y cableadas. N8 = no hay canal `panel` (ver regla del motor). Queda abierta solo la deuda de E2 (N9: tope por línea).
 
 > Ya existe y **no** se pide:
 > - Vault: `fn_ia_guardar_clave`, `fn_ia_revocar_clave`, `fn_ia_leer_clave` y `fn_ia_estado_clave`, más `bitacora_claves_ia`.
@@ -719,21 +769,27 @@ Coincide con la deuda que BD ya anotó en f590fd6.
 
 ## Dudas abiertas del brief (para Jhon / Orquestador)
 1. **Corte por número:**
-   - En E1 se corta por canal (`web`, `whatsapp`), así que Demo WApp y el futuro WhatsApp real comparten el tope de `whatsapp`. ¿Se acepta hasta E2?
+   - En E1 se corta por canal (`web`, `whatsapp`), así que Demo WApp y el futuro WhatsApp real comparten el tope de `whatsapp`. ✅ Aceptado hasta E2.
    - Confirmar también que «número» significa línea de BuscoEdu y no el celular del estudiante.
-2. **Si falla la consulta del gasto:** Backend propone **fail-closed (C3)**. La otra opción es seguir con la IA y avisar.
-3. **Tope máximo:** ¿hay un máximo para evitar errores de digitación? Se propone USD 1000/día.
+2. **Si falla la consulta del gasto:** ✅ resuelto: **fail-closed (C3)**.
+3. **Tope máximo:** ✅ resuelto: USD 1000/día (API + CHECK en BD).
 4. **Abacus con precio estimado** (0,002 / 0,010): ¿quién y cuándo carga el precio real? Mientras tanto el gasto de NaIA es aproximado.
-5. **Rol `admin` («Administrador»):** existe en `roles`. A9 dice solo `super_admin`, y así queda en el contrato. ¿Correcto?
-6. **Mensaje al cortar por tope:** D6 usa el mismo texto de C3. ¿Se quiere un texto distinto?
+5. **Rol `admin` («Administrador»):** ✅ resuelto: solo `super_admin`.
+6. **Mensaje al cortar por tope:** ✅ resuelto: mismo texto de C3.
 7. **Respaldos AI SDK y herramientas:** B3 marca un respaldo como incompatible si la versión usa herramientas. Hoy NaIA no usa herramientas, así que en la práctica solo aplica `json`.
 
 ## Riesgos
 - **Salud y circuito:** el estado del circuito es en memoria por instancia (BA-034). El panel lo muestra como orientativo.
 - **Impacto:** `impacto_hash` evita confirmar con un impacto desactualizado, pero no bloquea a dos admins que actúan a la vez. Gana el último y queda en la bitácora.
-- **Sin transacciones:** sin N4 y N5, encender, apagar y restaurar son dos escrituras separadas. Puede quedar el cambio sin su fila de bitácora si falla la segunda.
+- **Bitácora de crear/editar/asignar/duplicar/archivar:** no es transaccional (si falla, el cambio queda y se responde la advertencia `bitacora_no_guardada`). Encender, apagar y restaurar **sí** son transaccionales (N4/N5).
+- **Duplicar versión:** copia la versión y sus asociaciones en varias escrituras; si falla a mitad, queda un borrador incompleto (se ve y se puede archivar).
+- **Caché de 60 s:** precios vigentes y claves del motor se leen con caché de 60 s por instancia (las pruebas de conexión leen la clave sin caché). Un cambio tarda hasta 60 s en verse en conversaciones (`aplica_en_s: 60`).
+- **Fail-closed:** si Supabase no responde `fn_ia_gasto_hoy`, NaIA (web) y Demo WApp contestan C3 hasta que vuelva. Es lo decidido, pero una caída de BD ahora también apaga la IA.
+- **Límite de pruebas y circuito:** en memoria por instancia (no global entre instancias de Vercel).
+- **Panel viejo:** `PaginaCatalogo` de proveedores ya no puede crear sin preset ni editar `estado`; debe reemplazarse por el asistente (Frontend).
 
 ## Bitácora
 | Fecha | Qué | Por qué | Quién |
 |---|---|---|---|
+| 2026-10-18 | Fase 2: implementadas las 24 rutas E1 (P1–P10, M1–M8, B-1–B-6, T1–T6) con zod, errores en español, impacto + `impacto_hash`, N1–N8 cableadas (interruptor y restaurar transaccionales). Motor: tope por canal antes de la IA (cortado → C3 + alerta; alerta → sigue; fallo o canal inexistente → C3; `panel` no consulta), costo con `fn_ia_precio_vigente`. `tope_maximo` USD 1000. Tests nuevos en `lib/admin-ia/e1-api.test.ts` | Cumplir BA-036, BA-037 y BA-038 (parte API) contra el contrato de 824ac4d y lo entregado por BD (787554a); que nunca haya gasto sin límite | Backend BuscoEdu (bot) |
 | 2026-10-18 | Contrato API admin IA (fase 1): proveedores, clave, prueba, interruptor con impacto, modelos, precios, modelo + respaldo por agente, restaurar versión, topes, consumo y alertas. Lista de lo que falta en BD | BA-036, BA-037 y BA-038 (parte API): que Frontend y BD trabajen en paralelo con un contrato fijo. Ajustado al contrato BD BA-038 v2 (b4cf029, 081ba33, f590fd6): tope por canal, precio estimado, sin_costo | Backend BuscoEdu (bot) |

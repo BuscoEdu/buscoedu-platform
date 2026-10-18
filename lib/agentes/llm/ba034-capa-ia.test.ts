@@ -654,7 +654,8 @@ describe('BA-034 · A6/A7 probar conexión', () => {
     const a = crearAdaptadorAiSdk({ despliegue: despliegueAiSdk(), tipo: 'openai', url: 'https://api.openai.com/v1', clave: CLAVE_FALSA, fabrica: () => mock });
     let t = 0;
     const r = await probarConexion(a, () => (t += 40));
-    assert.deepEqual(r, { ok: true, latencia_ms: 40, modelo: 'gpt-test-2026', motivo: null });
+    // E1 M4 añadió motivo_codigo (null si salió bien).
+    assert.deepEqual(r, { ok: true, latencia_ms: 40, modelo: 'gpt-test-2026', motivo: null, motivo_codigo: null });
     assert.equal((mock.doGenerateCalls[0].prompt[1] as any).content[0].text, MENSAJE_PRUEBA_CONEXION);
   });
 
@@ -663,6 +664,7 @@ describe('BA-034 · A6/A7 probar conexión', () => {
     const r = await probarConexion(a);
     assert.equal(r.ok, false);
     assert.equal(r.motivo, MOTIVO_LEGIBLE.autenticacion);
+    assert.equal(r.motivo_codigo, 'autenticacion');
     assert.deepEqual(puedeEncender(null), { ok: false, motivo: 'Primero prueba la conexión' });
     assert.deepEqual(puedeEncender(r), { ok: false, motivo: 'Primero prueba la conexión' });
     assert.deepEqual(puedeEncender({ ok: true }), { ok: true });

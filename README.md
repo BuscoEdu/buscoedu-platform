@@ -95,9 +95,9 @@ Deploy:         Vercel → www.buscoedu.com
 Cliente DB:     src/lib/supabase.ts (getSupabaseClient())
 ```
 
-## E1 Ola 3/4 — Contrato API admin de IA (BA-036/037/038, fase 1)
+## E1 Ola 3/4 — API admin de IA (BA-036/037/038)
 
-Contrato de las rutas `/api/admin/ia/...` (solo super_admin) para que Frontend construya el asistente «Agregar proveedor», el interruptor con aviso de impacto, el modelo y los respaldos por agente y el tope de gasto diario por canal. Incluye la lista de lo que todavía falta en la base de datos. Los endpoints aún **no** están implementados. Detalle y bitácora (2026-10-18, Backend BuscoEdu (bot)): [`docs/backend/README-e1-api.md`](docs/backend/README-e1-api.md).
+Contrato de las rutas `/api/admin/ia/...` (solo super_admin) para que Frontend construya el asistente «Agregar proveedor», el interruptor con aviso de impacto, el modelo y los respaldos por agente y el tope de gasto diario por canal. Fase 2 implementada: rutas en `app/api/admin/ia/...` → servicios puros en `lib/admin-ia/` (tests en `lib/admin-ia/e1-api.test.ts`). El motor revisa el tope diario del canal antes de cada llamada IA (fail-closed con el texto C3; el canal `panel` de las pruebas de conexión no consulta tope) y calcula el costo con el precio vigente. Detalle, estado por endpoint y bitácora (2026-10-18, Backend BuscoEdu (bot)): [`docs/backend/README-e1-api.md`](docs/backend/README-e1-api.md).
 
 ## BA-034 — Capa IA multiproveedor (E1)
 
