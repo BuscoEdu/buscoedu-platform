@@ -133,3 +133,48 @@ Va en orden inverso, de 160000 a 100000. Cada archivo saca su fila del historial
 | Fecha | Qué | Por qué | Quién |
 |---|---|---|---|
 | 2026-10-18 | search_path fijo en fn_ia_solo_insercion (prod) + SQL preparado de permisos fn_cambiar_etapa | Advisor de seguridad + hueco previo de RPC pública | Base de datos BuscoEdu (bot), OK E1 vía Orquestador |
+
+### fn_cambiar_etapa · fase 1 APLICADA (2026-10-18 ~16:25 Madrid, tras deploy E1 PR #64 bfd8a3b, OK de Jhon)
+| | Antes | Después |
+|---|---|---|
+| ACL | `{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}` | `{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}` |
+| anon | ✓ | ✗ 42501 |
+| authenticated (Lead Center) | ✓ | ✓ ejecuta (`no_autorizado` con ids falsos = valida dentro de la función) |
+| Activador WA (UPDATE etapa como service_role) | ✓ | ✓ (prueba revertida, sin rastro) |
+
+Inventario: único llamador = `app/api/leadcenter/oportunidad/[id]/etapa/route.ts` (authenticated); activadores automáticos (WA/NaIA, BA-031, convertir, cron) = service_role y no usan la función; sin pg_cron, pg_net ni edge functions. Fase 2 en standby.
+
+| Fecha | Qué | Por qué | Quién |
+|---|---|---|---|
+| 2026-10-18 | Fase 1 permisos fn_cambiar_etapa (REVOKE PUBLIC, anon) en prod | Cerrar cambio de etapa por RPC sin sesión | Base de datos BuscoEdu (bot), OK de Jhon vía Orquestador |
+
+### 7 funciones del embudo · fase 1 PREPARADA (no aplicada)
+Archivos: `supabase/ops/20261018_hotfix_revocar_execute_funnel_7fn.sql` (+ `_deshacer`). Funciones: fn_cerrar_ganada, fn_cerrar_perdida, fn_cerrar_oportunidad, fn_reabrir_oportunidad, fn_registrar_contacto, fn_crear_oportunidad_universidad (trigger), fn_evaluar_estancamiento.
+
+| Prueba (prod, transacción revertida) | Resultado |
+|---|---|
+| anon en las 6 invocables | 42501 ✓ |
+| authenticated (Lead Center) | ejecuta ✓ (`no_autorizado` con ids falsos; estancamiento límite 0 = ok) |
+| Trigger de universidades | no depende de EXECUTE ✓ |
+| ACL tras el rollback | igual al original ✓ |
+
+Hallazgo: `fn_evaluar_estancamiento` no valida quién llama; cualquier usuario con sesión puede correrla. Candidata a fase 2 (solo service_role).
+
+| Fecha | Qué | Por qué | Quién |
+|---|---|---|---|
+| 2026-10-18 | SQL fase 1 (+ deshacer y ensayo revertido) para 7 funciones del embudo | Mismo hueco de RPC pública que fn_cambiar_etapa | Base de datos BuscoEdu (bot), pedido del Orquestador |
+
+### 7 funciones del embudo · APLICADO (2026-10-18 ~16:30 Madrid, OK de Jhon)
+| Función | ACL antes | ACL después |
+|---|---|---|
+| fn_cerrar_ganada, fn_cerrar_perdida, fn_cerrar_oportunidad, fn_reabrir_oportunidad, fn_registrar_contacto, fn_crear_oportunidad_universidad | `{=X,postgres=X,anon=X,authenticated=X,service_role=X}` | `{postgres=X,authenticated=X,service_role=X}` |
+| fn_evaluar_estancamiento (fase 1 + 2) | `{=X,postgres=X,anon=X,authenticated=X,service_role=X}` | `{postgres=X,service_role=X}` |
+
+| Verificación (transacción revertida) | anon | authenticated (LC) | service_role |
+|---|---|---|---|
+| 5 funciones de Lead Center | 42501 ✓ | ejecuta ✓ (`no_autorizado` con ids falsos) | ejecuta ✓ |
+| fn_evaluar_estancamiento (cron) | 42501 ✓ | 42501 ✓ | ejecuta ✓ (`ok:true`, límite 0) |
+
+| Fecha | Qué | Por qué | Quién |
+|---|---|---|---|
+| 2026-10-18 | Fase 1 en 7 funciones del embudo + fase 2 en fn_evaluar_estancamiento (prod) | Cerrar RPC pública sin sesión; estancamiento solo para el cron | Base de datos BuscoEdu (bot), OK de Jhon vía Orquestador |
