@@ -1,0 +1,107 @@
+[
+  {
+    "name": "rls_enabled_no_policy",
+    "level": "INFO",
+    "count": 28,
+    "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy",
+    "findings": [
+      "Table \\`public.auditoria_eventos\\` has RLS enabled, but no policies exist",
+      "Table \\`public.cargas_catalogo\\` has RLS enabled, but no policies exist",
+      "Table \\`public.cargas_catalogo_filas\\` has RLS enabled, but no policies exist",
+      "Table \\`public.configuraciones_salud_oportunidad\\` has RLS enabled, but no policies exist",
+      "Table \\`public.contratos_universidad\\` has RLS enabled, but no policies exist",
+      "Table \\`public.escalamientos_conversacion\\` has RLS enabled, but no policies exist",
+      "Table \\`public.eventos_salud_oportunidad\\` has RLS enabled, but no policies exist",
+      "Table \\`public.facturas_b2b\\` has RLS enabled, but no policies exist",
+      "Table \\`public.flujos_revision_contenido\\` has RLS enabled, but no policies exist",
+      "Table \\`public.funnel_transiciones\\` has RLS enabled, but no policies exist",
+      "Table \\`public.funnel_versiones\\` has RLS enabled, but no policies exist",
+      "Table \\`public.historial_revision_contenido\\` has RLS enabled, but no policies exist",
+      "Table \\`public.homologaciones_nivel_academico\\` has RLS enabled, but no policies exist",
+      "Table \\`public.imagenes_sede\\` has RLS enabled, but no policies exist",
+      "Table \\`public.lineas_factura_b2b\\` has RLS enabled, but no policies exist",
+      "Table \\`public.permisos_universidad\\` has RLS enabled, but no policies exist",
+      "Table \\`public.referencias_externas_programa\\` has RLS enabled, but no policies exist",
+      "Table \\`public.reglas_scoring_oportunidad\\` has RLS enabled, but no policies exist",
+      "Table \\`public.requisitos_acceso_programa\\` has RLS enabled, but no policies exist",
+      "Table \\`public.requisitos_oferta_academica\\` has RLS enabled, but no policies exist",
+      "Table \\`public.tipos_consentimiento\\` has RLS enabled, but no policies exist",
+      "Table \\`public.visitantes\\` has RLS enabled, but no policies exist",
+      "Table \\`public.wa_contactos\\` has RLS enabled, but no policies exist",
+      "Table \\`public.wa_escalamientos\\` has RLS enabled, but no policies exist",
+      "Table \\`public.wa_intenciones\\` has RLS enabled, but no policies exist",
+      "Table \\`public.wa_mensajes\\` has RLS enabled, but no policies exist",
+      "Table \\`public.wa_mensajes_procesados\\` has RLS enabled, but no policies exist",
+      "Table \\`public.webhooks_recibidos\\` has RLS enabled, but no policies exist"
+    ]
+  },
+  {
+    "name": "function_search_path_mutable",
+    "level": "WARN",
+    "count": 8,
+    "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable",
+    "findings": [
+      "Function \\`public.actualizar_actualizado_en\\` has a role mutable search_path",
+      "Function \\`public.is_super_admin\\` has a role mutable search_path",
+      "Function \\`public.usuario_interno_id\\` has a role mutable search_path",
+      "Function \\`public.es_asesor_o_super\\` has a role mutable search_path",
+      "Function \\`public.puede_ver_oportunidad\\` has a role mutable search_path",
+      "Function \\`public.puede_ver_persona\\` has a role mutable search_path",
+      "Function \\`public.fn_oportunidad_marcar_hitos_funnel\\` has a role mutable search_path",
+      "Function \\`public.fn_ia_solo_insercion\\` has a role mutable search_path"
+    ]
+  },
+  {
+    "name": "anon_security_definer_function_executable",
+    "level": "WARN",
+    "count": 14,
+    "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable",
+    "findings": [
+      "Function `public.es_asesor_o_super()` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/es_asesor_o_super`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_cambiar_etapa(p_oportunidad_id uuid, p_etapa_nueva uuid, p_subestado_nuevo uuid, p_motivo text)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_cambiar_etapa`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_cerrar_ganada(p_oportunidad_id uuid, p_datos jsonb, p_canal text)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_cerrar_ganada`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_cerrar_oportunidad(p_oportunidad_id uuid, p_tipo_cierre text, p_causa_codigo text, p_comentario text, p_requisitos jsonb, p_evidencias jsonb, p_canal text)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_cerrar_oportunidad`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_cerrar_perdida(p_oportunidad_id uuid, p_causa_id uuid, p_comentario text, p_canal text)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_cerrar_perdida`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_crear_oportunidad_universidad()` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_crear_oportunidad_universidad`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_evaluar_estancamiento(p_limite integer)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_evaluar_estancamiento`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_reabrir_oportunidad(p_oportunidad_id uuid, p_etapa_nueva uuid, p_subestado_nuevo uuid, p_motivo text, p_canal text)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_reabrir_oportunidad`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_registrar_contacto(p_oportunidad_id uuid, p_persona_id uuid, p_canal text, p_resultado text, p_nota text, p_crear_tarea boolean, p_fecha_tarea timestamp with time zone, p_titulo_tarea text)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_registrar_contacto`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_validar_aplicacion(p_persona_id uuid, p_oferta_id uuid, p_periodo_academico_id uuid)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_validar_aplicacion`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.is_super_admin()` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/is_super_admin`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.puede_ver_oportunidad(p_oportunidad_id uuid)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/puede_ver_oportunidad`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.puede_ver_persona(p_persona_id uuid)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/puede_ver_persona`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.usuario_interno_id()` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/usuario_interno_id`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional."
+    ]
+  },
+  {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "count": 14,
+    "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable",
+    "findings": [
+      "Function `public.es_asesor_o_super()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/es_asesor_o_super`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_cambiar_etapa(p_oportunidad_id uuid, p_etapa_nueva uuid, p_subestado_nuevo uuid, p_motivo text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_cambiar_etapa`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_cerrar_ganada(p_oportunidad_id uuid, p_datos jsonb, p_canal text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_cerrar_ganada`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_cerrar_oportunidad(p_oportunidad_id uuid, p_tipo_cierre text, p_causa_codigo text, p_comentario text, p_requisitos jsonb, p_evidencias jsonb, p_canal text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_cerrar_oportunidad`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_cerrar_perdida(p_oportunidad_id uuid, p_causa_id uuid, p_comentario text, p_canal text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_cerrar_perdida`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_crear_oportunidad_universidad()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_crear_oportunidad_universidad`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_evaluar_estancamiento(p_limite integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_evaluar_estancamiento`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_reabrir_oportunidad(p_oportunidad_id uuid, p_etapa_nueva uuid, p_subestado_nuevo uuid, p_motivo text, p_canal text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_reabrir_oportunidad`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_registrar_contacto(p_oportunidad_id uuid, p_persona_id uuid, p_canal text, p_resultado text, p_nota text, p_crear_tarea boolean, p_fecha_tarea timestamp with time zone, p_titulo_tarea text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_registrar_contacto`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.fn_validar_aplicacion(p_persona_id uuid, p_oferta_id uuid, p_periodo_academico_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/fn_validar_aplicacion`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.is_super_admin()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/is_super_admin`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.puede_ver_oportunidad(p_oportunidad_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/puede_ver_oportunidad`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.puede_ver_persona(p_persona_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/puede_ver_persona`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+      "Function `public.usuario_interno_id()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/usuario_interno_id`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional."
+    ]
+  },
+  {
+    "name": "auth_leaked_password_protection",
+    "level": "WARN",
+    "count": 1,
+    "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection",
+    "findings": [
+      "Supabase Auth prevents the use of compromised passwords by checking against HaveIBeenPwned.org. Enable this feature to enhance security."
+    ]
+  }
+]

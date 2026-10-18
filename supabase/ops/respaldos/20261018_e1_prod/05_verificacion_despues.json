@@ -1,0 +1,313 @@
+{
+  "historial_total": 50,
+  "e1": [
+    {
+      "v": "20261018100000",
+      "name": "ba040_fn_cambiar_etapa_subestado_obligatorio",
+      "len_statements": 3775
+    },
+    {
+      "v": "20261018110000",
+      "name": "ba035_vault_claves_ia",
+      "len_statements": 12491
+    },
+    {
+      "v": "20261018120000",
+      "name": "ba039_voz_naia_componentes",
+      "len_statements": 5456
+    },
+    {
+      "v": "20261018130000",
+      "name": "ba034_registros_costo_ia",
+      "len_statements": 4238
+    },
+    {
+      "v": "20261018140000",
+      "name": "ba038_tope_gasto_ia",
+      "len_statements": 28045
+    },
+    {
+      "v": "20261018150000",
+      "name": "ba036_037_soporte_panel_ia",
+      "len_statements": 21082
+    },
+    {
+      "v": "20261018160000",
+      "name": "ba041_convertir_valida_antes",
+      "len_statements": 18501
+    }
+  ],
+  "tablas": [
+    {
+      "t": "alertas_gasto_ia",
+      "rls": true,
+      "filas": 0
+    },
+    {
+      "t": "bitacora_claves_ia",
+      "rls": true,
+      "filas": 0
+    },
+    {
+      "t": "bitacora_config_ia",
+      "rls": true,
+      "filas": 0
+    },
+    {
+      "t": "bitacora_topes_gasto_ia",
+      "rls": true,
+      "filas": 0
+    },
+    {
+      "t": "precios_modelo_ia",
+      "rls": true,
+      "filas": 1
+    },
+    {
+      "t": "pruebas_conexion_ia",
+      "rls": true,
+      "filas": 0
+    },
+    {
+      "t": "registros_costo_ia",
+      "rls": true,
+      "filas": 0
+    },
+    {
+      "t": "topes_gasto_ia",
+      "rls": true,
+      "filas": 4
+    }
+  ],
+  "check_tope": "CHECK (((tope_diario_usd > (0)::numeric) AND (tope_diario_usd <= (1000)::numeric)))",
+  "privilegios": [
+    {
+      "f": "fn_cambiar_etapa(uuid,uuid,uuid,text)",
+      "anon": true,
+      "auth": true,
+      "service": true,
+      "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_convertir_aplicacion(jsonb)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_actualizar_tope(text,numeric,integer,uuid)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_cambiar_interruptor(text,uuid,boolean,jsonb,uuid)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_estado_clave(text)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_gasto_hoy(text)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_guardar_clave(text,text,uuid)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_leer_clave(text)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_marcar_alerta_vista(uuid,uuid)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_modelo_disponible(uuid)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_precio_vigente(text,text)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_prueba_vigente(uuid)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_registrar_alerta_gasto(text)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_registrar_precio(text,text,numeric,numeric,text,text,boolean,uuid)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_restaurar_version(uuid,text,uuid)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_revocar_clave(text,uuid)",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_solo_insercion()",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "f": "fn_ia_tope_por_defecto()",
+      "anon": false,
+      "auth": false,
+      "service": true,
+      "acl": "{postgres=X/postgres,service_role=X/postgres}"
+    }
+  ],
+  "cols_nuevas": [
+    "proveedores_ia.config_actualizada_en",
+    "proveedores_ia.asistente_paso",
+    "proveedores_ia.asistente_borrador",
+    "despliegues_ia.config_actualizada_en",
+    "alertas_gasto_ia.vista_por",
+    "proveedores_ia.clave_actualizada_en",
+    "proveedores_ia.clave_revocada_en",
+    "proveedores_ia.tipo_adaptador",
+    "proveedores_ia.referencia_secreto",
+    "proveedores_ia.preset_codigo",
+    "proveedores_ia.origen_secreto",
+    "proveedores_ia.url_base"
+  ],
+  "trigger": [
+    "trg_canales_ia_tope_por_defecto",
+    "trg_pruebas_conexion_ia_solo_insercion",
+    "trg_bitacora_config_ia_solo_insercion"
+  ],
+  "abacus": {
+    "id": "6243c746-7c3e-456f-9036-8f6141c825a1",
+    "activo": true,
+    "codigo": "abacus_ai",
+    "estado": "activo",
+    "nombre": "Abacus.AI",
+    "url_base": null,
+    "creado_en": "2026-08-31T19:24:56.661073+00:00",
+    "capacidades": [
+      "chat",
+      "streaming",
+      "context",
+      "json_response"
+    ],
+    "descripcion": "Proveedor principal de IA conversacional para NaIA",
+    "preset_codigo": "abacus_ai",
+    "actualizado_en": "2026-08-31T19:24:56.661073+00:00",
+    "asistente_paso": null,
+    "origen_secreto": "env",
+    "tipo_adaptador": "abacus",
+    "tipo_proveedor": "llm",
+    "clave_revocada_en": null,
+    "asistente_borrador": null,
+    "clave_actualizada_en": null,
+    "config_actualizada_en": "2026-10-18T14:08:51.860645+00:00",
+    "referencia_secreto": null
+  },
+  "md5": {
+    "convertir": "f6fb4726ea4205c20d477af7f5156859",
+    "etapa": "ede0d353ce4c686a530d2e765823a298"
+  },
+  "conteos": {
+    "canales_ia": 4,
+    "proveedores_ia": 1,
+    "despliegues_ia": 1,
+    "componentes_contexto_ia": 11,
+    "versiones_agente_contextos": 11,
+    "oportunidades": 19,
+    "personas": 9,
+    "aplicaciones": 19,
+    "consentimientos_persona": 85,
+    "historial_etapas_oportunidad": 23,
+    "eventos_negocio": 194,
+    "propuestas_comerciales": 19,
+    "vault_secrets": 0
+  },
+  "prueba_transaccional": {
+    "rol_usado": "service_role",
+    "convertir_service_role_payload_vacio": {
+      "ok": false,
+      "error": "clave_idempotencia_requerida"
+    },
+    "sin_escrituras": true,
+    "conteos_antes_y_despues": {
+      "personas": 9,
+      "aplicaciones": 19,
+      "oportunidades": 19,
+      "eventos_negocio": 194,
+      "propuestas_comerciales": 19,
+      "consentimientos_persona": 85,
+      "historial_etapas_oportunidad": 23
+    },
+    "anon_convertir": "denegado",
+    "authenticated_convertir": "denegado",
+    "anon_leer_clave": "denegado",
+    "authenticated_actualizar_tope": "denegado",
+    "actualizar_tope_1500_service": {
+      "ok": false,
+      "error": "tope_maximo",
+      "motivo": "El tope máximo es USD 1000 al día"
+    },
+    "check_tabla_1000_01": "rechazado (check_violation)",
+    "check_tabla_1000": "aceptado (revertido)",
+    "gasto_hoy_whatsapp": {
+      "ok": true,
+      "estado": "normal",
+      "gasto_usd": 0.0,
+      "tope_diario_usd": 5.0,
+      "umbral_alerta_pct": 80,
+      "dia_bogota": "2026-10-18"
+    },
+    "nota": "Ejecutado dentro de BEGIN + DO con RAISE EXCEPTION final: todo se revirtió."
+  }
+}

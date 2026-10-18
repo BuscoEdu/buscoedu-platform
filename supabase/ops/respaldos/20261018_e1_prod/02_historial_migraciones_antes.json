@@ -1,0 +1,260 @@
+[
+  {
+    "version": "20260129000100",
+    "name": "create_roles",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260129000200",
+    "name": "create_usuarios_internos",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260129000300",
+    "name": "create_jornadas",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260129000400",
+    "name": "create_tipos_beneficio",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260129000500",
+    "name": "create_periodos_academicos",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260129000600",
+    "name": "create_periodos_comerciales",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260129000700",
+    "name": "create_precios_oferta",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260129000800",
+    "name": "create_beneficios_oferta",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260129000900",
+    "name": "create_imagenes_universidad",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260129001000",
+    "name": "create_usuarios_universidad",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260129001100",
+    "name": "create_admin_rls_policies",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260815000000",
+    "name": "add_visitante_id_to_eventos_negocio",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260815000100",
+    "name": "rls_lectura_publica_relacionadas",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260829120000",
+    "name": "leadcenter_extension_personas_identidad",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260829120100",
+    "name": "leadcenter_desafios_otp",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260829120200",
+    "name": "leadcenter_modelo_negocio",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260829120300",
+    "name": "leadcenter_rls_crm",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260829120400",
+    "name": "leadcenter_seeds",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260829120500",
+    "name": "leadcenter_fn_convertir_aplicacion",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260829120600",
+    "name": "leadcenter_fn_acciones_crm",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260829120700",
+    "name": "leadcenter_fn_estancamiento",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260830103000",
+    "name": "fix_fn_convertir_aplicacion_schema_real",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260830130000",
+    "name": "demowapp_idempotency_indexes",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260830143000",
+    "name": "contexto_naia",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260830143100",
+    "name": "fase3_validar_aplicacion",
+    "n_statements": 1,
+    "created_by": null
+  },
+  {
+    "version": "20260830150000",
+    "name": "reglas_estancamiento_backfill",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260830150200",
+    "name": "fn_cambiar_etapa_validacion_subestado",
+    "n_statements": 1,
+    "created_by": null
+  },
+  {
+    "version": "20260830160000",
+    "name": "admin_usuarios_soft_delete_only",
+    "n_statements": 1,
+    "created_by": null
+  },
+  {
+    "version": "20260831000000",
+    "name": "centro_agentes_ia",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260902000000",
+    "name": "demowapp_contract_alignment",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260903000000",
+    "name": "demowapp_history_cleanup",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260903010000",
+    "name": "catalogo_cargas_masivas",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260903030000",
+    "name": "gobierno_agentes_ia",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260904010000",
+    "name": "tipos_oportunidad_universidad",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260905200000",
+    "name": "funnel_salud_versionada",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260906100000",
+    "name": "funnel_cierres_parametrizables",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260906110000",
+    "name": "asegurar_cierre_canonico",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260906120000",
+    "name": "cierre_oportunidades_configurable",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260906150000",
+    "name": "funnel_subestado_obligatorio",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260927120000",
+    "name": "ba029_activar_canal_whatsapp",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20260927190000",
+    "name": "ba024_voz_naia",
+    "n_statements": 1,
+    "created_by": null
+  },
+  {
+    "version": "20260927210000",
+    "name": "ba031_intenciones_aplicar_demowapp",
+    "n_statements": 0,
+    "created_by": null
+  },
+  {
+    "version": "20261017120000",
+    "name": "ba032_whatsapp_meta",
+    "n_statements": 1,
+    "created_by": "admin@buscoedu.com"
+  }
+]
