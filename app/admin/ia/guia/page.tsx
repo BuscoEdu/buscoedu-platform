@@ -5,7 +5,7 @@ const pasosAgente = [
   { texto: 'Crear una versión borrador desde el detalle del agente. Nunca se edita una versión publicada.', href: '/admin/ia/agentes', accion: 'Crear versión desde Agentes' },
   { texto: 'Asociar los componentes de contexto y definir su orden: identidad, reglas, seguridad, conocimiento y formato.', href: '/admin/ia/contextos', accion: 'Gestionar Contextos' },
   { texto: 'Configurar cada canal que podrá usar la versión (Web, WhatsApp u otros), incluyendo tono y reglas propias; después, en Canales, asignar cuál agente atiende cada canal público.', href: '/admin/ia/canales', accion: 'Configurar Canales' },
-  { texto: 'Elegir el despliegue/modelo específico para la versión. No existen selecciones automáticas u ocultas.', href: '/admin/ia/proveedores', accion: 'Configurar Proveedores' },
+  { texto: 'Elegir el despliegue/modelo específico para la versión. No existen selecciones automáticas u ocultas.', href: '/admin/ia/multiproveedor', accion: 'Configurar proveedores' },
   { texto: 'Simular una conversación y comparar el borrador con otra versión del mismo agente.', href: '/admin/ia/agentes', accion: 'Abrir Simulación de versión' },
   { texto: 'Guardar y ejecutar al menos una prueba exitosa. Solo después se habilita la publicación.', href: '/admin/ia/agentes', accion: 'Probar versión' },
   { texto: 'Publicar: la nueva versión queda activa, la anterior se desactiva y queda inmutable como respaldo.', href: '/admin/ia/agentes', accion: 'Publicar versión' }
@@ -71,7 +71,7 @@ export default function GuiaGobiernoAgentesPage() {
             Activar/desactivar componentes asociados a la versión activa: <Link href="/admin/ia/versiones" className="font-semibold text-buscoedu-blue underline underline-offset-2">Versiones</Link>.
           </li>
           <li>
-            Cambiar modelo/proveedor o despliegue: <Link href="/admin/ia/proveedores" className="font-semibold text-buscoedu-blue underline underline-offset-2">Proveedores y despliegues</Link>.
+            Cambiar modelo/proveedor o despliegue: <Link href="/admin/ia/multiproveedor" className="font-semibold text-buscoedu-blue underline underline-offset-2">IA multiproveedor</Link>.
           </li>
           <li>
             Ver conversaciones y ejecuciones: <Link href="/admin/ia/ejecuciones" className="font-semibold text-buscoedu-blue underline underline-offset-2">Ejecuciones</Link>.

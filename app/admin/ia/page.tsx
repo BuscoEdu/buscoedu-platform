@@ -130,7 +130,7 @@ export default function CentroAgentesDashboard() {
           valor={loading ? '…' : naia?.version_activa?.numero_version || '—'}
           acento="blue"
         />
-        <TarjetaResumen titulo="Proveedores" valor={loading ? '…' : proveedores.length} href="/admin/ia/proveedores" acento="blue" />
+        <TarjetaResumen titulo="Proveedores" valor={loading ? '…' : proveedores.length} href="/admin/ia/multiproveedor" acento="blue" />
         <TarjetaResumen titulo="Canales activos" valor={loading ? '…' : canalesActivos} href="/admin/ia/canales" acento="blue" />
         <TarjetaResumen titulo="Ejecuciones 24h" valor={loading ? '…' : ejec24h} href="/admin/ia/ejecuciones" acento="amber" />
         <TarjetaResumen titulo="Errores recientes" valor={loading ? '…' : erroresRecientes} acento={erroresRecientes > 0 ? 'red' : 'gray'} />

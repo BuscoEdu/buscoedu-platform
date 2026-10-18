@@ -53,12 +53,26 @@ const CATEGORIAS: Categoria[] = [
       { label: 'Guía de gobierno', href: '/admin/ia/guia' },
       { label: 'Agentes', href: '/admin/ia/agentes' },
       { label: 'Contextos', href: '/admin/ia/contextos' },
-      { label: 'Proveedores', href: '/admin/ia/proveedores' },
+      // E1: «Proveedores» se movió a la categoría «IA multiproveedor» (asistente de 5 pasos).
       { label: 'Canales', href: '/admin/ia/canales' },
       { label: 'Herramientas', href: '/admin/ia/herramientas' },
       { label: 'Fuentes', href: '/admin/ia/fuentes' },
       { label: 'Ejecuciones y pruebas', href: '/admin/ia/ejecuciones' },
       { label: 'Dashboard IA', href: '/admin/ia' }
+    ]
+  },
+  // E1 · BA-036/037/038: pantallas nuevas de IA multiproveedor, solo para super_admin
+  // (la API responde 403 a cualquier otro rol; el menú tampoco las muestra).
+  {
+    id: 'ia-multiproveedor',
+    label: 'IA multiproveedor',
+    icono: '🔌',
+    roles: ['super_admin'],
+    items: [
+      { label: 'Proveedores', href: '/admin/ia/multiproveedor' },
+      { label: 'Agregar proveedor', href: '/admin/ia/multiproveedor/agregar' },
+      { label: 'Modelo por agente', href: '/admin/ia/multiproveedor/agentes' },
+      { label: 'Tope de gasto', href: '/admin/ia/multiproveedor/topes' }
     ]
   },
   {
