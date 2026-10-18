@@ -19,7 +19,13 @@ import { etiquetaBeneficio } from '@/src/lib/etiquetas-beneficio';
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { AbacusAdapter } from './AbacusAdapter';
 import { componenteContextoAplicaAlCanal, herramientaPermitidaEnCanal } from './canales';
-import { AgenteEjecucionError } from './errores';
+import { AgenteEjecucionError, ErrorSinIa } from './errores';
+// BA-034: capa IA multi-proveedor (Abacus por defecto + AI SDK) con respaldo y costo.
+import { construirCadena } from './llm/cadena';
+import { ejecutarConRespaldo, esRespuestaNaiaValida, type ResultadoMotor } from './llm/motor';
+import { despliegueDesdeFila, type FilaDespliegue } from './llm/proveedores';
+import { lectorClavesSupabase, registroCostoSupabase } from './llm/supabase';
+import type { DespliegueLLM } from './llm/tipos';
 import { cargarMemoriaSesion } from './sesionEstudianteStore';
 import type { ConfiguracionAgente, EntradaEjecucion, SalidaEjecucion } from './tipos';
 // BA-039: la voz y el contrato de salida se leen de BD (componentes de la versión).
@@ -455,9 +461,13 @@ export class AgenteExecutor {
       throw new AgenteEjecucionError('La versión no tiene despliegue seleccionado', 'sin_despliegue_asignado');
     }
 
+    // BA-034: además del despliegue se lee su proveedor (código y si está encendido)
+    // para elegir el adaptador y aplicar fail-closed de proveedor.
+    const SELECT_DESPLIEGUE =
+      'id, activo, estado, modelo, identificador_externo, referencia_secreto, configuracion_tecnica, proveedores_ia:proveedor_id(codigo, activo, estado)';
     const resultadoPorSnapshot = await db
       .from('despliegues_ia')
-      .select('id, identificador_externo, referencia_secreto, configuracion_tecnica')
+      .select(SELECT_DESPLIEGUE)
       .eq('activo', true)
       .eq('estado', 'activo')
       .eq('id', despliegueIdSnapshot)
@@ -472,6 +482,30 @@ export class AgenteExecutor {
     }
     if (!despliegue.identificador_externo || !despliegue.referencia_secreto) {
       throw new AgenteEjecucionError('Despliegue sin referencias de entorno', 'despliegue_incompleto');
+    }
+    const despliegueLlm = despliegueDesdeFila(despliegue as unknown as FilaDespliegue);
+
+    // 8) BA-034: respaldos opcionales (decisión 22), en el orden del snapshot.
+    //    Si no se pueden leer, se sigue solo con el principal (igual que hoy) y se avisa.
+    const respaldoIds = (version.configuracion_snapshot as Record<string, unknown> | null)?.['despliegues_respaldo_ids'];
+    let respaldos: DespliegueLLM[] = [];
+    if (Array.isArray(respaldoIds) && respaldoIds.length > 0) {
+      const ids = respaldoIds.filter((x): x is string => typeof x === 'string' && x !== despliegue.id).slice(0, 5);
+      if (ids.length > 0) {
+        const { data: filasRespaldo, error: errorRespaldo } = await db
+          .from('despliegues_ia')
+          .select(SELECT_DESPLIEGUE)
+          .in('id', ids);
+        if (errorRespaldo) {
+          console.warn('[BA-034] No se pudieron leer los respaldos; se usa solo el principal.', errorRespaldo.code || '');
+        } else {
+          const porId = new Map((filasRespaldo || []).map((f: any) => [f.id as string, f]));
+          respaldos = ids
+            .map((id) => porId.get(id))
+            .filter(Boolean)
+            .map((f) => despliegueDesdeFila(f as unknown as FilaDespliegue));
+        }
+      }
     }
 
     return {
@@ -490,8 +524,10 @@ export class AgenteExecutor {
         id: despliegue.id,
         identificador_externo: despliegue.identificador_externo,
         referencia_secreto: despliegue.referencia_secreto,
-        configuracion_tecnica: (despliegue.configuracion_tecnica as Record<string, unknown>) ?? null
+        configuracion_tecnica: (despliegue.configuracion_tecnica as Record<string, unknown>) ?? null,
+        llm: despliegueLlm
       },
+      respaldos,
       canal: { id: canal.id, codigo: canal.codigo },
       contextos,
       herramientas,
@@ -507,6 +543,8 @@ export class AgenteExecutor {
     duracion_ms: number;
     respuesta?: Record<string, unknown> | null;
     error?: string | null;
+    /** BA-034: despliegue que respondió de verdad (un respaldo); por defecto el principal. */
+    despliegue_id?: string;
   }): Promise<string | undefined> {
     try {
       const db = getServiceRoleClient();
@@ -523,7 +561,7 @@ export class AgenteExecutor {
         .insert({
           agente_id: params.config.agente.id,
           version_agente_id: params.config.version.id,
-          despliegue_id: params.config.despliegue.id,
+          despliegue_id: params.despliegue_id ?? params.config.despliegue.id,
           canal_id: params.config.canal.id,
           conversacion_id: conversacionId,
           estado: params.estado,
@@ -587,31 +625,53 @@ export class AgenteExecutor {
       esTurnoSeguimiento
     });
 
-    let resultadoAdaptador;
-    try {
-      resultadoAdaptador = await this.adaptador.ejecutar({
-        prompt_sistema: promptEfectivo,
-        mensaje_usuario: mensajeUsuarioEnriquecido,
-        conversation_id: entrada.conversation_id,
-        identificador_externo: config.despliegue.identificador_externo,
-        referencia_secreto: config.despliegue.referencia_secreto,
-        temperature: temperaturaNaia(config.despliegue.configuracion_tecnica)
-      });
-    } catch (err) {
+    // BA-034: la llamada pasa por la capa IA. Con un único principal Abacus (hoy),
+    // AbacusAdapter recibe exactamente los mismos parámetros que antes (B5 / E2).
+    // Si hay respaldos, se prueban en orden; si nadie responde, C3 (ErrorSinIa).
+    const cadena = construirCadena(config.despliegue.llm, config.respaldos, {
+      lector: lectorClavesSupabase,
+      clienteAbacus: this.adaptador
+    });
+    const resultadoIa = await ejecutarConRespaldo({
+      cadena,
+      peticion: {
+        sistema: promptEfectivo,
+        // Para proveedores sin hilo propio (respaldos AI SDK): el prompt completo siempre.
+        sistema_completo: `${promptSistema}\n\n${config.voz.texto}\n\n${bloqueSesion}`,
+        mensaje: mensajeUsuarioEnriquecido,
+        parametros: { temperature: temperaturaNaia(config.despliegue.configuracion_tecnica) },
+        conversacion_externa_id: entrada.conversation_id
+      },
+      validarFormato: esRespuestaNaiaValida,
+      contexto: {
+        agente_codigo: config.agente.codigo,
+        version_agente_id: config.version.id,
+        canal_codigo: config.canal.codigo,
+        modo_simulacion: entrada.modo_simulacion === true
+      },
+      deps: { registroCosto: registroCostoSupabase }
+    });
+
+    if (!resultadoIa.ok) {
+      // tsconfig sin strict: se fija el tipo del caso «sin IA» a mano.
+      const fallo = resultadoIa as Extract<ResultadoMotor, { ok: false }>;
       if (!entrada.modo_simulacion) {
         await this.registrarEjecucion({
           config,
           entrada,
           estado: 'error',
           duracion_ms: Date.now() - inicio,
-          error: err instanceof Error ? err.message : 'error_desconocido'
+          error: `error_bot:${fallo.ultimo_error ?? 'sin_detalle'}`
         });
       }
-      throw new AgenteEjecucionError(
-        err instanceof Error ? err.message : 'Error al invocar el proveedor',
-        'error_proveedor'
-      );
+      throw new ErrorSinIa(fallo.mensaje_estudiante, fallo.ultimo_error ?? 'sin_detalle');
     }
+    const exitoIa = resultadoIa as Extract<ResultadoMotor, { ok: true }>;
+
+    const resultadoAdaptador = {
+      respuesta_texto: exitoIa.respuesta.texto,
+      conversation_id_nuevo: exitoIa.respuesta.conversacion_externa_id
+    };
 
     const nuevaConversationId = resultadoAdaptador.conversation_id_nuevo ?? entrada.conversation_id ?? null;
     const parsed = extraerJson(resultadoAdaptador.respuesta_texto);
@@ -677,10 +737,21 @@ export class AgenteExecutor {
           entrada,
           estado: 'exitoso',
           duracion_ms: Date.now() - inicio,
+          despliegue_id: exitoIa.despliegue.id,
           respuesta: {
             ...(salida as unknown as Record<string, unknown>),
             // BA-024: la sesión no sale en el contrato público; queda en la bitácora del hilo.
-            sesion_estudiante: sesion
+            sesion_estudiante: sesion,
+            // BA-034 (C2): solo si respondió un respaldo, queda el evento en la bitácora.
+            ...(exitoIa.uso_respaldo
+              ? {
+                  ia: {
+                    evento: exitoIa.evento,
+                    proveedor: exitoIa.despliegue.proveedor_codigo,
+                    modelo: exitoIa.respuesta.modelo_usado
+                  }
+                }
+              : {})
           }
         });
 

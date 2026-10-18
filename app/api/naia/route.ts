@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   agenteExecutor,
+  ErrorSinIa,
   esErrorCanalFailClosed,
   estadoHttpErrorCanal,
   resolverAgenteDelCanal,
@@ -236,6 +237,14 @@ export async function POST(req: NextRequest) {
     if (falloCanal) {
       console.error('[api/naia] Canal no disponible:', err);
       return falloCanal;
+    }
+    // BA-034 (C3): ningún modelo respondió → mensaje fijo honesto + paso a persona / web.
+    if (err instanceof ErrorSinIa) {
+      console.warn('[api/naia] error_bot: sin IA disponible');
+      return NextResponse.json(
+        { ...fallback(conversationId, err.mensaje_estudiante), pregunta_seguimiento: null },
+        { status: 200 }
+      );
     }
     console.error('[api/naia] Error ejecutando el agente:', err);
     return NextResponse.json(fallback(conversationId), { status: 200 });

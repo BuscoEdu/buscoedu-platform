@@ -5,7 +5,7 @@
 export * from './tipos';
 export { AbacusAdapter } from './AbacusAdapter';
 export type { ResultadoAdaptador } from './AbacusAdapter';
-export { AgenteEjecucionError } from './errores';
+export { AgenteEjecucionError, ErrorSinIa } from './errores';
 export { AgenteExecutor } from './AgenteExecutor';
 export { agenteExecutor } from './ejecutar-w1';
 export {

@@ -95,6 +95,10 @@ Deploy:         Vercel → www.buscoedu.com
 Cliente DB:     src/lib/supabase.ts (getSupabaseClient())
 ```
 
+## BA-034 — Capa IA multiproveedor (E1)
+
+NaIA llama al modelo a través de una capa común (`lib/agentes/llm/`). Abacus sigue siendo el proveedor por defecto y recibe exactamente la misma entrada que antes (decisión 13; lo prueba un test de regresión). OpenAI, xAI, Anthropic, Gemini y OpenRouter entran por el AI SDK de Vercel (decisión 12). Si un modelo falla responde el respaldo, que es opcional. Si no responde ninguno, el estudiante recibe un mensaje honesto con paso a una persona. Las URLs de proveedor salen de una lista fija en código. Las claves se leen de Vault y, si no están, de una variable de entorno. Cada intento deja su costo registrado, y si ese registro falla la respuesta sigue igual. Detalle, migración (sin aplicar), cómo deshacerla y bitácora: [`docs/backend/README-ba034.md`](docs/backend/README-ba034.md).
+
 ## BA-039 — Voz de NaIA y canales desde la base de datos (E1)
 
 El tono y el formato de NaIA salen de los componentes `voz_naia`, `contrato_salida_naia` y `contrato_salida_naia_whatsapp` asociados a la versión del agente, así que se editan desde `/admin/ia → Contextos`. Las reglas de no inventar siguen fijas en código. Con el texto de la semilla, NaIA habla exactamente igual que antes (lo prueba un test de regresión). Si la BD no trae la voz, se usa la misma voz desde código y queda un aviso en el log. Los canales válidos se leen de `canales_ia.activo`, sin lista fija. Un canal desconocido o inactivo se rechaza con 400 y un error de BD con 503: nunca cae a web. Detalle, migración (sin aplicar), cómo deshacerla y bitácora: [`docs/backend/README-ba039.md`](docs/backend/README-ba039.md).
