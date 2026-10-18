@@ -174,7 +174,8 @@ export async function POST(req: NextRequest) {
     mensaje = (body?.mensaje ?? '').toString();
     conversationId = body?.conversationId || undefined;
     // BA-029: explícito. Omitido o null = web. Otro valor = canal_invalido (no cae a web).
-    codigoCanal = resolverCodigoCanalExplicito(body?.codigo_canal);
+    // BA-039: el canal debe estar activo en canales_ia; error de BD = canales_no_disponibles (503).
+    codigoCanal = await resolverCodigoCanalExplicito(body?.codigo_canal);
 
     // Captura contexto visible en frontend para responder preguntas de detalle.
     if (body?.contexto_ofertas && typeof body.contexto_ofertas === 'object') {

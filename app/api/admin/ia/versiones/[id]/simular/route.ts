@@ -26,7 +26,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // BA-029: mismo contrato que /api/naia. Omitido = web. Valor ajeno = canal_invalido.
   let codigoCanal: string;
   try {
-    codigoCanal = resolverCodigoCanalExplicito(body?.codigo_canal);
+    // BA-039: valida contra canales_ia.activo (fail-closed), por eso se espera.
+    codigoCanal = await resolverCodigoCanalExplicito(body?.codigo_canal);
   } catch (err) {
     if (esErrorCanalFailClosed(err)) {
       return NextResponse.json(

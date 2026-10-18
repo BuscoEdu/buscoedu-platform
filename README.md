@@ -95,6 +95,10 @@ Deploy:         Vercel → www.buscoedu.com
 Cliente DB:     src/lib/supabase.ts (getSupabaseClient())
 ```
 
+## BA-039 — Voz de NaIA y canales desde la base de datos (E1)
+
+El tono y el formato de NaIA salen de los componentes `voz_naia`, `contrato_salida_naia` y `contrato_salida_naia_whatsapp` asociados a la versión del agente, así que se editan desde `/admin/ia → Contextos`. Las reglas de no inventar siguen fijas en código. Con el texto de la semilla, NaIA habla exactamente igual que antes (lo prueba un test de regresión). Si la BD no trae la voz, se usa la misma voz desde código y queda un aviso en el log. Los canales válidos se leen de `canales_ia.activo`, sin lista fija. Un canal desconocido o inactivo se rechaza con 400 y un error de BD con 503: nunca cae a web. Detalle, migración (sin aplicar), cómo deshacerla y bitácora: [`docs/backend/README-ba039.md`](docs/backend/README-ba039.md).
+
 ## BA-030 y BA-033 — Demo WApp solo-hilo
 
 En `/demoWapp` y en el modal del estudiante el canal es un hilo a pantalla completa, en móvil y en escritorio. La oferta y las opciones van dentro del chat. Sesiones, búsqueda y CRM no se muestran al lado. El portal NaIA/Explorar (BA-025, BA-026, BA-027, BA-028) no cambia. Nota: [`docs/frontend/README-ba030-ba033.md`](docs/frontend/README-ba030-ba033.md).
