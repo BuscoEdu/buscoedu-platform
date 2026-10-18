@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import EstadoBadge from '@/components/admin/ia/EstadoBadge';
 import FormularioContexto, { ContextoFormValores } from '@/components/admin/ia/FormularioContexto';
 import CajaAyuda from '@/components/admin/CajaAyuda';
+import { etiquetaTipo } from '@/src/lib/admin-ia/etiquetas';
 
 interface ContextoItem extends ContextoFormValores {
   id: string;
@@ -113,7 +114,6 @@ export default function ContextosPage() {
           <thead className="bg-buscoedu-bg text-left text-xs uppercase tracking-wide text-buscoedu-muted">
             <tr>
               <th className="px-3 py-3">Nombre</th>
-              <th className="px-3 py-3">Código</th>
               <th className="px-3 py-3">Tipo</th>
               <th className="px-3 py-3">Prioridad</th>
               <th className="px-3 py-3">Obligatorio</th>
@@ -124,13 +124,13 @@ export default function ContextosPage() {
           <tbody className="divide-y divide-buscoedu-border text-buscoedu-text">
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-buscoedu-muted">
+                <td colSpan={6} className="px-3 py-6 text-center text-buscoedu-muted">
                   Cargando...
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-buscoedu-muted">
+                <td colSpan={6} className="px-3 py-6 text-center text-buscoedu-muted">
                   No hay componentes de contexto.
                 </td>
               </tr>
@@ -138,8 +138,7 @@ export default function ContextosPage() {
               items.map((it) => (
                 <tr key={it.id} className={it.activo === false ? 'opacity-50' : ''}>
                   <td className="px-3 py-3 font-medium">{it.nombre}</td>
-                  <td className="px-3 py-3 text-xs text-buscoedu-muted">{it.codigo}</td>
-                  <td className="px-3 py-3">{it.tipo_contexto}</td>
+                  <td className="px-3 py-3">{it.tipo_contexto ? etiquetaTipo(it.tipo_contexto) : '—'}</td>
                   <td className="px-3 py-3">{it.prioridad}</td>
                   <td className="px-3 py-3">{it.es_obligatorio ? 'Sí' : 'No'}</td>
                   <td className="px-3 py-3">

@@ -2,19 +2,29 @@
   "name": "buscoedu-platform",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22 <23"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --experimental-strip-types --import ./scripts/register-ts-tests.mjs --test src/lib/cifras-catalogo.test.ts src/lib/logos-aliadas.test.ts src/lib/etiquetas-beneficio.test.ts src/lib/demowapp/funnel-aplicar-reglas.test.ts components/demowapp/funnelContrato.test.ts components/naia/markdownNaia.test.ts src/lib/whatsapp/whatsapp.test.ts"
+    "test": "node --experimental-strip-types --import ./scripts/register-ts-tests.mjs --test src/lib/cifras-catalogo.test.ts src/lib/logos-aliadas.test.ts src/lib/etiquetas-beneficio.test.ts src/lib/demowapp/funnel-aplicar-reglas.test.ts components/demowapp/funnelContrato.test.ts components/naia/markdownNaia.test.ts src/lib/whatsapp/whatsapp.test.ts lib/agentes/ba039-voz.test.ts lib/agentes/ba039-canales.test.ts lib/agentes/llm/ba034-capa-ia.test.ts lib/admin-ia/e1-api.test.ts src/lib/leadcenter/convertir-errores.test.ts src/lib/leadcenter/cambiar-etapa.test.ts src/lib/admin-ia/admin-ia.test.ts src/lib/admin-ia/etiquetas.test.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "4.0.82",
+    "@ai-sdk/google": "4.0.99",
+    "@ai-sdk/openai": "4.0.96",
+    "@ai-sdk/openai-compatible": "3.0.71",
+    "@ai-sdk/xai": "5.0.24",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.2",
+    "ai": "7.0.143",
     "bcryptjs": "^3.0.3",
     "next": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

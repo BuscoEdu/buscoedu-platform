@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { protegerYObtenerServicio } from '@/lib/agentes/admin-crud';
+import { crearDatosSupabase } from '@/lib/admin-ia/datosSupabase';
+import { resultadoDeError } from '@/lib/admin-ia/http';
+import { validarModelosParaPublicar } from '@/lib/admin-ia/servicioAgentes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,6 +14,12 @@ export const dynamic = 'force-dynamic';
  *   3. Actualiza agentes_ia.version_activa_id apuntando a esta versión.
  *
  * Las versiones publicadas son inmutables (ver PATCH de versiones/[id]).
+ *
+ * E1 · BA-037 B-5 (se amplía): antes de publicar, el modelo principal y cada respaldo
+ * deben estar disponibles (prueba vigente + encendido, B1 → 409 `modelo_no_disponible`)
+ * y cada respaldo debe tener las capacidades que la versión usa (JSON, herramientas;
+ * B3 → 409 `respaldo_incompatible`). Para qué: no publicar un agente que quedaría sin
+ * IA o con un respaldo que no puede responder en el formato pedido.
  */
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const guard = await protegerYObtenerServicio();
@@ -31,6 +40,15 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const despliegueId = snapshot.despliegue_id;
   if (typeof despliegueId !== 'string' || !despliegueId) {
     return NextResponse.json({ ok: false, error: 'selecciona_un_despliegue_para_la_version' }, { status: 409 });
+  }
+
+  // E1 · B1/B3: modelos disponibles y respaldos compatibles.
+  try {
+    const bloqueo = await validarModelosParaPublicar(crearDatosSupabase(guard.service), version);
+    if (bloqueo) return NextResponse.json(bloqueo.body, { status: bloqueo.status });
+  } catch (err) {
+    const r = resultadoDeError(err);
+    return NextResponse.json(r.body, { status: r.status });
   }
 
   const [contextos, canales, despliegue, pruebas] = await Promise.all([

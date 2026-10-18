@@ -3,6 +3,7 @@ import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { normalizarE164 } from '@/src/lib/phone';
 import { scheduleWelcomePushFromConversion } from '@/src/lib/demowapp/push-service';
 import { createDemoWappToken, getDemoWappTokenTtlSeconds } from '@/src/lib/demowapp/token-service';
+import { MENSAJE_GENERICO, respuestaGenerica, traducirErrorConversion } from '@/src/lib/leadcenter/convertir-errores';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -196,41 +197,21 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await db.rpc('fn_convertir_aplicacion', { p_payload: payload });
 
+    // BA-041: si la llamada a la RPC falla (red, permisos), mensaje genérico sin
+    // detalles internos; el código de Postgres queda solo en el log del servidor.
     if (error) {
-      return NextResponse.json(
-        { ok: false, error: 'rpc_error', mensaje: error.message },
-        { status: 500 }
-      );
+      console.warn(`[convertir] Falló fn_convertir_aplicacion (${error.code || 'sin_codigo'})`);
+      const r = respuestaGenerica();
+      return NextResponse.json(r.body, { status: r.status });
     }
 
     const resultado = data as any;
 
+    // BA-041: cada código de la RPC → HTTP + código + mensaje en español claro.
+    // Desconocido → genérico seguro (fail-closed). Ver src/lib/leadcenter/convertir-errores.ts.
     if (!resultado?.ok) {
-      if (resultado?.error === 'duplicada') {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: 'duplicada',
-            mensaje: 'Esta solicitud ya estaba creada.',
-            aplicacion_id: resultado?.aplicacion_id || null
-          },
-          { status: 400 }
-        );
-      }
-
-      if (resultado?.error === 'limite_alcanzado') {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: 'limite_alcanzado',
-            mensaje:
-              'Solo puedes tener hasta 3 aplicaciones activas. Debes cerrar tu solicitud con la universidad o con BuscoEdu antes de crear otra.'
-          },
-          { status: 400 }
-        );
-      }
-
-      return NextResponse.json(resultado, { status: 400 });
+      const r = traducirErrorConversion(resultado);
+      return NextResponse.json(r.body, { status: r.status });
     }
 
     try {
@@ -295,8 +276,10 @@ export async function POST(req: NextRequest) {
       );
     }
   } catch (e: any) {
+    // BA-041: sin el mensaje de la excepción (podría traer detalles internos).
+    console.warn(`[convertir] Error inesperado: ${e?.name || 'desconocido'}`);
     return NextResponse.json(
-      { ok: false, error: 'server_error', mensaje: e?.message },
+      { ok: false, error: 'server_error', mensaje: MENSAJE_GENERICO },
       { status: 500 }
     );
   }

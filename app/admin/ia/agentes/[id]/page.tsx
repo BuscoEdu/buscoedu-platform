@@ -134,7 +134,6 @@ export default function AgenteDetallePage({ params }: { params: Promise<{ id: st
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-bold text-buscoedu-blue">{agente.nombre}</h1>
           <EstadoBadge estado={agente.estado} />
-          <span className="text-xs text-buscoedu-muted">{agente.codigo}</span>
         </div>
       </div>
 
@@ -172,9 +171,9 @@ export default function AgenteDetallePage({ params }: { params: Promise<{ id: st
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-buscoedu-text">Estado</span>
             <select value={form.estado} onChange={(e) => setForm((p) => ({ ...p, estado: e.target.value }))} className="w-full rounded-lg border border-buscoedu-border px-3 py-2">
-              <option value="activo">activo</option>
-              <option value="pausado">pausado</option>
-              <option value="archivado">archivado</option>
+              <option value="activo">Activo</option>
+              <option value="pausado">En pausa</option>
+              <option value="archivado">Archivado</option>
             </select>
           </label>
           <div className="flex justify-end">

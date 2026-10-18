@@ -1,5 +1,10 @@
 'use client';
 
+// Resumen IA (/admin/ia) — tablero del Centro de Agentes IA.
+// Qué hace: junta en una sola vista el estado de NaIA, contadores (agentes, proveedores, canales,
+// ejecuciones, errores) y las últimas ejecuciones.
+// Para qué: que el equipo vea de un vistazo si los asistentes virtuales están funcionando y
+// entre desde aquí a cada sección. Todo el texto visible pasa por las etiquetas en español.
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import TarjetaResumen from '@/components/admin/ia/TarjetaResumen';
@@ -7,6 +12,8 @@ import TablaEjecuciones, { EjecucionItem } from '@/components/admin/ia/TablaEjec
 import EstadoBadge from '@/components/admin/ia/EstadoBadge';
 import CajaAyuda from '@/components/admin/CajaAyuda';
 
+// Lee un endpoint de /api/admin/ia sin caché y devuelve su JSON (o null si la respuesta no es JSON).
+// Para qué: que un fallo de un endpoint no tumbe todo el tablero; cada bloque muestra lo que haya.
 async function getJson(url: string) {
   const res = await fetch(url, { cache: 'no-store' });
   try {
@@ -16,6 +23,7 @@ async function getJson(url: string) {
   }
 }
 
+// Forma mínima de un agente que usa este tablero (lo que devuelve /api/admin/ia/agentes).
 interface AgenteItem {
   id: string;
   codigo: string;
@@ -25,6 +33,7 @@ interface AgenteItem {
   version_activa?: { numero_version?: string; estado?: string } | null;
 }
 
+// Componente de la página: carga los datos al montar y pinta tarjetas, estado y tabla.
 export default function CentroAgentesDashboard() {
   const [agentes, setAgentes] = useState<AgenteItem[]>([]);
   const [proveedores, setProveedores] = useState<any[]>([]);
@@ -32,6 +41,8 @@ export default function CentroAgentesDashboard() {
   const [ejecuciones, setEjecuciones] = useState<EjecucionItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Carga en paralelo agentes, proveedores, canales y las 10 ejecuciones más recientes.
+  // Para qué: una sola espera para todo el tablero en vez de cuatro cargas encadenadas.
   useEffect(() => {
     async function cargar() {
       setLoading(true);
@@ -50,6 +61,8 @@ export default function CentroAgentesDashboard() {
     void cargar();
   }, []);
 
+  // Cálculos del tablero: cuál es NaIA, cuántos agentes y canales están activos,
+  // ejecuciones de las últimas 24 horas y errores recientes.
   const naia = useMemo(() => agentes.find((x) => x.codigo === 'naia_asesora_educativa'), [agentes]);
   const agentesActivos = agentes.filter((x) => x.activo && x.estado === 'activo').length;
   const canalesActivos = canales.filter((x: any) => x.activo).length;
@@ -60,12 +73,15 @@ export default function CentroAgentesDashboard() {
   ).length;
   const erroresRecientes = ejecuciones.filter((x) => x.estado === 'error').length;
 
+  // Semáforo de NaIA (valor interno, nunca se muestra crudo): exitoso = activa con versión
+  // publicada; fallback = existe pero sin versión publicada (responde con respaldo); error = no existe.
   const estadoNaia = !naia
     ? 'error'
     : naia.activo && naia.version_activa?.estado === 'publicada'
     ? 'exitoso'
     : 'fallback';
 
+  // Estructura visible: ayuda, encabezado con accesos, estado de NaIA, tarjetas y tabla.
   return (
     <section className="space-y-6">
       <CajaAyuda titulo="¿Qué es el Centro de Agentes IA?">
@@ -76,6 +92,7 @@ export default function CentroAgentesDashboard() {
           través de diferentes canales (web, WhatsApp, etc.).
         </p>
       </CajaAyuda>
+      {/* Encabezado y accesos rápidos a la lista de agentes y al historial de ejecuciones. */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-buscoedu-blue">Centro de Agentes IA</h1>
@@ -99,6 +116,7 @@ export default function CentroAgentesDashboard() {
         </div>
       </div>
 
+      {/* Estado de NaIA: nombre, versión activa y semáforo con su etiqueta en español. */}
       <div className="rounded-xl border border-buscoedu-border bg-white p-4 shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -123,6 +141,7 @@ export default function CentroAgentesDashboard() {
         </div>
       </div>
 
+      {/* Tarjetas de contadores; las que tienen destino llevan a su sección. */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <TarjetaResumen titulo="Agentes activos" valor={loading ? '…' : agentesActivos} href="/admin/ia/agentes" acento="green" />
         <TarjetaResumen
@@ -130,12 +149,13 @@ export default function CentroAgentesDashboard() {
           valor={loading ? '…' : naia?.version_activa?.numero_version || '—'}
           acento="blue"
         />
-        <TarjetaResumen titulo="Proveedores" valor={loading ? '…' : proveedores.length} href="/admin/ia/proveedores" acento="blue" />
+        <TarjetaResumen titulo="Proveedores" valor={loading ? '…' : proveedores.length} href="/admin/ia/multiproveedor" acento="blue" />
         <TarjetaResumen titulo="Canales activos" valor={loading ? '…' : canalesActivos} href="/admin/ia/canales" acento="blue" />
-        <TarjetaResumen titulo="Ejecuciones 24h" valor={loading ? '…' : ejec24h} href="/admin/ia/ejecuciones" acento="amber" />
+        <TarjetaResumen titulo="Ejecuciones en 24 horas" valor={loading ? '…' : ejec24h} href="/admin/ia/ejecuciones" acento="amber" />
         <TarjetaResumen titulo="Errores recientes" valor={loading ? '…' : erroresRecientes} acento={erroresRecientes > 0 ? 'red' : 'gray'} />
       </div>
 
+      {/* Últimas ejecuciones (agente, canal, estado, duración y fecha). */}
       <div>
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-buscoedu-text">Ejecuciones recientes</h2>

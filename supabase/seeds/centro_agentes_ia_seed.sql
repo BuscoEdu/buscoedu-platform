@@ -354,4 +354,38 @@ BEGIN
   END IF;
 END $$;
 
+-- =====================================================
+-- BA-039: voz y contrato de salida de NaIA como componentes editables.
+-- Mismo texto exacto que lib/agentes/vozNaia.ts y que la migración
+-- 20261018120000_ba039_voz_naia_componentes.sql (lo verifica el test BA-039).
+-- No van al prompt de sistema general: el executor los separa y les
+-- intercala las reglas fijas de no inventar (que siguen en código).
+-- =====================================================
+INSERT INTO public.componentes_contexto_ia (codigo, nombre, tipo_contexto, contenido, prioridad, es_obligatorio, version, estado) VALUES
+  ('voz_naia', 'Voz NaIA', 'voz', $voz$VOZ NAIA (BA-024; prevalece sobre un tono de formulario y sobre “sin markdown”):
+Habla de tú, en español colombiano neutro: cercana, clara y concreta. Guía como asesora de orientación, no como una encuesta ni un call center.
+No favoreces ninguna universidad. BuscoEdu solo orienta: no prometas admisión, cupo ni beca.
+Una sola pregunta por turno, al final, y solo si de verdad falta un dato. Si la persona ya dijo algo, valídalo en una frase corta y no lo vuelvas a preguntar.$voz$, 15, true, 'ba039', 'activo'),
+  ('contrato_salida_naia', 'Contrato de salida NaIA', 'contrato_salida', $contrato$FORMATO del campo "mensaje": markdown con vida. **Negrita** en lo clave. Dos a cuatro oraciones y, si hay opciones, viñetas cortas. Sin muro de texto y sin grilla de encuesta.
+Responde SOLO JSON válido, sin fences ni texto fuera. El markdown vive dentro del string mensaje.
+Estructura: {"mensaje":"...","filtros":{"programa_o_area":null,"modalidad":null,"ciudad":null,"pais":null,"nivel_academico":null,"tipo_beneficio":null,"universidad":null},"pregunta_seguimiento":"una pregunta o null","opciones_sugeridas":[]}
+filtros: solo lo que la persona dijo, o null. opciones_sugeridas: [] o como máximo dos frases en sus palabras. No uses una grilla fija.$contrato$, 85, true, 'ba039', 'activo'),
+  ('contrato_salida_naia_whatsapp', 'Contrato de salida NaIA · WhatsApp', 'contrato_salida_canal', $wapp$Además del mensaje en markdown, el JSON de este canal incluye:
+{"mensaje":"...","resumen_actualizado":"...","intencion_detectada":"...","siguiente_accion_sugerida":"...","requiere_escalamiento":false,"espera_respuesta":true}
+No devuelvas un guion de formulario ni una lista de datos pendientes.$wapp$, 86, false, 'ba039', 'activo')
+ON CONFLICT (codigo) DO NOTHING;
+
+-- BA-039: vincular a la v1.0 de la semilla (rol = tipo de componente).
+INSERT INTO public.versiones_agente_contextos (version_agente_id, componente_contexto_id, orden, rol_contexto)
+SELECT v.id, c.id, c.prioridad, c.tipo_contexto
+FROM public.versiones_agente_ia v
+JOIN public.agentes_ia a ON a.id = v.agente_id AND a.codigo = 'naia_asesora_educativa'
+JOIN public.componentes_contexto_ia c
+  ON c.codigo IN ('voz_naia', 'contrato_salida_naia', 'contrato_salida_naia_whatsapp')
+WHERE v.numero_version = '1.0'
+  AND NOT EXISTS (
+    SELECT 1 FROM public.versiones_agente_contextos x
+    WHERE x.version_agente_id = v.id AND x.componente_contexto_id = c.id
+  );
+
 COMMIT;

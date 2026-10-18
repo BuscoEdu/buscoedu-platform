@@ -22,7 +22,6 @@ export default function HerramientasPage() {
       textoNuevo="Nueva herramienta"
       columnas={[
         { clave: 'nombre', etiqueta: 'Nombre' },
-        { clave: 'codigo', etiqueta: 'Código' },
         { clave: 'tipo_operacion', etiqueta: 'Operación' },
         {
           clave: 'requiere_confirmacion',
@@ -31,7 +30,7 @@ export default function HerramientasPage() {
         }
       ]}
       campos={[
-        { clave: 'codigo', etiqueta: 'Código', tipo: 'texto', requerido: true },
+        { clave: 'codigo', etiqueta: 'Identificador interno', tipo: 'texto', requerido: true, ayuda: 'Minúsculas y guion bajo, sin espacios. Es interno: no se muestra al público.' },
         { clave: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true },
         { clave: 'descripcion', etiqueta: 'Descripción', tipo: 'textarea' },
         { clave: 'tipo_operacion', etiqueta: 'Tipo de operación', tipo: 'texto' },

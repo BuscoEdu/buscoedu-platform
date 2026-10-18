@@ -3,6 +3,8 @@
  */
 
 import type { SesionEstudiante } from './vozNaia';
+import type { VozNaiaResuelta } from './vozDesdeBd';
+import type { DespliegueLLM } from './llm/tipos';
 import type { SesionHilo } from '@/src/lib/demowapp/sesion-hilo';
 
 export interface ConfiguracionAgente {
@@ -13,10 +15,16 @@ export interface ConfiguracionAgente {
     identificador_externo: string;
     referencia_secreto: string;
     configuracion_tecnica: Record<string, unknown> | null;
+    /** BA-034: el mismo despliegue visto por la capa IA (proveedor, adaptador, modelo, precios). */
+    llm: DespliegueLLM;
   };
+  /** BA-034: respaldos opcionales en orden (`configuracion_snapshot.despliegues_respaldo_ids`). */
+  respaldos: DespliegueLLM[];
   canal: { id: string; codigo: string };
   contextos: Array<{ orden: number; rol_contexto: string; contenido: string }>;
   herramientas: Array<{ codigo: string; nombre: string; habilitada: boolean }>;
+  /** BA-039: bloque de voz + contrato de salida del canal, leído de BD (con respaldo en código). */
+  voz: VozNaiaResuelta;
 }
 
 export interface EntradaEjecucion {

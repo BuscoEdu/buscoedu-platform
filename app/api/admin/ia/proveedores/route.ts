@@ -1,22 +1,13 @@
-import { crearHandlersColeccion } from '@/lib/agentes/admin-crud';
+import { rutaAdminIa } from '@/lib/admin-ia/ruta';
+import { crearProveedor, listarProveedores } from '@/lib/admin-ia/servicioProveedores';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const handlers = crearHandlersColeccion({
-  tabla: 'proveedores_ia',
-  columnasSelect:
-    'id, codigo, nombre, tipo_proveedor, descripcion, capacidades, estado, activo, creado_en, actualizado_en',
-  ordenarPor: { columna: 'creado_en', ascendente: false },
-  campos: [
-    { nombre: 'codigo', obligatorio: true, tipo: 'texto' },
-    { nombre: 'nombre', obligatorio: true, tipo: 'texto' },
-    { nombre: 'tipo_proveedor', tipo: 'texto' },
-    { nombre: 'descripcion', tipo: 'texto' },
-    { nombre: 'capacidades', tipo: 'json' },
-    { nombre: 'estado', tipo: 'texto' }
-  ]
-});
-
-export const GET = handlers.GET;
-export const POST = handlers.POST;
+/**
+ * E1 · BA-036 P2/P3 — Lista de proveedores con estado, clave (sin valor) y uso; crear desde un preset.
+ * Qué hace: solo super_admin (403 si no); delega en el servicio puro de lib/admin-ia.
+ * Para qué: reemplazar el CRUD genérico por el asistente de 5 pasos.
+ */
+export const GET = rutaAdminIa(listarProveedores);
+export const POST = rutaAdminIa(crearProveedor);

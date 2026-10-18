@@ -1,7 +1,10 @@
 'use client';
 
+import { etiquetaEstado } from '@/src/lib/admin-ia/etiquetas';
+
 /**
  * Badge de color según el estado de una entidad del Centro de Agentes IA.
+ * El color sale del código; el texto visible sale de etiquetaEstado (nunca el código crudo).
  */
 
 const MAPA_COLORES: Record<string, string> = {
@@ -29,7 +32,7 @@ export default function EstadoBadge({ estado }: { estado: string | null | undefi
   const clases = MAPA_COLORES[clave] || 'bg-gray-100 text-gray-700';
   return (
     <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${clases}`}>
-      {estado || '—'}
+      {estado ? etiquetaEstado(estado) : '—'}
     </span>
   );
 }

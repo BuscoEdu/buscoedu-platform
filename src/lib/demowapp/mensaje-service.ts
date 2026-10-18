@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   agenteExecutor,
+  ErrorSinIa,
   esErrorCanalFailClosed,
   resolverAgenteDelCanal,
   type SalidaEjecucion
@@ -86,6 +87,16 @@ async function callNaiaFromServer(input: {
     };
   } catch (err) {
     if (esErrorCanalFailClosed(err)) throw err;
+    // BA-034 (C3): sin IA → mensaje fijo y escalamiento a una persona (error_bot).
+    if (err instanceof ErrorSinIa) {
+      console.warn('[demowapp] error_bot: sin IA disponible');
+      return {
+        mensaje: err.mensaje_estudiante,
+        requiere_escalamiento: true,
+        espera_respuesta: true,
+        conversationId: input.conversationId
+      };
+    }
     console.error('[demowapp] NaIA canal whatsapp', err);
     return {
       mensaje: MENSAJE_FALLBACK_PROVEEDOR,

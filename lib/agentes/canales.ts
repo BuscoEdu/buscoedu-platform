@@ -1,87 +1,78 @@
 /**
- * BA-029 — resolución explícita de canal (web | whatsapp).
+ * BA-029 — resolución explícita de canal. BA-039 — sin lista fija en código.
  *
  * Misma NaIA, distinta fila de `configuraciones_agente_canal` y distinto
  * componente `tipo_contexto=canal`. No hay segundo bot ni tablas nuevas.
  *
- * Fail-closed: un código distinto de web/whatsapp, un canal inactivo o una
- * versión sin config activa no cae en silencio al canal web.
+ * BA-039: el canal válido se lee de `canales_ia.activo` (ver `canalesActivos.ts`).
+ * Fail-closed: un código desconocido o inactivo, un error de BD o una tabla
+ * sin canales activos se rechazan; nunca caen en silencio al canal web.
  */
 
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
+import {
+  CODIGOS_ERROR_CANAL_FAIL_CLOSED,
+  componenteContextoAplicaAlCanal,
+  crearRegistroCanales,
+  esErrorCanalFailClosed,
+  estadoHttpErrorCanal,
+  resolverCodigoCanal,
+  type FuenteCanalesIa
+} from './canalesActivos';
 import { AgenteEjecucionError } from './errores';
 
-export const CANALES_IA_SOPORTADOS = ['web', 'whatsapp'] as const;
-
-export type CodigoCanalIa = (typeof CANALES_IA_SOPORTADOS)[number];
-
-/** Errores que la API debe devolver tal cual, sin fallback conversacional ni canal web. */
-export const CODIGOS_ERROR_CANAL_FAIL_CLOSED = [
-  'canal_invalido',
-  'canal_no_encontrado',
-  'canal_no_configurado',
-  'agente_canal_no_asignado'
-] as const;
-
-const CANALES_VALIDOS = new Set<string>(CANALES_IA_SOPORTADOS);
-
-export function esErrorCanalFailClosed(error: unknown): error is AgenteEjecucionError {
-  return (
-    error instanceof AgenteEjecucionError &&
-    (CODIGOS_ERROR_CANAL_FAIL_CLOSED as readonly string[]).includes(error.codigo)
-  );
-}
-
-/** 400 si el cliente pidió un código ilegible; 422 si el canal existe en el contrato pero no está usable. */
-export function estadoHttpErrorCanal(codigo: string): number {
-  return codigo === 'canal_invalido' ? 400 : 422;
-}
+// BA-039: estas piezas viven en el módulo puro (testeable sin BD); se re-exportan
+// aquí para no cambiar los imports de rutas y del executor.
+export {
+  CODIGOS_ERROR_CANAL_FAIL_CLOSED,
+  componenteContextoAplicaAlCanal,
+  esErrorCanalFailClosed,
+  estadoHttpErrorCanal
+};
 
 /**
- * Resuelve `codigo_canal` pedido por la API.
- *
- * - ausente o null → `web` (contrato histórico de POST /api/naia y el chat web)
- * - `web` | `whatsapp` (mayúsculas y espacios se normalizan) → ese canal
- * - cualquier otro valor, incluido string vacío → `canal_invalido`
+ * Código de canal ya validado contra `canales_ia.activo`.
+ * BA-039: deja de ser la unión fija 'web' | 'whatsapp'; el valor sale de la BD.
  */
-export function resolverCodigoCanalExplicito(valor: unknown): CodigoCanalIa {
-  if (valor === undefined || valor === null) return 'web';
-  if (typeof valor !== 'string') {
-    throw new AgenteEjecucionError('codigo_canal debe ser web o whatsapp.', 'canal_invalido');
-  }
-  const codigo = valor.trim().toLowerCase();
-  if (!CANALES_VALIDOS.has(codigo)) {
-    const mostrado = codigo.slice(0, 40) || '(vacío)';
-    throw new AgenteEjecucionError(
-      `codigo_canal no soportado: ${mostrado}. Use web o whatsapp.`,
-      'canal_invalido'
-    );
-  }
-  return codigo as CodigoCanalIa;
-}
+export type CodigoCanalIa = string;
 
 /**
- * Un componente `tipo_contexto=canal` entra al prompt solo si su código
- * identifica el canal activo.
- *
- * Convención de Centro IA: el último segmento de `codigo` (separado por `_`)
- * es el `canales_ia.codigo`. Ejemplos: `contexto_canal_web`, `contexto_canal_whatsapp`.
- * El resto de tipos (identidad, reglas, formato…) no se filtra.
- * Un bloque de canal mal nombrado se excluye en todos los canales: no se mezcla.
+ * Fuente real de canales: `canales_ia` con `activo = true` vía service_role.
+ * Qué hace: lee solo `codigo, activo` y vuelve a filtrar `activo === true` en código.
+ * Para qué: que un error de lectura lance (→ rechazo) en vez de devolver lista vacía o cruda.
+ * No registra el detalle del error de Supabase (podría traer datos de conexión), solo su código.
  */
-export function componenteContextoAplicaAlCanal(
-  componente: { tipo_contexto?: string | null; codigo?: string | null },
-  codigoCanal: string
-): boolean {
-  const tipo = (componente.tipo_contexto || '').trim().toLowerCase();
-  if (tipo !== 'canal') return true;
+export const fuenteCanalesSupabase: FuenteCanalesIa = {
+  async listarCanalesActivos() {
+    const { data, error } = await getServiceRoleClient()
+      .from('canales_ia')
+      .select('codigo, activo')
+      .eq('activo', true);
+    if (error) {
+      console.error('[BA-039 canales] No se pudo leer canales_ia:', error.code || 'sin_codigo');
+      throw new Error('lectura_canales_ia_fallida');
+    }
+    return (data || [])
+      .filter((fila: { activo?: unknown }) => fila.activo === true)
+      .map((fila: { codigo?: unknown }) => String(fila.codigo ?? ''));
+  }
+};
 
-  const codigo = (componente.codigo || '').trim().toLowerCase();
-  const canal = codigoCanal.trim().toLowerCase();
-  if (!codigo || !canal) return false;
+/** Registro compartido del proceso, con caché corta (30 s) sobre la fuente de Supabase. */
+const registroCanales = crearRegistroCanales(fuenteCanalesSupabase);
 
-  const ultimoSegmento = codigo.split('_').filter(Boolean).pop();
-  return ultimoSegmento === canal;
+/**
+ * Resuelve `codigo_canal` pedido por la API (POST /api/naia y simulador).
+ *
+ * - ausente o null → `web` (contrato histórico), siempre que `web` esté activo en BD
+ * - código activo en `canales_ia` (mayúsculas y espacios se normalizan) → ese canal
+ * - desconocido, inactivo, vacío o no texto → `canal_invalido` (400)
+ * - error de BD o ningún canal activo → `canales_no_disponibles` (503)
+ *
+ * BA-039: ahora es asíncrona porque consulta la BD (con caché corta).
+ */
+export function resolverCodigoCanalExplicito(valor: unknown): Promise<CodigoCanalIa> {
+  return resolverCodigoCanal(valor, registroCanales);
 }
 
 /**

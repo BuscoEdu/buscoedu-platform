@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import AdminNav from '@/components/admin/AdminNav';
 import { getSupabaseClient } from '@/src/lib/supabase';
+import { etiquetaRolUsuario } from '@/src/lib/admin-ia/etiquetas';
 
 type AdminLayoutProps = {
   children: React.ReactNode;
@@ -107,7 +108,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <p className="text-sm font-semibold text-buscoedu-text">{userName}</p>
             </div>
             <span className="rounded-full bg-buscoedu-bg px-3 py-1 text-xs font-medium text-buscoedu-blue">
-              {roleCode}
+              {/* Rol legible (super_admin → Superadministrador); el código sigue sirviendo para filtrar el menú. */}
+              {etiquetaRolUsuario(roleCode)}
             </span>
             <Link
               href="/"

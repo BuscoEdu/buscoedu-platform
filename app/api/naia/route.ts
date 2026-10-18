@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   agenteExecutor,
+  ErrorSinIa,
   esErrorCanalFailClosed,
   estadoHttpErrorCanal,
   resolverAgenteDelCanal,
@@ -174,7 +175,8 @@ export async function POST(req: NextRequest) {
     mensaje = (body?.mensaje ?? '').toString();
     conversationId = body?.conversationId || undefined;
     // BA-029: explícito. Omitido o null = web. Otro valor = canal_invalido (no cae a web).
-    codigoCanal = resolverCodigoCanalExplicito(body?.codigo_canal);
+    // BA-039: el canal debe estar activo en canales_ia; error de BD = canales_no_disponibles (503).
+    codigoCanal = await resolverCodigoCanalExplicito(body?.codigo_canal);
 
     // Captura contexto visible en frontend para responder preguntas de detalle.
     if (body?.contexto_ofertas && typeof body.contexto_ofertas === 'object') {
@@ -235,6 +237,14 @@ export async function POST(req: NextRequest) {
     if (falloCanal) {
       console.error('[api/naia] Canal no disponible:', err);
       return falloCanal;
+    }
+    // BA-034 (C3): ningún modelo respondió → mensaje fijo honesto + paso a persona / web.
+    if (err instanceof ErrorSinIa) {
+      console.warn('[api/naia] error_bot: sin IA disponible');
+      return NextResponse.json(
+        { ...fallback(conversationId, err.mensaje_estudiante), pregunta_seguimiento: null },
+        { status: 200 }
+      );
     }
     console.error('[api/naia] Error ejecutando el agente:', err);
     return NextResponse.json(fallback(conversationId), { status: 200 });
