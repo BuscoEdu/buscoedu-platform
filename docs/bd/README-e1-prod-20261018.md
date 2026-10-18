@@ -124,3 +124,12 @@ Va en orden inverso, de 160000 a 100000. Cada archivo saca su fila del historial
 | 2026-10-18 16:07 | Ensayo en prod con rollback: 7 migraciones, y 7 migraciones + 7 deshaceres | Detectar errores sin dejar cambios | Base de datos BuscoEdu (bot), OK de Jhon vía Orquestador |
 | 2026-10-18 16:08 | Aplicadas 100000 → 160000 una por una, cada una registrada en el historial en su transacción | Habilitar E1 en prod | Base de datos BuscoEdu (bot), OK de Jhon vía Orquestador |
 | 2026-10-18 16:09–16:10 | Verificación final, prueba transaccional y advisors | Confirmar el estado y la seguridad | Base de datos BuscoEdu (bot), OK de Jhon vía Orquestador |
+
+## Ajustes posteriores (2026-10-18)
+- **Advisor search_path ✓ aplicado:** `ALTER FUNCTION public.fn_ia_solo_insercion() SET search_path = public;` → `proconfig = {search_path=public}`. Archivo: `supabase/ops/20261018_e1_fix_search_path_solo_insercion.sql`. Deshacer: `... RESET search_path`.
+- **Transferencia obligatoria:** confirmado por el Orquestador como esperado (sin consentimiento no hay lead, también en por_inscrito).
+- **fn_cambiar_etapa (preparado, NO aplicado):** `supabase/ops/20261018_hotfix_revocar_execute_cambiar_etapa.sql` (+ `_deshacer`). El Lead Center la llama como `authenticated`; fase 1 quita PUBLIC/anon sin romper; fase 2 requiere que Backend pase el route a service_role.
+
+| Fecha | Qué | Por qué | Quién |
+|---|---|---|---|
+| 2026-10-18 | search_path fijo en fn_ia_solo_insercion (prod) + SQL preparado de permisos fn_cambiar_etapa | Advisor de seguridad + hueco previo de RPC pública | Base de datos BuscoEdu (bot), OK E1 vía Orquestador |
