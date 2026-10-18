@@ -1,0 +1,5 @@
+{"tomado":"2026-10-18 ~17:35 (UTC+2)","policies_nuevas":["usuarios_internos.usuario_lee_su_perfil_usuarios_internos SELECT authenticated USING (auth_user_id = auth.uid())","roles.usuario_lee_su_rol_roles SELECT authenticated USING (id IN (rol_id del propio usuario))"],
+"policies_sin_cambio":["las 7 solo_super_admin_* de antes"],
+"verificacion_sql_antes":{"asesor":{"ui_filas":0,"roles":null},"super_admin":{"ui_filas":3,"roles_filas":7},"anon":{"ui_filas":0,"roles_filas":0}},
+"verificacion_sql_despues":{"asesor":{"ui_filas":1,"ui_es_la_suya":true,"super_admin_visibles":0,"roles_visibles":["asesor"],"consulta_middleware":[{"rol":"asesor","activo":true}]},"super_admin":{"ui_filas":3,"roles_filas":7},"anon":{"ui_filas":0,"roles_filas":0}},
+"prueba_real":{"login":200,"rest_usuarios_internos_sin_filtro":"200, 1 fila (edc0fed8)","consulta_middleware":"200, 1 fila, activo=true, rol asesor","rest_roles":"200 [asesor]","anon_usuarios_internos":"200 []"}}

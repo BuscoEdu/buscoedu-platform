@@ -1,0 +1,8 @@
+{"tomado":"2026-10-18 ~17:30 (UTC+2)","fuente":"pg_policies schemaname=public","policies":[
+{"tabla":"roles","policy":"solo_super_admin_delete_roles","cmd":"DELETE","permissive":"PERMISSIVE","roles":["authenticated"],"qual":"is_super_admin()","with_check":null},
+{"tabla":"roles","policy":"solo_super_admin_insert_roles","cmd":"INSERT","permissive":"PERMISSIVE","roles":["authenticated"],"qual":null,"with_check":"is_super_admin()"},
+{"tabla":"roles","policy":"solo_super_admin_select_roles","cmd":"SELECT","permissive":"PERMISSIVE","roles":["authenticated"],"qual":"is_super_admin()","with_check":null},
+{"tabla":"roles","policy":"solo_super_admin_update_roles","cmd":"UPDATE","permissive":"PERMISSIVE","roles":["authenticated"],"qual":"is_super_admin()","with_check":"is_super_admin()"},
+{"tabla":"usuarios_internos","policy":"solo_super_admin_insert_usuarios_internos","cmd":"INSERT","permissive":"PERMISSIVE","roles":["authenticated"],"qual":null,"with_check":"is_super_admin()"},
+{"tabla":"usuarios_internos","policy":"solo_super_admin_select_usuarios_internos","cmd":"SELECT","permissive":"PERMISSIVE","roles":["authenticated"],"qual":"is_super_admin()","with_check":null},
+{"tabla":"usuarios_internos","policy":"solo_super_admin_update_usuarios_internos","cmd":"UPDATE","permissive":"PERMISSIVE","roles":["authenticated"],"qual":"is_super_admin()","with_check":"is_super_admin()"}]}
