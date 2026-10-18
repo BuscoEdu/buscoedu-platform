@@ -37,9 +37,15 @@ export class AbacusAdapter {
      * sampling extremo; el default vive en `TEMPERATURA_NAIA`.
      */
     temperature?: number;
+    /**
+     * BA-034: token leído de Vault (`fn_ia_leer_clave`). Opcional: si no viene,
+     * se lee la variable de entorno `referencia_secreto` exactamente como antes.
+     * Nunca se loguea.
+     */
+    token_despliegue?: string;
   }): Promise<ResultadoAdaptador> {
     const deploymentId = process.env[params.identificador_externo];
-    const deploymentToken = process.env[params.referencia_secreto];
+    const deploymentToken = params.token_despliegue || process.env[params.referencia_secreto];
 
     if (!deploymentId || !deploymentToken) {
       throw new Error(

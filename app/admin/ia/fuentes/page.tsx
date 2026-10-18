@@ -9,7 +9,7 @@ export default function FuentesPage() {
       <CajaAyuda titulo="¿Qué son las fuentes de contexto?">
         <p>
           Las fuentes son las tablas de la base de datos que el agente puede
-          consultar. Por ejemplo, &quot;ofertas_publicadas&quot; le permite a NaIA
+          consultar. Por ejemplo, &quot;Ofertas publicadas&quot; le permite a NaIA
           saber qué programas están disponibles. El agente SOLO puede ver datos de
           las fuentes que tengan estado &quot;activo&quot;.
         </p>
@@ -21,12 +21,11 @@ export default function FuentesPage() {
       textoNuevo="Nueva fuente"
       columnas={[
         { clave: 'nombre', etiqueta: 'Nombre' },
-        { clave: 'codigo', etiqueta: 'Código' },
         { clave: 'tipo_fuente', etiqueta: 'Tipo' },
         { clave: 'entidad_origen', etiqueta: 'Entidad origen' }
       ]}
       campos={[
-        { clave: 'codigo', etiqueta: 'Código', tipo: 'texto', requerido: true },
+        { clave: 'codigo', etiqueta: 'Identificador interno', tipo: 'texto', requerido: true, ayuda: 'Minúsculas y guion bajo, sin espacios. Es interno: no se muestra al público.' },
         { clave: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true },
         { clave: 'tipo_fuente', etiqueta: 'Tipo de fuente', tipo: 'texto' },
         { clave: 'entidad_origen', etiqueta: 'Entidad origen', tipo: 'texto' },
@@ -34,7 +33,7 @@ export default function FuentesPage() {
           clave: 'configuracion_consulta',
           etiqueta: 'Configuración de consulta (JSON)',
           tipo: 'json',
-          ayuda: 'Objeto JSON con la configuración de la consulta.'
+          ayuda: 'Configuración de la consulta en formato JSON (texto estructurado).'
         },
         { clave: 'reglas_filtro', etiqueta: 'Reglas de filtro', tipo: 'textarea' },
         { clave: 'estado', etiqueta: 'Estado', tipo: 'texto' }

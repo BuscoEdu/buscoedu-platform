@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import TablaEjecuciones, { EjecucionItem } from '@/components/admin/ia/TablaEjecuciones';
 import CajaAyuda from '@/components/admin/CajaAyuda';
 import Link from 'next/link';
+import { etiquetaCanal } from '@/src/lib/admin-ia/etiquetas';
 
 async function getJson(url: string) {
   const res = await fetch(url, { cache: 'no-store' });
@@ -96,7 +97,7 @@ export default function EjecucionesPage() {
               <option value="">Todos</option>
               {canales.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.nombre}
+                  {etiquetaCanal(c.nombre || c.codigo)}
                 </option>
               ))}
             </select>
@@ -109,8 +110,8 @@ export default function EjecucionesPage() {
               className="w-full rounded-lg border border-buscoedu-border px-3 py-2"
             >
               <option value="">Todos</option>
-              <option value="exitoso">Exitoso</option>
-              <option value="fallback">Fallback</option>
+              <option value="exitoso">Exitosa</option>
+              <option value="fallback">Respuesta de respaldo</option>
               <option value="error">Error</option>
             </select>
           </label>

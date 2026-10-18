@@ -40,26 +40,67 @@ const ETIQUETA_SESION: Record<ClaveSesion, string> = {
 };
 
 /**
- * Voz que prevalece sobre componentes viejos que pedían tono rígido
- * o prohibían markdown en todo el JSON.
+ * BA-039 — La voz de NaIA se arma con 4 piezas, en este orden fijo:
+ *   1. VOZ (editable en BD: componente tipo_contexto=voz)
+ *   2. REGLAS FIJAS DE DATOS (solo código: no inventar datos del estudiante ni crear leads)
+ *   3. CONTRATO DE SALIDA (editable en BD: componente tipo_contexto=contrato_salida)
+ *   4. REGLAS FIJAS DE CATÁLOGO (solo código: no inventar ofertas/precios/universidades)
+ * Para qué: el panel puede editar tono y formato (criterio E1) sin poder borrar
+ * las reglas de no inventar (criterio E3). Con los textos por defecto, el
+ * resultado es byte a byte el BLOQUE_VOZ_NAIA de BA-024 (criterio E2).
  */
-export const BLOQUE_VOZ_NAIA = [
+
+/** Pieza 1 — Voz por defecto. Es la copia en código del componente `voz_naia` (respaldo si la BD no la trae). */
+export const VOZ_NAIA_POR_DEFECTO = [
   'VOZ NAIA (BA-024; prevalece sobre un tono de formulario y sobre “sin markdown”):',
   'Habla de tú, en español colombiano neutro: cercana, clara y concreta. Guía como asesora de orientación, no como una encuesta ni un call center.',
   'No favoreces ninguna universidad. BuscoEdu solo orienta: no prometas admisión, cupo ni beca.',
-  'Una sola pregunta por turno, al final, y solo si de verdad falta un dato. Si la persona ya dijo algo, valídalo en una frase corta y no lo vuelvas a preguntar.',
+  'Una sola pregunta por turno, al final, y solo si de verdad falta un dato. Si la persona ya dijo algo, valídalo en una frase corta y no lo vuelvas a preguntar.'
+].join('\n');
+
+/** Pieza 2 — Reglas fijas de datos del estudiante. No viven en BD: el panel no las puede borrar. */
+export const REGLAS_FIJAS_DATOS_NAIA = [
   'No inventes ciudad, modalidad, presupuesto, nivel, intereses ni contacto. Si no está en SESION_ESTUDIANTE ni en este mensaje, no existe.',
-  'No pidas cédula, correo ni celular para explorar. Si los dice, recuérdalos y no los repitas. No crees un lead ni los envíes a una universidad.',
+  'No pidas cédula, correo ni celular para explorar. Si los dice, recuérdalos y no los repitas. No crees un lead ni los envíes a una universidad.'
+].join('\n');
+
+/** Pieza 3 — Contrato de salida por defecto. Copia en código del componente `contrato_salida_naia`. */
+export const CONTRATO_SALIDA_NAIA_POR_DEFECTO = [
   'FORMATO del campo "mensaje": markdown con vida. **Negrita** en lo clave. Dos a cuatro oraciones y, si hay opciones, viñetas cortas. Sin muro de texto y sin grilla de encuesta.',
   'Responde SOLO JSON válido, sin fences ni texto fuera. El markdown vive dentro del string mensaje.',
   'Estructura: {"mensaje":"...","filtros":{"programa_o_area":null,"modalidad":null,"ciudad":null,"pais":null,"nivel_academico":null,"tipo_beneficio":null,"universidad":null},"pregunta_seguimiento":"una pregunta o null","opciones_sugeridas":[]}',
-  'filtros: solo lo que la persona dijo, o null. opciones_sugeridas: [] o como máximo dos frases en sus palabras. No uses una grilla fija.',
+  'filtros: solo lo que la persona dijo, o null. opciones_sugeridas: [] o como máximo dos frases en sus palabras. No uses una grilla fija.'
+].join('\n');
+
+/** Pieza 4 — Reglas fijas de catálogo (no inventar). No viven en BD: el panel no las puede borrar. */
+export const REGLAS_FIJAS_CATALOGO_NAIA = [
   'CATÁLOGO: no inventes ofertas, precios, requisitos ni universidades. Si mencionas fichas, máximo 8 y solo las que vengan en el contexto. Mi lista, Aplicar y Autorizar contacto son pasos distintos; sin consentimiento vigente no hay lead a una universidad y tú no lo creas.',
   // El contexto ya trae la etiqueta; el modelo no debe repetir el código de catálogo.
   'Nunca escribas códigos internos en MAYÚSCULAS_CON_GUIONES, usá la etiqueta humana.'
 ].join('\n');
 
-/** Contrato JSON de DemoWapp: el mensaje sigue las mismas reglas de voz. */
+/**
+ * Une las 4 piezas en el bloque de voz que recibe el modelo.
+ * Qué hace: intercala voz/contrato (editables) con las reglas fijas.
+ * Para qué: que cualquier texto de voz/contrato que venga de BD quede siempre
+ * acompañado de las reglas de no inventar, en el mismo orden de BA-024.
+ */
+export function componerBloqueVozNaia(voz: string, contratoSalida: string): string {
+  return [voz, REGLAS_FIJAS_DATOS_NAIA, contratoSalida, REGLAS_FIJAS_CATALOGO_NAIA].join('\n');
+}
+
+/**
+ * Voz que prevalece sobre componentes viejos que pedían tono rígido
+ * o prohibían markdown en todo el JSON. BA-039: es la composición con los
+ * textos por defecto (idéntica al literal de BA-024; lo prueba el test de regresión).
+ */
+export const BLOQUE_VOZ_NAIA = componerBloqueVozNaia(VOZ_NAIA_POR_DEFECTO, CONTRATO_SALIDA_NAIA_POR_DEFECTO);
+
+/**
+ * Contrato JSON de DemoWapp: el mensaje sigue las mismas reglas de voz.
+ * BA-039: copia en código del componente `contrato_salida_naia_whatsapp`
+ * (tipo_contexto=contrato_salida_canal). Respaldo si la BD no lo trae.
+ */
 export const CONTRATO_JSON_WAPP = [
   'Además del mensaje en markdown, el JSON de este canal incluye:',
   '{"mensaje":"...","resumen_actualizado":"...","intencion_detectada":"...","siguiente_accion_sugerida":"...","requiere_escalamiento":false,"espera_respuesta":true}',

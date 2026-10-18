@@ -133,7 +133,7 @@ Semilla: `supabase/seeds/centro_agentes_ia_seed.sql`.
 1. Panel `/admin/ia/canales` → **Nuevo canal** (código, nombre, tipo).
 2. En el editor de la versión del agente, pestaña **Canales** → agrega el canal y
    define tono / nombre público.
-3. Para exponerlo en runtime, invoca el executor con `codigo_canal` de ese canal. `POST /api/naia` y el simulador aceptan hoy `web` y `whatsapp`; un código nuevo hay que sumarlo a `CANALES_IA_SOPORTADOS` en `lib/agentes/canales.ts`.
+3. Para exponerlo en runtime, invoca el executor con `codigo_canal` de ese canal. Desde BA-039 `POST /api/naia` y el simulador aceptan cualquier canal con `canales_ia.activo = true` (sin lista fija en código; caché de 30 s). Un canal inactivo o desconocido se rechaza (`canal_invalido`, 400) y un error leyendo `canales_ia` también (`canales_no_disponibles`, 503). Ver `docs/backend/README-ba039.md`.
 
 ### 5.3 Cambiar de proveedor / despliegue
 

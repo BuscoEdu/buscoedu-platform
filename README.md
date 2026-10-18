@@ -95,6 +95,22 @@ Deploy:         Vercel → www.buscoedu.com
 Cliente DB:     src/lib/supabase.ts (getSupabaseClient())
 ```
 
+## E1 Ola 3/4 — API admin de IA (BA-036/037/038)
+
+Contrato de las rutas `/api/admin/ia/...` (solo super_admin) para que Frontend construya el asistente «Agregar proveedor», el interruptor con aviso de impacto, el modelo y los respaldos por agente y el tope de gasto diario por canal. Fase 2 implementada: rutas en `app/api/admin/ia/...` → servicios puros en `lib/admin-ia/` (tests en `lib/admin-ia/e1-api.test.ts`). El motor revisa el tope diario del canal antes de cada llamada IA (fail-closed con el texto C3; el canal `panel` de las pruebas de conexión no consulta tope) y calcula el costo con el precio vigente. Detalle, estado por endpoint y bitácora (2026-10-18, Backend BuscoEdu (bot)): [`docs/backend/README-e1-api.md`](docs/backend/README-e1-api.md).
+
+## E1 Ola 3/4 — Panel «IA multiproveedor» (Frontend)
+
+Pantallas de `/admin/ia/multiproveedor` (solo super_admin): asistente de 5 pasos para agregar proveedor, interruptor con aviso de impacto, ficha con bitácora, modelo + respaldos por agente y tope de gasto diario por canal. Usan la API real (`src/lib/admin-ia/api.ts`); el adaptador de ejemplo es solo para pruebas y capturas. El formulario viejo `/admin/ia/proveedores` ahora redirige aquí. Bitácora: 18/10/2026 — panel E1 + reemplazo del formulario viejo — para operar proveedores y topes sin tocar código — Frontend BuscoEdu (bot). 18/10/2026 — pulido QA: etiquetas en español centralizadas en `src/lib/admin-ia/etiquetas.ts` para todo `/admin/ia` (sin códigos ni inglés visibles), «Publicar vN» como único CTA coral en «Modelo por agente», `engines.node` `>=22 <23` y `.nvmrc` — para que el panel se lea en español claro y las pruebas corran con Node 22 — Frontend BuscoEdu (bot). Detalle: [`docs/frontend/README-e1-admin-ia.md`](docs/frontend/README-e1-admin-ia.md).
+
+## BA-034 — Capa IA multiproveedor (E1)
+
+NaIA llama al modelo a través de una capa común (`lib/agentes/llm/`). Abacus sigue siendo el proveedor por defecto y recibe exactamente la misma entrada que antes (decisión 13; lo prueba un test de regresión). OpenAI, xAI, Anthropic, Gemini y OpenRouter entran por el AI SDK de Vercel (decisión 12). Si un modelo falla responde el respaldo, que es opcional. Si no responde ninguno, el estudiante recibe un mensaje honesto con paso a una persona. Las URLs de proveedor salen de una lista fija en código. Las claves se leen de Vault y, si no están, de una variable de entorno. Cada intento deja su costo registrado, y si ese registro falla la respuesta sigue igual. Detalle, migración (sin aplicar), cómo deshacerla y bitácora: [`docs/backend/README-ba034.md`](docs/backend/README-ba034.md).
+
+## BA-039 — Voz de NaIA y canales desde la base de datos (E1)
+
+El tono y el formato de NaIA salen de los componentes `voz_naia`, `contrato_salida_naia` y `contrato_salida_naia_whatsapp` asociados a la versión del agente, así que se editan desde `/admin/ia → Contextos`. Las reglas de no inventar siguen fijas en código. Con el texto de la semilla, NaIA habla exactamente igual que antes (lo prueba un test de regresión). Si la BD no trae la voz, se usa la misma voz desde código y queda un aviso en el log. Los canales válidos se leen de `canales_ia.activo`, sin lista fija. Un canal desconocido o inactivo se rechaza con 400 y un error de BD con 503: nunca cae a web. Detalle, migración (sin aplicar), cómo deshacerla y bitácora: [`docs/backend/README-ba039.md`](docs/backend/README-ba039.md).
+
 ## BA-030 y BA-033 — Demo WApp solo-hilo
 
 En `/demoWapp` y en el modal del estudiante el canal es un hilo a pantalla completa, en móvil y en escritorio. La oferta y las opciones van dentro del chat. Sesiones, búsqueda y CRM no se muestran al lado. El portal NaIA/Explorar (BA-025, BA-026, BA-027, BA-028) no cambia. Nota: [`docs/frontend/README-ba030-ba033.md`](docs/frontend/README-ba030-ba033.md).

@@ -19,15 +19,28 @@ import { etiquetaBeneficio } from '@/src/lib/etiquetas-beneficio';
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { AbacusAdapter } from './AbacusAdapter';
 import { componenteContextoAplicaAlCanal, herramientaPermitidaEnCanal } from './canales';
-import { AgenteEjecucionError } from './errores';
+import { AgenteEjecucionError, ErrorSinIa } from './errores';
+// BA-034: capa IA multi-proveedor (Abacus por defecto + AI SDK) con respaldo y costo.
+import { construirCadena } from './llm/cadena';
+import { ejecutarConRespaldo, esRespuestaNaiaValida, type ResultadoMotor } from './llm/motor';
+import { despliegueDesdeFila, type FilaDespliegue } from './llm/proveedores';
+import { prepararLlamadaIa, type PreparacionLlamada } from './llm/preparar';
+import { controlGastoSupabase, lectorClavesSupabase, registroCostoSupabase, resolutorPreciosSupabase } from './llm/supabase';
+import type { DespliegueLLM } from './llm/tipos';
 import { cargarMemoriaSesion } from './sesionEstudianteStore';
 import type { ConfiguracionAgente, EntradaEjecucion, SalidaEjecucion } from './tipos';
+// BA-039: la voz y el contrato de salida se leen de BD (componentes de la versión).
 import {
-  BLOQUE_VOZ_NAIA,
+  avisarVozNaia,
+  componerEntradaTurnoNaia,
+  esTipoContextoVoz,
+  resolverVozNaia,
+  type ComponenteVozFila
+} from './vozDesdeBd';
+import {
   acumularFiltros,
   detectarAperturas,
   extraerSlotsDeclarados,
-  CONTRATO_JSON_WAPP,
   fusionarSesion,
   incorporarFiltrosDichos,
   serializarSesion,
@@ -379,15 +392,24 @@ export class AgenteExecutor {
       throw new AgenteEjecucionError('No se pudieron cargar los contextos', 'error_contextos');
     }
 
-    const contextos = (contextosRows || [])
-      .map((row: any) => ({
-        orden: row.orden as number,
-        rol_contexto: row.rol_contexto as string,
-        codigo: (row.componentes_contexto_ia?.codigo as string) || '',
-        tipo_contexto: (row.componentes_contexto_ia?.tipo_contexto as string) || '',
-        contenido: (row.componentes_contexto_ia?.contenido as string) || '',
-        activo: row.componentes_contexto_ia?.activo !== false
-      }))
+    const filasContexto = (contextosRows || []).map((row: any) => ({
+      orden: row.orden as number,
+      rol_contexto: row.rol_contexto as string,
+      codigo: (row.componentes_contexto_ia?.codigo as string) || '',
+      tipo_contexto: (row.componentes_contexto_ia?.tipo_contexto as string) || '',
+      contenido: (row.componentes_contexto_ia?.contenido as string) || '',
+      activo: row.componentes_contexto_ia?.activo !== false
+    }));
+
+    // BA-039: los componentes voz / contrato_salida / contrato_salida_canal no van al
+    // prompt de sistema general (se duplicarían); arman el bloque de voz con reglas fijas.
+    // Si la BD no los trae, resolverVozNaia usa la copia en código y deja aviso en log.
+    const componentesVoz: ComponenteVozFila[] = filasContexto.filter((c) => esTipoContextoVoz(c.tipo_contexto));
+    const voz = resolverVozNaia(componentesVoz, canal.codigo);
+    avisarVozNaia(voz, { agente: agente.codigo, version: version.numero_version, canal: canal.codigo });
+
+    const contextos = filasContexto
+      .filter((c) => !esTipoContextoVoz(c.tipo_contexto))
       .filter(
         (c) =>
           c.activo &&
@@ -404,7 +426,7 @@ export class AgenteExecutor {
     }
 
     // BA-024: no se antepone “Tono para este canal: cercano”.
-    // Esa etiqueta sonaba a formulario; la voz vive en BLOQUE_VOZ_NAIA.
+    // Esa etiqueta sonaba a formulario; la voz vive en el componente `voz` (BA-039; respaldo BLOQUE_VOZ_NAIA).
     // BA-029: sí entran longitud, reglas y plantilla de ESTE canal (no del otro).
     const reglasCanal = [
       typeof configuracionCanal.longitud_maxima_respuesta === 'number'
@@ -440,9 +462,13 @@ export class AgenteExecutor {
       throw new AgenteEjecucionError('La versión no tiene despliegue seleccionado', 'sin_despliegue_asignado');
     }
 
+    // BA-034: además del despliegue se lee su proveedor (código y si está encendido)
+    // para elegir el adaptador y aplicar fail-closed de proveedor.
+    const SELECT_DESPLIEGUE =
+      'id, activo, estado, modelo, identificador_externo, referencia_secreto, configuracion_tecnica, proveedores_ia:proveedor_id(codigo, activo, estado)';
     const resultadoPorSnapshot = await db
       .from('despliegues_ia')
-      .select('id, identificador_externo, referencia_secreto, configuracion_tecnica')
+      .select(SELECT_DESPLIEGUE)
       .eq('activo', true)
       .eq('estado', 'activo')
       .eq('id', despliegueIdSnapshot)
@@ -457,6 +483,30 @@ export class AgenteExecutor {
     }
     if (!despliegue.identificador_externo || !despliegue.referencia_secreto) {
       throw new AgenteEjecucionError('Despliegue sin referencias de entorno', 'despliegue_incompleto');
+    }
+    const despliegueLlm = despliegueDesdeFila(despliegue as unknown as FilaDespliegue);
+
+    // 8) BA-034: respaldos opcionales (decisión 22), en el orden del snapshot.
+    //    Si no se pueden leer, se sigue solo con el principal (igual que hoy) y se avisa.
+    const respaldoIds = (version.configuracion_snapshot as Record<string, unknown> | null)?.['despliegues_respaldo_ids'];
+    let respaldos: DespliegueLLM[] = [];
+    if (Array.isArray(respaldoIds) && respaldoIds.length > 0) {
+      const ids = respaldoIds.filter((x): x is string => typeof x === 'string' && x !== despliegue.id).slice(0, 5);
+      if (ids.length > 0) {
+        const { data: filasRespaldo, error: errorRespaldo } = await db
+          .from('despliegues_ia')
+          .select(SELECT_DESPLIEGUE)
+          .in('id', ids);
+        if (errorRespaldo) {
+          console.warn('[BA-034] No se pudieron leer los respaldos; se usa solo el principal.', errorRespaldo.code || '');
+        } else {
+          const porId = new Map((filasRespaldo || []).map((f: any) => [f.id as string, f]));
+          respaldos = ids
+            .map((id) => porId.get(id))
+            .filter(Boolean)
+            .map((f) => despliegueDesdeFila(f as unknown as FilaDespliegue));
+        }
+      }
     }
 
     return {
@@ -475,11 +525,14 @@ export class AgenteExecutor {
         id: despliegue.id,
         identificador_externo: despliegue.identificador_externo,
         referencia_secreto: despliegue.referencia_secreto,
-        configuracion_tecnica: (despliegue.configuracion_tecnica as Record<string, unknown>) ?? null
+        configuracion_tecnica: (despliegue.configuracion_tecnica as Record<string, unknown>) ?? null,
+        llm: despliegueLlm
       },
+      respaldos,
       canal: { id: canal.id, codigo: canal.codigo },
       contextos,
-      herramientas
+      herramientas,
+      voz
     };
   }
 
@@ -491,6 +544,8 @@ export class AgenteExecutor {
     duracion_ms: number;
     respuesta?: Record<string, unknown> | null;
     error?: string | null;
+    /** BA-034: despliegue que respondió de verdad (un respaldo); por defecto el principal. */
+    despliegue_id?: string;
   }): Promise<string | undefined> {
     try {
       const db = getServiceRoleClient();
@@ -507,7 +562,7 @@ export class AgenteExecutor {
         .insert({
           agente_id: params.config.agente.id,
           version_agente_id: params.config.version.id,
-          despliegue_id: params.config.despliegue.id,
+          despliegue_id: params.despliegue_id ?? params.config.despliegue.id,
           canal_id: params.config.canal.id,
           conversacion_id: conversacionId,
           estado: params.estado,
@@ -560,45 +615,92 @@ export class AgenteExecutor {
     const esTurnoSeguimiento = Boolean(entrada.conversation_id);
     const bloqueContextoOfertas = esTurnoSeguimiento ? construirBloqueContextoOfertas(entrada) : '';
     const bloqueContextoCrm = construirBloqueContextoCrm(entrada);
-    const voz =
-      config.canal.codigo === 'whatsapp'
-        ? `${BLOQUE_VOZ_NAIA}\n\n${CONTRATO_JSON_WAPP}`
-        : BLOQUE_VOZ_NAIA;
-    const promptEfectivo = esTurnoSeguimiento
-      ? ''
-      : `${promptSistema}\n\n${voz}\n\n${bloqueSesion}`;
-    const extrasUsuario = [bloqueContextoCrm, bloqueContextoOfertas].filter(
-      (parte) => typeof parte === 'string' && parte.trim()
-    );
-    const mensajeUsuarioEnriquecido = esTurnoSeguimiento
-      ? [voz, bloqueSesion, `Mensaje del estudiante:\n${entrada.mensaje_usuario}`, ...extrasUsuario].join('\n\n')
-      : [entrada.mensaje_usuario, ...extrasUsuario].join('\n\n');
+    // BA-039: la voz (y el contrato de WhatsApp) ya viene resuelta desde BD en config.voz;
+    // antes era `BLOQUE_VOZ_NAIA` (+ `CONTRATO_JSON_WAPP` en whatsapp) fijo en código.
+    const { promptEfectivo, mensajeUsuarioEnriquecido } = componerEntradaTurnoNaia({
+      promptSistema,
+      voz: config.voz.texto,
+      bloqueSesion,
+      mensajeUsuario: entrada.mensaje_usuario,
+      extrasUsuario: [bloqueContextoCrm, bloqueContextoOfertas],
+      esTurnoSeguimiento
+    });
 
-    let resultadoAdaptador;
-    try {
-      resultadoAdaptador = await this.adaptador.ejecutar({
-        prompt_sistema: promptEfectivo,
-        mensaje_usuario: mensajeUsuarioEnriquecido,
-        conversation_id: entrada.conversation_id,
-        identificador_externo: config.despliegue.identificador_externo,
-        referencia_secreto: config.despliegue.referencia_secreto,
-        temperature: temperaturaNaia(config.despliegue.configuracion_tecnica)
-      });
-    } catch (err) {
+    // BA-034: la llamada pasa por la capa IA. Con un único principal Abacus (hoy),
+    // AbacusAdapter recibe exactamente los mismos parámetros que antes (B5 / E2).
+    // Si hay respaldos, se prueban en orden; si nadie responde, C3 (ErrorSinIa).
+    // E1 · BA-038: antes de llamar a la IA, tope diario del canal (D6, fail-closed) y
+    // precio vigente de cada modelo (costo_estimado_usd + precio_version). Las
+    // simulaciones también pasan por aquí y suman al gasto (decisión del Orquestador).
+    const contextoLlamada = {
+      agente_codigo: config.agente.codigo,
+      version_agente_id: config.version.id,
+      canal_codigo: config.canal.codigo,
+      modo_simulacion: entrada.modo_simulacion === true
+    };
+    const preparacion = await prepararLlamadaIa({
+      control: controlGastoSupabase,
+      precios: resolutorPreciosSupabase,
+      registroCosto: registroCostoSupabase,
+      contexto: contextoLlamada,
+      principal: config.despliegue.llm,
+      respaldos: config.respaldos
+    });
+    if (!preparacion.ok) {
+      const bloqueo = preparacion as Extract<PreparacionLlamada, { ok: false }>;
       if (!entrada.modo_simulacion) {
         await this.registrarEjecucion({
           config,
           entrada,
           estado: 'error',
           duracion_ms: Date.now() - inicio,
-          error: err instanceof Error ? err.message : 'error_desconocido'
+          error: `error_bot:${bloqueo.motivo}`
         });
       }
-      throw new AgenteEjecucionError(
-        err instanceof Error ? err.message : 'Error al invocar el proveedor',
-        'error_proveedor'
-      );
+      // Mismo texto que C3 (decisión del Orquestador para el corte por tope).
+      throw new ErrorSinIa(bloqueo.mensaje_estudiante, bloqueo.motivo);
     }
+    const listos = preparacion as Extract<PreparacionLlamada, { ok: true }>;
+
+    const cadena = construirCadena(listos.principal, listos.respaldos, {
+      lector: lectorClavesSupabase,
+      clienteAbacus: this.adaptador
+    });
+    const resultadoIa = await ejecutarConRespaldo({
+      cadena,
+      peticion: {
+        sistema: promptEfectivo,
+        // Para proveedores sin hilo propio (respaldos AI SDK): el prompt completo siempre.
+        sistema_completo: `${promptSistema}\n\n${config.voz.texto}\n\n${bloqueSesion}`,
+        mensaje: mensajeUsuarioEnriquecido,
+        parametros: { temperature: temperaturaNaia(config.despliegue.configuracion_tecnica) },
+        conversacion_externa_id: entrada.conversation_id
+      },
+      validarFormato: esRespuestaNaiaValida,
+      contexto: contextoLlamada,
+      deps: { registroCosto: registroCostoSupabase }
+    });
+
+    if (!resultadoIa.ok) {
+      // tsconfig sin strict: se fija el tipo del caso «sin IA» a mano.
+      const fallo = resultadoIa as Extract<ResultadoMotor, { ok: false }>;
+      if (!entrada.modo_simulacion) {
+        await this.registrarEjecucion({
+          config,
+          entrada,
+          estado: 'error',
+          duracion_ms: Date.now() - inicio,
+          error: `error_bot:${fallo.ultimo_error ?? 'sin_detalle'}`
+        });
+      }
+      throw new ErrorSinIa(fallo.mensaje_estudiante, fallo.ultimo_error ?? 'sin_detalle');
+    }
+    const exitoIa = resultadoIa as Extract<ResultadoMotor, { ok: true }>;
+
+    const resultadoAdaptador = {
+      respuesta_texto: exitoIa.respuesta.texto,
+      conversation_id_nuevo: exitoIa.respuesta.conversacion_externa_id
+    };
 
     const nuevaConversationId = resultadoAdaptador.conversation_id_nuevo ?? entrada.conversation_id ?? null;
     const parsed = extraerJson(resultadoAdaptador.respuesta_texto);
@@ -664,10 +766,21 @@ export class AgenteExecutor {
           entrada,
           estado: 'exitoso',
           duracion_ms: Date.now() - inicio,
+          despliegue_id: exitoIa.despliegue.id,
           respuesta: {
             ...(salida as unknown as Record<string, unknown>),
             // BA-024: la sesión no sale en el contrato público; queda en la bitácora del hilo.
-            sesion_estudiante: sesion
+            sesion_estudiante: sesion,
+            // BA-034 (C2): solo si respondió un respaldo, queda el evento en la bitácora.
+            ...(exitoIa.uso_respaldo
+              ? {
+                  ia: {
+                    evento: exitoIa.evento,
+                    proveedor: exitoIa.despliegue.proveedor_codigo,
+                    modelo: exitoIa.respuesta.modelo_usado
+                  }
+                }
+              : {})
           }
         });
 
