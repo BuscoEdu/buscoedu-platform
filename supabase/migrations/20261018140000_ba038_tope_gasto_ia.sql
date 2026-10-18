@@ -5,7 +5,7 @@
 --
 -- Qué hace:
 --   1. topes_gasto_ia: tope diario (USD) y umbral de alerta (%) por canal/número.
---      Valores por defecto: USD 5 y 80 %. El tope es obligatorio y > 0, y el umbral
+--      Valores por defecto: USD 5 y 80 %. El tope es obligatorio, > 0 y ≤ 1000, y el umbral
 --      va de 1 a 99. No existe "sin límite": NOT NULL + CHECK.
 --   2. bitacora_topes_gasto_ia: quién, cuándo, valor anterior → nuevo (D1).
 --   3. precios_modelo_ia: precio por 1.000 tokens, versionado. Nunca se sobrescribe:
@@ -46,13 +46,13 @@ CREATE TABLE IF NOT EXISTS public.topes_gasto_ia (
   actualizado_en timestamptz NOT NULL DEFAULT now(),
   actualizado_por uuid REFERENCES public.usuarios_internos(id),
   CONSTRAINT topes_gasto_ia_canal_unico UNIQUE (canal_id),
-  CONSTRAINT topes_gasto_ia_tope_check CHECK (tope_diario_usd > 0),
+  CONSTRAINT topes_gasto_ia_tope_check CHECK (tope_diario_usd > 0 AND tope_diario_usd <= 1000),
   CONSTRAINT topes_gasto_ia_umbral_check CHECK (umbral_alerta_pct BETWEEN 1 AND 99)
 );
 
 COMMENT ON TABLE public.topes_gasto_ia IS
   'BA-038. Tope diario de gasto IA (USD) y umbral de alerta (%) por canal/número. Default 5 USD / 80 %. Nunca sin límite.';
-COMMENT ON COLUMN public.topes_gasto_ia.tope_diario_usd IS 'Obligatorio y > 0. Al llegar al 100 % la IA no se llama ese día (D6).';
+COMMENT ON COLUMN public.topes_gasto_ia.tope_diario_usd IS 'Obligatorio, > 0 y ≤ 1000. Al llegar al 100 % la IA no se llama ese día (D6).';
 COMMENT ON COLUMN public.topes_gasto_ia.umbral_alerta_pct IS 'Entre 1 y 99. Al llegar al umbral, el panel muestra la alerta (D5).';
 
 -- Bloque 1b: cada canal existente arranca con los valores por defecto (D2).
@@ -221,8 +221,12 @@ BEGIN
   IF p_tope_diario_usd IS NULL AND p_umbral_alerta_pct IS NULL THEN
     RETURN jsonb_build_object('ok', false, 'error', 'sin_cambios', 'motivo', 'No hay valores para guardar.');
   END IF;
-  IF p_tope_diario_usd IS NOT NULL AND (p_tope_diario_usd <= 0 OR p_tope_diario_usd > 99999999.99) THEN
+  IF p_tope_diario_usd IS NOT NULL AND p_tope_diario_usd <= 0 THEN
     RETURN jsonb_build_object('ok', false, 'error', 'tope_invalido', 'motivo', 'El tope es obligatorio y mayor que 0');
+  END IF;
+  -- Máximo USD 1000/día (decisión del Orquestador 18/10): frena un error de dedo (p. ej. 50000).
+  IF p_tope_diario_usd IS NOT NULL AND p_tope_diario_usd > 1000 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'tope_maximo', 'motivo', 'El tope máximo es USD 1000 al día');
   END IF;
   IF p_umbral_alerta_pct IS NOT NULL AND p_umbral_alerta_pct NOT BETWEEN 1 AND 99 THEN
     RETURN jsonb_build_object('ok', false, 'error', 'umbral_invalido', 'motivo', 'El umbral de alerta debe estar entre 1 y 99 %');
