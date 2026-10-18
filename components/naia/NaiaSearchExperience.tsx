@@ -14,6 +14,7 @@ import {
   type ResultadoOfertas,
 } from "@/src/lib/ofertas";
 import { COPY_CERO_VIGENCIA, repararCopyFiltrado } from "@/components/naia/copyNaia";
+import { paginaAPedir, paginasDesdeCantidad, rangoPagina, siguientePagina } from "@/src/lib/paginacion-ofertas";
 import { etiquetaBeneficio } from "@/src/lib/etiquetas-beneficio";
 import MarkdownNaia from "@/components/naia/markdownNaia";
 import { esSnapshotCompleto, type SnapshotNaia } from "@/components/naia/naiaSession";
@@ -174,6 +175,9 @@ export default function NaiaSearchExperience({
   const cargarCatalogoVigenteRef = useRef<() => Promise<void>>(async () => {});
   const buscarRef = useRef<(mensaje: string, opciones?: { reintento?: boolean }) => Promise<void>>(async () => {});
   const cargandoMasLock = useRef(false);
+  // Páginas del catálogo ya pedidas con éxito al servidor. Define la siguiente página de «Mostrar más»
+  // (antes se calculaba con ofertas.length / 10, que tras deduplicar repetía la misma página).
+  const paginasCargadasRef = useRef(0);
   const [alturaLayoutDesktop, setAlturaLayoutDesktop] = useState<number | null>(null);
   const [hidratado, setHidratado] = useState(false);
   const historialRef = useRef<HTMLDivElement>(null);
@@ -207,6 +211,8 @@ export default function NaiaSearchExperience({
       setFiltrosActuales(parsed.filtros);
       setOfertas(parsed.ofertas);
       setTotal(parsed.total);
+      // Sesión restaurada: equivale a las páginas que ocupan esas ofertas (orden estable, sin duplicados).
+      paginasCargadasRef.current = paginasDesdeCantidad(parsed.ofertas.length, PAGE_SIZE_BUSQUEDA);
       setOrden(parsed.orden);
       setRespuesta(parsed.respuesta);
       setEstado(parsed.estado);
@@ -368,6 +374,7 @@ export default function NaiaSearchExperience({
   ): Promise<Extract<ResultadoOfertas, { ok: true }> | null> => {
     const resultado = await obtenerOfertas(filtros, 0, PAGE_SIZE_BUSQUEDA);
     if (!resultado.ok) {
+      paginasCargadasRef.current = 0;
       setOfertas([]);
       setTotal(0);
       setEstado("error");
@@ -378,6 +385,8 @@ export default function NaiaSearchExperience({
 
     setAvisoConsulta(null);
     setFiltrosActuales(filtros);
+    // Primera página pedida: la próxima de «Mostrar más» es la página 1.
+    paginasCargadasRef.current = 1;
     setOfertas(resultado.ofertas);
     setTotal(Math.max(resultado.total, resultado.ofertas.length));
     return resultado;
@@ -535,8 +544,10 @@ export default function NaiaSearchExperience({
   buscarRef.current = buscar;
 
   /**
-   * Página siguiente. Si ok:false, no altera ofertas ni total y no marca la búsqueda como exitosa.
-   * La página es índice base 0 (no el conteo acumulado).
+   * Página siguiente («Mostrar más»). Si ok:false, no altera ofertas ni total y no marca la búsqueda
+   * como exitosa. La página es índice base 0 y sale de las páginas YA PEDIDAS (no del conteo
+   * deduplicado), y el resultado se integra con siguientePagina (sin duplicados, «hay más» según el
+   * total del servidor). Para qué: llegar a las 50 de 50 sin repetir ni saltar ofertas.
    */
   const cargarMasResultados = async () => {
     if (estaCargando || cargandoMasLock.current) return;
@@ -545,7 +556,7 @@ export default function NaiaSearchExperience({
     cargandoMasLock.current = true;
     setCargandoMas(true);
     try {
-      const pagina = Math.floor(ofertas.length / PAGE_SIZE_BUSQUEDA);
+      const pagina = paginaAPedir(paginasCargadasRef.current);
       const resultado = await obtenerOfertas(filtrosActuales, pagina, PAGE_SIZE_BUSQUEDA);
       if (!resultado.ok) {
         setAvisoConsulta({ ambito: "paginacion", mensaje: COPY_ERROR_PAGINACION });
@@ -556,19 +567,13 @@ export default function NaiaSearchExperience({
       }
 
       setAvisoConsulta((previo) => (previo?.ambito === "paginacion" ? null : previo));
-      const yaCargadas = new Set(ofertas.map((oferta) => oferta.id));
-      const hayNuevas = resultado.ofertas.some((oferta) => !yaCargadas.has(oferta.id));
-      // Página vacía o repetida: no hay más filas reales. No es un error ni un éxito con ítems nuevos.
-      if (resultado.ofertas.length === 0 || !hayNuevas) {
-        setTotal(ofertas.length);
-        return;
-      }
-      setOfertas((actuales) => {
-        const porId = new Map(actuales.map((oferta) => [oferta.id, oferta]));
-        resultado.ofertas.forEach((oferta) => porId.set(oferta.id, oferta));
-        return Array.from(porId.values());
-      });
-      setTotal((totalActual) => Math.max(totalActual, resultado.total, resultado.ofertas.length));
+      const siguiente = siguientePagina(
+        { items: ofertas, paginasCargadas: paginasCargadasRef.current, total },
+        { items: resultado.ofertas, total: resultado.total, desde: rangoPagina(pagina, PAGE_SIZE_BUSQUEDA).desde }
+      );
+      paginasCargadasRef.current = siguiente.paginasCargadas;
+      setOfertas(siguiente.items);
+      setTotal(siguiente.total);
     } catch {
       setAvisoConsulta({ ambito: "paginacion", mensaje: COPY_ERROR_PAGINACION });
       reintentarRef.current = () => {
