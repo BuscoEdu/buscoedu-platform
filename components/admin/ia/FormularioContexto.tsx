@@ -31,7 +31,12 @@ const TIPOS = [
   'regla_negocio',
   'seguridad',
   'canal',
-  'formato_respuesta'
+  'formato_respuesta',
+  // BA-039: piezas del bloque de voz de NaIA (lib/agentes/vozDesdeBd.ts).
+  // Sin estas opciones el select mostraría otro tipo al editar `voz_naia` y se podría guardar mal.
+  'voz',
+  'contrato_salida',
+  'contrato_salida_canal'
 ];
 
 /**

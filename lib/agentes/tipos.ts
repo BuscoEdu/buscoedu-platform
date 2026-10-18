@@ -3,6 +3,7 @@
  */
 
 import type { SesionEstudiante } from './vozNaia';
+import type { VozNaiaResuelta } from './vozDesdeBd';
 import type { SesionHilo } from '@/src/lib/demowapp/sesion-hilo';
 
 export interface ConfiguracionAgente {
@@ -17,6 +18,8 @@ export interface ConfiguracionAgente {
   canal: { id: string; codigo: string };
   contextos: Array<{ orden: number; rol_contexto: string; contenido: string }>;
   herramientas: Array<{ codigo: string; nombre: string; habilitada: boolean }>;
+  /** BA-039: bloque de voz + contrato de salida del canal, leído de BD (con respaldo en código). */
+  voz: VozNaiaResuelta;
 }
 
 export interface EntradaEjecucion {

@@ -22,12 +22,18 @@ import { componenteContextoAplicaAlCanal, herramientaPermitidaEnCanal } from './
 import { AgenteEjecucionError } from './errores';
 import { cargarMemoriaSesion } from './sesionEstudianteStore';
 import type { ConfiguracionAgente, EntradaEjecucion, SalidaEjecucion } from './tipos';
+// BA-039: la voz y el contrato de salida se leen de BD (componentes de la versión).
 import {
-  BLOQUE_VOZ_NAIA,
+  avisarVozNaia,
+  componerEntradaTurnoNaia,
+  esTipoContextoVoz,
+  resolverVozNaia,
+  type ComponenteVozFila
+} from './vozDesdeBd';
+import {
   acumularFiltros,
   detectarAperturas,
   extraerSlotsDeclarados,
-  CONTRATO_JSON_WAPP,
   fusionarSesion,
   incorporarFiltrosDichos,
   serializarSesion,
@@ -379,15 +385,24 @@ export class AgenteExecutor {
       throw new AgenteEjecucionError('No se pudieron cargar los contextos', 'error_contextos');
     }
 
-    const contextos = (contextosRows || [])
-      .map((row: any) => ({
-        orden: row.orden as number,
-        rol_contexto: row.rol_contexto as string,
-        codigo: (row.componentes_contexto_ia?.codigo as string) || '',
-        tipo_contexto: (row.componentes_contexto_ia?.tipo_contexto as string) || '',
-        contenido: (row.componentes_contexto_ia?.contenido as string) || '',
-        activo: row.componentes_contexto_ia?.activo !== false
-      }))
+    const filasContexto = (contextosRows || []).map((row: any) => ({
+      orden: row.orden as number,
+      rol_contexto: row.rol_contexto as string,
+      codigo: (row.componentes_contexto_ia?.codigo as string) || '',
+      tipo_contexto: (row.componentes_contexto_ia?.tipo_contexto as string) || '',
+      contenido: (row.componentes_contexto_ia?.contenido as string) || '',
+      activo: row.componentes_contexto_ia?.activo !== false
+    }));
+
+    // BA-039: los componentes voz / contrato_salida / contrato_salida_canal no van al
+    // prompt de sistema general (se duplicarían); arman el bloque de voz con reglas fijas.
+    // Si la BD no los trae, resolverVozNaia usa la copia en código y deja aviso en log.
+    const componentesVoz: ComponenteVozFila[] = filasContexto.filter((c) => esTipoContextoVoz(c.tipo_contexto));
+    const voz = resolverVozNaia(componentesVoz, canal.codigo);
+    avisarVozNaia(voz, { agente: agente.codigo, version: version.numero_version, canal: canal.codigo });
+
+    const contextos = filasContexto
+      .filter((c) => !esTipoContextoVoz(c.tipo_contexto))
       .filter(
         (c) =>
           c.activo &&
@@ -404,7 +419,7 @@ export class AgenteExecutor {
     }
 
     // BA-024: no se antepone “Tono para este canal: cercano”.
-    // Esa etiqueta sonaba a formulario; la voz vive en BLOQUE_VOZ_NAIA.
+    // Esa etiqueta sonaba a formulario; la voz vive en el componente `voz` (BA-039; respaldo BLOQUE_VOZ_NAIA).
     // BA-029: sí entran longitud, reglas y plantilla de ESTE canal (no del otro).
     const reglasCanal = [
       typeof configuracionCanal.longitud_maxima_respuesta === 'number'
@@ -479,7 +494,8 @@ export class AgenteExecutor {
       },
       canal: { id: canal.id, codigo: canal.codigo },
       contextos,
-      herramientas
+      herramientas,
+      voz
     };
   }
 
@@ -560,19 +576,16 @@ export class AgenteExecutor {
     const esTurnoSeguimiento = Boolean(entrada.conversation_id);
     const bloqueContextoOfertas = esTurnoSeguimiento ? construirBloqueContextoOfertas(entrada) : '';
     const bloqueContextoCrm = construirBloqueContextoCrm(entrada);
-    const voz =
-      config.canal.codigo === 'whatsapp'
-        ? `${BLOQUE_VOZ_NAIA}\n\n${CONTRATO_JSON_WAPP}`
-        : BLOQUE_VOZ_NAIA;
-    const promptEfectivo = esTurnoSeguimiento
-      ? ''
-      : `${promptSistema}\n\n${voz}\n\n${bloqueSesion}`;
-    const extrasUsuario = [bloqueContextoCrm, bloqueContextoOfertas].filter(
-      (parte) => typeof parte === 'string' && parte.trim()
-    );
-    const mensajeUsuarioEnriquecido = esTurnoSeguimiento
-      ? [voz, bloqueSesion, `Mensaje del estudiante:\n${entrada.mensaje_usuario}`, ...extrasUsuario].join('\n\n')
-      : [entrada.mensaje_usuario, ...extrasUsuario].join('\n\n');
+    // BA-039: la voz (y el contrato de WhatsApp) ya viene resuelta desde BD en config.voz;
+    // antes era `BLOQUE_VOZ_NAIA` (+ `CONTRATO_JSON_WAPP` en whatsapp) fijo en código.
+    const { promptEfectivo, mensajeUsuarioEnriquecido } = componerEntradaTurnoNaia({
+      promptSistema,
+      voz: config.voz.texto,
+      bloqueSesion,
+      mensajeUsuario: entrada.mensaje_usuario,
+      extrasUsuario: [bloqueContextoCrm, bloqueContextoOfertas],
+      esTurnoSeguimiento
+    });
 
     let resultadoAdaptador;
     try {
