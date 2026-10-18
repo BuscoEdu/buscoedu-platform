@@ -788,8 +788,52 @@ Coincide con la deuda que BD ya anotó en f590fd6.
 - **Límite de pruebas y circuito:** en memoria por instancia (no global entre instancias de Vercel).
 - **Panel viejo:** `PaginaCatalogo` de proveedores ya no puede crear sin preset ni editar `estado`; debe reemplazarse por el asistente (Frontend).
 
+## BA-041 · Errores de `POST /api/leadcenter/convertir` (E1 · Ola 4/4)
+
+**Qué:** BD (5f9c97b, `docs/bd/README-e1-ba041-20261018.md`) hizo que `fn_convertir_aplicacion` valide **antes** de escribir: oferta vigente, periodo, consentimientos, embudo y duplicidad. La ruta traduce cada resultado a HTTP + código + mensaje en español claro (tuteo neutro) en `src/lib/leadcenter/convertir-errores.ts`.
+**Para qué:** que el asesor sepa qué pasó y qué hacer, sin ver detalles internos de la BD.
+
+Respuesta de error: `{ ok: false, error, mensaje }`. Solo en `duplicada` se agrega `aplicacion_id`.
+
+**Los 6 códigos nuevos**
+
+| Código | HTTP | Mensaje |
+|---|---|---|
+| `oferta_no_disponible` | 409 | Esta oferta no está disponible en este momento. Elige otra oferta. |
+| `oferta_no_vigente` | 409 | Esta oferta todavía no ha empezado. Podrás aplicar cuando abra su periodo. |
+| `oferta_vencida` | 409 | Esta oferta ya cerró. Elige otra oferta vigente. |
+| `oferta_sin_periodo` | 409 | A esta oferta le falta el periodo académico, así que aún no recibe solicitudes. Avisa al equipo de BuscoEdu para que la completen. |
+| `consentimiento_obligatorio_faltante` | 422 | Falta aceptar una autorización obligatoria. Revisa las casillas e intenta de nuevo. |
+| `consentimiento_no_aceptado` | 422 | Para crear la solicitud hace falta autorizar el contacto (por ejemplo, por WhatsApp). Revisa las casillas e intenta de nuevo. |
+
+Oferta → 409: la petición está bien, pero la oferta no está en estado de recibirla. Consentimiento → 422: la petición llegó, pero le falta una autorización.
+
+**Códigos que ya existían en la RPC**
+
+| Código | HTTP | Mensaje |
+|---|---|---|
+| `duplicada` | 400 (igual que antes) | Esta solicitud ya estaba creada. |
+| `limite_alcanzado` | 400 (igual que antes) | Solo puedes tener hasta 3 aplicaciones activas… (mismo texto que antes) |
+| `clave_idempotencia_requerida` · `oferta_id_requerida` · `celular_requerido` | 400 | Faltan datos para crear la solicitud. Revisa el formulario e intenta de nuevo. |
+| `oferta_inexistente` | 404 | No encontramos esta oferta. Elige otra oferta. |
+| `etapa_inicial_inexistente` | 503 | Por ahora no podemos crear solicitudes por un ajuste pendiente en el Lead Center. Avisa al equipo de BuscoEdu. |
+| `excepcion` | 500 | Mensaje genérico (sin `sqlstate`). |
+
+**Fail-closed**
+- Un código **desconocido**, o un resultado sin código, responde 500 `error_conversion` · «No pudimos crear la solicitud. Intenta de nuevo en unos minutos; si sigue pasando, avisa al equipo de BuscoEdu.». El código no se reenvía; solo queda en el log del servidor, recortado.
+- Si la llamada a la RPC falla (`rpc_error`, ahora `error_conversion`) o hay una excepción en la ruta (`server_error`), el cuerpo de la respuesta ya no lleva `error.message` ni `e.message`.
+- Antes, la ruta reenviaba el objeto crudo de la RPC con 400.
+
+**Tests:** `src/lib/leadcenter/convertir-errores.test.ts`. Cubren:
+- cada uno de los 6 códigos y que existen tal cual en la migración 160000;
+- el código desconocido;
+- `excepcion` sin `sqlstate`;
+- la compatibilidad de `duplicada` y `limite_alcanzado`;
+- una revisión estática de la ruta.
+
 ## Bitácora
 | Fecha | Qué | Por qué | Quién |
 |---|---|---|---|
+| 2026-10-18 | BA-041: `/api/leadcenter/convertir` traduce los 6 códigos nuevos de `fn_convertir_aplicacion` (5f9c97b) y los previos a HTTP + código + mensaje en español; desconocido → 500 `error_conversion` genérico; sin `error.message`, `sqlstate` ni objeto crudo de la RPC en la respuesta | Con la validación previa de BD, el asesor necesita saber por qué no se creó el lead (oferta o consentimiento) sin ver detalles internos (E1 §G G2/G3) | Backend BuscoEdu (bot) |
 | 2026-10-18 | Fase 2: implementadas las 24 rutas E1 (P1–P10, M1–M8, B-1–B-6, T1–T6) con zod, errores en español, impacto + `impacto_hash`, N1–N8 cableadas (interruptor y restaurar transaccionales). Motor: tope por canal antes de la IA (cortado → C3 + alerta; alerta → sigue; fallo o canal inexistente → C3; `panel` no consulta), costo con `fn_ia_precio_vigente`. `tope_maximo` USD 1000. Tests nuevos en `lib/admin-ia/e1-api.test.ts` | Cumplir BA-036, BA-037 y BA-038 (parte API) contra el contrato de 824ac4d y lo entregado por BD (787554a); que nunca haya gasto sin límite | Backend BuscoEdu (bot) |
 | 2026-10-18 | Contrato API admin IA (fase 1): proveedores, clave, prueba, interruptor con impacto, modelos, precios, modelo + respaldo por agente, restaurar versión, topes, consumo y alertas. Lista de lo que falta en BD | BA-036, BA-037 y BA-038 (parte API): que Frontend y BD trabajen en paralelo con un contrato fijo. Ajustado al contrato BD BA-038 v2 (b4cf029, 081ba33, f590fd6): tope por canal, precio estimado, sin_costo | Backend BuscoEdu (bot) |
