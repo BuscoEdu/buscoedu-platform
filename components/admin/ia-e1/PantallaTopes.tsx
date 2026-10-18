@@ -28,8 +28,8 @@ import {
 import type { AlertaApi, EstadoGastoApi } from '@/src/lib/admin-ia/tipos';
 import { AccionesFijas, AvisoAmbar, AvisoDatosEjemplo, CajaPorQue, Campo, EncabezadoPantalla, ErrorEnLinea, EstadoVacio, FaseNoOk, TextoExito } from './Base';
 import Bitacora from './Bitacora';
-import { etiquetaCanal, etiquetaProveedorModelo } from '@/src/lib/admin-ia/etiquetas';
-import { BOTON_CTA, BOTON_SECUNDARIO, ENLACE, FOCO, TARJETA, TEXTO_SECUNDARIO } from './estilos';
+import { etiquetaCampoBitacora, etiquetaCanal, etiquetaProveedorModelo } from '@/src/lib/admin-ia/etiquetas';
+import { BOTON_CTA, BOTON_SECUNDARIO, ENLACE, FOCO, RESERVA_BARRA_FIJA, TARJETA, TEXTO_SECUNDARIO } from './estilos';
 import { IconoAlerta, IconoCheck, IconoError } from './Iconos';
 import { usarCarga } from './usarCarga';
 
@@ -161,8 +161,9 @@ function DetalleCanal({ canal, onCambio }: { canal: string; onCambio: () => void
         </div>
         <p aria-live="polite">{ok && <TextoExito>{ok}</TextoExito>}</p>
         <ErrorEnLinea mensaje={errores.general} />
-        {/* Única acción coral de la pantalla; en móvil queda fija abajo. */}
-        <AccionesFijas>
+        {/* Única acción coral de la pantalla; en móvil queda fija abajo. Sin espaciador aquí:
+            la pantalla reserva el alto de la barra al final (F1, RESERVA_BARRA_FIJA). */}
+        <AccionesFijas espaciador={false}>
           <button type="submit" className={BOTON_CTA} disabled={enviando} aria-busy={enviando}>{enviando ? 'Guardando…' : 'Guardar tope'}</button>
         </AccionesFijas>
       </form>
@@ -209,7 +210,7 @@ function DetalleCanal({ canal, onCambio }: { canal: string; onCambio: () => void
             clave_fila: `${e.creado_en}-${i}`,
             cuando: e.creado_en,
             quien: e.actor?.nombre ?? 'Sistema',
-            que: e.campo === 'tope_diario_usd' ? 'Cambió el tope diario' : e.campo === 'umbral_alerta_pct' ? 'Cambió el umbral de alerta' : e.campo,
+            que: e.campo === 'tope_diario_usd' ? 'Cambió el tope diario' : e.campo === 'umbral_alerta_pct' ? 'Cambió el umbral de alerta' : `Cambió ${etiquetaCampoBitacora(e.campo).toLowerCase()}`,
             antes: e.valor_anterior === null ? null : e.campo === 'tope_diario_usd' ? `USD ${formatoUsd(e.valor_anterior)}` : `${e.valor_anterior} %`,
             despues: e.valor_nuevo === null ? null : e.campo === 'tope_diario_usd' ? `USD ${formatoUsd(e.valor_nuevo)}` : `${e.valor_nuevo} %`
           }))}
@@ -274,8 +275,10 @@ export default function PantallaTopes({ canalInicial }: { canalInicial?: string 
     alertas.recargar({ silencioso: true });
   };
 
+  // F1: RESERVA_BARRA_FIJA deja al final el alto de la barra «Guardar tope» (fija en móvil)
+  // para que «Cambios del tope» quede completa por encima de ella al terminar el scroll.
   return (
-    <section className="space-y-5 text-base sm:text-[15px]">
+    <section className={`space-y-5 text-base sm:text-[15px] ${RESERVA_BARRA_FIJA}`}>
       <EncabezadoPantalla
         titulo="Tope de gasto diario"
         descripcion="Cuánto puede gastar la IA por día en cada canal. Al llegar al tope, la IA se pausa en ese canal y la conversación pasa a una persona."
