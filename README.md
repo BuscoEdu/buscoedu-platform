@@ -111,6 +111,12 @@ En `/demoWapp`, con sesión de super admin, la oferta del chat abre Aplicar → 
 
 NaIA responde de tú, en colombiano neutro, con markdown en el mensaje (negrita y viñetas cortas) y una sola pregunta por turno. Lo que el estudiante dice (ciudad, modalidad, presupuesto, nivel, intereses, contacto) queda en la sesión del hilo y no se vuelve a preguntar. No se inventan ofertas ni se abre lead a una universidad. Cierre: [`docs/backend/BA-024-voz-sesion-naia.md`](docs/backend/BA-024-voz-sesion-naia.md).
 
+## BA-032 — WhatsApp real (Meta Cloud API)
+
+Webhook `GET/POST /api/whatsapp/webhook` con firma `X-Hub-Signature-256`, consentimiento Ley 1581 antes de guardar datos, catálogo vigente (máx 8 fichas), Mi lista ≠ Aplicar ≠ Autorizar contacto, ventana 24 h, BAJA/STOP y ASESOR. Cerrado por defecto: piloto con `WA_PILOTO_NUMEROS` (máx 5) y sin leads mientras `WA_LEAD_CONVERSION_ENABLED` no sea `'true'`. Migración `20261017120000_ba032_whatsapp_meta.sql` pendiente de ejecutar. Detalle: [`docs/wa/README-ba032-whatsapp-meta.md`](docs/wa/README-ba032-whatsapp-meta.md) · guía no técnica: [`docs/wa/GUIA-JHON-WHATSAPP.md`](docs/wa/GUIA-JHON-WHATSAPP.md).
+
+Bitácora: 2026-10-17 — BA-032 implementado en rama local `feat/wa-meta` (sin desplegar) — para habilitar WhatsApp real con Meta — Backend BuscoEdu (bot).
+
 ## BA-009 — Lote sep26
 
 La decisión de fuente única y el corte de la API pública legacy de contexto NaIA están documentados en [`docs/ba-009-fuente-unica-contexto-naia.md`](docs/ba-009-fuente-unica-contexto-naia.md).
