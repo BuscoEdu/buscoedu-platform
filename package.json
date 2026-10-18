@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --experimental-strip-types --import ./scripts/register-ts-tests.mjs --test src/lib/cifras-catalogo.test.ts src/lib/logos-aliadas.test.ts src/lib/etiquetas-beneficio.test.ts src/lib/demowapp/funnel-aplicar-reglas.test.ts components/demowapp/funnelContrato.test.ts components/naia/markdownNaia.test.ts src/lib/whatsapp/whatsapp.test.ts lib/agentes/ba039-voz.test.ts lib/agentes/ba039-canales.test.ts lib/agentes/llm/ba034-capa-ia.test.ts lib/admin-ia/e1-api.test.ts src/lib/leadcenter/convertir-errores.test.ts src/lib/admin-ia/admin-ia.test.ts src/lib/admin-ia/etiquetas.test.ts"
+    "test": "node --experimental-strip-types --import ./scripts/register-ts-tests.mjs --test src/lib/cifras-catalogo.test.ts src/lib/logos-aliadas.test.ts src/lib/etiquetas-beneficio.test.ts src/lib/demowapp/funnel-aplicar-reglas.test.ts components/demowapp/funnelContrato.test.ts components/naia/markdownNaia.test.ts src/lib/whatsapp/whatsapp.test.ts lib/agentes/ba039-voz.test.ts lib/agentes/ba039-canales.test.ts lib/agentes/llm/ba034-capa-ia.test.ts lib/admin-ia/e1-api.test.ts src/lib/leadcenter/convertir-errores.test.ts src/lib/leadcenter/cambiar-etapa.test.ts src/lib/admin-ia/admin-ia.test.ts src/lib/admin-ia/etiquetas.test.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.82",

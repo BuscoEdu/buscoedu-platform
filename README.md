@@ -95,6 +95,15 @@ Deploy:         Vercel → www.buscoedu.com
 Cliente DB:     src/lib/supabase.ts (getSupabaseClient())
 ```
 
+## E1 · Release a producción — IA multiproveedor + panel admin IA + topes (2026-10-18)
+
+Rama `release/e1-prod` → PR a `main` (squash). Integra el Frontend (`feat/e1-fe-admin-ia`), Backend y BD (`feat/e1-integra`) y la evidencia de BD de lo aplicado en prod.
+
+| Fecha | Qué | Por qué | Quién |
+|---|---|---|---|
+| 2026-10-18 | Release E1: BA-034 (capa IA multiproveedor), BA-035 (claves en Vault), BA-036/037/038 (API y panel admin IA: proveedores, modelos, modelo + respaldo por agente, tope diario por canal, alertas), BA-039 (voz NaIA y canales desde BD), BA-040 (`fn_cambiar_etapa` con subestado obligatorio) y BA-041 (conversión valida antes de escribir + errores en español). Migraciones `20261018100000` → `20261018160000` ya aplicadas en prod por BD (`docs/bd/README-e1-prod-20261018.md`), más el `search_path` fijo de `fn_ia_solo_insercion` | Operar proveedores de IA, modelos, respaldos y tope de gasto sin tocar código; que nunca haya gasto sin límite; 0 leads sin consentimiento o con oferta vencida | Backend BuscoEdu (bot) integra; Frontend BuscoEdu (bot) y Base de datos BuscoEdu (bot) son autores de sus partes |
+| 2026-10-18 | Hotfix seguridad cambiar etapa: `POST /api/leadcenter/oportunidad/[id]/etapa` valida sesión (401), rol asesor/super_admin (403) y body (400, mensaje en español) antes de tocar la BD; errores sin detalle interno (`src/lib/leadcenter/cambiar-etapa.ts` + tests). La RPC sigue con el cliente del usuario: `fn_cambiar_etapa` autoriza con `auth.uid()` (`puede_ver_oportunidad`), así que con service role respondería siempre `no_autorizado`. El REVOKE de BD: fase 1 (PUBLIC/anon) es compatible; la fase 2 (quitar `authenticated`) necesita antes una versión de la función que reciba el actor | Cerrar la RPC a quien no tiene sesión de Lead Center y no filtrar mensajes de Postgres | Backend BuscoEdu (bot) |
+
 ## E1 Ola 3/4 — API admin de IA (BA-036/037/038)
 
 Contrato de las rutas `/api/admin/ia/...` (solo super_admin) para que Frontend construya el asistente «Agregar proveedor», el interruptor con aviso de impacto, el modelo y los respaldos por agente y el tope de gasto diario por canal. Fase 2 implementada: rutas en `app/api/admin/ia/...` → servicios puros en `lib/admin-ia/` (tests en `lib/admin-ia/e1-api.test.ts`). El motor revisa el tope diario del canal antes de cada llamada IA (fail-closed con el texto C3; el canal `panel` de las pruebas de conexión no consulta tope) y calcula el costo con el precio vigente. Detalle, estado por endpoint y bitácora (2026-10-18, Backend BuscoEdu (bot)): [`docs/backend/README-e1-api.md`](docs/backend/README-e1-api.md).
