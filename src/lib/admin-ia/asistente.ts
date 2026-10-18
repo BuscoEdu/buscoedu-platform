@@ -7,6 +7,9 @@
  *   - Decide hasta qué paso se puede ir: los pasos futuros no se pulsan hasta completar
  *     los anteriores (brief UX §5 «Asistente por pasos»).
  *   - Guarda y lee el borrador del navegador, SIN la clave (A3, A8).
+ *   - F2 (post-QA): reconstruye el borrador y el paso desde el SERVIDOR (P2 `asistente.paso` /
+ *     `completo`, P4 `asistente { paso, borrador }`, clave, modelos y última prueba), para retomar
+ *     en otro navegador; localStorage queda solo como respaldo.
  * Para qué: que el admin pueda cerrar o recargar y volver al último paso, y que nunca
  * se pueda encender sin una prueba exitosa del modelo que se va a encender.
  *
@@ -16,7 +19,7 @@
 import { validarUrlBase, PRESETS_PROVEEDOR, type PresetProveedor } from '../../../lib/agentes/llm/proveedores';
 import { puedeEncender } from '../../../lib/agentes/llm/probar';
 import { MODELO_POR_DEFECTO, tieneCampoProhibido, validarParametrosModelo, type CampoModelo } from './logica';
-import type { EstadoClaveApi, PruebaApi } from './tipos';
+import type { DetalleProveedorApi, EstadoClaveApi, ModeloApi, ProveedorApi, PruebaApi } from './tipos';
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Bloque 1 · Pasos del asistente.
@@ -307,4 +310,137 @@ export function textoGuardadoHace(guardadoEn: number | null, ahora: number): str
   const min = Math.floor(s / 60);
   if (min < 60) return `Guardado hace ${min} min`;
   return `Guardado hace ${Math.floor(min / 60)} h`;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Bloque 5 · Retomar desde el servidor (F2 post-QA).
+ * Qué hace: elige qué proveedor a medio configurar retomar (P2) y arma el borrador con lo que
+ * dice el servidor (P4): paso guardado en `asistente.paso`, preset, URL, estado de la clave,
+ * modelo guardado y si su última prueba sigue vigente.
+ * Para qué: que otro navegador (sin localStorage) vuelva al mismo paso. El servidor manda; el
+ * borrador local solo aporta lo que se escribió y aún no se guardó, y solo si es del mismo proveedor.
+ * El paso se valida con las mismas reglas de navegación: si el servidor dice 4 pero falta la
+ * clave, se queda en el primer paso pendiente (nunca se salta un paso incompleto).
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Proveedores que este navegador pidió no retomar (los descartó a propósito). */
+export const CLAVE_DESCARTADOS = 'buscoedu:e1:asistente-descartados:v1';
+
+/** Número de paso de la API (1–5) → id del paso; null si falta o está fuera de rango. */
+export function pasoDesdeNumero(n: unknown): PasoAsistente | null {
+  return typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= PASOS.length ? PASOS[n - 1].id : null;
+}
+
+/**
+ * De la lista P2, el proveedor a retomar: apagado, con asistente sin completar y paso guardado,
+ * que no se haya descartado en este navegador. Si hay varios, el actualizado más recientemente
+ * (desempate por id, para que la elección sea estable). null si no hay ninguno.
+ */
+export function elegirProveedorPorRetomar(
+  lista: ReadonlyArray<Pick<ProveedorApi, 'id' | 'encendido' | 'asistente' | 'actualizado_en'>>,
+  descartados: readonly string[] = []
+): string | null {
+  const candidatos = lista.filter(
+    (p) => !p.encendido && p.asistente && !p.asistente.completo && pasoDesdeNumero(p.asistente.paso) !== null && !descartados.includes(p.id)
+  );
+  candidatos.sort((a, b) => String(b.actualizado_en ?? '').localeCompare(String(a.actualizado_en ?? '')) || a.id.localeCompare(b.id));
+  return candidatos[0]?.id ?? null;
+}
+
+/** Número de la API → texto con coma decimal, como lo escribe el admin en el formulario. */
+const textoNumero = (n: unknown): string => (typeof n === 'number' && Number.isFinite(n) ? String(n).replace('.', ',') : '');
+
+/** Campos del formulario «Modelos» a partir del modelo guardado (M1). Abacus no viaja en M1. */
+export function modelosDesdeServidor(m: ModeloApi, abacus?: { abacus_identificador?: string; abacus_referencia?: string }): Record<CampoModelo, string> {
+  return {
+    ...MODELO_POR_DEFECTO,
+    nombre: m.nombre ?? '',
+    modelo: m.modelo ?? '',
+    temperatura: textoNumero(m.parametros?.temperature) || MODELO_POR_DEFECTO.temperatura,
+    max_tokens: textoNumero(m.parametros?.max_tokens) || MODELO_POR_DEFECTO.max_tokens,
+    timeout_ms: textoNumero(m.parametros?.timeout_ms) || MODELO_POR_DEFECTO.timeout_ms,
+    costo_usd_1k_entrada: textoNumero(m.precio_vigente?.entrada_usd_1k),
+    costo_usd_1k_salida: textoNumero(m.precio_vigente?.salida_usd_1k),
+    abacus_identificador: abacus?.abacus_identificador ?? '',
+    abacus_referencia: abacus?.abacus_referencia ?? ''
+  };
+}
+
+/**
+ * Borrador armado desde P4. `local` es el borrador de este navegador (o null en otro navegador).
+ * Prioridad: hechos del servidor (preset, URL, clave, modelo, prueba, encendido, paso) >
+ * texto del borrador local del MISMO proveedor > `asistente.borrador` del servidor > valores por defecto.
+ */
+export function borradorDesdeServidor(d: DetalleProveedorApi, local: BorradorAsistente | null): BorradorAsistente {
+  const delServidor = d.asistente?.borrador && typeof d.asistente.borrador === 'object' ? limpiarBorrador(d.asistente.borrador as unknown as BorradorAsistente) : null;
+  const base =
+    local && local.proveedor_id === d.id
+      ? local
+      : delServidor && (delServidor.proveedor_id === d.id || delServidor.proveedor_id === null)
+        ? delServidor
+        : borradorNuevo();
+  const b: BorradorAsistente = limpiarBorrador({
+    ...base,
+    proveedor_id: d.id,
+    proveedor_codigo: d.preset_codigo ?? base.proveedor_codigo,
+    url_base: d.preset_codigo === 'otro_compatible' ? d.url_base ?? base.url_base : base.url_base,
+    credencial: d.clave?.configurada ? { ...d.clave } : null,
+    encendido: d.encendido === true
+  });
+
+  // Modelo: el del borrador si sigue existiendo; si no, el primero que tenga el proveedor.
+  const modelos = Array.isArray(d.modelos) ? d.modelos : [];
+  const m = modelos.find((x) => x.id === base.despliegue_id) ?? modelos[0] ?? null;
+  if (!m) {
+    b.despliegue_id = null;
+    b.modelo_guardado_firma = null;
+  } else {
+    const mismoGuardado = base.despliegue_id === m.id && !!base.modelo_guardado_firma;
+    b.despliegue_id = m.id;
+    if (!mismoGuardado) {
+      // Otro navegador: el formulario se llena con lo que quedó guardado y cuenta como guardado.
+      b.modelos = modelosDesdeServidor(m, base.modelos);
+      b.modelo_guardado_firma = firmaModelo(b);
+    }
+  }
+
+  // Prueba: solo cuenta si el servidor dice que la última es del modelo actual y sigue vigente.
+  const u = m?.ultima_prueba ?? null;
+  if (u && b.modelo_guardado_firma === firmaModelo(b)) {
+    b.prueba = {
+      exitosa: u.exitosa && u.vigente,
+      latencia_ms: u.latencia_ms,
+      modelo_respondio: u.modelo_respondio,
+      motivo_codigo: null,
+      motivo: u.exitosa ? (u.vigente ? null : 'La prueba ya no es del modelo actual: vuelve a probar.') : u.motivo ?? null,
+      que_hacer: null,
+      probado_en: u.probado_en
+    };
+    b.prueba_firma = firmaPrueba(b);
+  } else {
+    b.prueba = null;
+    b.prueba_firma = null;
+  }
+
+  // Paso: el que guardó el servidor, validado con las reglas de navegación.
+  const pasoServidor = pasoDesdeNumero(d.asistente?.paso);
+  const maximo = PASOS[pasoMaximoNavegable(b)].id;
+  b.paso = pasoServidor && puedeIrAPaso(pasoServidor, b) ? pasoServidor : maximo;
+  return b;
+}
+
+/** Lee la lista de proveedores descartados en este navegador (vacía si no hay o está dañada). */
+export function leerDescartados(almacen: AlmacenBorrador): string[] {
+  try {
+    const v = JSON.parse(almacen.getItem(CLAVE_DESCARTADOS) ?? '[]');
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(-50) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Marca un proveedor como descartado en este navegador, para no retomarlo solo otra vez. */
+export function descartarProveedor(almacen: AlmacenBorrador, id: string): void {
+  const actuales = leerDescartados(almacen).filter((x) => x !== id);
+  almacen.setItem(CLAVE_DESCARTADOS, JSON.stringify([...actuales, id].slice(-50)));
 }
