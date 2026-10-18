@@ -1,0 +1,235 @@
+{
+  "nota": "Filas completas antes de E1. despliegues_ia.referencia_secreto enmascarado (es el NOMBRE de la variable de Vercel, no la clave; igual se enmascara). configuracion_tecnica solo trae temperature (sin secretos).",
+  "canales_ia": [
+    {
+      "id": "5cc29873-3fde-4068-899c-88c561666880",
+      "tipo": "email",
+      "activo": false,
+      "codigo": "email",
+      "nombre": "Email",
+      "creado_en": "2026-08-31T19:24:56.661073+00:00",
+      "descripcion": "Canal de correo electrónico",
+      "agente_predeterminado_id": null
+    },
+    {
+      "id": "c956b357-8525-48ce-a296-da09af8a67dc",
+      "tipo": "voz",
+      "activo": false,
+      "codigo": "llamada",
+      "nombre": "Llamada Telefónica",
+      "creado_en": "2026-08-31T19:24:56.661073+00:00",
+      "descripcion": "Canal de voz via Retell/Twilio",
+      "agente_predeterminado_id": null
+    },
+    {
+      "id": "e00ebb66-d268-49d7-a832-6761b3987ef5",
+      "tipo": "texto",
+      "activo": true,
+      "codigo": "web",
+      "nombre": "Web",
+      "creado_en": "2026-08-31T19:24:56.661073+00:00",
+      "descripcion": "Canal web principal de BuscoEdu",
+      "agente_predeterminado_id": "b45b2ab1-7cca-481c-9b75-59fb840856b4"
+    },
+    {
+      "id": "50a3f393-048d-4a73-ade9-5419fca253d1",
+      "tipo": "texto",
+      "activo": true,
+      "codigo": "whatsapp",
+      "nombre": "WhatsApp",
+      "creado_en": "2026-08-31T19:24:56.661073+00:00",
+      "descripcion": "Canal WhatsApp (Demo WApp / Meta Cloud API). Misma NaIA, otra config de canal.",
+      "agente_predeterminado_id": "b45b2ab1-7cca-481c-9b75-59fb840856b4"
+    }
+  ],
+  "proveedores_ia": [
+    {
+      "id": "6243c746-7c3e-456f-9036-8f6141c825a1",
+      "activo": true,
+      "codigo": "abacus_ai",
+      "estado": "activo",
+      "nombre": "Abacus.AI",
+      "creado_en": "2026-08-31T19:24:56.661073+00:00",
+      "capacidades": [
+        "chat",
+        "streaming",
+        "context",
+        "json_response"
+      ],
+      "descripcion": "Proveedor principal de IA conversacional para NaIA",
+      "actualizado_en": "2026-08-31T19:24:56.661073+00:00",
+      "tipo_proveedor": "llm"
+    }
+  ],
+  "despliegues_ia": [
+    {
+      "id": "4882b7bc-e277-446d-80e3-39f02ce5c460",
+      "activo": true,
+      "estado": "activo",
+      "modelo": null,
+      "nombre": "NaIA Producción",
+      "ambiente": "produccion",
+      "creado_en": "2026-08-31T19:24:56.661073+00:00",
+      "proveedor_id": "6243c746-7c3e-456f-9036-8f6141c825a1",
+      "actualizado_en": "2026-10-18T12:15:59.54006+00:00",
+      "identificador_externo": "ABACUS_NAIA_DEPLOYMENT_ID",
+      "referencia_secreto_mask": "ABAC***",
+      "referencia_secreto_presente": true,
+      "configuracion_tecnica_claves": [
+        "temperature"
+      ],
+      "configuracion_tecnica": {
+        "temperature": 0.6
+      }
+    }
+  ],
+  "agente_naia": [
+    {
+      "id": "b45b2ab1-7cca-481c-9b75-59fb840856b4",
+      "codigo": "naia_asesora_educativa",
+      "version_activa_id": "ecb8c7ba-5f50-4fa7-b922-67b0f025ce8c",
+      "estado": "activo",
+      "activo": true
+    }
+  ],
+  "componentes_contexto_ia_resumen": [
+    {
+      "codigo": "contexto_canal_web",
+      "tipo_contexto": "canal",
+      "version": "1.0",
+      "estado": "activo",
+      "activo": true,
+      "md5_contenido": "78c99fb77ad7e52feca38c2eef9f092c"
+    },
+    {
+      "codigo": "contexto_canal_whatsapp",
+      "tipo_contexto": "canal",
+      "version": "1.0",
+      "estado": "activo",
+      "activo": true,
+      "md5_contenido": "26b2a38ea625cf865f44c90e5ba62966"
+    },
+    {
+      "codigo": "formato_respuesta_naia",
+      "tipo_contexto": "formato_respuesta",
+      "version": "ba024",
+      "estado": "activo",
+      "activo": true,
+      "md5_contenido": "38e46554a1d4d9068837057f1d92fa5f"
+    },
+    {
+      "codigo": "identidad_naia",
+      "tipo_contexto": "identidad",
+      "version": "1.0",
+      "estado": "activo",
+      "activo": true,
+      "md5_contenido": "03f45d3b0cb378300a7601536a28f2e5"
+    },
+    {
+      "codigo": "objetivos_naia",
+      "tipo_contexto": "objetivo",
+      "version": "1.0",
+      "estado": "activo",
+      "activo": true,
+      "md5_contenido": "0d5d4bd359e7c2a96a5e4a8b580afd06"
+    },
+    {
+      "codigo": "personalidad_naia",
+      "tipo_contexto": "personalidad",
+      "version": "ba024",
+      "estado": "activo",
+      "activo": true,
+      "md5_contenido": "259f9fbbd3a2fd0e3b52a16487ba40c4"
+    },
+    {
+      "codigo": "reglas_negocio_naia",
+      "tipo_contexto": "regla_negocio",
+      "version": "1.0",
+      "estado": "activo",
+      "activo": true,
+      "md5_contenido": "12e89ca78b8f0a9139fc140492fb065f"
+    },
+    {
+      "codigo": "reglas_seguridad_naia",
+      "tipo_contexto": "seguridad",
+      "version": "1.0",
+      "estado": "activo",
+      "activo": true,
+      "md5_contenido": "2530c2ac93ef1d40d8ad3285a1ee176f"
+    }
+  ],
+  "versiones_agente_contextos": [
+    {
+      "id": "872fcd48-c588-46e7-8f2c-0472f9c16fac",
+      "orden": 5,
+      "activo": true,
+      "creado_en": "2026-08-31T19:24:56.661073+00:00",
+      "rol_contexto": "sistema",
+      "version_agente_id": "ecb8c7ba-5f50-4fa7-b922-67b0f025ce8c",
+      "componente_contexto_id": "369aa3e5-1e9b-4fbb-a5c0-37bedd15ded9"
+    },
+    {
+      "id": "67062868-9737-46af-8220-402398a48cc8",
+      "orden": 10,
+      "activo": true,
+      "creado_en": "2026-08-31T19:24:56.661073+00:00",
+      "rol_contexto": "sistema",
+      "version_agente_id": "ecb8c7ba-5f50-4fa7-b922-67b0f025ce8c",
+      "componente_contexto_id": "a5339356-ea54-4504-8f9d-0c2d52ede844"
+    },
+    {
+      "id": "174ee807-7ff5-4d01-808d-e072ff180a14",
+      "orden": 20,
+      "activo": true,
+      "creado_en": "2026-08-31T19:24:56.661073+00:00",
+      "rol_contexto": "sistema",
+      "version_agente_id": "ecb8c7ba-5f50-4fa7-b922-67b0f025ce8c",
+      "componente_contexto_id": "d755a6f1-ae39-4323-acaa-c3fc116bbd5e"
+    },
+    {
+      "id": "8b249f07-7697-496b-9213-43d3f594d594",
+      "orden": 30,
+      "activo": true,
+      "creado_en": "2026-08-31T19:24:56.661073+00:00",
+      "rol_contexto": "sistema",
+      "version_agente_id": "ecb8c7ba-5f50-4fa7-b922-67b0f025ce8c",
+      "componente_contexto_id": "280e58ef-d03f-4383-a400-1bb8a63c274c"
+    },
+    {
+      "id": "d22b4949-33b4-498c-89a1-2b80f853a24b",
+      "orden": 40,
+      "activo": true,
+      "creado_en": "2026-08-31T19:24:56.661073+00:00",
+      "rol_contexto": "sistema",
+      "version_agente_id": "ecb8c7ba-5f50-4fa7-b922-67b0f025ce8c",
+      "componente_contexto_id": "86461cfb-c94e-45a6-9394-fec0ab1e63d3"
+    },
+    {
+      "id": "8ee6bccf-11a6-4597-8835-297385512050",
+      "orden": 60,
+      "activo": true,
+      "creado_en": "2026-08-31T19:24:56.661073+00:00",
+      "rol_contexto": "sistema",
+      "version_agente_id": "ecb8c7ba-5f50-4fa7-b922-67b0f025ce8c",
+      "componente_contexto_id": "01c4b094-a8a1-4fb5-9623-cbf91d82f5d7"
+    },
+    {
+      "id": "c720d26f-56f6-4ec6-8156-3b57a9922100",
+      "orden": 60,
+      "activo": true,
+      "creado_en": "2026-09-27T19:33:15.903501+00:00",
+      "rol_contexto": "sistema",
+      "version_agente_id": "ecb8c7ba-5f50-4fa7-b922-67b0f025ce8c",
+      "componente_contexto_id": "fd09d749-e0ba-428d-ba66-838632b0c6b2"
+    },
+    {
+      "id": "48255789-f329-4328-9f41-348684da5a5e",
+      "orden": 90,
+      "activo": true,
+      "creado_en": "2026-08-31T19:24:56.661073+00:00",
+      "rol_contexto": "sistema",
+      "version_agente_id": "ecb8c7ba-5f50-4fa7-b922-67b0f025ce8c",
+      "componente_contexto_id": "5e99f35c-9882-4dfa-8676-53f242c46c5b"
+    }
+  ]
+}

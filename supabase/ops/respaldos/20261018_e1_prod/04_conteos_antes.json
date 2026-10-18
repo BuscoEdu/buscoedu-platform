@@ -1,0 +1,22 @@
+{
+  "conteos": {
+    "canales_ia": 4,
+    "proveedores_ia": 1,
+    "despliegues_ia": 1,
+    "componentes_contexto_ia": 8,
+    "versiones_agente_contextos": 8,
+    "agentes_ia": 1,
+    "versiones_agente_ia": 1,
+    "oportunidades": 19,
+    "personas": 9,
+    "aplicaciones": 19,
+    "consentimientos_persona": 85,
+    "historial_etapas_oportunidad": 23,
+    "eventos_negocio": 194,
+    "propuestas_comerciales": 19,
+    "vault_secrets": 0
+  },
+  "vac_version_activa_naia": 8,
+  "historial_total": 43,
+  "historial_ultima": "20261017120000"
+}
