@@ -510,6 +510,8 @@ Esta sección complementa el snapshot del 15-ago-2026 con validaciones realizada
 - **Columnas reales verificadas**: `id, evento, persona_id, oportunidad_id, universidad_id, programa_id, oferta_id, metadatos, generado_por, creado_en, visitante_id`.
 - **Uso actual en frontend**: `src/lib/events.ts`.
 - **Observación crítica**: existe desalineación de nombres en cliente (`tipo_evento`, `metadata`, `fecha_evento`) vs esquema real (`evento`, `metadatos`, `creado_en`).
+- **Corregido 2026-10-18 (Backend BuscoEdu (bot))**: `src/lib/events.ts` ahora arma la fila con `construirFilaEvento` y envía `evento`, `metadatos` y `creado_en` (antes `tipo_evento`, `metadata` y `fecha_evento` → PostgREST `PGRST204` y el evento se perdía). La interfaz pública de `trackEvent` no cambia: los callers siguen pasando `tipo_evento`/`metadata` y la traducción ocurre adentro. `generado_por` no se envía (el repo no documenta si es obligatorio; verificar con BD). Prueba: `src/lib/events.test.ts`.
+  - Bitácora: 2026-10-18 — qué: mapeo a columnas reales en `events.ts` — por qué: el insert fallaba con PGRST204 por `fecha_evento` (y `tipo_evento`/`metadata`) inexistentes — quién: Backend BuscoEdu (bot).
 
 #### `desafios_otp`
 - **Propósito**: verificación OTP previa a conversión.
