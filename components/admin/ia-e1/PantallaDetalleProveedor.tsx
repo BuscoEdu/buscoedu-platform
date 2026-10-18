@@ -16,6 +16,7 @@ import { TEXTO_PRECIO_ESTIMADO, fechaHora, formatoUsd, leerNumeroEs } from '@/sr
 import type { DetalleProveedorApi, ModeloApi, PruebaApi } from '@/src/lib/admin-ia/tipos';
 import { AvisoAmbar, AvisoDatosEjemplo, Campo, ChipEstado, EncabezadoPantalla, ErrorEnLinea, FaseNoOk, TextoExito } from './Base';
 import Bitacora, { textoAccion, valorTexto } from './Bitacora';
+import { etiquetaCapacidad, etiquetaModelo, etiquetaParametro, etiquetaProveedor } from '@/src/lib/admin-ia/etiquetas';
 import EstadoClave from './EstadoClave';
 import InterruptorConImpacto from './InterruptorConImpacto';
 import { nombreCorto } from './PantallaProveedores';
@@ -52,12 +53,12 @@ function TarjetaModelo({ m, onCambio }: { m: ModeloApi; onCambio: () => void }) 
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-bold text-[#1a1830]">{m.nombre}</p>
-          <p className={`break-all text-sm ${TEXTO_SECUNDARIO}`}>{m.modelo}</p>
+          <p className={`break-all text-sm ${TEXTO_SECUNDARIO}`}>{etiquetaModelo(m.modelo)}</p>
         </div>
         <ChipEstado estado={m.estado_panel} />
       </div>
       <dl className="mt-3 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
-        <div><dt className={`inline ${TEXTO_SECUNDARIO}`}>Parámetros: </dt><dd className="inline">temp. {String(m.parametros.temperature).replace('.', ',')} · {m.parametros.max_tokens} tokens · {m.parametros.timeout_ms} ms</dd></div>
+        <div><dt className={`inline ${TEXTO_SECUNDARIO}`}>Parámetros: </dt><dd className="inline">{etiquetaParametro('temperature')} {String(m.parametros.temperature).replace('.', ',')} · {etiquetaParametro('max_tokens')} {m.parametros.max_tokens} · {etiquetaParametro('timeout_ms')} {m.parametros.timeout_ms} ms</dd></div>
         <div>
           <dt className={`inline ${TEXTO_SECUNDARIO}`}>Precio por 1.000 tokens: </dt>
           <dd className="inline">
@@ -71,7 +72,7 @@ function TarjetaModelo({ m, onCambio }: { m: ModeloApi; onCambio: () => void }) 
             )}
           </dd>
         </div>
-        <div><dt className={`inline ${TEXTO_SECUNDARIO}`}>Capacidades: </dt><dd className="inline">{m.capacidades.json ? 'modo JSON ✓' : 'sin modo JSON'} · {m.capacidades.herramientas ? 'herramientas ✓' : 'sin herramientas'}</dd></div>
+        <div><dt className={`inline ${TEXTO_SECUNDARIO}`}>Capacidades: </dt><dd className="inline">{etiquetaCapacidad('json')}: {m.capacidades.json ? 'sí' : 'no'} · {etiquetaCapacidad('herramientas')}: {m.capacidades.herramientas ? 'sí' : 'no'}</dd></div>
         <div><dt className={`inline ${TEXTO_SECUNDARIO}`}>Lo usan: </dt><dd className="inline">{m.usado_por.principal} principal · {m.usado_por.respaldo} respaldo</dd></div>
       </dl>
 
@@ -150,8 +151,8 @@ function CargarPrecio({ d, onCambio }: { d: DetalleProveedorApi; onCambio: () =>
       <div className="space-y-1">
         <label htmlFor="precio-modelo" className="block font-semibold">Modelo</label>
         <select id="precio-modelo" value={modelo} onChange={(e) => setModelo(e.target.value)} className={CAMPO}>
-          <option value="*">Todo el proveedor (*)</option>
-          {d.modelos.map((m) => <option key={m.id} value={m.modelo}>{m.modelo}</option>)}
+          <option value="*">Todo el proveedor (todos sus modelos)</option>
+          {d.modelos.map((m) => <option key={m.id} value={m.modelo}>{etiquetaModelo(m.modelo)}</option>)}
         </select>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -200,7 +201,7 @@ export default function PantallaDetalleProveedor({ id }: { id: string }) {
         <div className={`${TARJETA} flex flex-wrap items-start justify-between gap-4 p-4`}>
           <div className="min-w-0 space-y-1">
             <ChipEstado estado={d.estado_panel} />
-            <p className={`break-all text-sm ${TEXTO_SECUNDARIO}`}>URL: {d.url_base ?? 'Endpoint fijo de Abacus'} · Código: {d.codigo}</p>
+            <p className={`break-all text-sm ${TEXTO_SECUNDARIO}`}>Proveedor: {etiquetaProveedor(d.codigo)} · Dirección: {d.url_base ?? 'dirección fija de Abacus AI'}</p>
             {d.salud.circuito_abierto_hasta && <AvisoAmbar>En pausa por errores seguidos hasta {fechaHora(d.salud.circuito_abierto_hasta)} (orientativo).</AvisoAmbar>}
           </div>
           <InterruptorConImpacto

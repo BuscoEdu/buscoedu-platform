@@ -8,6 +8,8 @@
  * de 0 a 5 respaldos con flechas, avisa en ámbar «Sin respaldo: si el modelo falla, NaIA pasa a una
  * persona» (B2), adelanta los respaldos incompatibles que bloquearán la publicación (B3) y permite
  * guardar, publicar y volver a una versión anterior con nota (B4).
+ * Se edita UN agente a la vez (selector arriba) para que «Publicar vN» sea el único botón coral
+ * de la pantalla; guardar, duplicar y restaurar son secundarios (borde índigo).
  * Para qué: cambiar de modelo sin tocar lo que está en vivo hasta publicar, y con camino de regreso.
  */
 
@@ -49,7 +51,8 @@ function TarjetaAgente({ a, disponibles, onCambio }: { a: AgenteConVersiones; di
     setRespaldos(editable?.respaldos_ids ?? []);
   }, [editable?.id, editable?.despliegue_id, editable?.respaldos_ids]);
 
-  const nombre = (id: string) => disponibles.find((m) => m.id === id)?.nombre ?? id;
+  // Nombre visible de un modelo; si ya no está disponible no se muestra su identificador interno.
+  const nombre = (id: string) => disponibles.find((m) => m.id === id)?.nombre ?? 'Modelo no disponible';
   const esBorrador = editable?.estado === 'borrador';
   const problemas = editable ? problemasRespaldos(editable.requiere, principal || null, respaldos, disponibles) : [];
   const principalNoDisponible = !!principal && !disponibles.some((m) => m.id === principal);
@@ -158,7 +161,7 @@ function TarjetaAgente({ a, disponibles, onCambio }: { a: AgenteConVersiones; di
             <label htmlFor={idPrincipal} className="block font-semibold">Modelo principal</label>
             <select id={idPrincipal} value={principal} onChange={(e) => setPrincipal(e.target.value)} className={CAMPO}>
               <option value="">Elige un modelo…</option>
-              {principalNoDisponible && <option value={principal}>{principal} (no disponible)</option>}
+              {principalNoDisponible && <option value={principal}>Modelo actual (no disponible)</option>}
               {disponibles.map((m) => <option key={m.id} value={m.id}>{m.proveedor_nombre} · {m.nombre}</option>)}
             </select>
             <p className={`text-sm ${TEXTO_SECUNDARIO}`}>Solo aparecen modelos encendidos y con prueba vigente.</p>
@@ -199,9 +202,10 @@ function TarjetaAgente({ a, disponibles, onCambio }: { a: AgenteConVersiones; di
             {problemas.map((p) => <ErrorEnLinea key={p} mensaje={`${p} Así no se podrá publicar.`} bloquea={false} />)}
           </div>
 
+          {/* N3: «Publicar vN» es el ÚNICO botón coral de la pantalla; «Guardar borrador» es secundario. */}
           <div className="flex flex-wrap gap-2">
+            <button type="button" className={BOTON_CTA} onClick={publicar} disabled={ocupado}>Publicar {editable.numero_version}</button>
             <button type="button" className={BOTON_SECUNDARIO} onClick={guardar} disabled={ocupado} aria-busy={ocupado}>Guardar borrador</button>
-            <button type="button" className={BOTON_SECUNDARIO} onClick={publicar} disabled={ocupado}>Publicar {editable.numero_version}</button>
           </div>
         </>
       )}
@@ -230,7 +234,8 @@ function TarjetaAgente({ a, disponibles, onCambio }: { a: AgenteConVersiones; di
         abierto={!!restaurar}
         titulo={`Volver a ${restaurar?.v.numero_version ?? ''}`}
         onCerrar={() => setRestaurar(null)}
-        accion={<button type="button" className={BOTON_CTA} onClick={confirmarRestaurar} disabled={ocupado}>{`Volver a ${restaurar?.v.numero_version ?? ''}`}</button>}
+        // Restaurar es una acción secundaria (N3): borde índigo, nunca coral.
+        accion={<button type="button" className={BOTON_SECUNDARIO} onClick={confirmarRestaurar} disabled={ocupado}>{`Volver a ${restaurar?.v.numero_version ?? ''}`}</button>}
       >
         <p>La versión en vivo pasa a desactivada y {restaurar?.v.numero_version} vuelve a publicarse. Queda en la bitácora con tu nota.</p>
         <div className="mt-3">
@@ -243,7 +248,9 @@ function TarjetaAgente({ a, disponibles, onCambio }: { a: AgenteConVersiones; di
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Bloque 2 · Pantalla.
- * Qué hace: carga agentes (rutas existentes) + modelos disponibles (B-1) con estados separados.
+ * Qué hace: carga agentes (rutas existentes) + modelos disponibles (B-1) con estados separados y
+ * muestra un selector para editar un agente a la vez.
+ * Para qué: mantener un solo botón coral por pantalla (el «Publicar vN» del agente elegido).
  * ──────────────────────────────────────────────────────────────────────────── */
 
 export default function PantallaAgentes() {
@@ -254,6 +261,12 @@ export default function PantallaAgentes() {
     disp.recargar({ silencioso: true });
   };
   const fase = ag.estado.fase !== 'ok' ? ag.estado : disp.estado.fase !== 'ok' ? disp.estado : null;
+  const idSelector = useId();
+  const [elegido, setElegido] = useState<string>('');
+  const agentes = ag.estado.fase === 'ok' ? ag.estado.datos : [];
+  // Agente en edición: el elegido en el selector o, por defecto, el primero con un borrador
+  // pendiente de publicar (si no hay ninguno, el primero de la lista).
+  const actual = agentes.find((x) => x.id === elegido) ?? agentes.find((x) => x.versiones.some((v) => v.estado === 'borrador')) ?? agentes[0] ?? null;
 
   return (
     <section className="space-y-4 text-base sm:text-[15px]">
@@ -273,9 +286,21 @@ export default function PantallaAgentes() {
         ag.estado.datos.length === 0 ? (
           <EstadoVacio titulo="Aún no hay agentes" texto="Cuando crees un agente en el Centro de Agentes IA, aquí eliges su modelo." />
         ) : (
-          <ul className="space-y-4">
-            {ag.estado.datos.map((a) => <TarjetaAgente key={a.id} a={a} disponibles={disp.estado.fase === 'ok' ? disp.estado.datos : []} onCambio={refrescar} />)}
-          </ul>
+          <>
+            {/* Selector de agente: solo aparece si hay más de uno. */}
+            {agentes.length > 1 && (
+              <div className="max-w-md space-y-1">
+                <label htmlFor={idSelector} className="block font-semibold">Agente que vas a editar</label>
+                <select id={idSelector} value={actual?.id ?? ''} onChange={(e) => setElegido(e.target.value)} className={CAMPO}>
+                  {agentes.map((x) => <option key={x.id} value={x.id}>{x.nombre}</option>)}
+                </select>
+                <p className={`text-sm ${TEXTO_SECUNDARIO}`}>{agentes.length} agentes. Se edita uno a la vez.</p>
+              </div>
+            )}
+            <ul className="space-y-4">
+              {actual && <TarjetaAgente key={actual.id} a={actual} disponibles={disp.estado.fase === 'ok' ? disp.estado.datos : []} onCambio={refrescar} />}
+            </ul>
+          </>
         )
       )}
     </section>

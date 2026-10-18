@@ -28,6 +28,7 @@ import {
 import type { AlertaApi, EstadoGastoApi } from '@/src/lib/admin-ia/tipos';
 import { AccionesFijas, AvisoAmbar, AvisoDatosEjemplo, CajaPorQue, Campo, EncabezadoPantalla, ErrorEnLinea, EstadoVacio, FaseNoOk, TextoExito } from './Base';
 import Bitacora from './Bitacora';
+import { etiquetaCanal, etiquetaProveedorModelo } from '@/src/lib/admin-ia/etiquetas';
 import { BOTON_CTA, BOTON_SECUNDARIO, ENLACE, FOCO, TARJETA, TEXTO_SECUNDARIO } from './estilos';
 import { IconoAlerta, IconoCheck, IconoError } from './Iconos';
 import { usarCarga } from './usarCarga';
@@ -190,7 +191,7 @@ function DetalleCanal({ canal, onCambio }: { canal: string; onCambio: () => void
               <ul className="mt-3 space-y-1 border-t border-[#ece8f7] pt-3 text-sm">
                 {con.estado.datos.por_modelo.map((m) => (
                   <li key={`${m.proveedor_codigo}-${m.modelo}`} className="flex flex-wrap justify-between gap-2">
-                    <span className="break-all">{m.proveedor_codigo} · {m.modelo}</span>
+                    <span className="break-all">{etiquetaProveedorModelo(m.proveedor_codigo, m.modelo)}</span>
                     <span>{m.llamadas} llamadas · USD {formatoUsd(m.gasto_usd)}{m.es_estimado ? ` · ${TEXTO_PRECIO_ESTIMADO}` : ''}{m.precio_version ? '' : ' · sin precio'}</span>
                   </li>
                 ))}
@@ -267,7 +268,7 @@ export default function PantallaTopes({ canalInicial }: { canalInicial?: string 
   const [canal, setCanal] = useState<string | null>(canalInicial ?? null);
   const lista = topes.estado.fase === 'ok' ? topes.estado.datos : [];
   const elegido = canal ?? lista[0]?.canal_codigo ?? null;
-  const nombreCanal = (c: string) => lista.find((x) => x.canal_codigo === c)?.canal_nombre ?? c;
+  const nombreCanal = (c: string) => lista.find((x) => x.canal_codigo === c)?.canal_nombre ?? etiquetaCanal(c);
   const refrescar = () => {
     topes.recargar({ silencioso: true });
     alertas.recargar({ silencioso: true });
@@ -304,7 +305,7 @@ export default function PantallaTopes({ canalInicial }: { canalInicial?: string 
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
                       <h3 className="text-lg font-bold text-[#3b2f8f]">{c.canal_nombre}</h3>
-                      <p className={`text-sm ${TEXTO_SECUNDARIO}`}>Canal: {c.canal_codigo} · tope por canal</p>
+                      <p className={`text-sm ${TEXTO_SECUNDARIO}`}>Canal: {etiquetaCanal(c.canal_codigo)} · tope por canal</p>
                     </div>
                     <ChipGasto estado={c.estado} />
                   </div>

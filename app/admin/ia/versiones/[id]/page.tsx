@@ -4,6 +4,7 @@ import { FormEvent, use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import EstadoBadge from '@/components/admin/ia/EstadoBadge';
 import ModalConfirmacion from '@/components/admin/ia/ModalConfirmacion';
+import { etiquetaEstado, humanizar } from '@/src/lib/admin-ia/etiquetas';
 
 async function pedirJson(url: string, init?: RequestInit) {
   const res = await fetch(url, { cache: 'no-store', ...init });
@@ -75,7 +76,7 @@ export default function VersionEditorPage({ params }: { params: Promise<{ id: st
         </div>
         {!esBorrador ? (
           <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            Esta versión está {version.estado} y es <strong>inmutable</strong>. Para hacer cambios, crea una nueva versión
+            Esta versión está {etiquetaEstado(version.estado).toLowerCase()} y es <strong>inmutable</strong>. Para hacer cambios, crea una nueva versión
             borrador.
           </p>
         ) : null}
@@ -175,8 +176,8 @@ function TabSimulacion({ version }: { version: Version }) {
   const [mensaje, setMensaje] = useState(''); const [canal, setCanal] = useState('web'); const [versiones, setVersiones] = useState<any[]>([]); const [compararCon, setCompararCon] = useState(''); const [resultado, setResultado] = useState<any>(null); const [ejecutando, setEjecutando] = useState(false); const [error, setError] = useState('');
   useEffect(() => { void pedirJson(`/api/admin/ia/versiones?agente_id=${version.agente_id}`).then(({ data }) => setVersiones((data?.items || []).filter((v: any) => v.id !== version.id))); }, [version.agente_id, version.id]);
   async function simular(e: FormEvent) { e.preventDefault(); setEjecutando(true); setError(''); setResultado(null); const { ok, data } = await pedirJson(`/api/admin/ia/versiones/${version.id}/simular`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mensaje, codigo_canal: canal, comparar_con_version_id: compararCon || undefined }) }); setEjecutando(false); if (!ok || !data?.ok) { setError(data?.error || 'No fue posible ejecutar la simulación.'); return; } setResultado(data); }
-  const Respuesta = ({ titulo, item }: { titulo: string; item: any }) => <div className="rounded-xl border border-buscoedu-border bg-white p-4 shadow-card"><h4 className="font-semibold text-buscoedu-blue">{titulo}</h4><p className="mt-2 whitespace-pre-wrap text-sm text-buscoedu-text">{item?.mensaje || 'Sin respuesta'}</p><p className="mt-3 text-xs text-buscoedu-muted">Filtros: {Object.keys(item?.filtros || {}).length ? JSON.stringify(item.filtros) : 'ninguno'}</p></div>;
-  return <div className="space-y-4"><form onSubmit={simular} className="space-y-3 rounded-xl border border-buscoedu-border bg-white p-5 shadow-card"><p className="text-sm text-buscoedu-muted">Prueba esta versión, incluso si es borrador, sin modificar producción.</p>{error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}<textarea required rows={3} value={mensaje} onChange={(e) => setMensaje(e.target.value)} placeholder="Escribe el mensaje que probarás..." className="w-full rounded-lg border border-buscoedu-border px-3 py-2"/><div className="grid gap-3 sm:grid-cols-2"><label className="text-sm">Canal<select value={canal} onChange={(e) => setCanal(e.target.value)} className="mt-1 w-full rounded-lg border border-buscoedu-border px-3 py-2"><option value="web">Web</option><option value="whatsapp">WhatsApp</option></select></label><label className="text-sm">Comparar con<select value={compararCon} onChange={(e) => setCompararCon(e.target.value)} className="mt-1 w-full rounded-lg border border-buscoedu-border px-3 py-2"><option value="">No comparar</option>{versiones.map((v) => <option key={v.id} value={v.id}>v{v.numero_version} — {v.nombre_version || v.estado}</option>)}</select></label></div><button disabled={ejecutando} className="rounded-md bg-buscoedu-blue px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{ejecutando ? 'Simulando...' : 'Simular versión'}</button></form>{resultado ? <div className="grid gap-4 md:grid-cols-2"><Respuesta titulo={`Versión v${version.numero_version}`} item={resultado.principal}/>{resultado.comparacion ? <Respuesta titulo="Versión comparada" item={resultado.comparacion}/> : null}</div> : null}</div>;
+  const Respuesta = ({ titulo, item }: { titulo: string; item: any }) => <div className="rounded-xl border border-buscoedu-border bg-white p-4 shadow-card"><h4 className="font-semibold text-buscoedu-blue">{titulo}</h4><p className="mt-2 whitespace-pre-wrap text-sm text-buscoedu-text">{item?.mensaje || 'Sin respuesta'}</p><p className="mt-3 text-xs text-buscoedu-muted">Filtros: {Object.keys(item?.filtros || {}).length ? Object.entries(item.filtros).map(([k, v]) => `${humanizar(k)}: ${Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? 'varios' : String(v)}`).join(' · ') : 'ninguno'}</p></div>;
+  return <div className="space-y-4"><form onSubmit={simular} className="space-y-3 rounded-xl border border-buscoedu-border bg-white p-5 shadow-card"><p className="text-sm text-buscoedu-muted">Prueba esta versión, incluso si es borrador, sin modificar producción.</p>{error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}<textarea required rows={3} value={mensaje} onChange={(e) => setMensaje(e.target.value)} placeholder="Escribe el mensaje que probarás..." className="w-full rounded-lg border border-buscoedu-border px-3 py-2"/><div className="grid gap-3 sm:grid-cols-2"><label className="text-sm">Canal<select value={canal} onChange={(e) => setCanal(e.target.value)} className="mt-1 w-full rounded-lg border border-buscoedu-border px-3 py-2"><option value="web">Web</option><option value="whatsapp">WhatsApp</option></select></label><label className="text-sm">Comparar con<select value={compararCon} onChange={(e) => setCompararCon(e.target.value)} className="mt-1 w-full rounded-lg border border-buscoedu-border px-3 py-2"><option value="">No comparar</option>{versiones.map((v) => <option key={v.id} value={v.id}>v{v.numero_version} — {v.nombre_version || etiquetaEstado(v.estado)}</option>)}</select></label></div><button disabled={ejecutando} className="rounded-md bg-buscoedu-blue px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{ejecutando ? 'Simulando...' : 'Simular versión'}</button></form>{resultado ? <div className="grid gap-4 md:grid-cols-2"><Respuesta titulo={`Versión v${version.numero_version}`} item={resultado.principal}/>{resultado.comparacion ? <Respuesta titulo="Versión comparada" item={resultado.comparacion}/> : null}</div> : null}</div>;
 }
 
 /* ============ Identidad ============ */
@@ -315,7 +316,7 @@ function TabAsociacion({
               <option value="">Seleccionar...</option>
               {catalogo.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.nombre} ({c.codigo})
+                  {c.nombre}
                 </option>
               ))}
             </select>
@@ -342,7 +343,6 @@ function TabAsociacion({
           <thead className="bg-buscoedu-bg text-left text-xs uppercase tracking-wide text-buscoedu-muted">
             <tr>
               <th className="px-3 py-3">Nombre</th>
-              <th className="px-3 py-3">Código</th>
               {camposExtra.map((c) => (
                 <th key={c.clave} className="px-3 py-3">
                   {c.etiqueta}
@@ -354,13 +354,13 @@ function TabAsociacion({
           <tbody className="divide-y divide-buscoedu-border text-buscoedu-text">
             {loading ? (
               <tr>
-                <td colSpan={2 + camposExtra.length + (esBorrador ? 1 : 0)} className="px-3 py-6 text-center text-buscoedu-muted">
+                <td colSpan={1 + camposExtra.length + (esBorrador ? 1 : 0)} className="px-3 py-6 text-center text-buscoedu-muted">
                   Cargando...
                 </td>
               </tr>
             ) : asociados.length === 0 ? (
               <tr>
-                <td colSpan={2 + camposExtra.length + (esBorrador ? 1 : 0)} className="px-3 py-6 text-center text-buscoedu-muted">
+                <td colSpan={1 + camposExtra.length + (esBorrador ? 1 : 0)} className="px-3 py-6 text-center text-buscoedu-muted">
                   {etiquetaVacio}
                 </td>
               </tr>
@@ -368,10 +368,9 @@ function TabAsociacion({
               asociados.map((a) => (
                 <tr key={a.id}>
                   <td className="px-3 py-3 font-medium">{a[relacion]?.nombre || '—'}</td>
-                  <td className="px-3 py-3 text-xs text-buscoedu-muted">{a[relacion]?.codigo || '—'}</td>
                   {camposExtra.map((c) => (
                     <td key={c.clave} className="px-3 py-3">
-                      {a[c.clave] ?? '—'}
+                      {typeof a[c.clave] === 'boolean' ? (a[c.clave] ? 'Sí' : 'No') : typeof a[c.clave] === 'string' && /^[a-z0-9]+(_[a-z0-9]+)+$/.test(a[c.clave]) ? humanizar(a[c.clave]) : a[c.clave] ?? '—'}
                     </td>
                   ))}
                   {esBorrador ? (

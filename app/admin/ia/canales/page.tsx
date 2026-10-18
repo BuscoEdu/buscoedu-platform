@@ -2,6 +2,7 @@
 
 import PaginaCatalogo from '@/components/admin/ia/PaginaCatalogo';
 import CajaAyuda from '@/components/admin/CajaAyuda';
+import { etiquetaCanal, etiquetaTipoCanal } from '@/src/lib/admin-ia/etiquetas';
 
 export default function CanalesPage() {
   return (
@@ -20,13 +21,13 @@ export default function CanalesPage() {
       endpoint="/api/admin/ia/canales"
       textoNuevo="Nuevo canal"
       columnas={[
-        { clave: 'nombre', etiqueta: 'Nombre' },
-        { clave: 'codigo', etiqueta: 'Código' },
-        { clave: 'tipo', etiqueta: 'Tipo' },
+        // Nombre legible del canal (whatsapp → WhatsApp); si falta, se deriva del identificador.
+        { clave: 'nombre', etiqueta: 'Nombre', render: (fila) => etiquetaCanal(fila.nombre || fila.codigo) },
+        { clave: 'tipo', etiqueta: 'Tipo', render: (fila) => (fila.tipo ? etiquetaTipoCanal(fila.tipo) : '—') },
         { clave: 'agentes_ia', etiqueta: 'Agente asignado', render: (fila) => fila.agentes_ia?.nombre || 'Sin asignar' }
       ]}
       campos={[
-        { clave: 'codigo', etiqueta: 'Código', tipo: 'texto', requerido: true },
+        { clave: 'codigo', etiqueta: 'Identificador interno', tipo: 'texto', requerido: true, ayuda: 'Minúsculas y guion bajo, sin espacios. Es interno: no se muestra al público.' },
         { clave: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true },
         { clave: 'tipo', etiqueta: 'Tipo', tipo: 'texto' },
         { clave: 'descripcion', etiqueta: 'Descripción', tipo: 'textarea' },

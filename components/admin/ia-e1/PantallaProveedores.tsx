@@ -117,7 +117,7 @@ export default function PantallaProveedores() {
                   <tr key={p.id} className="align-top">
                     <th scope="row" className="px-4 py-3 font-normal">
                       <Link href={`/admin/ia/multiproveedor/${p.id}`} className={`${ENLACE} inline-flex min-h-[44px] items-center`}>{p.nombre}</Link>
-                      <span className={`block break-all text-sm ${TEXTO_SECUNDARIO}`}>{p.url_base ?? 'Endpoint fijo de Abacus'} · {p.modelos} {p.modelos === 1 ? 'modelo' : 'modelos'}</span>
+                      <span className={`block break-all text-sm ${TEXTO_SECUNDARIO}`}>{p.url_base ?? 'Dirección fija de Abacus AI'} · {p.modelos} {p.modelos === 1 ? 'modelo' : 'modelos'}</span>
                       {p.salud.circuito_abierto_hasta && <span className="mt-1 block"><AvisoAmbar>En pausa por errores seguidos hasta {fechaHora(p.salud.circuito_abierto_hasta)} (orientativo).</AvisoAmbar></span>}
                     </th>
                     <td className="px-4 py-3"><ChipEstado estado={p.estado_panel} /></td>

@@ -405,7 +405,7 @@ export default function AsistenteProveedor() {
                           <span className="font-semibold text-[#1a1830]">{p.nombre}</span>
                         </span>
                         <span className={`mt-1 block break-all text-sm ${TEXTO_SECUNDARIO}`}>
-                          {p.url_base ?? (p.tipo_adaptador === 'abacus' ? 'Endpoint fijo de Abacus (no se configura)' : 'Eliges la URL de la lista permitida')}
+                          {p.url_base ?? (p.tipo_adaptador === 'abacus' ? 'Dirección fija de Abacus AI (no se configura)' : 'Eliges la URL de la lista permitida')}
                         </span>
                       </span>
                     </label>
@@ -417,11 +417,11 @@ export default function AsistenteProveedor() {
               {presetApi && presetApi.url_editable && (
                 <div className="space-y-4 pt-2">
                   <Campo
-                    etiqueta="Código interno del proveedor"
+                    etiqueta="Identificador interno del proveedor"
                     valor={codigoOtro}
                     onCambio={(v) => { setCodigoOtro(v); setErroresServidor({}); }}
                     ayuda="Minúsculas, números y _ (3 a 40). Por ejemplo: groq."
-                    error={erroresServidor.codigo ?? (mostrarErrores && !/^[a-z0-9_]{3,40}$/.test(codigoOtro.trim()) ? 'El código solo admite minúsculas, números y _ (3 a 40).' : undefined)}
+                    error={erroresServidor.codigo ?? (mostrarErrores && !/^[a-z0-9_]{3,40}$/.test(codigoOtro.trim()) ? 'El identificador solo admite minúsculas, números y _ (3 a 40).' : undefined)}
                   />
                   <Campo
                     etiqueta="URL base del proveedor compatible"
@@ -518,7 +518,7 @@ export default function AsistenteProveedor() {
               {(
                 [
                   [precioEstimado, setPrecioEstimado, 'El precio es aproximado (se mostrará «precio estimado»)'],
-                  [capJson, setCapJson, 'Soporta modo JSON'],
+                  [capJson, setCapJson, 'Soporta respuesta estructurada (JSON)'],
                   [capHerr, setCapHerr, 'Soporta herramientas']
                 ] as Array<[boolean, (v: boolean) => void, string]>
               ).map(([valor, fijar, texto]) => (
@@ -531,7 +531,7 @@ export default function AsistenteProveedor() {
             {/* Solo Abacus: NOMBRES de variables de entorno (nunca valores). */}
             {esAbacus && (
               <div className="grid gap-4 sm:grid-cols-2">
-                <Campo etiqueta="Variable del deployment de Abacus" valor={borrador.modelos.abacus_identificador} onCambio={(v) => cambiar((prev) => ({ ...prev, modelos: { ...prev.modelos, abacus_identificador: v } }))} ayuda="Nombre, no valor. Empieza por LLM_ o ABACUS_NAIA_." error={errorDe('abacus_identificador')} />
+                <Campo etiqueta="Variable del despliegue de Abacus" valor={borrador.modelos.abacus_identificador} onCambio={(v) => cambiar((prev) => ({ ...prev, modelos: { ...prev.modelos, abacus_identificador: v } }))} ayuda="Nombre, no valor. Empieza por LLM_ o ABACUS_NAIA_." error={errorDe('abacus_identificador')} />
                 <Campo etiqueta="Variable de la clave de Abacus" valor={borrador.modelos.abacus_referencia} onCambio={(v) => cambiar((prev) => ({ ...prev, modelos: { ...prev.modelos, abacus_referencia: v } }))} ayuda="Nombre, no valor. Empieza por LLM_ o ABACUS_NAIA_." error={errorDe('abacus_referencia')} />
               </div>
             )}

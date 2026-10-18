@@ -15,6 +15,7 @@ import { useEffect, useId, useState, type MouseEvent, type ReactNode } from 'rea
 import Link from 'next/link';
 import type { EstadoPanel } from '@/src/lib/admin-ia/tipos';
 import { ETIQUETA_ESTADO } from '@/src/lib/admin-ia/logica';
+import { codigoSoporte } from '@/src/lib/admin-ia/etiquetas';
 import { BOTON_CTA, BOTON_SECUNDARIO, CAMPO, CAMPO_ERROR, FOCO, TARJETA, TEXTO_SECUNDARIO, TITULO } from './estilos';
 import { IconoAlerta, IconoCandado, IconoCheck, IconoConfigurado, IconoEncendido, IconoError, IconoInfo, IconoVacio } from './Iconos';
 
@@ -109,7 +110,7 @@ export function EstadoError({ que_paso = 'No pudimos cargar esta información.',
         <IconoError className="mt-0.5 h-6 w-6 text-[#b91c1c]" />
         <div className="min-w-0 space-y-1">
           <h3 className="text-lg font-bold text-[#b91c1c]">{que_paso}</h3>
-          <p><span className="font-semibold">Por qué: </span>{mensaje} <span className={`text-sm ${TEXTO_SECUNDARIO}`}>(código {codigo}{http ? ` · HTTP ${http}` : ''})</span></p>
+          <p><span className="font-semibold">Por qué: </span>{mensaje} <span className={`text-sm ${TEXTO_SECUNDARIO}`}>(código para soporte: {codigoSoporte(codigo)}{http ? `-${http}` : ''})</span></p>
           <p><span className="font-semibold">Qué hacer: </span>Revisa tu conexión y toca Reintentar. Si sigue igual, avisa al equipo técnico con el código.</p>
           <button type="button" className={`${BOTON_SECUNDARIO} mt-3`} onClick={() => onReintentar()}>Reintentar</button>
         </div>

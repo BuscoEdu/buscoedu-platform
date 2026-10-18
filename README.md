@@ -101,7 +101,7 @@ Contrato de las rutas `/api/admin/ia/...` (solo super_admin) para que Frontend c
 
 ## E1 Ola 3/4 — Panel «IA multiproveedor» (Frontend)
 
-Pantallas de `/admin/ia/multiproveedor` (solo super_admin): asistente de 5 pasos para agregar proveedor, interruptor con aviso de impacto, ficha con bitácora, modelo + respaldos por agente y tope de gasto diario por canal. Usan la API real (`src/lib/admin-ia/api.ts`); el adaptador de ejemplo es solo para pruebas y capturas. El formulario viejo `/admin/ia/proveedores` ahora redirige aquí. Bitácora: 18/10/2026 — panel E1 + reemplazo del formulario viejo — para operar proveedores y topes sin tocar código — Frontend BuscoEdu (bot). Detalle: [`docs/frontend/README-e1-admin-ia.md`](docs/frontend/README-e1-admin-ia.md).
+Pantallas de `/admin/ia/multiproveedor` (solo super_admin): asistente de 5 pasos para agregar proveedor, interruptor con aviso de impacto, ficha con bitácora, modelo + respaldos por agente y tope de gasto diario por canal. Usan la API real (`src/lib/admin-ia/api.ts`); el adaptador de ejemplo es solo para pruebas y capturas. El formulario viejo `/admin/ia/proveedores` ahora redirige aquí. Bitácora: 18/10/2026 — panel E1 + reemplazo del formulario viejo — para operar proveedores y topes sin tocar código — Frontend BuscoEdu (bot). 18/10/2026 — pulido QA: etiquetas en español centralizadas en `src/lib/admin-ia/etiquetas.ts` para todo `/admin/ia` (sin códigos ni inglés visibles), «Publicar vN» como único CTA coral en «Modelo por agente», `engines.node` `>=22 <23` y `.nvmrc` — para que el panel se lea en español claro y las pruebas corran con Node 22 — Frontend BuscoEdu (bot). Detalle: [`docs/frontend/README-e1-admin-ia.md`](docs/frontend/README-e1-admin-ia.md).
 
 ## BA-034 — Capa IA multiproveedor (E1)
 

@@ -4,6 +4,10 @@ import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import EstadoBadge from '@/components/admin/ia/EstadoBadge';
 import CajaAyuda from '@/components/admin/CajaAyuda';
+import { etiquetaTipo } from '@/src/lib/admin-ia/etiquetas';
+
+// Tipos de agente que se ofrecen al crear uno (valor interno → etiqueta en español).
+const TIPOS_AGENTE = ['asesor_educativo', 'clasificador', 'resumen', 'general'];
 
 interface AgenteItem {
   id: string;
@@ -161,7 +165,6 @@ export default function AgentesPage() {
           <thead className="bg-buscoedu-bg text-left text-xs uppercase tracking-wide text-buscoedu-muted">
             <tr>
               <th className="px-3 py-3">Nombre</th>
-              <th className="px-3 py-3">Código</th>
               <th className="px-3 py-3">Tipo</th>
               <th className="px-3 py-3">Estado</th>
               <th className="px-3 py-3">Versión activa</th>
@@ -171,18 +174,17 @@ export default function AgentesPage() {
           <tbody className="divide-y divide-buscoedu-border text-buscoedu-text">
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-buscoedu-muted">Cargando agentes...</td>
+                <td colSpan={5} className="px-3 py-6 text-center text-buscoedu-muted">Cargando agentes...</td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-buscoedu-muted">No hay agentes.</td>
+                <td colSpan={5} className="px-3 py-6 text-center text-buscoedu-muted">No hay agentes.</td>
               </tr>
             ) : (
               items.map((a) => (
                 <tr key={a.id}>
                   <td className="px-3 py-3 font-medium">{a.nombre}</td>
-                  <td className="px-3 py-3 text-xs text-buscoedu-muted">{a.codigo}</td>
-                  <td className="px-3 py-3">{a.tipo_agente}</td>
+                  <td className="px-3 py-3">{a.tipo_agente ? etiquetaTipo(a.tipo_agente) : '—'}</td>
                   <td className="px-3 py-3"><EstadoBadge estado={a.estado} /></td>
                   <td className="px-3 py-3">{a.version_activa?.numero_version ? `v${a.version_activa.numero_version}` : '—'}</td>
                   <td className="px-3 py-3">
@@ -207,7 +209,7 @@ export default function AgentesPage() {
             {error ? <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
             <form onSubmit={crear} className="mt-3 space-y-3">
               <label className="block text-sm">
-                <span className="mb-1 block font-medium text-buscoedu-text">Código</span>
+                <span className="mb-1 block font-medium text-buscoedu-text">Identificador interno <span className="font-normal text-buscoedu-muted">(obligatorio; minúsculas y guion bajo, no se muestra al público)</span></span>
                 <input required value={form.codigo} onChange={(e) => setForm((p) => ({ ...p, codigo: e.target.value }))} className="w-full rounded-lg border border-buscoedu-border px-3 py-2" />
               </label>
               <label className="block text-sm">
@@ -216,7 +218,7 @@ export default function AgentesPage() {
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium text-buscoedu-text">Tipo de agente</span>
-                <input value={form.tipo_agente} onChange={(e) => setForm((p) => ({ ...p, tipo_agente: e.target.value }))} className="w-full rounded-lg border border-buscoedu-border px-3 py-2" />
+                <select value={form.tipo_agente} onChange={(e) => setForm((p) => ({ ...p, tipo_agente: e.target.value }))} className="w-full rounded-lg border border-buscoedu-border px-3 py-2">{TIPOS_AGENTE.map((t) => <option key={t} value={t}>{etiquetaTipo(t)}</option>)}</select>
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium text-buscoedu-text">Objetivo</span>

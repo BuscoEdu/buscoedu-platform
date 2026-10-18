@@ -1,6 +1,7 @@
 'use client';
 
 import EstadoBadge from './EstadoBadge';
+import { etiquetaCanal, etiquetaError, humanizar } from '@/src/lib/admin-ia/etiquetas';
 
 export interface EjecucionItem {
   id: string;
@@ -14,6 +15,8 @@ export interface EjecucionItem {
 
 /**
  * Tabla reutilizable de ejecuciones de agentes.
+ * Muestra nombres legibles: si falta el nombre del agente o del canal, se humaniza su código;
+ * el error se traduce con etiquetaError (sin códigos crudos en pantalla).
  */
 export default function TablaEjecuciones({
   items,
@@ -50,11 +53,11 @@ export default function TablaEjecuciones({
           ) : (
             items.map((it) => (
               <tr key={it.id}>
-                <td className="px-3 py-3">{it.agentes_ia?.nombre || it.agentes_ia?.codigo || '—'}</td>
-                <td className="px-3 py-3">{it.canales_ia?.nombre || it.canales_ia?.codigo || '—'}</td>
+                <td className="px-3 py-3">{it.agentes_ia?.nombre || (it.agentes_ia?.codigo ? humanizar(it.agentes_ia.codigo) : '—')}</td>
+                <td className="px-3 py-3">{it.canales_ia?.codigo ? etiquetaCanal(it.canales_ia.codigo) : it.canales_ia?.nombre ? etiquetaCanal(it.canales_ia.nombre) : '—'}</td>
                 <td className="px-3 py-3">
                   <EstadoBadge estado={it.estado} />
-                  {it.error ? <p className="mt-1 max-w-xs truncate text-xs text-red-600">{it.error}</p> : null}
+                  {it.error ? <p className="mt-1 max-w-xs truncate text-xs text-red-600">{etiquetaError(it.error)}</p> : null}
                 </td>
                 <td className="px-3 py-3 text-xs text-buscoedu-muted">
                   {it.duracion_ms != null ? `${it.duracion_ms} ms` : '—'}

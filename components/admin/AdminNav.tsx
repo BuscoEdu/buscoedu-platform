@@ -58,7 +58,7 @@ const CATEGORIAS: Categoria[] = [
       { label: 'Herramientas', href: '/admin/ia/herramientas' },
       { label: 'Fuentes', href: '/admin/ia/fuentes' },
       { label: 'Ejecuciones y pruebas', href: '/admin/ia/ejecuciones' },
-      { label: 'Dashboard IA', href: '/admin/ia' }
+      { label: 'Resumen IA', href: '/admin/ia' }
     ]
   },
   // E1 · BA-036/037/038: pantallas nuevas de IA multiproveedor, solo para super_admin
@@ -99,7 +99,7 @@ export default function AdminNav({ roleCode }: { roleCode: string }) {
   );
 
   // Calcula el enlace activo como el href más específico (más largo) que coincide
-  // con la ruta actual. Evita que "Dashboard IA" (/admin/ia) quede activo cuando
+  // con la ruta actual. Evita que "Resumen IA" (/admin/ia) quede activo cuando
   // el usuario está en una subruta como /admin/ia/agentes.
   const hrefActivo =
     categoriasVisibles

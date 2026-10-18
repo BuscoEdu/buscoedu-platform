@@ -265,7 +265,7 @@ const NOMBRE_CAMPO: Record<CampoModelo, string> = {
   timeout_ms: 'el tiempo máximo',
   costo_usd_1k_entrada: 'el costo de entrada',
   costo_usd_1k_salida: 'el costo de salida',
-  abacus_identificador: 'la variable del deployment',
+  abacus_identificador: 'la variable del despliegue',
   abacus_referencia: 'la variable de la clave'
 };
 

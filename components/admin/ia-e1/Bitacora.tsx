@@ -9,6 +9,7 @@
  */
 
 import { fechaHora } from '@/src/lib/admin-ia/logica';
+import { esCampoInterno, etiquetaCampoBitacora, humanizar, valorBitacora } from '@/src/lib/admin-ia/etiquetas';
 import { TARJETA, TEXTO_SECUNDARIO } from './estilos';
 
 export interface FilaBitacora {
@@ -40,14 +41,22 @@ const ACCION: Record<string, string> = {
 };
 
 export function textoAccion(accion: string): string {
-  return ACCION[accion] ?? accion;
+  // Acción nueva que aún no está en el mapa: se humaniza (nunca se muestra el código crudo).
+  return ACCION[accion] ?? humanizar(accion);
 }
 
-/** Valor de la bitácora a texto corto (texto, número u objeto pequeño). */
+/**
+ * Valor de la bitácora a texto corto y legible (texto, número, booleano u objeto pequeño).
+ * Las claves y valores pasan por el módulo de etiquetas (temperature → Temperatura, xai → xAI,
+ * true → Sí) y se omiten identificadores internos (…_id), para no mostrar códigos crudos.
+ */
 export function valorTexto(v: unknown): string | null {
   if (v === undefined || v === null) return null;
-  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
-  return Object.entries(v as Record<string, unknown>).map(([k, x]) => `${k}: ${String(x)}`).join(', ');
+  if (typeof v !== 'object' || Array.isArray(v)) return valorBitacora('', v);
+  const partes = Object.entries(v as Record<string, unknown>)
+    .filter(([k]) => !esCampoInterno(k))
+    .map(([k, x]) => `${etiquetaCampoBitacora(k)}: ${valorBitacora(k, x)}`);
+  return partes.length ? partes.join(', ') : null;
 }
 
 export default function Bitacora({ filas, vacio = 'Todavía no hay cambios registrados.' }: { filas: FilaBitacora[]; vacio?: string }) {

@@ -2,6 +2,17 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import EstadoBadge from './EstadoBadge';
+import { etiquetaEstado, humanizar } from '@/src/lib/admin-ia/etiquetas';
+
+// Valor visible de una celda sin render propio: estados con su etiqueta y cualquier código en
+// snake_case humanizado, para que la tabla nunca muestre valores internos crudos.
+function valorCelda(clave: string, valor: any): React.ReactNode {
+  if (valor === null || valor === undefined || valor === '') return '—';
+  if (typeof valor === 'boolean') return valor ? 'Sí' : 'No';
+  if (typeof valor !== 'string') return String(valor);
+  if (clave === 'estado') return etiquetaEstado(valor);
+  return /^[a-z0-9]+(_[a-z0-9]+)+$/.test(valor) ? humanizar(valor) : valor;
+}
 
 export interface ColumnaCatalogo {
   clave: string;
@@ -188,7 +199,7 @@ export default function PaginaCatalogo({
                 <tr key={fila.id} className={fila.activo === false ? 'opacity-50' : ''}>
                   {columnas.map((c) => (
                     <td key={c.clave} className="px-3 py-3">
-                      {c.render ? c.render(fila) : (fila[c.clave] ?? '—')}
+                      {c.render ? c.render(fila) : valorCelda(c.clave, fila[c.clave])}
                     </td>
                   ))}
                   <td className="px-3 py-3">
@@ -240,7 +251,8 @@ export default function PaginaCatalogo({
                     <>
                       <span className="mb-1 block font-medium text-buscoedu-text">
                         {campo.etiqueta}
-                        {campo.requerido ? ' *' : ''}
+                        {/* Marca explícita de campo obligatorio (sin símbolos sin explicar). */}
+                        {campo.requerido ? <span className="font-normal text-buscoedu-muted"> (obligatorio)</span> : null}
                       </span>
                       {campo.tipo === 'textarea' || campo.tipo === 'json' ? (
                         <textarea

@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { etiquetaTipo } from '@/src/lib/admin-ia/etiquetas';
 
 export interface ContextoFormValores {
   codigo: string;
@@ -70,7 +71,7 @@ export default function FormularioContexto({
     <form onSubmit={submit} className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="block text-sm">
-          <span className="mb-1 block font-medium text-buscoedu-text">Código</span>
+          <span className="mb-1 block font-medium text-buscoedu-text">Identificador interno</span>
           <input
             value={form.codigo}
             onChange={(e) => setForm((p) => ({ ...p, codigo: e.target.value }))}
@@ -97,7 +98,7 @@ export default function FormularioContexto({
           >
             {TIPOS.map((t) => (
               <option key={t} value={t}>
-                {t}
+                {etiquetaTipo(t)}
               </option>
             ))}
           </select>
