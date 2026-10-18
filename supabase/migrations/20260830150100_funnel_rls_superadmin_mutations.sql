@@ -1,3 +1,11 @@
+-- =====================================================
+-- ⚠ OBSOLETA · NO APLICAR (decisión Orquestador con OK Jhon, 2026-10-18)
+-- Crea policies INSERT/UPDATE/DELETE físico para authenticated en etapas,
+-- subestados y reglas: choca con la regla de no borrar físicamente y ningún
+-- cliente las usa (el admin escribe con service role). No está en el historial
+-- de prod. OJO: `supabase db push` la aplicaría; sacarla de supabase/migrations
+-- en E1 (ver docs/bd/README-e0-migraciones-20261018.md).
+-- =====================================================
 BEGIN;
 
 ALTER TABLE public.etapas_embudo ENABLE ROW LEVEL SECURITY;

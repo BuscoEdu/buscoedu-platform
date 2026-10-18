@@ -22,24 +22,31 @@ Con un historial así, `supabase db push` intentaría volver a correr 43 archivo
 - `personalidad_naia` y `formato_respuesta_naia` quedan en la versión `ba024`.
 - El despliegue «NaIA Producción» queda con `temperature` 0.6.
 
-## Qué NO se hizo (STOP, falta decidir)
-1. **`20260830143100_fase3_validar_aplicacion`**
-   - Además de crear `fn_validar_aplicacion`, vuelve a escribir `fn_convertir_aplicacion` y mete la validación *después* de crear la persona, la oportunidad, el historial y la asignación. Cuando el resultado es `duplicada` o `limite_alcanzado`, devuelve ok=false sin deshacer nada, así que quedan oportunidades huérfanas asignadas a un asesor.
-   - Lo usa `app/api/leadcenter/convertir/route.ts`.
-   - Hay otro problema hoy en prod: `fn_ba031_convertir_si_consentido` llama a `fn_validar_aplicacion`, que no existe. Por eso Aplicar por WhatsApp falla cuando la persona ya existe.
-   - Propuesta: corregir el archivo para que valide antes de escribir (o que haga RAISE) y luego aplicarlo.
-2. **`20260830150100_funnel_rls_superadmin_mutations`**
-   - Crea policies de INSERT, UPDATE y **DELETE físico** para usuarios autenticados en etapas, subestados y reglas. Eso choca con la regla de no borrar físicamente.
-   - Hoy ningún cliente las necesita, porque el admin usa service role.
-   - Propuesta: hacer una versión sin DELETE (o no hacer nada) y que la decida Producto/Orquestador.
-3. **`20260815_*` (2 archivos con la misma versión `20260815`)**
-   - Su efecto ya está en prod, pero los dos chocan en la clave primaria del historial y el CLI tampoco los acepta.
-   - Hay que renombrarlos en el repo, por ejemplo `20260815000000_…` y `20260815000100_…`, y después registrarlos con el mismo patrón del paso 1.
+## Paso 3 · Decisiones sobre los 3 STOP (Orquestador con OK de Jhon, 2026-10-18)
+Archivo: `supabase/ops/20261018_e0_paso3_decisiones_stop.sql` (una transacción, idempotente).
+1. **143100 recortada**
+   - Ahora solo crea `fn_validar_aplicacion`, que es un cambio aditivo. Se quitó del archivo la reescritura de `fn_convertir_aplicacion` y quedó una nota dentro explicando por qué.
+   - Para qué sirve: `fn_ba031_convertir_si_consentido` la necesita, así que Aplicar por WhatsApp con una persona que ya existe vuelve a funcionar.
+   - `fn_convertir_aplicacion` quedó intacta (md5 `0fb145102b91fa27e40866e2b6748f16`, el mismo de antes).
+   - Prueba en prod, solo de lectura:
+     - Persona existente con la misma oferta → `duplicada` ✓
+     - Misma persona con otra oferta → `ok` ✓
+     - Parámetros nulos → `parametros_invalidos` ✓
+2. **150100 descartada**
+   - No se aplica ni se registra. El archivo lleva un encabezado «OBSOLETA · NO APLICAR».
+   - ⚠ Mientras siga en `supabase/migrations/`, `db push` la aplicaría. Hay que sacarla en E1.
+3. **20260815 ×2 renombradas** en la rama local a `20260815000000_add_visitante_id_to_eventos_negocio.sql` y `20260815000100_rls_lectura_publica_relacionadas.sql`, y registradas en el historial sin DDL.
+   - Algunos documentos viejos (`docs/INVENTARIO_FASE0_20260830.md` y otros) todavía citan los nombres anteriores. Es solo una referencia histórica.
+
+**Resultado:** el historial tiene 43 filas, que son los 44 archivos locales menos 150100. Hubo 0 errores.
 
 ## Deuda conocida
+- E1: `fn_convertir_aplicacion` debe validar antes de escribir (o hacer RAISE). Hoy `/api/leadcenter/convertir` puede crear un duplicado sin bloqueo.
+- E1: sacar 150100 de `supabase/migrations/`.
 - En las migraciones base `20260129*` (000200, y de 000500 a 001000), prod tiene índices con otros nombres. Quedaron registradas como aplicadas porque las tablas existen. Nada se duplica, porque no se vuelven a correr.
 
 ## Bitácora
 | Fecha | Qué | Por qué | Quién |
 |---|---|---|---|
 | 2026-10-18 | Respaldo, reconciliación del historial (36 filas más el ajuste de versión de BA-032) y aplicación de 150200, 160000 y 190000 | E0 Centro de control WA: dejar `db push` usable sin reaplicar nada | Base de datos BuscoEdu (bot), por pedido del Orquestador con OK de Jhon |
+| 2026-10-18 | Paso 3: 143100 recortada (solo `fn_validar_aplicacion`), 150100 marcada obsoleta, 20260815 ×2 renombradas y registradas. Historial = 43 | Decisión del Orquestador sobre los 3 STOP; arreglar BA-031 sin introducir oportunidades huérfanas | Base de datos BuscoEdu (bot), con OK de Jhon vía Orquestador |

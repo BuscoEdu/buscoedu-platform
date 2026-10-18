@@ -82,6 +82,12 @@ WHERE codigo = 'formato_respuesta_naia' AND version = 'ba024';
 UPDATE public.despliegues_ia SET configuracion_tecnica = NULL, actualizado_en = now()
 WHERE nombre = 'NaIA Producción' AND configuracion_tecnica = '{"temperature": 0.6}'::jsonb;
 
+-- Bloque E (deshace paso 3): quita fn_validar_aplicacion (no hay datos que perder;
+-- OJO: BA-031 vuelve a fallar con persona existente) y sus filas de historial.
+DROP FUNCTION IF EXISTS public.fn_validar_aplicacion(uuid, uuid, uuid);
+DELETE FROM supabase_migrations.schema_migrations
+WHERE version IN ('20260830143100','20260815000000','20260815000100');
+
 -- Bloque D (deshace historial): equivale a `supabase migration repair --status reverted`.
 -- Es metadato del CLI, no dato de negocio. Deja solo BA-032 con su versión original.
 DELETE FROM supabase_migrations.schema_migrations WHERE version <> '20261017120000';
