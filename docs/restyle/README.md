@@ -220,3 +220,4 @@ Look y accesibilidad. El funnel (Aplicar, OTP, consentimiento, conversión) no c
 - Testimonios: no van hasta tener textos reales y autorizados.
 
 | 2026-10-19 | WA-fix-1 · ficha Explorar muestra precio: bloque «Precio» en `OfferDetailModal.tsx` (antes de Vigencia) que pinta `oferta.texto_precio` (formateador único en BE, decisión Orq) o T17 si no viene | Prod mostraba 0 montos con 94 precios publicables (nadie los leía/pintaba); copy v1.7 congelado (Producto + Orq). Tarjeta sin precio = P2 | Frontend BuscoEdu (bot) |
+| 2026-10-19 | WA-fix-1 ronda 2 · ficha Explorar muestra «Registro SNIES {código}» + copy S14 (`tRegistroSnies`) junto a Precio; sin código no aparece | QA preview 9c4vce415: 12 fichas sin SNIES aunque BD tiene 291/291 (BE lo traía, la ficha no lo pintaba). OK Orq | Frontend BuscoEdu (bot) |
