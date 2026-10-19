@@ -40,7 +40,8 @@ DO $ensayo$
 DECLARE v_oferta uuid; v_res jsonb; v_cons jsonb; v_snap text; v_asesor uuid; v_transf int;
 BEGIN
   SELECT o.id INTO v_oferta FROM public.ofertas_academicas o
-   WHERE o.modelo_negocio IS NULL AND NOT o.es_demo AND o.activo AND o.estado_publicacion='publicado'
+    JOIN public.universidades u ON u.id = o.universidad_id AND u.es_demo IS NOT TRUE
+   WHERE o.modelo_negocio IS NULL AND o.activo AND o.estado_publicacion='publicado'
      AND o.estado_validacion='validado' AND o.vigente_desde <= current_date
      AND (o.vigente_hasta IS NULL OR o.vigente_hasta >= current_date) AND o.periodo_academico_id IS NOT NULL
    ORDER BY o.id LIMIT 1;
