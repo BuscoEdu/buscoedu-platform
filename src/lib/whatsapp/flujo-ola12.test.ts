@@ -351,8 +351,8 @@ describe('Ola 1/2 · búsqueda (C-04, C-05, C-06, C-14, C-58)', () => {
     const lista = e.ultimo();
     assert.equal(lista.tipo, 'lista');
     assert.equal(lista.extra.length, 1);
-    // 19/10/2026 (FE): el título abrevia el nivel («Mg. Educación», QA ronda 2); sigue siendo el programa real.
-    assert.match(lista.extra[0].titulo, /Mg\. Educación/);
+    // 19/10/2026 (FE): el título abrevia el nivel («Mtría. Educación», QA ronda 2 + copy v1.5); sigue siendo el programa real.
+    assert.match(lista.extra[0].titulo, /Mtría\. Educación/);
   });
 
   it('«preescolar» sin nada cercano en catálogo → T11 (0 resultados), no error', async () => {

@@ -220,11 +220,14 @@ describe('presentacion · armarFicha (T09b)', () => {
     assert.match(f.cuerpo, /A1, B1, C1, D1, E1 \+2 ciudades/);
   });
 
-  /* QA ronda 2 (19/10/2026, MEDIA): tres filas «Especialización en…» iguales → el área va primero */
-  it('título abrevia el nivel y la descripción trae el nombre completo si el título se corta', () => {
+  /* QA ronda 2 (19/10/2026, MEDIA) + copy Producto v1.5: el área va primero, nivel completo en la descripción */
+  it('título con abreviaturas fijas (Esp./Mtría./Tec./Tecnól./Prof.) y nivel completo en la descripción', () => {
     assert.equal(nombreCortoFila('Especialización en Gerencia de Proyectos'), 'Esp. Gerencia de Proyectos');
-    assert.equal(nombreCortoFila('Maestría en Educación'), 'Mg. Educación');
-    assert.equal(nombreCortoFila('Tecnología en Gestión Logística'), 'Tecnol. Gestión Logística');
+    assert.equal(nombreCortoFila('Maestría en Educación'), 'Mtría. Educación');
+    assert.equal(nombreCortoFila('Tecnología en Gestión Logística'), 'Tecnól. Gestión Logística');
+    assert.equal(nombreCortoFila('Técnico profesional en Contabilidad'), 'Tec. Contabilidad');
+    assert.equal(nombreCortoFila('Profesional en Mercadeo'), 'Prof. Mercadeo');
+    assert.equal(nombreCortoFila('Doctorado en Educación'), 'Doctorado en Educación');
     assert.equal(nombreCortoFila('Psicología'), 'Psicología');
     assert.equal(nombreCortoFila('Especialización'), 'Especialización');
     const nombres = ['Especialización en Gerencia de Proyectos', 'Especialización en Derecho Laboral', 'Especialización en Docencia Universitaria'];
@@ -233,11 +236,7 @@ describe('presentacion · armarFicha (T09b)', () => {
     assert.equal(new Set(titulos.map((t) => t.replace(/^\d+\. /, ''))).size, 3, titulos.join(' | '));
     assert.equal(titulos[1], '2. Esp. Derecho Laboral');
     const o = oferta(1, { nombre: 'Especialización en Gerencia de Proyectos', modalidad: 'Virtual', ciudades: ['Virtual'] });
-    const d = descripcionFila(o, 1);
-    assert.ok(d.startsWith('Especialización en Gerencia de Proyectos · '), d);
-    assert.ok(d.length <= LIMITES.descripcionFila, d);
-    // Sin número (texto de respaldo) o con título que cabe → descripción de siempre.
-    assert.equal(descripcionFila(o), descripcionFila(oferta(1, { modalidad: 'Virtual', ciudades: ['Virtual'] })));
-    assert.equal(descripcionFila(oferta(1, { nombre: 'Psicología', modalidad: 'Virtual', ciudades: ['Virtual'] }), 1), 'Universidad Demo · Virtual');
+    assert.equal(descripcionFila(o), 'Especialización · Universidad Demo · Virtual');
+    assert.equal(descripcionFila(oferta(1, { nombre: 'Psicología', modalidad: 'Virtual', ciudades: ['Virtual'] })), 'Universidad Demo · Virtual');
   });
 });

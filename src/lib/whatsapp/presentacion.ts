@@ -131,33 +131,36 @@ export function contarEmojis(texto: string): number {
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /*
- * Bloque 4a · Nivel abreviado en el título (QA ronda 2, MEDIA 19/10/2026).
+ * Bloque 4a · Nivel abreviado en el título (QA ronda 2, MEDIA · copy Producto v1.5, 19/10/2026).
  * Qué: «Especialización en Gerencia…» → «Esp. Gerencia…» solo en el título de la fila.
+ * Abreviaturas fijas de Producto: Esp. / Mtría. / Tec. / Tecnól. / Prof. (otros niveles no se tocan).
  * Por qué: con 24 caracteres, tres filas quedaban «Especialización en…» iguales; lo que distingue
- * (el área) tiene que ir primero. El nombre completo se sigue viendo en la ficha y, si el título
- * se corta, al inicio de la descripción (ver descripcionFila).
+ * (el área) va primero. El nivel completo va al inicio de la descripción y el nombre completo en la ficha.
  */
-const ABREVIATURAS_NIVEL: Array<[RegExp, string]> = [
-  [/^especializaci[oó]n( en| de)?\s+/i, 'Esp. '],
-  [/^maestr[ií]a( en| de)?\s+/i, 'Mg. '],
-  [/^doctorado( en| de)?\s+/i, 'Doc. '],
-  [/^licenciatura( en| de)?\s+/i, 'Lic. '],
-  [/^tecnolog[ií]a( en| de)?\s+/i, 'Tecnol. '],
-  [/^t[eé]cnic[oa] profesional( en| de)?\s+/i, 'Téc. prof. '],
-  [/^profesional en\s+/i, 'Prof. ']
+const ABREVIATURAS_NIVEL: Array<[RegExp, string, string]> = [
+  // [patrón al inicio del nombre, abreviatura del título, nivel completo para la descripción]
+  [/^especializaci[oó]n( en| de)?\s+/i, 'Esp. ', 'Especialización'],
+  [/^maestr[ií]a( en| de)?\s+/i, 'Mtría. ', 'Maestría'],
+  [/^t[eé]cnic[oa] profesional( en| de)?\s+/i, 'Tec. ', 'Técnico profesional'],
+  [/^tecnolog[ií]a( en| de)?\s+/i, 'Tecnól. ', 'Tecnología'],
+  [/^profesional en\s+/i, 'Prof. ', 'Profesional']
 ];
+
+/** Nivel reconocido al inicio del nombre (o null): abreviatura + nombre completo del nivel. */
+function nivelDe(nombre: string): { abreviado: string; nivel: string } | null {
+  const t = limpiar(nombre);
+  for (const [patron, abreviatura, nivel] of ABREVIATURAS_NIVEL) {
+    if (!patron.test(t)) continue;
+    const resto = t.replace(patron, '');
+    // Solo se abrevia si queda algo después del nivel (nunca un título «Esp. » vacío).
+    return resto ? { abreviado: `${abreviatura}${resto}`, nivel } : null;
+  }
+  return null;
+}
 
 /** Nombre con el nivel abreviado; si no empieza por un nivel conocido, queda igual. */
 export function nombreCortoFila(nombre: string): string {
-  const t = limpiar(nombre);
-  for (const [patron, abreviatura] of ABREVIATURAS_NIVEL) {
-    if (patron.test(t)) {
-      const resto = t.replace(patron, '');
-      // Solo se abrevia si queda algo después del nivel (nunca un título «Esp. » vacío).
-      return resto ? `${abreviatura}${resto}` : t;
-    }
-  }
-  return t;
+  return nivelDe(nombre)?.abreviado ?? limpiar(nombre);
 }
 
 export function tituloFila(numero: number, nombre: string): string {
@@ -165,32 +168,27 @@ export function tituloFila(numero: number, nombre: string): string {
   return `${prefijo}${cortarPorPalabra(nombreCortoFila(nombre), LIMITES.tituloFila - prefijo.length)}`;
 }
 
-/** ¿El título de la fila se queda corto para el nombre? (ancho real: «N. » + nombre abreviado). */
-function tituloSeCorta(numero: number, nombre: string): boolean {
-  return `${numero}. ${nombreCortoFila(nombre)}`.length > LIMITES.tituloFila;
-}
-
 /*
- * `numero` es opcional: con él, si el título se corta, la descripción intenta empezar por el
- * nombre completo («Especialización en Gerencia de Proyectos · Areandina…») para que el estudiante
- * vea qué programa es sin abrir la ficha. Si no cabe en 72, queda la descripción de siempre.
+ * Si el título abrevió el nivel, la descripción empieza por el nivel completo
+ * («Especialización · Areandina · Virtual»), como pide Producto. Mismo orden de recorte de siempre:
+ * primero sale la modalidad, luego la ciudad; si ni nivel + universidad caben, queda la de siempre.
  */
-export function descripcionFila(o: OfertaAgrupadaWa, numero?: number): string {
+export function descripcionFila(o: OfertaAgrupadaWa): string {
   const universidad = limpiar(o.universidad);
   const modalidad = limpiar(o.modalidad);
   // Si el catálogo trae «Virtual» como ciudad y también como modalidad, no se repite.
   const lugarCrudo = lugarCorto(ciudadesDe(o));
   const lugar = lugarCrudo.toLowerCase() === modalidad.toLowerCase() ? '' : lugarCrudo;
-  const nombreCompleto = limpiar(o.nombre);
-  const conNombre = numero !== undefined && nombreCompleto && tituloSeCorta(numero, nombreCompleto)
+  const nivel = nivelDe(o.nombre)?.nivel;
+  const conNivel = nivel
     ? [
-        [nombreCompleto, universidad, modalidad, lugar],
-        [nombreCompleto, universidad, lugar]
-        // Sin [nombre, universidad] a secas: perder la ciudad confunde más que un nombre abreviado.
+        [nivel, universidad, modalidad, lugar],
+        [nivel, universidad, lugar],
+        [nivel, universidad]
       ]
     : [];
   const intentos = [
-    ...conNombre,
+    ...conNivel,
     [universidad, modalidad, lugar],
     [universidad, lugar], // sin modalidad
     [universidad] // sin ciudad
@@ -263,7 +261,7 @@ export function armarResultados(
   const filas: FilaLista[] = visibles.map((o, i) => ({
     id: `oferta:${o.id}`,
     titulo: tituloFila(desde + i + 1, o.nombre),
-    descripcion: descripcionFila(o, desde + i + 1)
+    descripcion: descripcionFila(o)
   }));
   // v1.4: la fila «Ver más» dice cuántos programas trae la página siguiente: k = min(8, N - (pagina+1)*8).
   const siguientes = Math.min(PROGRAMAS_POR_PAGINA, total - (p + 1) * PROGRAMAS_POR_PAGINA);
