@@ -7,6 +7,9 @@
  * consentimiento explícito cubre obligatorios y contacto.
  */
 
+// Bloque: normalizador del modelo de negocio (NULL = «sin definir», sin cobro asumido).
+import { normalizarModeloNegocio } from '../leadcenter/modelo-negocio';
+
 export const PASOS_FUNNEL = [
   'mi_lista',
   'iniciada',
@@ -161,7 +164,9 @@ export function evaluarDecision(input: {
     };
   }
 
-  const modelo = input.modeloNegocio || 'por_inscrito';
+  // Bloque: modelo normalizado (null = «sin definir»). Por qué: NULL ya no se asume por_inscrito;
+  // solo por_lead exige la transferencia, así que «sin definir» sigue la regla general de contacto.
+  const modelo = normalizarModeloNegocio(input.modeloNegocio);
   const transfer = consentimientos.find((item) => item.codigo === 'transferencia_universidad');
   if (modelo === 'por_lead' && !transfer?.otorgado) {
     return {
