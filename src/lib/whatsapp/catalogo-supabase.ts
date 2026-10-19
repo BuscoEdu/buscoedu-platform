@@ -11,7 +11,7 @@ import { listarTiposConsentimientoActivos } from '@/src/lib/leadcenter/tipos-con
 import type { OfertaAcademica } from '@/src/lib/ofertas';
 import { obtenerOfertas } from '@/src/lib/ofertas';
 import { URL_WEB } from './mensajes';
-import type { CatalogoWa, OfertaWa } from './tipos';
+import type { CatalogoWa, ConteoProgramasWa, OfertaWa } from './tipos';
 
 /** Ofertas que se piden a BD para agrupar por programa antes de cortar (C-52). */
 export const OFERTAS_POR_CONSULTA_WA = 100;
@@ -82,7 +82,7 @@ type PaginaOfertas = { ok: true; ofertas: OfertaAcademica[]; total: number; fue_
 export async function buscarProgramasPaginado(
   pedirPagina: (pagina: number, tamano: number) => Promise<PaginaOfertas>,
   max: number
-): Promise<{ ok: true; ofertas: OfertaWa[]; total: number; respaldoArea?: boolean; completo: boolean; totalOfertas: number } | { ok: false }> {
+): Promise<{ ok: true; ofertas: OfertaWa[]; total: number; respaldoArea?: boolean; completo: boolean; totalOfertas: number; conteo: ConteoProgramasWa } | { ok: false }> {
   const primera = await pedirPagina(0, OFERTAS_POR_CONSULTA_WA);
   if (!primera.ok) return { ok: false };
   const todas = [...primera.ofertas];
@@ -104,8 +104,22 @@ export async function buscarProgramasPaginado(
     total: programas.length,
     completo,
     totalOfertas: primera.total,
+    // S12 exacto · conteo por área sobre TODOS los programas agrupados (antes del corte a `max`).
+    conteo: { exacto: completo, areas: contarAreasProgramas(programas) },
     ...(primera.fue_respaldo_area ? { respaldoArea: true } : {})
   };
+}
+
+/**
+ * Bloque: S12 exacto · programas por área (1 programa = 1, aunque tenga varias ofertas). Sin área no cuenta;
+ * orden por cantidad desc y, a igual cantidad, por nombre (orden estable).
+ */
+export function contarAreasProgramas(programas: Array<{ area?: string }>): Array<{ area: string; cantidad: number }> {
+  const conteo = new Map<string, number>();
+  for (const p of programas) if (p.area) conteo.set(p.area, (conteo.get(p.area) || 0) + 1);
+  return [...conteo.entries()]
+    .map(([area, cantidad]) => ({ area, cantidad }))
+    .sort((x, y) => y.cantidad - x.cantidad || x.area.localeCompare(y.area, 'es'));
 }
 
 export function crearCatalogoSupabase(dbServicio: SupabaseClient): CatalogoWa {
@@ -121,7 +135,7 @@ export function crearCatalogoSupabase(dbServicio: SupabaseClient): CatalogoWa {
       }, max);
       if (!r.ok) return { ok: false };
       if (!r.completo) console.info(JSON.stringify({ origen: 'wa_catalogo', evento: 'wa_total_aproximado', ofertas: r.totalOfertas, programas: r.total }));
-      return { ok: true, ofertas: r.ofertas, total: r.total, ...(r.respaldoArea ? { respaldoArea: true } : {}) };
+      return { ok: true, ofertas: r.ofertas, total: r.total, conteo: r.conteo, ...(r.respaldoArea ? { respaldoArea: true } : {}) };
     },
     async tiposConsentimiento() {
       return listarTiposConsentimientoActivos(dbServicio);

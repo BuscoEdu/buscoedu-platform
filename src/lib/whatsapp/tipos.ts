@@ -75,6 +75,8 @@ export interface SesionWa {
   /** Página mostrada (base 0) y total real de programas (C-12). */
   pagina?: number;
   total?: number;
+  /** S12 exacto: false si el total es un mínimo (tope de páginas) → los textos dicen «más de N». */
+  totalExacto?: boolean;
   /** Momento en que se mostró la lista: vale 24 h (C-18). */
   listaEn?: number;
   /** Fichas de listas recientes (<24 h) para que un toque a una lista vieja siga funcionando. */
@@ -164,12 +166,22 @@ export type FiltrosBusquedaWa = {
 };
 
 /** Catálogo: solo ofertas activas + publicadas + validadas + vigentes. */
+/**
+ * S12 exacto (2026-10-19) · conteo sobre TODOS los programas de la consulta (no solo los `max` devueltos).
+ * `exacto` = false si se llegó al tope de páginas: entonces ni `total` ni las cantidades por área son seguras.
+ */
+export interface ConteoProgramasWa {
+  exacto: boolean;
+  /** Áreas con ≥1 programa (sin las de programas sin área), de mayor a menor; con exacto=false, la cantidad no se muestra. */
+  areas: Array<{ area: string; cantidad: number }>;
+}
+
 export interface CatalogoWa {
   /**
    * Busca y devuelve programas ya agrupados por programa_id (hasta `max`) y `total` = programas distintos (C-12/C-52).
    * `total` puede faltar en catálogos de prueba: entonces vale ofertas.length.
    */
-  buscar(filtros: FiltrosBusquedaWa, max: number): Promise<{ ok: true; ofertas: OfertaWa[]; total?: number; respaldoArea?: boolean } | { ok: false }>;
+  buscar(filtros: FiltrosBusquedaWa, max: number): Promise<{ ok: true; ofertas: OfertaWa[]; total?: number; respaldoArea?: boolean; conteo?: ConteoProgramasWa } | { ok: false }>;
   tiposConsentimiento(): Promise<TipoConsentimientoRegla[]>;
 }
 

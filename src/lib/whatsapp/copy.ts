@@ -156,18 +156,23 @@ export const T20_NOMBRE_1 = 'Escríbeme tu nombre y apellido, por favor (ej.: An
 export const T20_NOMBRE_2 =
   'Aún no lo pude registrar. Usa solo tu nombre y apellidos, sin números (ej.: Ana María Gómez-Ruiz).';
 
-// T21 · Correo (OMITIR se mantiene, v1.2).
+// T21 · Correo (OMITIR se mantiene, v1.2). v1.9: sin «te contactarán por este WhatsApp» (ninguna promesa de
+// contacto antes de autorizar); se conserva solo la instrucción OMITIR.
 export function t21PedirCorreo(nombre: string): string {
   return (
     `Gracias, ${nombre}. ¿Cuál es tu correo electrónico?\n` +
-    'Si prefieres no darlo, escribe OMITIR y te contactarán por este WhatsApp.'
+    'Si prefieres no darlo, escribe OMITIR.'
   );
 }
 export const T21_CORREO_INVALIDO = 'Ese correo no parece válido. Revisa que tenga @ y un dominio (ej.: ana@gmail.com).';
 
-// T22 · Autorización de contacto (separada de Aplicar).
+// T22 · Autorización (separada de Aplicar). Copy v1.9 CONGELADO: sin promesa de contacto; el canal de contacto
+// solo se menciona después del sí (T23/T23b). Botones sin cambio: [Sí, autorizo] [No, gracias].
 export function t22Autorizar(universidad: string, programa: string): string {
-  return `¿Autorizas a BuscoEdu a compartir tu nombre, correo y celular con ${universidad} para que te contacten sobre ${programa}?`;
+  return (
+    `¿Autorizas a BuscoEdu a compartir tus datos con ${universidad} para que te den información sobre ${programa}? ` +
+    'Solo los compartimos si dices que sí, y puedes retirar tu autorización cuando quieras escribiendo STOP.'
+  );
 }
 export const T22_NO = 'Entendido, no compartiré tus datos. Tu solicitud quedó guardada por si cambias de opinión.';
 
@@ -243,7 +248,8 @@ export const T_SIN_FILTRO_PRECIO =
   'Por ahora no puedo filtrar por precio; te muestro opciones y en cada ficha ves el precio si está publicado.';
 
 // Bloque: «Ver más» más allá del total (0 filas): fin de la lista, nunca error ni lista vacía.
-export const T_FIN_LISTA = 'Ya te mostré todos los programas de esta búsqueda. ¿Buscamos otra cosa?';
+// 2026-10-19 · texto pedido por el Orquestador para offset > total (+ botones Nueva búsqueda / Asesor).
+export const T_FIN_LISTA = 'Ya no hay más programas para esta búsqueda.';
 
 // ---------------------------------------------------------------------------
 // Copy v1.8 (2026-10-19, CONGELADO) · «cancelar» por contexto + menú de áreas S12 (briefs/copy-bot-wa-v1.md).
@@ -253,12 +259,20 @@ export const T_FIN_LISTA = 'Ya te mostré todos los programas de esta búsqueda.
 export const T_CANCELAR_APLICAR = 'Listo, no apliqué. Te dejo la lista de nuevo 👇';
 
 // Bloque: S12 · menú de áreas (lista interactiva). Nunca repite el texto del usuario.
-export function tMenuAreasMuchos(total: number): string {
-  return `Encontré ${total} programas. Elige un área para ver los suyos 👇`;
+// Singular con N=1 y «más de N» si el conteo no es exacto (tope de páginas; N = mínimo contado).
+// «más de N» solo con N > 8 (con ≤8 el texto exacto, igual que la cabecera de la lista).
+export function tMenuAreasMuchos(total: number, exacto = true): string {
+  return `Encontré ${cantidadProgramas(total, exacto || total <= 8)}. Elige un área para ver los suyos 👇`;
+}
+
+/** «1 programa» · «5 programas» · «más de 1000 programas» (con exacto=false nunca se usa el singular). */
+export function cantidadProgramas(n: number, exacto = true, adjetivo = ''): string {
+  if (!exacto) return `más de ${n} programas${adjetivo ? ` ${adjetivo}s` : ''}`;
+  return n === 1 ? `1 programa${adjetivo ? ` ${adjetivo}` : ''}` : `${n} programas${adjetivo ? ` ${adjetivo}s` : ''}`;
 }
 export const T_MENU_AREAS_SIN_RESULTADOS = 'No encontré programas con esas palabras. Elige un área que te interese 👇';
 export const BOTON_VER_AREAS = 'Ver áreas';
 export const FILA_ESCRIBIR_OTRA = 'Escribir otra cosa';
 export function tFilaAreaDescripcion(n: number): string {
-  return `${n} programas`;
+  return cantidadProgramas(n);
 }

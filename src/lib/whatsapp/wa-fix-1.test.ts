@@ -15,7 +15,7 @@ import type { EnviadorWhatsApp } from './graph-client';
 import { clasificarTexto } from './intenciones';
 import { accionEscrita, filasMenuAreas, partirNombre, procesarMensajeEntrante, respuestaAutorizacionEscrita } from './orquestador';
 import { agruparPorPrograma, buscarProgramasPaginado } from './catalogo-supabase';
-import { armarFicha, armarResultados, pieResultados, tituloFila } from './presentacion';
+import { armarFicha, armarResultados, pieResultados, tituloFila, universidadCorta } from './presentacion';
 import type { OfertaAcademica } from '@/src/lib/ofertas';
 import type { DependenciasOrquestador } from './orquestador';
 import { crearLimitadorMemoria } from './rate-limit';
@@ -455,7 +455,8 @@ describe('WA-fix-1b', () => {
       { ...oferta(2), nombre: 'Ingeniería de Sistemas Medellín', universidad: 'Politécnico Grancolombiano', modalidad: 'Virtual', ciudades: [] }
     ].map((o) => ({ ...o, programa_id: o.programa_id!, ciudades: o.ciudades! }));
     const r = armarResultados(iguales, 2, 0, 'Ingeniería Sistemas');
-    assert.equal(r.filas[0].titulo.slice(3), r.filas[1].titulo.slice(3));
+    // Desde el bloque «Títulos de fila iguales» el título también se distingue (lo distintivo primero).
+    assert.notEqual(r.filas[0].titulo.slice(3), r.filas[1].titulo.slice(3));
     assert.notEqual(r.filas[0].descripcion, r.filas[1].descripcion);
     assert.match(r.filas[0].descripcion!, /^Presencial · Medellín/);
     assert.match(r.filas[1].descripcion!, /^Virtual/);
@@ -600,5 +601,191 @@ describe('Ficha WA · precio', () => {
   it('agruparPorPrograma conserva texto_precio del catálogo', () => {
     const [o] = agruparPorPrograma([{ id: 'x', programa_id: 'p', nombre: 'Contaduría', texto_precio: 'Precio: $4.316.000 COP por semestre', universidad: { nombre: 'Politécnico Grancolombiano' } } as unknown as OfertaAcademica]);
     assert.equal(o.texto_precio, 'Precio: $4.316.000 COP por semestre');
+  });
+});
+
+// Bloque: S12 exacto · el menú de áreas nunca muestra un número falso (conteo sobre todos los programas, paginado S6).
+describe('S12 · conteo exacto por área', () => {
+  // 60 programas (>40 que devuelve la consulta), 3 ofertas cada uno: 180 ofertas → 2 páginas de 100.
+  const areaDe = (p: number) => (p < 30 ? 'Salud' : p < 50 ? 'Ingeniería' : p < 58 ? 'Educación' : null);
+  const fixture = Array.from({ length: 180 }, (_, i) => {
+    const p = i % 60;
+    return { id: `of-${i}`, programa_id: `prog-${p}`, nombre: `Programa ${p}`, programa: { nombre: `Programa ${p}`, ...(areaDe(p) ? { area: areaDe(p) } : {}) }, universidad: { nombre: 'U' } };
+  }) as unknown as OfertaAcademica[];
+  const pedir = (tope?: number) => async (pagina: number, tamano: number) =>
+    ({ ok: true as const, ofertas: fixture.slice(pagina * tamano, (pagina + 1) * tamano), total: tope ?? fixture.length });
+
+  it('>40 programas: cantidades exactas por programa (no por oferta) y sin los sin área', async () => {
+    const r = await buscarProgramasPaginado(pedir(), 40);
+    assert.ok(r.ok);
+    if (!r.ok) return;
+    assert.equal(r.ofertas.length, 40);
+    assert.equal(r.total, 60);
+    assert.equal(r.conteo.exacto, true);
+    assert.deepEqual(r.conteo.areas, [{ area: 'Salud', cantidad: 30 }, { area: 'Ingeniería', cantidad: 20 }, { area: 'Educación', cantidad: 8 }]);
+    assert.deepEqual(filasMenuAreas(r.conteo.areas, true).map((f) => f.descripcion), ['30 programas', '20 programas', '8 programas', undefined]);
+  });
+
+  it('tope de páginas → conteo no exacto → filas SIN número; cabecera y menú >20 dicen «más de N»', async () => {
+    const r = await buscarProgramasPaginado(pedir(999999), 40);
+    assert.ok(r.ok && r.conteo.exacto === false);
+    if (!r.ok) return;
+    const filas = filasMenuAreas(r.conteo.areas, false);
+    assert.deepEqual(filas.map((f) => f.titulo), ['Salud', 'Ingeniería', 'Educación', 'Escribir otra cosa']);
+    assert.ok(filas.every((f) => f.descripcion === undefined));
+    // Orquestador: >20 con conteo inexacto → lista de programas sí, menú de áreas no.
+    const muchas = Array.from({ length: 25 }, (_, i) => oferta(i + 1, { area: i % 2 ? 'Salud' : 'Ingeniería' }));
+    const e = entorno({ resultados: () => muchas, totalFalso: 500 });
+    await aceptado(e);
+    await e.texto('maestría');
+    const listas = e.enviados.filter((x) => x.tipo === 'lista');
+    assert.match(listas[0].contenido, /^Encontré más de 500 programas vigentes para «maestría»\. Te muestro 8 de más de 500 👇/);
+    assert.equal(e.ultimo().contenido, 'Encontré más de 500 programas. Elige un área para ver los suyos 👇');
+    assert.ok(e.ultimo().extra.every((f: any) => f.descripcion === undefined));
+    assert.equal(e.contacto().sesion.totalExacto, false);
+    // Página 2 y «Ver más» tampoco dan un número exacto.
+    await e.boton('menu:mas', 'Ver más');
+    assert.match(e.ultimo().contenido, /^Programas 9 a \d+ de más de 500/);
+  });
+
+  it('0 resultados con conteo inexacto → menú sin números; con exacto → «{n} programas»', async () => {
+    const base = [oferta(1, { area: 'Salud' }), oferta(2, { area: 'Salud' }), oferta(3, { area: 'Ingeniería' })];
+    for (const exacto of [true, false]) {
+      const e = entorno({ resultados: (f) => (Object.keys(f).length === 0 ? base : []), totalFalso: exacto ? undefined : 999 });
+      await aceptado(e);
+      await e.texto('ayudar gente');
+      assert.equal(e.ultimo().contenido, C.T_MENU_AREAS_SIN_RESULTADOS);
+      const desc = e.ultimo().extra.map((f: any) => f.descripcion);
+      assert.deepEqual(desc, exacto ? ['2 programas', '1 programa', undefined] : [undefined, undefined, undefined]);
+    }
+  });
+});
+
+// Bloque: singular «1 programa» en filas, cabecera de la lista y cuerpo del menú.
+describe('Singular «1 programa»', () => {
+  it('textos con N=1 y N>1', async () => {
+    assert.equal(C.tFilaAreaDescripcion(1), '1 programa');
+    assert.equal(C.tFilaAreaDescripcion(3), '3 programas');
+    assert.equal(C.tMenuAreasMuchos(1), 'Encontré 1 programa. Elige un área para ver los suyos 👇');
+    assert.equal(C.tMenuAreasMuchos(25), 'Encontré 25 programas. Elige un área para ver los suyos 👇');
+    assert.equal(C.cantidadProgramas(1, false), 'más de 1 programas');
+    const uno = armarResultados([{ ...oferta(1), programa_id: 'p', ciudades: [] }], 1, 0, 'Derecho');
+    assert.match(uno.cuerpo, /^Encontré 1 programa vigente para «Derecho» 👇/);
+    const tres = armarResultados([1, 2, 3].map((i) => ({ ...oferta(i), programa_id: `p${i}`, ciudades: [] })), 3, 0, 'Derecho');
+    assert.match(tres.cuerpo, /^Encontré 3 programas vigentes para «Derecho» 👇/);
+    const e = entorno({ resultados: () => [oferta(1)] });
+    await aceptado(e);
+    await e.texto('psicología');
+    assert.match(e.ultimo().contenido, /^Encontré 1 programa vigente para «Psicología» 👇/);
+  });
+});
+
+// Bloque: «más de N» solo con total > 8, y el respaldo de cuerpo largo conserva el rango en la página 2+.
+describe('Cabecera de la lista · bordes', () => {
+  const ag = (n: number, desde = 1) => Array.from({ length: n }, (_, i) => ({ ...oferta(desde + i), programa_id: `p${desde + i}`, ciudades: [] }));
+  it('total ≤ 8 con conteo no exacto → texto exacto (nunca «Te muestro 3 de más de 3»)', () => {
+    const r = armarResultados(ag(3), 3, 0, 'Derecho', false);
+    assert.match(r.cuerpo, /^Encontré 3 programas vigentes para «Derecho» 👇/);
+    assert.doesNotMatch(r.cuerpo, /más de/);
+    assert.match(armarResultados(ag(1), 1, 0, 'Derecho', false).cuerpo, /^Encontré 1 programa vigente/);
+    assert.equal(C.tMenuAreasMuchos(5, false), 'Encontré 5 programas. Elige un área para ver los suyos 👇');
+    assert.match(armarResultados(ag(8), 9, 0, 'Derecho', false).cuerpo, /^Encontré más de 9 programas vigentes/);
+  });
+  it('cuerpo >300 en página 2 conserva «Programas 9 a 16 de …»', () => {
+    const larga = 'x'.repeat(400);
+    const r = armarResultados(ag(8, 9), 40, 1, larga);
+    assert.equal(r.cuerpo, 'Programas 9 a 16 de 40 👇');
+    const r2 = armarResultados(ag(8, 9), 500, 1, larga, false);
+    assert.equal(r2.cuerpo, 'Programas 9 a 16 de más de 500 👇');
+    assert.ok(r2.cuerpo.length <= 300);
+  });
+});
+
+// Bloque: copy v1.9 · T22 exacto y ninguna promesa de contacto antes de autorizar.
+describe('Copy v1.9 · T22', () => {
+  it('T22 exacto, botones sin cambio, ≤1024 y sin «contactar» en ningún mensaje previo al sí', async () => {
+    const universidad = 'Politécnico Grancolombiano';
+    const programa = 'Contaduría Pública';
+    assert.equal(
+      C.t22Autorizar(universidad, programa),
+      '¿Autorizas a BuscoEdu a compartir tus datos con Politécnico Grancolombiano para que te den información sobre Contaduría Pública? Solo los compartimos si dices que sí, y puedes retirar tu autorización cuando quieras escribiendo STOP.'
+    );
+    assert.ok(C.t22Autorizar('U'.repeat(200), 'P'.repeat(200)).length <= 1024);
+    assert.deepEqual(C.botonesAutorizarContacto('x').map((b) => b.titulo), ['Sí, autorizo', 'No, gracias']);
+    const e = entorno();
+    await aceptado(e);
+    await e.texto('psicología');
+    const o = oferta(1);
+    await e.enviar({ tipo: 'lista', texto: 'x', respuestaId: `oferta:${o.id}` });
+    await e.boton(`lista:${o.id}`, 'Guardar en Mi lista');
+    await e.boton(`aplicar:${o.id}`, 'Aplicar');
+    await e.texto('Ana Gómez');
+    await e.texto('OMITIR');
+    assert.equal(e.ultimo().contenido, C.t22Autorizar(o.universidad, o.nombre));
+    assert.deepEqual(e.ultimo().extra.map((b: any) => b.titulo), ['Sí, autorizo', 'No, gracias']);
+    for (const t of textos(e)) assert.doesNotMatch(t, /contact/i, t);
+    // Después del sí, T23 (piloto) puede hablar del siguiente paso; la lógica de consentimiento no cambia.
+    const n = e.enviados.length;
+    await e.boton(`autorizar:${o.id}`, 'Sí, autorizo');
+    assert.ok(e.enviados.slice(n).some((x) => x.contenido.startsWith('Estamos en piloto')));
+  });
+});
+
+// Bloque: títulos iguales → lo distintivo primero; ≤2 iguales por lista.
+describe('Títulos de fila iguales', () => {
+  const ag = (o: OfertaWa) => ({ ...o, programa_id: o.programa_id || o.id, ciudades: o.ciudades || [] });
+  const iguales = (filas: Array<{ titulo: string }>) => {
+    const c = new Map<string, number>();
+    for (const f of filas) { const t = f.titulo.replace(/^\d+\. /, ''); c.set(t, (c.get(t) || 0) + 1); }
+    return Math.max(...c.values());
+  };
+  it('Neuropsicología ×3 (3 universidades) → sigla/nombre propio primero', () => {
+    const unis = ['Fundación Universitaria Internacional de La Rioja (UNIR)', 'Politécnico Grancolombiano', 'Corporación Universitaria de Asturias'];
+    const ofs = unis.map((u, i) => ag(oferta(i + 1, { nombre: 'Especialización en Neuropsicología y Educación', universidad: u, modalidad: 'Virtual', ciudades: [] })));
+    const r = armarResultados(ofs, 3, 0, 'Psicología');
+    assert.deepEqual(r.filas.map((f) => f.titulo), ['1. UNIR Neuropsicología…', '2. Grancolombiano…', '3. Asturias…']);
+    assert.ok(iguales(r.filas) <= 2);
+    assert.ok(r.filas.every((f) => f.titulo.length <= 24));
+  });
+  it('Contaduría ×3 (misma universidad, distintas sedes) → ciudad/modalidad primero', () => {
+    const sedes: Array<[string, string[]]> = [['Presencial', ['Medellín']], ['Presencial', ['Bogotá']], ['Virtual', []]];
+    const ofs = sedes.map(([m, c], i) => ag(oferta(i + 1, { nombre: 'Contaduría Pública', universidad: 'Politécnico Grancolombiano', modalidad: m, ciudades: c, ciudad: c[0] })));
+    const r = armarResultados(ofs, 3, 0, 'Contaduría');
+    assert.deepEqual(r.filas.map((f) => f.titulo), ['1. Medellín Contaduría…', '2. Bogotá · Contaduría…', '3. Virtual · Contaduría…']);
+    assert.ok(iguales(r.filas) <= 2);
+    assert.ok(r.filas.every((f) => f.titulo.length <= 24));
+  });
+  it('universidadCorta', () => {
+    assert.equal(universidadCorta('Fundación Universitaria del Área Andina'), 'Andina');
+    assert.equal(universidadCorta('Politécnico Grancolombiano'), 'Grancolombiano');
+  });
+});
+
+// Bloque: suma de las 5 áreas ≤ total (cada programa tiene UNA sola área en el catálogo).
+describe('S12 · suma de áreas', () => {
+  it('cada n = conteo real y la suma de las 5 áreas ≤ total de programas', async () => {
+    const areas = ['A', 'B', 'C', 'D', 'E', 'F'];
+    const fixture = Array.from({ length: 70 }, (_, p) => ({ id: `o${p}`, programa_id: `p${p}`, nombre: `P${p}`, programa: { nombre: `P${p}`, ...(p % 9 ? { area: areas[p % 6] } : {}) } })) as unknown as OfertaAcademica[];
+    const r = await buscarProgramasPaginado(async (pg, t) => ({ ok: true, ofertas: fixture.slice(pg * t, (pg + 1) * t), total: 70 }), 40);
+    assert.ok(r.ok);
+    if (!r.ok) return;
+    for (const a of r.conteo.areas) {
+      const real = new Set(fixture.filter((o: any) => o.programa.area === a.area).map((o: any) => o.programa_id)).size;
+      assert.equal(a.cantidad, real, a.area);
+    }
+    const suma5 = r.conteo.areas.slice(0, 5).reduce((s, a) => s + a.cantidad, 0);
+    assert.ok(suma5 <= r.total, `${suma5} ≤ ${r.total}`);
+  });
+});
+
+// Bloque: offset > total → «Ya no hay más programas para esta búsqueda.» + menú (Nueva búsqueda / Asesor).
+describe('Fin de lista', () => {
+  it('«Ver más» con offset > total', async () => {
+    const e = entorno({ resultados: () => Array.from({ length: 8 }, (_, i) => oferta(i + 1)), totalFalso: 8 });
+    await aceptado(e);
+    await e.texto('psicología');
+    await e.boton('menu:mas', 'Ver más');
+    assert.equal(e.ultimo().contenido, 'Ya no hay más programas para esta búsqueda.');
+    assert.deepEqual(e.ultimo().extra, C.BOTONES_NUEVA_O_ASESOR);
   });
 });

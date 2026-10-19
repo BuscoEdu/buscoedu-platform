@@ -22,7 +22,7 @@
  * devuelve filas vacías y armarResultadosTexto el mismo encabezado sin líneas: nunca inventa filas.
  */
 
-import { T17_PRECIO, URL_EXPLORAR, t16ConBeneficio } from './copy';
+import { T17_PRECIO, URL_EXPLORAR, cantidadProgramas, t16ConBeneficio } from './copy';
 import type { BotonRespuesta, FilaLista } from './graph-client';
 import type { OfertaAgrupadaWa } from './tipos';
 
@@ -62,12 +62,13 @@ export const T09_INDICACION = 'Toca *Ver programas* o escribe el número.';
 export const T09_VER_MAS = 'Ver más';
 // Copy v1.4 (2026-10-19): negrita solo en nombres y acciones («*Ver programas*» es una acción, se queda).
 /** v1.4 · cuerpo de la página 2 en adelante: «Programas 9 a 12 de 12 👇». */
-export function t09Rango(desde: number, hasta: number, total: number): string {
-  return `Programas ${desde} a ${hasta} de ${total}`;
+// S12 exacto (BE, 2026-10-19): con total no exacto se dice «de más de N».
+export function t09Rango(desde: number, hasta: number, total: number, exacto = true): string {
+  return `Programas ${desde} a ${hasta} de ${exacto ? total : `más de ${total}`}`;
 }
 /** v1.4 · descripción de la fila «Ver más»: cuántos programas trae la página siguiente. */
-export function t09VerMasDescripcion(k: number, total: number): string {
-  return `Siguientes ${k} de ${total} programas`;
+export function t09VerMasDescripcion(k: number, total: number, exacto = true): string {
+  return `Siguientes ${k} de ${exacto ? '' : 'más de '}${total} programas`;
 }
 /** v1.4 · etiqueta del link de la ficha: hoy la URL es /explorar?q=…, no la ficha exacta (no decir «Ficha:»). */
 export const T09B_MAS_INFORMACION = 'Más información:';
@@ -253,6 +254,71 @@ export function descripcionFila(o: OfertaAgrupadaWa, distinguir = false): string
   return cortarPorPalabra(universidad, LIMITES.descripcionFila);
 }
 
+/*
+ * Bloque 4c · WA-fix-1b (BE, 2026-10-19) · títulos iguales en la misma página.
+ * Qué: si 2+ filas quedan con el mismo título, a esas filas se les antepone lo que las distingue: la sigla o la
+ * palabra propia de la universidad («UNIR», «Grancolombiano», «Asturias», «Andina») si difieren; si es la misma
+ * universidad, la ciudad o la modalidad. Luego el nombre sin nivel (el nivel va en la descripción), cortado por palabra.
+ * Por qué: QA vio «Esp. Neuropsicología…» ×3 y «Ingeniería de…» ×2 sin saber cuál era cuál. Meta: título ≤24.
+ */
+const PALABRAS_GENERICAS_UNIVERSIDAD = new Set(['fundacion', 'universitaria', 'universidad', 'corporacion', 'institucion', 'internacional', 'de', 'del', 'la', 'el', 'y', 'escuela', 'colegio', 'mayor', 'tecnologica', 'area']);
+
+function plegar(t: string): string {
+  return t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+/** Parte corta y propia de la universidad: sigla entre paréntesis o la última palabra no genérica. */
+export function universidadCorta(nombre: string): string {
+  const t = limpiar(nombre);
+  const sigla = t.match(/\(([^)]+)\)/);
+  if (sigla) return sigla[1].trim();
+  const propias = t.split(' ').filter((w) => !PALABRAS_GENERICAS_UNIVERSIDAD.has(plegar(w)));
+  return propias.at(-1) || t.split(' ').at(-1) || t;
+}
+
+function distintivoDe(o: OfertaAgrupadaWa, grupo: OfertaAgrupadaWa[]): string {
+  const unis = new Set(grupo.map((g) => universidadCorta(g.universidad)));
+  if (unis.size > 1) return universidadCorta(o.universidad);
+  const lugar = ciudadesDe(o)[0] || '';
+  const lugares = new Set(grupo.map((g) => ciudadesDe(g)[0] || ''));
+  if (lugar && lugares.size > 1 && plegar(lugar) !== plegar(limpiar(o.modalidad))) return lugar;
+  return limpiar(o.modalidad) || lugar || universidadCorta(o.universidad);
+}
+
+function tituloConDistintivo(numero: number, distintivo: string, nombre: string): string {
+  const prefijo = `${numero}. `;
+  const max = LIMITES.tituloFila - prefijo.length;
+  const sinNivel = (() => {
+    const t = limpiar(nombre);
+    const nivel = ABREVIATURAS_NIVEL.find(([p]) => p.test(t));
+    return nivel ? t.replace(nivel[0], '') : t;
+  })();
+  // Se quita del nombre la palabra distintiva si ya la trae («Contaduría Medellín» con «Medellín ·»).
+  const resto = sinConectores(sinNivel.split(' ').filter((w) => plegar(w) !== plegar(distintivo)).join(' ') || sinNivel);
+  // Orden: entero con « · », entero con espacio, cortado por palabra (con « · » y luego con espacio) siempre
+  // que quede al menos una palabra del nombre; si ni así, solo el distintivo + «…» (sigue siendo único).
+  for (const sep of [' · ', ' ']) {
+    const completo = `${distintivo}${sep}${resto}`;
+    if (completo.length <= max) return `${prefijo}${completo}`;
+  }
+  for (const sep of [' · ', ' ']) {
+    const corte = cortarTitulo(`${distintivo}${sep}${resto}`, max);
+    const sinDistintivo = corte.slice(distintivo.length).replace(/^[\s·]+/, '').replace('…', '');
+    if (sinDistintivo.length > 0) return `${prefijo}${corte}`;
+  }
+  return `${prefijo}${cortarTitulo(distintivo, max - 1).replace(/…$/, '')}…`;
+}
+
+export function titulosDistinguidos(visibles: OfertaAgrupadaWa[], desde: number): string[] {
+  const titulos = visibles.map((o, i) => tituloFila(desde + i + 1, o.nombre));
+  const base = titulos.map((t) => t.replace(/^\d+\. /, ''));
+  return visibles.map((o, i) => {
+    const grupo = visibles.filter((_, j) => base[j] === base[i]);
+    if (grupo.length < 2) return titulos[i];
+    return tituloConDistintivo(desde + i + 1, distintivoDe(o, grupo), o.nombre);
+  });
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
  * Bloque 5 · Encabezado de resultados (T09).
  * Qué: «Encontré N programas vigentes para «consulta». Te muestro k de N 👇» (o sin «de N» si N ≤ 8).
@@ -266,16 +332,21 @@ function textoPara(consulta: string, max: number): string {
 
 // v1.4: en la página 2+ (pagina ≥ 1) el encabezado es el rango «Programas desde a hasta de N»;
 // la página 0 conserva el texto T09 de siempre.
-function encabezado(total: number, k: number, consulta: string, conEmoji: boolean, pagina = 0): string {
+// S12 exacto (BE, 2026-10-19): «Encontré 1 programa vigente…» con N=1; con total no exacto (tope de páginas)
+// «Encontré más de N programas vigentes… Te muestro k de más de N», nunca un número que parezca exacto.
+function encabezado(total: number, k: number, consulta: string, conEmoji: boolean, pagina = 0, exactoPedido = true): string {
+  // Con ≤8 programas no tiene sentido «más de N» («Te muestro 3 de más de 3»): se usa el texto exacto.
+  const exacto = exactoPedido || total <= PROGRAMAS_POR_PAGINA;
   const para = textoPara(consulta, 60);
   const emoji = conEmoji ? ' 👇' : '';
   if (pagina >= 1) {
     const desde = pagina * PROGRAMAS_POR_PAGINA + 1;
-    return `${t09Rango(desde, desde + Math.max(k, 1) - 1, total)}${emoji}`;
+    return `${t09Rango(desde, desde + Math.max(k, 1) - 1, total, exacto)}${emoji}`;
   }
-  return total > PROGRAMAS_POR_PAGINA
-    ? `Encontré ${total} programas vigentes${para}. Te muestro ${k} de ${total}${emoji}`
-    : `Encontré ${total} programas vigentes${para}${emoji}`;
+  const encontre = `Encontré ${cantidadProgramas(total, exacto, 'vigente')}${para}`;
+  return total > PROGRAMAS_POR_PAGINA || !exacto
+    ? `${encontre}. Te muestro ${k} de ${exacto ? total : `más de ${total}`}${emoji}`
+    : `${encontre}${emoji}`;
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -307,28 +378,35 @@ export function armarResultados(
   ofertasAgrupadas: OfertaAgrupadaWa[],
   total: number,
   pagina: number,
-  consulta = ''
+  consulta = '',
+  exacto = true
 ): { cuerpo: string; filas: FilaLista[]; botonTexto: string; seccion: string; pie?: string } {
   const p = Math.max(0, Math.floor(pagina || 0));
   const desde = p * PROGRAMAS_POR_PAGINA;
   const visibles = (ofertasAgrupadas || []).slice(0, PROGRAMAS_POR_PAGINA);
-  // WA-fix-1b · títulos repetidos dentro de la página (sin el número) → descripción con modalidad/sede primero.
-  const titulos = visibles.map((o, i) => tituloFila(desde + i + 1, o.nombre).replace(/^\d+\. /, ''));
+  // WA-fix-1b · títulos repetidos dentro de la página (sin el número): lo distintivo va PRIMERO en el título
+  // («UNIR · Neuropsicología…», «Medellín · Contaduría…») y la descripción lleva modalidad/sede primero.
+  const titulos = titulosDistinguidos(visibles, desde);
+  // La descripción se decide con los títulos ORIGINALES (antes de distinguir): si eran iguales, modalidad/sede primero.
+  const base = visibles.map((o, i) => tituloFila(desde + i + 1, o.nombre).replace(/^\d+\. /, ''));
   const filas: FilaLista[] = visibles.map((o, i) => ({
     id: `oferta:${o.id}`,
-    titulo: tituloFila(desde + i + 1, o.nombre),
-    descripcion: descripcionFila(o, titulos.filter((t) => t === titulos[i]).length > 1)
+    titulo: titulos[i],
+    descripcion: descripcionFila(o, base.filter((t) => t === base[i]).length > 1)
   }));
   // v1.4: la fila «Ver más» dice cuántos programas trae la página siguiente: k = min(8, N - (pagina+1)*8).
   const siguientes = Math.min(PROGRAMAS_POR_PAGINA, total - (p + 1) * PROGRAMAS_POR_PAGINA);
   if (siguientes > 0) {
-    filas.push({ id: 'menu:mas', titulo: T09_VER_MAS, descripcion: cortarPorPalabra(t09VerMasDescripcion(siguientes, total), LIMITES.descripcionFila) });
+    filas.push({ id: 'menu:mas', titulo: T09_VER_MAS, descripcion: cortarPorPalabra(t09VerMasDescripcion(siguientes, total, exacto || total <= PROGRAMAS_POR_PAGINA), LIMITES.descripcionFila) });
   }
 
   // Página 0: T09 + indicación. Página 2+ (v1.4): solo el rango «Programas X a Y de N 👇».
-  let cuerpo = p >= 1 ? encabezado(total, visibles.length, consulta, true, p) : `${encabezado(total, visibles.length, consulta, true)}\n${T09_INDICACION}`;
+  let cuerpo = p >= 1 ? encabezado(total, visibles.length, consulta, true, p, exacto) : `${encabezado(total, visibles.length, consulta, true, 0, exacto)}\n${T09_INDICACION}`;
   // Respaldo: si la consulta es muy larga y el cuerpo se pasa de 300, se quita «para «…»».
-  if (cuerpo.length > LIMITES.cuerpoLista) cuerpo = `${encabezado(total, visibles.length, '', true)}\n${T09_INDICACION}`;
+  // Se pasa la página `p`: en la 2+ se conserva el rango «Programas 9 a 16 de …» (sin indicación, como arriba).
+  if (cuerpo.length > LIMITES.cuerpoLista) {
+    cuerpo = p >= 1 ? encabezado(total, visibles.length, '', true, p, exacto) : `${encabezado(total, visibles.length, '', true, 0, exacto)}\n${T09_INDICACION}`;
+  }
 
   const pie = pieResultados(total, consulta);
   return {
@@ -348,7 +426,7 @@ export function armarResultados(
  * (BE) la usa como único respaldo de texto desde PR #69; reemplazó a textoRespaldoResultados.
  * ──────────────────────────────────────────────────────────────────────────── */
 
-export function armarResultadosTexto(ofertasAgrupadas: OfertaAgrupadaWa[], total: number, pagina: number, consulta = ''): string {
+export function armarResultadosTexto(ofertasAgrupadas: OfertaAgrupadaWa[], total: number, pagina: number, consulta = '', exacto = true): string {
   const p = Math.max(0, Math.floor(pagina || 0));
   const desde = p * PROGRAMAS_POR_PAGINA;
   const top = (ofertasAgrupadas || []).slice(0, 3);
@@ -357,7 +435,7 @@ export function armarResultadosTexto(ofertasAgrupadas: OfertaAgrupadaWa[], total
   const armar = (maxNombre: number, q: string) => {
     const lineas = top.map((o, i) => `${desde + i + 1}. *${cortarPorPalabra(o.nombre, maxNombre)}*\n${descripcionFila(o)}`);
     // v1.4: en la página 2+ el encabezado es el rango de los que se listan aquí («Programas 9 a 11 de 12:»).
-    return [`${encabezado(total, top.length, q, false, p)}:`, ...lineas, cierre].join('\n');
+    return [`${encabezado(total, top.length, q, false, p, exacto)}:`, ...lineas, cierre].join('\n');
   };
   // Se acorta primero el nombre y luego se quita la consulta hasta caber en 600.
   for (const maxNombre of [120, 80, 50, 30]) {

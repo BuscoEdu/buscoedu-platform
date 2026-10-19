@@ -35,6 +35,7 @@ import type {
   CatalogoWa,
   ContactoWa,
   ConversorLeadsWa,
+  ConteoProgramasWa,
   FiltrosBusquedaWa,
   OfertaAgrupadaWa,
   OfertaWa,
@@ -725,10 +726,19 @@ export function filtrosDesdeTexto(texto: string, _previos: Record<string, string
 }
 
 // Bloque: catálogo con tope de tiempo (C-23): si no responde en 5 s o lanza, es error técnico (T13), nunca «0 resultados».
+/**
+ * Bloque: S12 exacto · conteo por área a usar en el menú. Si el catálogo lo trae (Supabase, paginado S6), se usa
+ * tal cual. Si no (catálogos de prueba antiguos), se cuenta sobre lo devuelto y solo es exacto si vino TODO.
+ */
+function conteoDe(r: { ofertas: OfertaWa[]; conteo?: ConteoProgramasWa }, total: number): ConteoProgramasWa {
+  if (r.conteo) return r.conteo;
+  return { exacto: r.ofertas.length >= total, areas: C.contarAreas(r.ofertas) };
+}
+
 async function buscarConTimeout(
   deps: DependenciasOrquestador,
   filtros: FiltrosBusquedaWa
-): Promise<{ ok: true; ofertas: OfertaWa[]; total: number; respaldoArea?: boolean } | { ok: false }> {
+): Promise<{ ok: true; ofertas: OfertaWa[]; total: number; respaldoArea?: boolean; conteo: ConteoProgramasWa } | { ok: false }> {
   let temporizador: ReturnType<typeof setTimeout> | undefined;
   try {
     const limite = new Promise<{ ok: false }>((resolver) => {
@@ -739,7 +749,8 @@ async function buscarConTimeout(
       deps.log?.('wa_catalogo_error');
       return { ok: false };
     }
-    return { ok: true, ofertas: r.ofertas, total: Math.max(r.total ?? r.ofertas.length, r.ofertas.length), ...(r.respaldoArea ? { respaldoArea: true } : {}) };
+    const total = Math.max(r.total ?? r.ofertas.length, r.ofertas.length);
+    return { ok: true, ofertas: r.ofertas, total, conteo: conteoDe(r, total), ...(r.respaldoArea ? { respaldoArea: true } : {}) };
   } catch (error) {
     deps.log?.('wa_catalogo_error', { error: error instanceof Error ? error.name : 'desconocido' });
     return { ok: false };
@@ -858,15 +869,18 @@ async function buscarYMostrar(
     listaEn: ahora,
     pagina,
     total: resultado.total,
+    totalExacto: resultado.conteo.exacto,
     aplicacion: null
   };
   contacto = await actualizar(contacto, deps, { sesion });
-  await enviarListaResultados(contacto, deps, pag, resultado.total, pagina, etiqueta);
+  await enviarListaResultados(contacto, deps, pag, resultado.total, pagina, etiqueta, resultado.conteo.exacto);
   // Bloque: S12 · más de 20 programas → se ofrecen áreas para acotar (solo si hay 2+ áreas distintas).
   if (pagina === 0 && resultado.total > 20) {
     // Copy v1.8 · ahora es lista interactiva «Ver áreas» (antes texto tOfrecerAreas).
-    const areas = C.contarAreas(resultado.ofertas);
-    if (areas.length >= 2) await enviarMenuAreas(contacto, deps, C.tMenuAreasMuchos(resultado.total), areas);
+    // S12 exacto: con conteo exacto, N y «{n} programas»; con tope de páginas, «Encontré más de N programas…»
+    // y filas sin número (nunca un número que parezca exacto).
+    const areas = resultado.conteo.areas;
+    if (areas.length >= 2) await enviarMenuAreas(contacto, deps, C.tMenuAreasMuchos(resultado.total, resultado.conteo.exacto), areas, resultado.conteo.exacto);
   }
   return 'respondido';
 }
@@ -877,11 +891,17 @@ async function buscarYMostrar(
  * a menor, + fila `area:otra` «Escribir otra cosa». contarAreas ya excluye programas sin área y áreas en 0.
  * Por qué: «no tengo con «ayudar gente»» repetía el texto del usuario y no orientaba.
  */
-export function filasMenuAreas(areas: Array<{ area: string; cantidad: number }>): FilaLista[] {
+// S12 exacto: con exacto=false la fila va SIN descripción (sin número); el orden se mantiene (cantidad vista
+// desc y nombre), que es estable, pero no se presenta como cifra.
+export function filasMenuAreas(areas: Array<{ area: string; cantidad: number }>, exacto = true): FilaLista[] {
   const filas = areas
     .filter((a) => a.area && a.cantidad > 0)
     .slice(0, 5)
-    .map((a) => ({ id: `area:${a.area}`.slice(0, 200), titulo: cortarArea(a.area), descripcion: C.tFilaAreaDescripcion(a.cantidad) }));
+    .map((a) => ({
+      id: `area:${a.area}`.slice(0, 200),
+      titulo: cortarArea(a.area),
+      ...(exacto ? { descripcion: C.tFilaAreaDescripcion(a.cantidad) } : {})
+    }));
   return [...filas, { id: 'area:otra', titulo: C.FILA_ESCRIBIR_OTRA }];
 }
 
@@ -894,8 +914,8 @@ function cortarArea(area: string): string {
   return `${palabras.join(' ')}…`;
 }
 
-async function enviarMenuAreas(contacto: ContactoWa, deps: DependenciasOrquestador, cuerpo: string, areas: Array<{ area: string; cantidad: number }>) {
-  const filas = filasMenuAreas(areas);
+async function enviarMenuAreas(contacto: ContactoWa, deps: DependenciasOrquestador, cuerpo: string, areas: Array<{ area: string; cantidad: number }>, exacto: boolean) {
+  const filas = filasMenuAreas(areas, exacto);
   if (filas.length < 2) return false;
   const r = await enviarLista(contacto, deps, { cuerpo, textoBoton: C.BOTON_VER_AREAS, tituloSeccion: C.BOTON_VER_AREAS, filas });
   return r !== 'fallo';
@@ -905,9 +925,10 @@ async function enviarMenuAreas(contacto: ContactoWa, deps: DependenciasOrquestad
 async function enviarMenuAreasCatalogo(contacto: ContactoWa, deps: DependenciasOrquestador): Promise<boolean> {
   const todo = await buscarConTimeout(deps, {});
   if (!todo.ok) return false;
-  const areas = C.contarAreas(todo.ofertas);
+  // S12 exacto · el cuerpo de 0 resultados no lleva número; las filas muestran «{n} programas» solo si es exacto.
+  const areas = todo.conteo.areas;
   if (areas.length === 0) return false;
-  return enviarMenuAreas(contacto, deps, C.T_MENU_AREAS_SIN_RESULTADOS, areas);
+  return enviarMenuAreas(contacto, deps, C.T_MENU_AREAS_SIN_RESULTADOS, areas, todo.conteo.exacto);
 }
 
 // Bloque: S12 · la búsqueda solo trae texto libre (sin ciudad, modalidad, nivel ni término canónico).
@@ -926,10 +947,11 @@ async function enviarListaResultados(
   pag: OfertaWa[],
   total: number,
   pagina: number,
-  etiqueta: string
+  etiqueta: string,
+  exacto = true
 ) {
   const agrupadas = pag.map(aAgrupada);
-  const armado = armarResultados(agrupadas, total, pagina, etiqueta);
+  const armado = armarResultados(agrupadas, total, pagina, etiqueta, exacto);
   const r = await enviarLista(contacto, deps, {
     cuerpo: armado.cuerpo,
     textoBoton: armado.botonTexto,
@@ -938,7 +960,7 @@ async function enviarListaResultados(
     ...(armado.pie ? { pie: armado.pie } : {})
   });
   // Respaldo FE (top 3 ≤600, «escribe *más*» solo si hay otra página), nunca el bloque de 8 fichas.
-  if (r === 'fallo') await enviarTexto(contacto, deps, armarResultadosTexto(agrupadas, total, pagina, etiqueta));
+  if (r === 'fallo') await enviarTexto(contacto, deps, armarResultadosTexto(agrupadas, total, pagina, etiqueta, exacto));
 }
 
 function aAgrupada(o: OfertaWa): OfertaAgrupadaWa {
@@ -953,8 +975,9 @@ async function verMas(contacto: ContactoWa, deps: DependenciasOrquestador, ahora
     return 'respondido';
   }
   const siguiente = (s.pagina || 0) + 1;
+  // Offset > total: fin de la lista (no T18 «ya no está», que es para una ficha vencida) + menú de siempre.
   if (s.total !== undefined && siguiente * PROGRAMAS_POR_PAGINA >= s.total) {
-    await enviarBotones(contacto, deps, C.T18_YA_NO_ESTA, C.BOTONES_NUEVA_O_ASESOR);
+    await enviarBotones(contacto, deps, C.T_FIN_LISTA, C.BOTONES_NUEVA_O_ASESOR);
     return 'respondido';
   }
   return buscarYMostrar(contacto, deps, ahora, { filtros: s.filtrosBusqueda, etiqueta: s.consulta, pagina: siguiente });
@@ -965,7 +988,7 @@ async function reenviarLista(contacto: ContactoWa, deps: DependenciasOrquestador
   const s = contacto.sesion;
   const lista = listaVigente(contacto, ahora);
   if (lista.length > 0) {
-    await enviarListaResultados(contacto, deps, lista, s.total ?? lista.length, s.pagina || 0, s.consulta || '');
+    await enviarListaResultados(contacto, deps, lista, s.total ?? lista.length, s.pagina || 0, s.consulta || '', s.totalExacto !== false);
     return 'respondido';
   }
   if (s.filtrosBusqueda && s.consulta != null) {
