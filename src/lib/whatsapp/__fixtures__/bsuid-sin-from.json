@@ -1,0 +1,30 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WABA-FICTICIA-1",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": { "display_phone_number": "15550000000", "phone_number_id": "pnid-ficticio-1" },
+            "contacts": [
+              { "user_id": "CO.1000000000000001", "profile": { "username": "usuario.prueba" }, "country_code": "CO" }
+            ],
+            "messages": [
+              {
+                "from_user_id": "CO.1000000000000001",
+                "from_logical_id": "100000000000001",
+                "id": "wamid.FICTICIO0000000000000000000001",
+                "timestamp": "1760872000",
+                "type": "text",
+                "text": { "body": "Hola" }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

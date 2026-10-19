@@ -4,6 +4,7 @@
  */
 
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { crearAlmacenMemoria } from './almacen-memoria';
 import {
@@ -18,7 +19,7 @@ import { construirDiagnosticoWebhook } from './diagnostico';
 import type { EnviadorWhatsApp } from './graph-client';
 import { crearClienteGraph, direccionMeta, WhatsAppApiError } from './graph-client';
 import { enmascararUserId, procesarMensajeEntrante } from './orquestador';
-import { filtrarPermitidos, manejarPostWebhook } from './procesar-webhook';
+import { filtrarPermitidos, manejarPostWebhook, procesarLote } from './procesar-webhook';
 import { calcularFirma } from './firma';
 import { crearLimitadorMemoria } from './rate-limit';
 import type { CatalogoWa, ConversorLeadsWa } from './tipos';
@@ -338,5 +339,139 @@ describe('Diagnóstico · conteos por tipo de remitente', () => {
     assert.ok(!linea.includes(UID));
     assert.ok(!linea.includes(TEL));
     assert.ok(!linea.includes('hola privado'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fixture con la FORMA EXACTA del payload real de producción (19/10, 13:26 hora Madrid).
+// Valores anonimizados: ni el BSUID ni el username reales están en el repo.
+// Trae campos que el parser no conoce (`from_logical_id`, `contacts[].country_code`):
+// deben ignorarse sin romper nada. No trae `from` ni `contacts[].wa_id`.
+// ---------------------------------------------------------------------------
+
+const RUTA_FIXTURE = new URL('./__fixtures__/bsuid-sin-from.json', import.meta.url);
+const CUERPO_FIXTURE = readFileSync(RUTA_FIXTURE, 'utf8');
+const UID_FIXTURE = 'CO.1000000000000001';
+const PNID_FIXTURE = 'pnid-ficticio-1';
+const TS_FIXTURE_MS = 1760872000 * 1000;
+const PII_FIXTURE = [UID_FIXTURE, 'usuario.prueba', '100000000000001', 'wamid.FICTICIO', 'Hola'];
+
+describe('Fixture real anonimizado · BSUID sin from', () => {
+  it('el parser devuelve 1 mensaje de texto con userId y sin teléfono', () => {
+    const r = parsearWebhook(JSON.parse(CUERPO_FIXTURE));
+    assert.equal(r.mensajes.length, 1);
+    const m = r.mensajes[0];
+    assert.equal(m.remitente?.userId, UID_FIXTURE);
+    assert.equal(m.remitente?.telefono, null);
+    assert.equal(m.e164, '');
+    assert.equal(m.tipo, 'texto');
+    assert.equal(m.texto, 'Hola');
+    assert.equal(m.phoneNumberIdDestino, PNID_FIXTURE);
+    // Los campos desconocidos no se cuelan en el mensaje.
+    assert.ok(!JSON.stringify(m).includes('100000000000001'));
+  });
+
+  it('diagnóstico: 1 remitente solo con BSUID, 0 con teléfono, sin PII', () => {
+    const d = construirDiagnosticoWebhook(CUERPO_FIXTURE, {
+      phoneNumberId: PNID_FIXTURE,
+      realHabilitado: false,
+      pilotoNumeros: ['+573001112233'],
+      pilotoUserIds: []
+    });
+    assert.equal(d.remitentes_solo_user_id, 1);
+    assert.equal(d.remitentes_con_telefono, 0);
+    assert.deepEqual(d.remitente_user_id_ult4, ['uid:***0001']);
+    assert.deepEqual(d.remitente_ult4, []);
+    assert.deepEqual(d.remitentes_en_allowlist, { si: 0, no: 1 });
+    assert.equal(d.phone_number_id_coincide, true);
+    const linea = JSON.stringify(d);
+    for (const pii of PII_FIXTURE) assert.ok(!linea.includes(pii), `el diagnóstico no debe incluir ${pii}`);
+  });
+
+  it('env `+57…,uid:CO.<id>` → 2 válidas; `CO.<id>` sin prefijo también se reconoce', () => {
+    const conPrefijo = leerAllowlistPiloto(`+573001112233,uid:${UID_FIXTURE}`);
+    assert.equal(conPrefijo.validas, 2);
+    assert.equal(conPrefijo.invalidas, 0);
+    assert.deepEqual(conPrefijo.numeros, ['+573001112233']);
+    assert.deepEqual(conPrefijo.userIds, [UID_FIXTURE]);
+    const sinPrefijo = leerAllowlistPiloto(`+573001112233, ${UID_FIXTURE}`);
+    assert.equal(sinPrefijo.validas, 2);
+    assert.deepEqual(sinPrefijo.userIds, [UID_FIXTURE]);
+  });
+
+  it('allowlist con uid + teléfono → permitido; solo teléfono → fuera_allowlist', () => {
+    const m = parsearWebhook(JSON.parse(CUERPO_FIXTURE)).mensajes[0];
+    const cfgUid = leerConfigWhatsApp({ META_WA_PHONE_NUMBER_ID: PNID_FIXTURE, WA_PILOTO_NUMEROS: `+573001112233,uid:${UID_FIXTURE}` });
+    assert.equal(filtrarPermitidos([m], cfgUid).permitidos.length, 1);
+    const cfgTel = leerConfigWhatsApp({ META_WA_PHONE_NUMBER_ID: PNID_FIXTURE, WA_PILOTO_NUMEROS: '+573001112233' });
+    const r = filtrarPermitidos([m], cfgTel);
+    assert.equal(r.permitidos.length, 0);
+    assert.deepEqual(r.rechazados, ['uid:***0001']);
+  });
+
+  it('allowlist solo teléfono → el orquestador responde fuera_allowlist y no envía', async () => {
+    const e = entorno({ META_WA_PHONE_NUMBER_ID: PNID_FIXTURE, WA_PILOTO_NUMEROS: '+573001112233' });
+    const m = parsearWebhook(JSON.parse(CUERPO_FIXTURE)).mensajes[0];
+    assert.equal(await procesarMensajeEntrante(m, { ...e.deps, ahora: () => TS_FIXTURE_MS + 1000 }), 'fuera_allowlist');
+    assert.equal(e.enviados.length, 0);
+  });
+
+  // Bloque: camino completo como en la ruta: firma → parser → filtro → orquestador → Graph (fetch falso).
+  it('camino completo con BSUID permitido → POST a Graph con `recipient` y request_contact_info', async () => {
+    const secreto = 'secreto-de-prueba';
+    const post = manejarPostWebhook(CUERPO_FIXTURE, calcularFirma(CUERPO_FIXTURE, secreto), { appSecret: secreto });
+    assert.equal(post.respuesta.status, 200);
+    assert.equal(post.mensajes.length, 1);
+
+    const config = leerConfigWhatsApp({
+      META_WA_TOKEN: 'token-falso',
+      META_WA_PHONE_NUMBER_ID: PNID_FIXTURE,
+      META_APP_SECRET: secreto,
+      WA_PILOTO_NUMEROS: `+573001112233,uid:${UID_FIXTURE}`
+    });
+    const { permitidos } = filtrarPermitidos(post.mensajes, config);
+    assert.equal(permitidos.length, 1);
+
+    const llamadas: Array<{ url: string; cuerpo: any }> = [];
+    const enviador = crearClienteGraph({
+      token: config.token,
+      phoneNumberId: config.phoneNumberId,
+      versionGraph: config.versionGraph,
+      fetchImpl: (async (url: string, init: any) => {
+        llamadas.push({ url, cuerpo: JSON.parse(init.body) });
+        return new Response('{"messages":[{"id":"wamid.salida"}]}', { status: 200 });
+      }) as unknown as typeof fetch
+    });
+    const almacen = crearAlmacenMemoria();
+    const logs: unknown[] = [];
+    const resultados = await procesarLote(permitidos, {
+      config,
+      almacen,
+      catalogo: { async buscar() { return { ok: true, ofertas: [] }; }, async tiposConsentimiento() { return []; } },
+      conversor: { async convertir() { return { ok: false, codigo: 'x' }; } },
+      enviador,
+      limitador: crearLimitadorMemoria(20, 60_000),
+      ahora: () => TS_FIXTURE_MS + 1000,
+      log: (evento, datos) => logs.push({ evento, datos })
+    });
+
+    assert.deepEqual(resultados, ['solo_user_id']);
+    assert.equal(llamadas.length, 1);
+    const { url, cuerpo } = llamadas[0];
+    assert.ok(url.endsWith(`/${PNID_FIXTURE}/messages`));
+    assert.equal(cuerpo.messaging_product, 'whatsapp');
+    assert.equal(cuerpo.recipient_type, 'individual');
+    assert.equal(cuerpo.recipient, UID_FIXTURE);
+    assert.equal('to' in cuerpo, false);
+    assert.equal(cuerpo.type, 'interactive');
+    assert.equal(cuerpo.interactive.type, 'request_contact_info');
+    assert.equal(cuerpo.interactive.action.name, 'request_contact_info');
+    // Sin contacto ni historial guardados; solo el wamid para idempotencia.
+    assert.equal(almacen.contactos.size, 0);
+    assert.equal(almacen.mensajes.length, 0);
+    assert.equal(almacen.procesados.size, 1);
+    // Logs sin PII.
+    const textoLogs = JSON.stringify(logs);
+    for (const pii of [UID_FIXTURE, 'usuario.prueba', '100000000000001']) assert.ok(!textoLogs.includes(pii));
   });
 });
