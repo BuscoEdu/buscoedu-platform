@@ -29,9 +29,9 @@ describe('modelo de negocio: NULL = sin definir', () => {
 
   // Bloque: Lead Center muestra «Sin definir» cuando la oportunidad no tiene modelo.
   it('etiqueta «Sin definir» para NULL y conserva el código para los definidos', () => {
-    assert.equal(ETIQUETA_MODELO_SIN_DEFINIR, 'Sin definir');
-    assert.equal(etiquetaModeloNegocio(null), 'Sin definir');
-    assert.equal(etiquetaModeloNegocio(''), 'Sin definir');
+    assert.equal(ETIQUETA_MODELO_SIN_DEFINIR, 'Modelo sin definir');
+    assert.equal(etiquetaModeloNegocio(null), 'Modelo sin definir');
+    assert.equal(etiquetaModeloNegocio(''), 'Modelo sin definir');
     assert.equal(etiquetaModeloNegocio('por_lead'), 'por_lead');
     assert.equal(etiquetaModeloNegocio('por_inscrito'), 'por_inscrito');
   });

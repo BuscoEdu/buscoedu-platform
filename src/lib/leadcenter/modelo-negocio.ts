@@ -15,7 +15,8 @@
 export type ModeloNegocio = 'por_lead' | 'por_inscrito';
 
 // Bloque: etiqueta única para el modelo ausente, para que Lead Center no muestre «—» ni invente uno.
-export const ETIQUETA_MODELO_SIN_DEFINIR = 'Sin definir';
+// Texto exacto de Producto (2026-10-19): «Modelo sin definir»; asesor sí se asigna, cobro no.
+export const ETIQUETA_MODELO_SIN_DEFINIR = 'Modelo sin definir';
 
 // Bloque: normalizar. Cualquier valor que no sea uno de los dos modelos (NULL, vacío, texto raro)
 // se trata como «sin definir» (null). Por qué: escribir null es válido en las columnas de la BD y
