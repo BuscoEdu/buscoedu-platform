@@ -1,6 +1,6 @@
 # Paquete prod BD · 2026-10-19
 
-**Rama:** `feat/bd-paquete-prod-20261019` (desde `origin/main` 5993565 + carga de aliadas) · **Estado:** NO aplicado; espera OK de Jhon.
+**Rama:** `feat/bd-paquete-prod-20261019` (desde `origin/main` 5993565 + carga de aliadas) · **Estado:** APLICADO en prod el 2026-10-19 (≈17:57–18:05 hora Madrid) con OK de Jhon 17:54; todo ✓. Evidencia: `supabase/ops/respaldos/20261019_paquete_prod/`.
 Todo está en `supabase/ops/20261019_paquete_*`. Cada bloque tiene script, `_deshacer.sql` y `_verificacion.sql` (solo lectura, criterios ✓/✗; los ensayos que escriben terminan en RAISE/ROLLBACK).
 
 ## Orden de aplicación
@@ -9,7 +9,7 @@ Todo está en `supabase/ops/20261019_paquete_*`. Cada bloque tiene script, `_des
 |---|--------|----------------------|--------|----------|
 | 1 | `20261019_paquete_3_quitar_trg_universidad.sql` | Quita el trigger que rompe todo alta de universidad (propuesta de Backend, copia sin cambios). | Bajo: no se crean oportunidades B2B automáticas (hoy tampoco). Los scripts de carga 2 y 4 ya no se pueden re-correr tal cual. | `_deshacer.sql` recrea el trigger exacto (vuelve el bug). |
 | 2 | `20261019_paquete_1_convertir_modelo_null.sql` | `fn_convertir_aplicacion` toma `modelo_negocio` tal cual; asesor con `IF v_modelo IS NULL OR v_modelo = 'por_inscrito'`: NULL ⇒ snapshot NULL, con asesor, `es_facturable=false` (no hay transferencia). Verificación con caso NULL revertido y persona ficticia. | Medio: es la conversión de leads; solo cambian 3 líneas de BA-041. | `_deshacer.sql` = BA-041 literal. |
-| 3 | `20261019_paquete_2_precios_lectura_publica.sql` | `lectura_publica_precios`: anon/authenticated solo ven precios activos, validados, vigentes y de oferta visible. | Bajo: ningún lector público usa la tabla; admin va por `solo_super_admin_select`. | `_deshacer.sql` vuelve a `USING (true)`. |
+| 3 | `20261019_paquete_2_precios_lectura_publica.sql` | `lectura_publica_precios`: anon/authenticated solo ven precios activos, validados, vigentes y de oferta visible. | Bajo: ningún lector público usa la tabla; admin va por `solo_super_admin_select`. | `_deshacer.sql` vuelve a la policy VIVA previa (BA-020 ya aplicado: TO public, activo+validado+vigente). |
 | 4a | `20261019_paquete_4_tablas_trabajo_exportar.sql` | Exporta las 3 tablas de trabajo (JSON + md5) y guarda la salida en `/home/box/.secrets/respaldos/`. | Ninguno (solo lectura). | — |
 | 4b | `20261019_paquete_4_tablas_trabajo_a_respaldos.sql` | Mueve las 3 tablas de `public` al schema privado `respaldos` (sin borrar nada). | Bajo: los deshacer del 19/10 ya apuntan a `respaldos.*`. | `_deshacer.sql` las devuelve a `public` (y usar los deshacer de abed234). |
 
@@ -32,3 +32,4 @@ Por qué este orden: el 3 no depende de nada y desbloquea el CRUD de IES; el 1 s
 | Fecha | Qué | Por qué | Quién |
 |-------|-----|---------|-------|
 | 2026-10-19 (hora Madrid) | Paquete prod de 4 bloques + verificación del bucket de logos (Bloque 3 del 17/10 marcado OBSOLETO) (modelo NULL en conversión, RLS de precios, quitar trigger de universidades, tablas de trabajo a `respaldos`) con deshacer y verificación; rutas de los deshacer del 19/10 a `respaldos.*`. NO aplicado. | Decisión de Producto (sin modelo no se asume cobro); 187 precios pendientes expuestos a anon; el alta de IES falla; tablas de trabajo en el schema expuesto. | Base de datos BuscoEdu |
+| 2026-10-19 ~18:05 (hora Madrid) | Paquete aplicado en prod en orden 3→1→2→4a→4b, todo ✓; verificación global ✓ (291 visibles, 0 demo, 19 oportunidades sin cambio, anon 0 pendientes, fn solo service_role, trigger fuera, tablas en `respaldos`); bucket logos ✓ antes de Backend. Ajustes: deshacer bloque 2 = policy viva; export 4a como texto jsonb exacto. | OK de Jhon 17:54 / Orquestador 17:55 | Base de datos BuscoEdu |

@@ -1,6 +1,6 @@
 -- =====================================================================
 -- Paquete prod 20261019 · Bloque 4 · Sacar de public las 3 tablas de trabajo de la carga
--- Autor: Base de datos BuscoEdu · 2026-10-19 · NO aplicado en prod (espera OK).
+-- Autor: Base de datos BuscoEdu · 2026-10-19 · APLICADO en prod 2026-10-19 (OK Jhon 17:54).
 -- Por qué: public.carga_aliadas_20261019, _respaldo y _demo_previo quedaron en el schema
 --   expuesto por la API (RLS activo sin policies ⇒ el advisor las marca y cualquiera ve que existen).
 --   Son la base de los deshacer del 19/10, así que NO se borran: se MUEVEN a un schema

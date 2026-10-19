@@ -1,6 +1,6 @@
 -- =====================================================================
 -- Paquete prod 20261019 · Bloque 1 · fn_convertir_aplicacion con modelo_negocio NULL
--- Autor: Base de datos BuscoEdu · 2026-10-19 · NO aplicado en prod (espera OK).
+-- Autor: Base de datos BuscoEdu · 2026-10-19 · APLICADO en prod 2026-10-19 (OK Jhon 17:54).
 -- Base: definición vigente en prod = 20261018160000_ba041_convertir_valida_antes.sql.
 -- Por qué: las 331 ofertas reales cargadas el 19/10 tienen modelo_negocio NULL y la
 --   función lo convertía en 'por_inscrito' (invento de un modelo comercial).

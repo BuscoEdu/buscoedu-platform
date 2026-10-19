@@ -1,0 +1,13 @@
+{
+ "aplicado": "2026-10-19 ~17:57–18:05 Europe/Madrid · prod khnrnnoxyzuulagemfbh · OK Jhon 17:54 / Orquestador 17:55",
+ "columnas_previas": {"oportunidades.asesor_asignado_id": "✓ uuid null", "transferencias_universidad.oportunidad_id": "✓ uuid null", "transferencias_universidad.es_facturable": "✓ boolean not null", "universidades (12 columnas del ensayo)": "✓", "precios_oferta.descripcion_condiciones": "✓"},
+ "deshacer_bloque1_vs_viva": "cuerpo idéntico a ba041, ACL {postgres,service_role}, comentario idéntico ⇒ deshacer sin cambios",
+ "deshacer_bloque2_vs_viva": "DIFERÍA: viva = BA-020 ya aplicado (TO public, activo+validado+vigente), no USING(true) ⇒ deshacer corregido a la viva antes de aplicar",
+ "bloque3": {"A1-A6": "✓", "B1_oport_universidad": 0, "ensayo_alta_universidad_revertido": "✓"},
+ "bloque1": {"A1-A6,B1-B3,C1-C2": "✓", "fn_ba031_md5_sin_cambio": "✓", "ensayo_NULL_revertido": "ok=true snapshot=NULL asesor=✓ facturables=0 ✓", "post_ensayo": "oportunidades 19, persona ficticia 0, transferencias 0"},
+ "bloque2": {"A1-A3": "✓", "esperado_publico": 94, "anon": "total 94, pendientes 0, MARCA 0, no visibles 0, inactivos 0 ✓", "authenticated_sin_sesion": "total 94, pendientes 0 ✓"},
+ "bloque4a": {"export": "/home/box/.secrets/respaldos/20261019_tablas_trabajo_{staging,respaldo,demo_previo}.json (600)", "md5": "staging 08ccc887… ✓ · respaldo f83230a8… ✓ · demo_previo 4828db2f… ✓ (recalculados localmente)"},
+ "bloque4b": {"tablas_en_respaldos": "3 ✓ / 0 en public ✓", "anon_authenticated_USAGE": "no ✓", "acl_schema": "{postgres=UC/postgres}", "md5_post_move": "3 ✓", "pgrst_db_schemas": "no visible por SQL"},
+ "global": "visibles 291 ✓ · demo visibles 0 ✓ · oportunidades 19 ✓ (=antes) · transferencias 0 · universidades 14 · anon precios 94 / pendientes 0 ✓ · ACL fn solo service_role ✓ · trigger 0 ✓ · tablas public 0 / respaldos 3 ✓ · fn_ba031 igual ✓",
+ "bucket_antes_de_backend": "A1 ✓ · A2 3 policies ✓ · A3 sin filtro por ruta ✓ · A4 índice ✓ · A5 0 filas slug ✓ · logos registrados 0 · objetos 0"
+}
