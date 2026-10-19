@@ -9,6 +9,8 @@ import {
   type CodigoCanalIa
 } from '@/lib/agentes';
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
+// Bloque: puerta de precios para el estudiante (quita precios del contexto de NaIA).
+import { quitarPreciosDeContexto } from '@/src/lib/precios-publicos';
 
 /**
  * API Route del servidor para NaIA.
@@ -208,8 +210,11 @@ export async function POST(req: NextRequest) {
     if (contextoOfertas) {
       contextoOfertas = {
         ...contextoOfertas,
-        ofertas_relevantes: await filtrarOfertasRelevantesValidas(
-          contextoOfertas.ofertas_relevantes
+        // Bloque: además de validar ids, se quitan los campos de precio que mande el navegador.
+        // Por qué: NaIA no debe ver ni repetir un precio (p. ej. uno pendiente «MARCA:» de BD);
+        // ante una pregunta de precio responde sin cifra (T17 «Precio no disponible»).
+        ofertas_relevantes: quitarPreciosDeContexto(
+          await filtrarOfertasRelevantesValidas(contextoOfertas.ofertas_relevantes)
         )
       };
     }

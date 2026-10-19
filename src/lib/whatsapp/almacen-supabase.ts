@@ -25,6 +25,8 @@ function aContacto(fila: any): ContactoWa {
     optOutEn: fila.opt_out_en ?? null,
     ultimoEntranteMs: fila.ultimo_entrante_en ? Date.parse(fila.ultimo_entrante_en) : null,
     sesion: {
+      // Campos del lote Ola 1/2 (versión, lista, contadores) viajan tal cual en el jsonb.
+      ...sesion,
       filtros: sesion.filtros && typeof sesion.filtros === 'object' ? sesion.filtros : {},
       ofertas: Array.isArray(sesion.ofertas) ? sesion.ofertas : [],
       miLista: Array.isArray(sesion.miLista) ? sesion.miLista : [],
@@ -90,9 +92,29 @@ export function crearAlmacenSupabase(db: SupabaseClient): AlmacenWhatsApp {
       return aContacto(data);
     },
 
-    async actualizarContacto(id, parche) {
-      const { error } = await db.from('wa_contactos').update(aFila(parche)).eq('id', id);
+    // Bloque: UPDATE (nunca DELETE, C-51). Con versionSesion: control optimista sobre sesion->>v (C-25),
+    // sin columna nueva: si otro mensaje escribió primero, 0 filas → false y el orquestador no pisa su sesión.
+    async actualizarContacto(id, parche, opciones) {
+      if (opciones?.versionSesion === undefined) {
+        const { error } = await db.from('wa_contactos').update(aFila(parche)).eq('id', id);
+        if (error) throw new Error(`wa_contacto_actualizar: ${error.message}`);
+        return true;
+      }
+      const base = db.from('wa_contactos').update(aFila(parche));
+      const filtrada =
+        opciones.versionSesion === 0
+          ? base.or('sesion->>v.is.null,sesion->>v.eq.0').eq('id', id)
+          : base.eq('sesion->>v', String(opciones.versionSesion)).eq('id', id);
+      const { data, error } = await filtrada.select('id');
       if (error) throw new Error(`wa_contacto_actualizar: ${error.message}`);
+      return Array.isArray(data) && data.length > 0;
+    },
+
+    // Bloque: idempotencia (C-24). Si el procesamiento falló, se borra la marca del wamid (tabla técnica de dedupe,
+    // no datos personales) para que el reintento de Meta se atienda en vez de perderse.
+    async liberarMensaje(idMensaje) {
+      const { error } = await db.from('wa_mensajes_procesados').delete().eq('wamid', idMensaje);
+      if (error) throw new Error(`wa_dedupe_liberar: ${error.message}`);
     },
 
     async registrarMensaje(contactoId, m) {

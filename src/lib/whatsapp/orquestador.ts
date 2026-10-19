@@ -7,22 +7,28 @@
  *   2. idempotencia por id de mensaje (wamid)
  *   3. ventana de 24 h (solo respondemos mensajes recientes)
  *   4. límite por número (rate limit)
- *   5. BAJA/STOP/ALTA, consentimiento de datos (Ley 1581), ASESOR/MENU
- *   6. catálogo (máx 8 fichas reales) → Mi lista | Aplicar → datos → Autorizar contacto
- *   7. conversión a lead solo con WA_LEAD_CONVERSION_ENABLED='true' y autorización explícita
+ *   5. BAJA/STOP/ALTA, consentimiento de datos (Ley 1581, versión T01 v2), revocación, ASESOR/MENU
+ *   6. intención (saludo, número de la lista, ver más, becas, precio, pregunta abierta, no entendí, búsqueda)
+ *   7. catálogo agrupado por programa (máx 8 por página, N real) → Mi lista | Aplicar → datos → Autorizar contacto
+ *   8. conversión a lead solo con WA_LEAD_CONVERSION_ENABLED='true' y autorización explícita
+ * Copy: Producto v1.3 (copy.ts para el flujo; presentacion.ts de FE para resultados y ficha).
  *
  * Reutiliza: extracción de intereses de NaIA (vozNaia) y reglas del funnel BA-031
  * (evaluarDecision / evaluarGuardadoDatos). No escribe directo en la base: usa interfaces.
  */
 
-import { extraerSlotsDeclarados, fusionarSesion, sanearSesion } from '../../../lib/agentes/vozNaia';
+import { extraerSlotsDeclarados } from '../../../lib/agentes/vozNaia';
 import { evaluarDecision, evaluarGuardadoDatos } from '../demowapp/funnel-aplicar-reglas';
 import { detectarComando, enHorarioAsesores, plegarComando } from './comandos';
 import type { ConfigWhatsApp } from './config';
 import { puedeEnviar, remitentePuedeRecibirRespuesta } from './config';
 import type { BotonRespuesta, EnviadorWhatsApp, FilaLista } from './graph-client';
 import { destinoRemitente, MAX_FILAS_LISTA_BUSCOEDU, WhatsAppApiError } from './graph-client';
+import { filtrosDesdeTexto as filtrosBusqueda, filtrosVacios } from './busqueda';
+import * as C from './copy';
+import { clasificarTexto, esRevocacion, NO_CONSENTIMIENTO, SALUDOS, SI_CONSENTIMIENTO } from './intenciones';
 import * as M from './mensajes';
+import { armarFicha, armarResultados, armarResultadosTexto, PROGRAMAS_POR_PAGINA } from './presentacion';
 import type { LimitadorTasa } from './rate-limit';
 import type {
   AlmacenWhatsApp,
@@ -30,6 +36,7 @@ import type {
   ContactoWa,
   ConversorLeadsWa,
   FiltrosBusquedaWa,
+  OfertaAgrupadaWa,
   OfertaWa,
   ParcheContacto,
   SesionWa
@@ -48,7 +55,25 @@ export interface DependenciasOrquestador {
   limitador: LimitadorTasa;
   ahora?: () => number;
   log?: (evento: string, datos?: Record<string, unknown>) => void;
+  /** Interno por mensaje: versión de sesión ya escrita (control optimista) y hora de inicio (logs QA). */
+  _versiones?: Map<string, number>;
+  _inicioMs?: number;
 }
+
+/** Otro mensaje del mismo contacto cambió la sesión primero: no se pisa (C-25). */
+export class ConflictoSesion extends Error {
+  constructor() {
+    super('conflicto_sesion');
+    this.name = 'ConflictoSesion';
+  }
+}
+
+/** Tiempo máximo para el catálogo antes de responder T13 (C-23). */
+export const TIMEOUT_CATALOGO_MS = 5000;
+/** Programas que se piden al catálogo (ya agrupados) para paginar de a 8. */
+export const MAX_PROGRAMAS_CONSULTA = 40;
+/** Una lista sigue valiendo 24 h (C-18). */
+export const VIGENCIA_LISTA_MS = 24 * 60 * 60 * 1000;
 
 export type ResultadoProceso =
   | 'otro_numero'
@@ -61,6 +86,7 @@ export type ResultadoProceso =
   | 'silencio_humano'
   | 'respondido'
   | 'solo_user_id'
+  | 'conflicto'
   | 'error';
 
 /** Enmascara un número para logs: +57••••••123. Nunca se loguea completo. */
@@ -81,20 +107,12 @@ export function enmascararRemitente(r: RemitenteEntrante): string {
   return r.telefono ? enmascarar(r.telefono) : enmascararUserId(r.userId);
 }
 
-// Bloque: palabras que cuentan como sí/no al consentimiento cuando se escriben en vez de tocar el botón.
-const SI_CONSENTIMIENTO = new Set(['si', 'si autorizo', 'autorizo', 'acepto', 'de acuerdo', 'ok', 'dale', 'listo']);
-const NO_CONSENTIMIENTO = new Set(['no', 'no autorizo', 'no acepto']);
-const SALUDOS = new Set(['hola', 'buenas', 'buenos dias', 'buenas tardes', 'buenas noches', 'hey', 'holi', 'info', 'informacion']);
-
-const BOTONES_CONSENTIMIENTO: BotonRespuesta[] = [
-  { id: 'consent:si', titulo: 'Sí, autorizo' },
-  { id: 'consent:no', titulo: 'No autorizo' }
-];
-
 export async function procesarMensajeEntrante(
   mensaje: MensajeEntrante,
-  deps: DependenciasOrquestador
+  depsEntrada: DependenciasOrquestador
 ): Promise<ResultadoProceso> {
+  // Bloque: estado interno por mensaje (versiones de sesión escritas y hora real de inicio para logs QA).
+  const deps: DependenciasOrquestador = { ...depsEntrada, _versiones: new Map(), _inicioMs: Date.now() };
   const ahora = deps.ahora ? deps.ahora() : Date.now();
   const log = deps.log || (() => {});
   const { config, almacen } = deps;
@@ -158,17 +176,42 @@ export async function procesarMensajeEntrante(
     };
   }
 
+  let resultado: ResultadoProceso = 'error';
   try {
-    return await atender(mensaje, deps, ahora, log);
+    resultado = await atender(mensaje, deps, ahora, log);
+    return resultado;
   } catch (error) {
-    // 7) Error inesperado: mensaje honesto + link. Nada de lead a medias (la conversión es atómica en SQL).
-    log('wa_error_orquestador', { error: error instanceof Error ? error.message.slice(0, 200) : 'desconocido' });
+    if (error instanceof ConflictoSesion) {
+      // Otro mensaje del mismo contacto escribió la sesión primero: no se pisa ni se responde dos veces.
+      log('wa_conflicto_sesion', { numero: mascara });
+      resultado = 'conflicto';
+      return resultado;
+    }
+    // Error inesperado: T13 honesto. Solo el nombre del error en el log (sin mensaje crudo que pueda traer datos).
+    log('wa_error_orquestador', { error: error instanceof Error ? error.name : 'desconocido' });
+    // Idempotencia (C-24): se libera el wamid para que el reintento de Meta se atienda en vez de perderse.
     try {
-      await deps.enviador.enviarTexto(destinoRemitente(remitenteDe(mensaje)), M.ERROR_HONESTO);
+      await almacen.liberarMensaje?.(mensaje.id);
+    } catch {
+      log('wa_dedupe_liberar_fallo');
+    }
+    try {
+      await deps.enviador.enviarTexto(destinoRemitente(remitenteDe(mensaje)), C.T13_ERROR);
     } catch {
       // Si la API de Meta también está caída no hay nada más que hacer en este turno.
     }
     return 'error';
+  } finally {
+    // Bloque: tiempos por mensaje al ms con prefijo QA (C-53), sin PII: QA calcula p95 y máximo desde los logs.
+    log('QA_wa_tiempo', {
+      usuario: mascara,
+      wamid: (mensaje.id || '').slice(-8),
+      entranteMs: mensaje.timestampMs,
+      inicioMs: deps._inicioMs,
+      finMs: Date.now(),
+      msProceso: Date.now() - (deps._inicioMs || Date.now()),
+      resultado
+    });
   }
 }
 
@@ -229,6 +272,7 @@ async function atender(
 ): Promise<ResultadoProceso> {
   const { almacen } = deps;
   const comando = mensaje.tipo === 'texto' ? detectarComando(mensaje.texto) : null;
+  const plegado = mensaje.tipo === 'texto' ? plegarComando(mensaje.texto) : '';
 
   // Bloque: contacto. Si es nuevo, se guarda SOLO el número y la hora del último entrante.
   let contacto = await almacen.obtenerContacto(mensaje.e164);
@@ -236,7 +280,11 @@ async function atender(
     contacto = await almacen.crearContactoSoloNumero(mensaje.e164, mensaje.timestampMs);
     contacto = await vincularUserIdSiCorresponde(contacto, mensaje, deps);
     if (comando === 'baja') return darDeBaja(contacto, deps, ahora);
-    await enviarBotones(contacto, deps, M.BIENVENIDA_CONSENTIMIENTO, BOTONES_CONSENTIMIENTO);
+    // Simulación de preview (C-55/C-56): el contacto queda marcado como dato de QA en la BD compartida.
+    if (deps.config.simulacion) {
+      contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, simulacionQa: true } });
+    }
+    await enviarBienvenida(contacto, deps, false);
     return 'respondido';
   }
 
@@ -245,83 +293,193 @@ async function atender(
   await almacen.actualizarContacto(contacto.id, { ultimoEntranteMs: ultimo });
   contacto = { ...contacto, ultimoEntranteMs: ultimo };
 
-  // Bloque: BAJA / ALTA. Una baja silencia todo salvo ALTA.
+  // Bloque: BAJA / ALTA. Una baja silencia todo salvo ALTA o un saludo (S19: «Hola» tras STOP responde y re-pide).
   if (comando === 'baja') return darDeBaja(contacto, deps, ahora);
   if (contacto.optOut || contacto.estado === 'baja') {
-    if (comando !== 'alta') {
+    if (comando !== 'alta' && !SALUDOS.has(plegado)) {
       log('wa_silencio_baja');
       return 'silencio_baja';
     }
-    const estado = contacto.consentimientoDatos ? 'activo' : 'esperando_consentimiento';
-    await actualizar(contacto, deps, { optOut: false, optOutEn: null, estado });
-    contacto = { ...contacto, optOut: false, estado };
-    if (estado === 'activo') {
-      await enviarTexto(contacto, deps, M.VOLVER_MENU);
-    } else {
-      await enviarBotones(contacto, deps, M.BIENVENIDA_CONSENTIMIENTO, BOTONES_CONSENTIMIENTO);
-    }
+    // Tras STOP el consentimiento quedó revocado (C-01): siempre se vuelve a pedir, con estado limpio.
+    contacto = await actualizar(contacto, deps, {
+      optOut: false,
+      optOutEn: null,
+      estado: 'esperando_consentimiento',
+      consentimientoDatos: false,
+      sesion: sesionReiniciada(contacto)
+    });
+    await enviarBienvenida(contacto, deps, true);
     return 'respondido';
   }
 
-  // Bloque: consentimiento de datos (Ley 1581). Sin OK no se guarda más que el número.
-  if (!contacto.consentimientoDatos) {
+  // Bloque: consentimiento vigente = aceptado Y con la versión actual del texto legal (T01 v2, C-09).
+  if (!consentimientoVigente(contacto)) {
     return gestionarConsentimiento(contacto, mensaje, comando, deps, ahora);
   }
 
   // Desde aquí hay consentimiento: el historial sí se guarda.
   await almacen.registrarMensaje(contacto.id, {
     direccion: 'entrante',
-    contenido: mensaje.texto || `[${mensaje.tipo}]`,
+    contenido: etiquetaQa(deps, mensaje.texto || `[${mensaje.tipo}]`),
     idMeta: mensaje.id,
     tipo: mensaje.tipo
   });
 
-  // Bloque: modo asesor. NaIA no responde hasta que el usuario escriba MENU.
+  // Bloque: revocación con consentimiento previo (T05, C-03). UPDATE, nunca DELETE (C-51).
+  if (mensaje.tipo === 'texto' && esRevocacion(mensaje.texto)) {
+    return revocar(contacto, deps, ahora);
+  }
+
+  // Bloque: modo asesor. NaIA calla hasta MENU; un 2.º «asesor» recibe la confirmación sin escalar de nuevo (C-20).
   if (contacto.estado === 'humano') {
-    if (comando === 'menu') {
-      await actualizar(contacto, deps, { estado: 'activo' });
-      await enviarTexto({ ...contacto, estado: 'activo' }, deps, M.VOLVER_MENU);
+    const pideMenu = comando === 'menu' || mensaje.respuestaId === 'menu:buscar';
+    if (pideMenu) {
+      contacto = await actualizar(contacto, deps, { estado: 'activo' });
+      await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
+      return 'respondido';
+    }
+    if (comando === 'asesor' || mensaje.respuestaId === 'menu:asesor') {
+      await enviarBotones(contacto, deps, C.T14_YA_AVISADO, C.BOTONES_SOLO_BUSCAR);
       return 'respondido';
     }
     log('wa_silencio_humano');
     return 'silencio_humano';
   }
 
-  if (comando === 'asesor') {
-    const enHorario = enHorarioAsesores(ahora);
-    await actualizar(contacto, deps, { estado: 'humano' });
-    await almacen.registrarEscalamiento(contacto.id, enHorario);
-    await enviarTexto({ ...contacto, estado: 'humano' }, deps, M.textoAsesor(enHorario));
-    return 'respondido';
-  }
+  if (comando === 'asesor') return pasarAAsesor(contacto, deps, ahora);
 
   if (comando === 'menu' || comando === 'alta') {
-    await enviarTexto(contacto, deps, M.VOLVER_MENU);
+    await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
     return 'respondido';
   }
 
   // Bloque: respuestas a botones y listas.
   if ((mensaje.tipo === 'lista' || mensaje.tipo === 'boton') && mensaje.respuestaId) {
-    return gestionarRespuestaInteractiva(contacto, mensaje.respuestaId, deps);
+    return gestionarRespuestaInteractiva(contacto, mensaje.respuestaId, deps, ahora);
   }
 
+  // T15: voz, imagen, sticker… → solo texto + menú.
   if (mensaje.tipo !== 'texto' || !mensaje.texto) {
-    await enviarTexto(contacto, deps, M.TIPO_NO_SOPORTADO);
+    await enviarBotones(contacto, deps, C.T15_SOLO_TEXTO, C.BOTONES_MENU);
     return 'respondido';
   }
 
-  // Bloque: aplicación en curso esperando datos escritos.
+  // Bloque: aplicación en curso esperando datos escritos. Si el texto es claramente una búsqueda
+  // («quiero estudiar…»), se cancela Aplicar en vez de guardar la frase como nombre (QA S18f).
   const aplicacion = contacto.sesion.aplicacion;
   if (aplicacion && (aplicacion.paso === 'datos_nombre' || aplicacion.paso === 'datos_correo')) {
-    return capturarDatosAplicacion(contacto, mensaje.texto, deps);
+    if (aplicacion.paso === 'datos_nombre' && extraerSlotsDeclarados(mensaje.texto).intereses) {
+      contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, aplicacion: null, intentosNombre: 0 } });
+      return buscarYMostrar(contacto, deps, ahora, { texto: mensaje.texto });
+    }
+    return capturarDatosAplicacion(contacto, mensaje.texto, deps, ahora);
   }
 
-  return buscarYMostrar(contacto, mensaje.texto, deps);
+  return atenderTextoLibre(contacto, mensaje.texto, deps, ahora);
+}
+
+// ---------------------------------------------------------------------------
+// Texto libre: intención → respuesta
+// ---------------------------------------------------------------------------
+
+async function atenderTextoLibre(
+  contacto: ContactoWa,
+  texto: string,
+  deps: DependenciasOrquestador,
+  ahora: number
+): Promise<ResultadoProceso> {
+  const intencion = clasificarTexto(texto);
+  // Cualquier intención reconocida reinicia el contador de «no entendí».
+  if (intencion.tipo !== 'no_entendi' && contacto.sesion.fallosSeguidos) {
+    contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, fallosSeguidos: 0 } });
+  }
+  switch (intencion.tipo) {
+    case 'saludo':
+      return saludarConSesion(contacto, deps, ahora);
+    case 'cierre':
+      await enviarTexto(contacto, deps, C.T24_CIERRE);
+      return 'respondido';
+    case 'revocar':
+      return revocar(contacto, deps, ahora);
+    case 'numero':
+      return elegirPorNumero(contacto, intencion.numero, deps, ahora);
+    case 'mas':
+      return verMas(contacto, deps, ahora);
+    case 'becas':
+      return responderBecas(contacto, deps, ahora);
+    case 'precio':
+      await enviarBotones(contacto, deps, C.T17_PRECIO, C.BOTONES_NUEVA_O_ASESOR);
+      return 'respondido';
+    case 'pregunta_abierta':
+      await enviarBotones(contacto, deps, C.T12_PREGUNTA_ABIERTA, C.BOTONES_ASESOR_O_BUSCAR);
+      return 'respondido';
+    case 'no_entendi':
+      return noEntendi(contacto, deps);
+    default:
+      return buscarYMostrar(contacto, deps, ahora, { texto });
+  }
+}
+
+// Bloque: T10 «no entendí»; a la 2.ª seguida ofrece asesor (re-explica en otras palabras, criterio S16).
+async function noEntendi(contacto: ContactoWa, deps: DependenciasOrquestador): Promise<ResultadoProceso> {
+  const fallos = (contacto.sesion.fallosSeguidos || 0) + 1;
+  contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, fallosSeguidos: fallos } });
+  if (fallos >= 2) await enviarBotones(contacto, deps, C.T10_REPETIDO, C.BOTONES_ASESOR_O_BUSCAR);
+  else await enviarBotones(contacto, deps, C.T10_NO_ENTENDI, C.BOTONES_MENU);
+  return 'respondido';
+}
+
+// Bloque: T08 «Hola» con sesión vigente: ofrece seguir la última búsqueda o empezar otra (no repite la búsqueda).
+async function saludarConSesion(contacto: ContactoWa, deps: DependenciasOrquestador, _ahora: number): Promise<ResultadoProceso> {
+  if (contacto.sesion.consulta) {
+    await enviarBotones(contacto, deps, C.t08HolaConBusqueda(contacto.sesion.consulta), C.BOTONES_SEGUIR);
+  } else {
+    await enviarBotones(contacto, deps, C.T08_HOLA_SIN_BUSQUEDA, C.BOTONES_MENU);
+  }
+  return 'respondido';
+}
+
+// Bloque: T16 becas: solo beneficios del catálogo de la última lista; nunca porcentajes inventados.
+async function responderBecas(contacto: ContactoWa, deps: DependenciasOrquestador, ahora: number): Promise<ResultadoProceso> {
+  const lista = listaVigente(contacto, ahora);
+  if (lista.length === 0) {
+    // Sin búsqueda previa no hay sobre qué responder: se pide qué programa (derivado de T02).
+    await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
+    return 'respondido';
+  }
+  const conBeneficio = lista.filter((o) => o.beneficio).slice(0, 3);
+  if (conBeneficio.length === 0) {
+    await enviarBotones(contacto, deps, C.T16_SIN_BECAS, C.BOTONES_NUEVA_O_ASESOR);
+    return 'respondido';
+  }
+  const lineas = conBeneficio.map((o) => `*${o.nombre}*\n${C.t16ConBeneficio(o.beneficio!)}`);
+  await enviarBotones(contacto, deps, lineas.join('\n\n').slice(0, 600), C.BOTONES_NUEVA_O_ASESOR);
+  return 'respondido';
 }
 
 // ---------------------------------------------------------------------------
 // Consentimiento
 // ---------------------------------------------------------------------------
+
+function consentimientoVigente(contacto: ContactoWa): boolean {
+  return contacto.consentimientoDatos && contacto.consentimientoVersion === C.VERSION_TEXTO_DATOS_V2;
+}
+
+// Bloque: sesión limpia tras STOP o revocación (C-01/C-51). Se conserva solo la marca de QA y la fecha de revocación.
+function sesionReiniciada(contacto: ContactoWa, revocadoEn?: string): SesionWa {
+  return {
+    ...structuredClone(SESION_WA_VACIA),
+    v: contacto.sesion?.v,
+    ...(contacto.sesion?.simulacionQa ? { simulacionQa: true } : {}),
+    ...(revocadoEn ? { consentimientoRevocadoEn: revocadoEn } : {})
+  };
+}
+
+// Bloque: T01 en 2 mensajes (v1.3): saludo y autorización con botones. Tras STOP (T07) el saludo se reemplaza.
+async function enviarBienvenida(contacto: ContactoWa, deps: DependenciasOrquestador, regreso: boolean) {
+  await enviarTexto(contacto, deps, regreso ? C.T07_REGRESO : C.T01_SALUDO);
+  await enviarBotones(contacto, deps, C.T01_AUTORIZACION, C.BOTONES_CONSENTIMIENTO);
+}
 
 async function gestionarConsentimiento(
   contacto: ContactoWa,
@@ -339,54 +497,99 @@ async function gestionarConsentimiento(
     const parche: ParcheContacto = {
       consentimientoDatos: true,
       consentimientoDatosEn: new Date(ahora).toISOString(),
-      consentimientoVersion: M.VERSION_TEXTO_DATOS,
-      estado: 'activo'
+      consentimientoVersion: C.VERSION_TEXTO_DATOS_V2,
+      estado: 'activo',
+      sesion: { ...contacto.sesion, recordatorioConsentimiento: false }
     };
     // Con el consentimiento ya se puede vincular el BSUID (si Meta lo mandó) para reconocerlo sin `from`.
     const userIdConsentido = remitenteDe(mensaje).userId;
     if (userIdConsentido && contacto.sesion?.waUserId !== userIdConsentido) {
-      parche.sesion = { ...contacto.sesion, waUserId: userIdConsentido };
+      parche.sesion = { ...parche.sesion!, waUserId: userIdConsentido };
     }
-    await actualizar(contacto, deps, parche);
-    const actualizado = { ...contacto, ...parche } as ContactoWa;
+    const actualizado = await actualizar(contacto, deps, parche);
     await deps.almacen.registrarMensaje(contacto.id, {
       direccion: 'entrante',
-      contenido: 'Autorizo el tratamiento de datos (Ley 1581).',
+      contenido: etiquetaQa(deps, `Autorizo el tratamiento de datos (Ley 1581) · ${C.VERSION_TEXTO_DATOS_V2}.`),
       idMeta: mensaje.id,
       tipo: mensaje.tipo
     });
-    await enviarTexto(actualizado, deps, M.CONSENTIMIENTO_OK);
+    await enviarBotones(actualizado, deps, C.T02_ACEPTA, C.BOTONES_MENU);
     return 'respondido';
   }
 
   if (dijoNo) {
-    await actualizar(contacto, deps, { estado: 'sin_consentimiento' });
-    await enviarTexto(contacto, deps, M.SIN_CONSENTIMIENTO);
+    contacto = await actualizar(contacto, deps, { estado: 'sin_consentimiento' });
+    await enviarTexto(contacto, deps, C.T03_NO_ACEPTA);
     return 'respondido';
   }
 
-  if (comando === 'asesor') {
-    await enviarBotones(contacto, deps, M.ASESOR_SIN_CONSENTIMIENTO, BOTONES_CONSENTIMIENTO);
+  // Saludo sin consentimiento (primer «Hola», tras «No acepto» o con versión vieja): T01 completo.
+  if (mensaje.tipo === 'texto' && SALUDOS.has(plegado)) {
+    await enviarBienvenida(contacto, deps, false);
     return 'respondido';
   }
 
-  // Cualquier otra cosa: no se guarda el texto; se vuelve a pedir la autorización.
-  if (contacto.estado === 'sin_consentimiento') {
-    await enviarTexto(contacto, deps, M.SIN_CONSENTIMIENTO);
-  } else {
-    await enviarBotones(contacto, deps, M.RECORDATORIO_CONSENTIMIENTO, BOTONES_CONSENTIMIENTO);
+  if (comando === 'asesor' || respuesta === 'menu:asesor') {
+    await enviarBotones(contacto, deps, M.ASESOR_SIN_CONSENTIMIENTO, C.BOTONES_CONSENTIMIENTO);
+    return 'respondido';
   }
+
+  // Cualquier otra cosa: no se guarda el texto. Máx 1 recordatorio (T04, C-11); después T03 y no se insiste.
+  if (contacto.estado === 'sin_consentimiento' || contacto.sesion.recordatorioConsentimiento) {
+    if (contacto.estado !== 'sin_consentimiento') contacto = await actualizar(contacto, deps, { estado: 'sin_consentimiento' });
+    await enviarTexto(contacto, deps, C.T03_NO_ACEPTA);
+    return 'respondido';
+  }
+  // Quien aceptó la versión anterior ve T01 v2 completo (C-09); el resto, el recordatorio corto T04.
+  contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, recordatorioConsentimiento: true } });
+  if (contacto.consentimientoDatos) await enviarBienvenida(contacto, deps, false);
+  else await enviarBotones(contacto, deps, C.T04_RECORDATORIO, C.BOTONES_CONSENTIMIENTO);
   return 'respondido';
 }
 
+// Bloque: STOP = revocación total (C-01/C-51): solo UPDATE; el contacto y su historial se conservan como evidencia.
 async function darDeBaja(contacto: ContactoWa, deps: DependenciasOrquestador, ahora: number): Promise<ResultadoProceso> {
-  await deps.almacen.actualizarContacto(contacto.id, {
+  const fecha = new Date(ahora).toISOString();
+  if (contacto.consentimientoDatos) {
+    await deps.almacen.registrarMensaje(contacto.id, { direccion: 'entrante', contenido: etiquetaQa(deps, 'STOP'), idMeta: null, tipo: 'texto' });
+  }
+  const actualizado = await actualizar(contacto, deps, {
     optOut: true,
-    optOutEn: new Date(ahora).toISOString(),
-    estado: 'baja'
+    optOutEn: fecha,
+    estado: 'baja',
+    consentimientoDatos: false,
+    sesion: sesionReiniciada(contacto, fecha)
   });
-  // Única respuesta tras la baja: la confirmación. Luego silencio.
-  await enviarTexto({ ...contacto, optOut: false }, deps, M.BAJA_CONFIRMADA);
+  // Única respuesta tras la baja: la confirmación T06 [FIJO]. Luego silencio.
+  await enviarTexto({ ...actualizado, optOut: false }, deps, M.BAJA_CONFIRMADA);
+  return 'respondido';
+}
+
+// Bloque: revocación T05 (C-03/C-51): consentimiento en false, sesión reiniciada (incluido Aplicar), sin DELETE.
+async function revocar(contacto: ContactoWa, deps: DependenciasOrquestador, ahora: number): Promise<ResultadoProceso> {
+  const fecha = new Date(ahora).toISOString();
+  const actualizado = await actualizar(contacto, deps, {
+    consentimientoDatos: false,
+    estado: 'sin_consentimiento',
+    sesion: sesionReiniciada(contacto, fecha)
+  });
+  await enviarTexto(actualizado, deps, C.T05_REVOCA);
+  return 'respondido';
+}
+
+// Bloque: T14 asesor una sola vez por sesión (C-20); si ya se avisó, confirma sin crear otro escalamiento.
+async function pasarAAsesor(contacto: ContactoWa, deps: DependenciasOrquestador, ahora: number): Promise<ResultadoProceso> {
+  if (contacto.sesion.asesorAvisado) {
+    await enviarBotones(contacto, deps, C.T14_YA_AVISADO, C.BOTONES_SOLO_BUSCAR);
+    return 'respondido';
+  }
+  const enHorario = enHorarioAsesores(ahora);
+  contacto = await actualizar(contacto, deps, {
+    estado: 'humano',
+    sesion: { ...contacto.sesion, asesorAvisado: true, aplicacion: null, intentosNombre: 0, intentosCorreo: 0 }
+  });
+  await deps.almacen.registrarEscalamiento(contacto.id, enHorario);
+  await enviarTexto(contacto, deps, C.T14_ASESOR);
   return 'respondido';
 }
 
@@ -394,62 +597,183 @@ async function darDeBaja(contacto: ContactoWa, deps: DependenciasOrquestador, ah
 // Catálogo
 // ---------------------------------------------------------------------------
 
-/** Mapea lo que dijo el estudiante a filtros del catálogo (misma semántica que filtrosDesdeSesion de Demo WApp). */
-export function filtrosDesdeTexto(texto: string, previos: Record<string, string>): {
+/**
+ * Mapea lo que dijo el estudiante a filtros del catálogo. Solo el mensaje actual (C-04): `_previos` se ignora
+ * a propósito (se conserva la firma por compatibilidad); «Ver más» y «Seguir» usan los filtros guardados.
+ */
+export function filtrosDesdeTexto(texto: string, _previos: Record<string, string> = {}): {
   filtros: FiltrosBusquedaWa;
   sesionFiltros: Record<string, string>;
 } {
-  const declarados = extraerSlotsDeclarados(texto);
-  const plegado = plegarComando(texto);
-  // Si no hubo frase tipo "quiero estudiar X", el texto corto completo se toma como área/programa.
-  if (!declarados.intereses && !SALUDOS.has(plegado) && plegado.length >= 3 && plegado.split(' ').length <= 6) {
-    const sinCiudadNiModalidad = !declarados.ciudad && !declarados.modalidad && !declarados.nivel;
-    if (sinCiudadNiModalidad) declarados.intereses = texto.trim().slice(0, 60);
-  }
-  const sesion = sanearSesion(fusionarSesion(sanearSesion(previos), declarados)) as Record<string, string>;
-  const filtros: FiltrosBusquedaWa = {};
-  if (sesion.intereses) filtros.programa_o_area = sesion.intereses;
-  if (sesion.modalidad && sesion.modalidad !== 'virtual o presencial') filtros.modalidad = sesion.modalidad;
-  if (sesion.ciudad) filtros.ciudad = sesion.ciudad;
-  if (sesion.nivel) filtros.nivel_academico = sesion.nivel;
+  const { filtros } = filtrosBusqueda(texto);
   const sesionFiltros: Record<string, string> = {};
-  for (const clave of ['intereses', 'modalidad', 'ciudad', 'nivel']) {
-    if (sesion[clave]) sesionFiltros[clave] = sesion[clave];
-  }
+  if (filtros.programa_o_area) sesionFiltros.intereses = filtros.programa_o_area;
+  if (filtros.modalidad) sesionFiltros.modalidad = filtros.modalidad;
+  if (filtros.ciudad) sesionFiltros.ciudad = filtros.ciudad;
+  if (filtros.nivel_academico) sesionFiltros.nivel = filtros.nivel_academico;
   return { filtros, sesionFiltros };
 }
 
-async function buscarYMostrar(contacto: ContactoWa, texto: string, deps: DependenciasOrquestador): Promise<ResultadoProceso> {
-  const { filtros, sesionFiltros } = filtrosDesdeTexto(texto, contacto.sesion.filtros || {});
-  if (!filtros.programa_o_area && !filtros.ciudad && !filtros.modalidad && !filtros.nivel_academico) {
-    await enviarTexto(contacto, deps, M.PEDIR_INTERES);
-    return 'respondido';
+// Bloque: catálogo con tope de tiempo (C-23): si no responde en 5 s o lanza, es error técnico (T13), nunca «0 resultados».
+async function buscarConTimeout(
+  deps: DependenciasOrquestador,
+  filtros: FiltrosBusquedaWa
+): Promise<{ ok: true; ofertas: OfertaWa[]; total: number } | { ok: false }> {
+  let temporizador: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const limite = new Promise<{ ok: false }>((resolver) => {
+      temporizador = setTimeout(() => resolver({ ok: false }), TIMEOUT_CATALOGO_MS);
+    });
+    const r = await Promise.race([deps.catalogo.buscar(filtros, MAX_PROGRAMAS_CONSULTA), limite]);
+    if (!r.ok) {
+      deps.log?.('wa_catalogo_error');
+      return { ok: false };
+    }
+    return { ok: true, ofertas: r.ofertas, total: Math.max(r.total ?? r.ofertas.length, r.ofertas.length) };
+  } catch (error) {
+    deps.log?.('wa_catalogo_error', { error: error instanceof Error ? error.name : 'desconocido' });
+    return { ok: false };
+  } finally {
+    if (temporizador) clearTimeout(temporizador);
   }
+}
 
-  const resultado = await deps.catalogo.buscar(filtros, MAX_FILAS_LISTA_BUSCOEDU);
+function listaVigente(contacto: ContactoWa, ahora: number): OfertaWa[] {
+  const s = contacto.sesion;
+  if (!s.listaEn || ahora - s.listaEn > VIGENCIA_LISTA_MS) return [];
+  return s.ofertas || [];
+}
+
+/**
+ * Busca y muestra UNA lista interactiva (C-07). Origen: texto nuevo (filtros solo de ese texto) o
+ * filtros guardados (Ver más / Seguir / Reintentar). 0 resultados → T11 sin pisar la lista anterior (C-18);
+ * error → T13 (C-13). Nunca se manda el bloque largo de 8 fichas con URLs.
+ */
+async function buscarYMostrar(
+  contacto: ContactoWa,
+  deps: DependenciasOrquestador,
+  ahora: number,
+  origen: { texto: string } | { filtros: FiltrosBusquedaWa; etiqueta: string; pagina: number }
+): Promise<ResultadoProceso> {
+  let filtros: FiltrosBusquedaWa;
+  let etiqueta: string;
+  let pagina = 0;
+  if ('texto' in origen) {
+    const r = filtrosBusqueda(origen.texto);
+    filtros = r.filtros;
+    etiqueta = r.etiqueta;
+  } else {
+    filtros = origen.filtros;
+    etiqueta = origen.etiqueta;
+    pagina = origen.pagina;
+  }
+  if (filtrosVacios(filtros)) return noEntendi(contacto, deps);
+
+  const resultado = await buscarConTimeout(deps, filtros);
   if (!resultado.ok) {
-    await enviarTexto(contacto, deps, M.ERROR_HONESTO);
+    // Se guarda la consulta para que [Reintentar] la repita tal cual.
+    contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, filtrosBusqueda: filtros, consulta: etiqueta, pagina } });
+    await enviarBotones(contacto, deps, C.T13_ERROR, C.BOTONES_ERROR);
     return 'respondido';
   }
 
-  // NaIA solo muestra lo que devolvió el catálogo, máximo 8 fichas.
-  const ofertas = resultado.ofertas.slice(0, MAX_FILAS_LISTA_BUSCOEDU);
-  const sesion: SesionWa = { ...contacto.sesion, filtros: sesionFiltros, ofertas, aplicacion: null };
-  await actualizar(contacto, deps, { sesion });
-  const conSesion = { ...contacto, sesion };
-
-  if (ofertas.length === 0) {
-    await enviarTexto(conSesion, deps, M.SIN_RESULTADOS);
+  const desde = pagina * PROGRAMAS_POR_PAGINA;
+  const pag = resultado.ofertas.slice(desde, desde + PROGRAMAS_POR_PAGINA);
+  if (pag.length === 0) {
+    await enviarBotones(contacto, deps, C.t11SinResultados(etiqueta), C.BOTONES_NUEVA_O_ASESOR);
     return 'respondido';
   }
 
-  await enviarTexto(conSesion, deps, M.textoResultados(ofertas));
-  const filas: FilaLista[] = ofertas.map((o) => ({
-    id: `oferta:${o.id}`,
-    titulo: o.nombre,
-    descripcion: [o.universidad, o.modalidad].filter(Boolean).join(' · ')
-  }));
-  await enviarLista(conSesion, deps, { cuerpo: M.CUERPO_LISTA, textoBoton: 'Ver fichas', tituloSeccion: 'Programas vigentes', filas });
+  // Bloque: la lista nueva vale 24 h; las fichas de listas anteriores se conservan (máx 24) para toques tardíos.
+  const recientes = [...pag, ...(contacto.sesion.ofertasRecientes || []).filter((o) => !pag.some((p) => p.id === o.id))].slice(0, 24);
+  const sesion: SesionWa = {
+    ...contacto.sesion,
+    filtros: {},
+    filtrosBusqueda: filtros,
+    consulta: etiqueta,
+    ofertas: pag,
+    ofertasRecientes: recientes,
+    listaEn: ahora,
+    pagina,
+    total: resultado.total,
+    aplicacion: null
+  };
+  contacto = await actualizar(contacto, deps, { sesion });
+  await enviarListaResultados(contacto, deps, pag, resultado.total, pagina, etiqueta);
+  return 'respondido';
+}
+
+// Bloque: envía la lista armada por presentacion.ts (FE). Si Meta la rechaza, texto corto top 3 ≤600 (C-39).
+async function enviarListaResultados(
+  contacto: ContactoWa,
+  deps: DependenciasOrquestador,
+  pag: OfertaWa[],
+  total: number,
+  pagina: number,
+  etiqueta: string
+) {
+  const agrupadas = pag.map(aAgrupada);
+  const armado = armarResultados(agrupadas, total, pagina, etiqueta);
+  const r = await enviarLista(contacto, deps, {
+    cuerpo: armado.cuerpo,
+    textoBoton: armado.botonTexto,
+    tituloSeccion: armado.seccion,
+    filas: armado.filas,
+    ...(armado.pie ? { pie: armado.pie } : {})
+  });
+  // Respaldo FE (top 3 ≤600, «escribe *más*» solo si hay otra página), nunca el bloque de 8 fichas.
+  if (r === 'fallo') await enviarTexto(contacto, deps, armarResultadosTexto(agrupadas, total, pagina, etiqueta));
+}
+
+function aAgrupada(o: OfertaWa): OfertaAgrupadaWa {
+  return { ...o, programa_id: o.programa_id || o.id, ciudades: o.ciudades?.length ? o.ciudades : o.ciudad ? [o.ciudad] : [] };
+}
+
+// Bloque: «Ver más» = siguiente página de la MISMA consulta (orden estable en BD).
+async function verMas(contacto: ContactoWa, deps: DependenciasOrquestador, ahora: number): Promise<ResultadoProceso> {
+  const s = contacto.sesion;
+  if (!s.filtrosBusqueda || !s.consulta) {
+    await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
+    return 'respondido';
+  }
+  const siguiente = (s.pagina || 0) + 1;
+  if (s.total !== undefined && siguiente * PROGRAMAS_POR_PAGINA >= s.total) {
+    await enviarBotones(contacto, deps, C.T18_YA_NO_ESTA, C.BOTONES_NUEVA_O_ASESOR);
+    return 'respondido';
+  }
+  return buscarYMostrar(contacto, deps, ahora, { filtros: s.filtrosBusqueda, etiqueta: s.consulta, pagina: siguiente });
+}
+
+// Bloque: «Seguir» / «Ver otros»: reenvía la lista vigente (<24 h) o la vuelve a buscar con los filtros guardados.
+async function reenviarLista(contacto: ContactoWa, deps: DependenciasOrquestador, ahora: number): Promise<ResultadoProceso> {
+  const s = contacto.sesion;
+  const lista = listaVigente(contacto, ahora);
+  if (lista.length > 0) {
+    await enviarListaResultados(contacto, deps, lista, s.total ?? lista.length, s.pagina || 0, s.consulta || '');
+    return 'respondido';
+  }
+  if (s.filtrosBusqueda && s.consulta) {
+    return buscarYMostrar(contacto, deps, ahora, { filtros: s.filtrosBusqueda, etiqueta: s.consulta, pagina: 0 });
+  }
+  await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
+  return 'respondido';
+}
+
+// Bloque: «1/2/3…» abre la ficha con ese número de la lista vigente (C-17); fuera de rango o vencida → T18.
+async function elegirPorNumero(contacto: ContactoWa, numero: number, deps: DependenciasOrquestador, ahora: number): Promise<ResultadoProceso> {
+  const lista = listaVigente(contacto, ahora);
+  const indice = numero - 1 - (contacto.sesion.pagina || 0) * PROGRAMAS_POR_PAGINA;
+  const oferta = lista[indice];
+  if (!oferta) {
+    await enviarBotones(contacto, deps, C.T18_YA_NO_ESTA, C.BOTONES_NUEVA_O_ASESOR);
+    return 'respondido';
+  }
+  return mostrarFicha(contacto, oferta, deps);
+}
+
+async function mostrarFicha(contacto: ContactoWa, oferta: OfertaWa, deps: DependenciasOrquestador): Promise<ResultadoProceso> {
+  const ficha = armarFicha(aAgrupada(oferta));
+  await enviarBotones(contacto, deps, ficha.cuerpo, ficha.botones);
   return 'respondido';
 }
 
@@ -457,53 +781,84 @@ async function buscarYMostrar(contacto: ContactoWa, texto: string, deps: Depende
 // Mi lista / Aplicar / Autorizar contacto
 // ---------------------------------------------------------------------------
 
-function ofertaDeSesion(contacto: ContactoWa, ofertaId: string): OfertaWa | null {
-  return contacto.sesion.ofertas.find((o) => o.id === ofertaId) || null;
+// Bloque: busca la ficha en la lista actual o en listas recientes (<24 h), para que un toque tardío funcione (C-18).
+function ofertaDeSesion(contacto: ContactoWa, ofertaId: string, ahora: number): OfertaWa | null {
+  const s = contacto.sesion;
+  const enActual = (s.ofertas || []).find((o) => o.id === ofertaId);
+  if (enActual) return enActual;
+  if (!s.listaEn || ahora - s.listaEn > VIGENCIA_LISTA_MS) return null;
+  return (s.ofertasRecientes || []).find((o) => o.id === ofertaId) || null;
 }
 
 async function gestionarRespuestaInteractiva(
   contacto: ContactoWa,
   respuestaId: string,
-  deps: DependenciasOrquestador
+  deps: DependenciasOrquestador,
+  ahora: number
 ): Promise<ResultadoProceso> {
   const [accion, ofertaId = ''] = respuestaId.split(':');
 
   if (accion === 'consent') {
     // Ya hay consentimiento: un toque repetido no cambia nada.
-    await enviarTexto(contacto, deps, M.PEDIR_INTERES);
+    await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
     return 'respondido';
   }
 
-  const oferta = ofertaId ? ofertaDeSesion(contacto, ofertaId) : null;
+  // Bloque: botones de menú del flujo (copy.ts).
+  if (accion === 'menu') {
+    switch (ofertaId) {
+      case 'asesor':
+        return pasarAAsesor(contacto, deps, ahora);
+      case 'becas':
+        return responderBecas(contacto, deps, ahora);
+      case 'mas':
+        return verMas(contacto, deps, ahora);
+      case 'seguir':
+      case 'volver':
+        return reenviarLista(contacto, deps, ahora);
+      case 'reintentar': {
+        const s = contacto.sesion;
+        if (s.filtrosBusqueda && s.consulta) {
+          return buscarYMostrar(contacto, deps, ahora, { filtros: s.filtrosBusqueda, etiqueta: s.consulta, pagina: s.pagina || 0 });
+        }
+        break;
+      }
+      case 'nueva':
+        contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, filtros: {}, aplicacion: null } });
+        break;
+      default:
+        break;
+    }
+    await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
+    return 'respondido';
+  }
+
+  const oferta = ofertaId ? ofertaDeSesion(contacto, ofertaId, ahora) : null;
   if (!oferta) {
-    await enviarTexto(contacto, deps, M.OFERTA_YA_NO_ESTA);
+    await enviarBotones(contacto, deps, C.T18_YA_NO_ESTA, C.BOTONES_NUEVA_O_ASESOR);
     return 'respondido';
   }
 
-  if (accion === 'oferta') {
-    await enviarBotones(contacto, deps, M.textoFicha(oferta), [
-      { id: `lista:${oferta.id}`, titulo: 'Guardar en Mi lista' },
-      { id: `aplicar:${oferta.id}`, titulo: 'Aplicar' }
-    ]);
-    return 'respondido';
-  }
+  if (accion === 'oferta') return mostrarFicha(contacto, oferta, deps);
 
   if (accion === 'lista') {
-    // Mi lista: no inicia aplicación ni autoriza contacto (BA-031).
+    // Mi lista: no inicia aplicación ni autoriza contacto (BA-031, R2).
     const miLista = Array.from(new Set([...(contacto.sesion.miLista || []), oferta.id])).slice(-20);
-    const sesion = { ...contacto.sesion, miLista };
-    await actualizar(contacto, deps, { sesion });
-    await enviarTexto({ ...contacto, sesion }, deps, M.textoMiLista(oferta.nombre));
+    contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, miLista } });
+    await enviarTexto(contacto, deps, C.t09bGuardado(oferta.nombre));
     return 'respondido';
   }
 
   if (accion === 'aplicar') {
-    const sesion: SesionWa = {
-      ...contacto.sesion,
-      aplicacion: { ofertaId: oferta.id, ofertaNombre: oferta.nombre, universidad: oferta.universidad, paso: 'datos_nombre' }
-    };
-    await actualizar(contacto, deps, { sesion });
-    await enviarTexto({ ...contacto, sesion }, deps, M.textoPedirNombre(oferta.nombre));
+    contacto = await actualizar(contacto, deps, {
+      sesion: {
+        ...contacto.sesion,
+        intentosNombre: 0,
+        intentosCorreo: 0,
+        aplicacion: { ofertaId: oferta.id, ofertaNombre: oferta.nombre, universidad: oferta.universidad, paso: 'datos_nombre' }
+      }
+    });
+    await enviarTexto(contacto, deps, C.t19Aplicar(oferta.nombre, oferta.universidad));
     return 'respondido';
   }
 
@@ -511,17 +866,23 @@ async function gestionarRespuestaInteractiva(
     return resolverAutorizacion(contacto, oferta, accion === 'autorizar', deps);
   }
 
-  await enviarTexto(contacto, deps, M.PEDIR_INTERES);
+  await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
   return 'respondido';
 }
 
-const PATRON_NOMBRE = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü' ]{2,}(?:\s+[A-Za-zÁÉÍÓÚáéíóúÑñÜü' ]{2,})+$/;
+/**
+ * Nombre válido (T20): 2+ palabras de letras (tildes, ñ, ü), con guion o apóstrofo (' ’) internos; sin números.
+ * Acepta «Ana María Gómez-Ruiz», «D'Angelo Pérez», «QA-WA Prueba Jota».
+ */
+export const PATRON_NOMBRE = /^(?=.{3,120}$)[A-Za-zÁÉÍÓÚáéíóúÑñÜü]+(?:['’-][A-Za-zÁÉÍÓÚáéíóúÑñÜü]+)*(?:\s+[A-Za-zÁÉÍÓÚáéíóúÑñÜü]+(?:['’-][A-Za-zÁÉÍÓÚáéíóúÑñÜü]+)*)+$/;
 const PATRON_CORREO = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+const MAX_INTENTOS = 3;
 
 async function capturarDatosAplicacion(
   contacto: ContactoWa,
   texto: string,
-  deps: DependenciasOrquestador
+  deps: DependenciasOrquestador,
+  ahora: number
 ): Promise<ResultadoProceso> {
   const aplicacion = contacto.sesion.aplicacion!;
   // Regla BA-031: solo se guardan datos en pasos abiertos de una aplicación.
@@ -534,31 +895,37 @@ async function capturarDatosAplicacion(
   if (aplicacion.paso === 'datos_nombre') {
     const nombre = texto.replace(/\s+/g, ' ').trim().slice(0, 120);
     if (!PATRON_NOMBRE.test(nombre)) {
-      await enviarTexto(contacto, deps, M.NOMBRE_INVALIDO);
+      // Bloque: contador de intentos T20; al 3.º pasa a asesor (T14).
+      const intentos = (contacto.sesion.intentosNombre || 0) + 1;
+      if (intentos >= MAX_INTENTOS) return pasarAAsesor(contacto, deps, ahora);
+      contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, intentosNombre: intentos } });
+      await enviarTexto(contacto, deps, intentos === 1 ? C.T20_NOMBRE_1 : C.T20_NOMBRE_2);
       return 'respondido';
     }
-    const sesion: SesionWa = { ...contacto.sesion, aplicacion: { ...aplicacion, nombreCompleto: nombre, paso: 'datos_correo' } };
-    await actualizar(contacto, deps, { sesion });
-    await enviarTexto({ ...contacto, sesion }, deps, M.PEDIR_CORREO);
+    contacto = await actualizar(contacto, deps, {
+      sesion: { ...contacto.sesion, intentosNombre: 0, aplicacion: { ...aplicacion, nombreCompleto: nombre, paso: 'datos_correo' } }
+    });
+    await enviarTexto(contacto, deps, C.t21PedirCorreo(nombre.split(' ')[0]));
     return 'respondido';
   }
 
-  // datos_correo
+  // datos_correo (OMITIR se mantiene, v1.2).
   const limpio = texto.trim();
   let correo: string | null = null;
   if (plegarComando(limpio) !== 'omitir') {
     if (!PATRON_CORREO.test(limpio)) {
-      await enviarTexto(contacto, deps, M.CORREO_INVALIDO);
+      const intentos = (contacto.sesion.intentosCorreo || 0) + 1;
+      if (intentos >= MAX_INTENTOS) return pasarAAsesor(contacto, deps, ahora);
+      contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, intentosCorreo: intentos } });
+      await enviarTexto(contacto, deps, C.T21_CORREO_INVALIDO);
       return 'respondido';
     }
     correo = limpio.toLowerCase();
   }
-  const sesion: SesionWa = { ...contacto.sesion, aplicacion: { ...aplicacion, correo, paso: 'consentimiento' } };
-  await actualizar(contacto, deps, { sesion });
-  await enviarBotones({ ...contacto, sesion }, deps, M.textoAutorizarContacto(aplicacion.ofertaNombre, aplicacion.universidad), [
-    { id: `autorizar:${aplicacion.ofertaId}`, titulo: 'Autorizo contacto' },
-    { id: `noautorizar:${aplicacion.ofertaId}`, titulo: 'No autorizo' }
-  ]);
+  contacto = await actualizar(contacto, deps, {
+    sesion: { ...contacto.sesion, intentosCorreo: 0, aplicacion: { ...aplicacion, correo, paso: 'consentimiento' } }
+  });
+  await enviarBotones(contacto, deps, C.t22Autorizar(aplicacion.universidad, aplicacion.ofertaNombre), C.botonesAutorizarContacto(aplicacion.ofertaId));
   return 'respondido';
 }
 
@@ -571,7 +938,7 @@ async function resolverAutorizacion(
   const aplicacion = contacto.sesion.aplicacion;
   // El botón solo vale para la aplicación en curso de ESA oferta y en el paso de consentimiento.
   if (!aplicacion || aplicacion.ofertaId !== oferta.id || aplicacion.paso !== 'consentimiento' || !aplicacion.nombreCompleto) {
-    await enviarTexto(contacto, deps, M.OFERTA_YA_NO_ESTA);
+    await enviarBotones(contacto, deps, C.T18_YA_NO_ESTA, C.BOTONES_NUEVA_O_ASESOR);
     return 'respondido';
   }
 
@@ -581,13 +948,15 @@ async function resolverAutorizacion(
     ofertaId: oferta.id,
     ofertaNombre: oferta.nombre,
     nombreCompleto: aplicacion.nombreCompleto,
-    correo: aplicacion.correo ?? null
+    correo: aplicacion.correo ?? null,
+    // Simulación de preview: la intención queda marcada como dato de QA (C-56).
+    ...(deps.config.simulacion ? { motivo: 'qa_simulacion' } : {})
   };
 
   if (!autoriza) {
     await deps.almacen.registrarIntencion({ ...base, paso: 'rechazada', consentimientos: [] });
-    await actualizar(contacto, deps, { sesion: sesionLimpia });
-    await enviarTexto(contacto, deps, M.CONTACTO_NO_AUTORIZADO);
+    contacto = await actualizar(contacto, deps, { sesion: sesionLimpia });
+    await enviarTexto(contacto, deps, C.T22_NO);
     return 'respondido';
   }
 
@@ -607,8 +976,8 @@ async function resolverAutorizacion(
     declarados
   });
   if (evaluacion.ok === false || evaluacion.cierre !== 'aceptada') {
-    await actualizar(contacto, deps, { sesion: sesionLimpia });
-    await enviarTexto(contacto, deps, evaluacion.ok === false ? evaluacion.mensaje : M.CONTACTO_NO_AUTORIZADO);
+    contacto = await actualizar(contacto, deps, { sesion: sesionLimpia });
+    await enviarTexto(contacto, deps, evaluacion.ok === false ? evaluacion.mensaje : C.T22_NO);
     return 'respondido';
   }
 
@@ -618,11 +987,11 @@ async function resolverAutorizacion(
     version_texto: c.versionTexto
   }));
 
-  // Interruptor de conversión apagado (por defecto): se registra, NO se crea oportunidad ni transferencia.
-  if (!deps.config.leadConversionHabilitada) {
+  // Interruptor de conversión apagado (por defecto, y siempre en simulación): se registra, NO se crea oportunidad.
+  if (!deps.config.leadConversionHabilitada || deps.config.simulacion) {
     await deps.almacen.registrarIntencion({ ...base, paso: 'consentimiento_registrado', consentimientos });
-    await actualizar(contacto, deps, { sesion: sesionLimpia });
-    await enviarTexto(contacto, deps, M.textoSolicitudRegistradaSinConversion(oferta.nombre));
+    contacto = await actualizar(contacto, deps, { sesion: sesionLimpia });
+    await enviarBotones(contacto, deps, C.T23_PILOTO, C.BOTONES_NUEVA_O_ASESOR);
     return 'respondido';
   }
 
@@ -648,7 +1017,7 @@ async function resolverAutorizacion(
     { contactoId: contacto.id }
   );
 
-  await actualizar(contacto, deps, { sesion: sesionLimpia });
+  contacto = await actualizar(contacto, deps, { sesion: sesionLimpia });
   if (resultado.ok === true) {
     await deps.almacen.registrarIntencion({
       ...base,
@@ -657,10 +1026,13 @@ async function resolverAutorizacion(
       oportunidadId: resultado.oportunidadId,
       personaId: resultado.personaId
     });
-    await enviarTexto(contacto, deps, M.textoLeadCreado(oferta.nombre, oferta.universidad));
+    // T23b solo tras envío exitoso (sin «Te escribirán pronto»).
+    await enviarBotones(contacto, deps, C.t23bEnviada(oferta.universidad), C.BOTONES_NUEVA_O_ASESOR);
   } else {
+    // Falla el envío → T23 + aviso al equipo (log enmascarado con el código, sin datos personales).
     await deps.almacen.registrarIntencion({ ...base, paso: 'error_conversion', consentimientos, motivo: resultado.codigo });
-    await enviarTexto(contacto, deps, M.textoConversionRechazada());
+    deps.log?.('wa_conversion_fallida_aviso_equipo', { codigo: resultado.codigo });
+    await enviarBotones(contacto, deps, C.T23_PILOTO, C.BOTONES_NUEVA_O_ASESOR);
   }
   return 'respondido';
 }
@@ -669,8 +1041,26 @@ async function resolverAutorizacion(
 // Envío seguro: ventana 24 h + opt-out + historial (solo con consentimiento)
 // ---------------------------------------------------------------------------
 
-async function actualizar(contacto: ContactoWa, deps: DependenciasOrquestador, parche: ParcheContacto) {
-  await deps.almacen.actualizarContacto(contacto.id, parche);
+// Bloque: en simulación de preview, el historial se marca con prefijo QA (BD compartida con producción, C-56).
+function etiquetaQa(deps: DependenciasOrquestador, contenido: string): string {
+  return deps.config.simulacion ? `[QA-SIM] ${contenido}` : contenido;
+}
+
+/**
+ * Bloque: escribe el parche y devuelve el contacto actualizado.
+ * Si el parche trae `sesion`, se sube `sesion.v` y se escribe solo si nadie la cambió (control optimista, C-25).
+ */
+async function actualizar(contacto: ContactoWa, deps: DependenciasOrquestador, parche: ParcheContacto): Promise<ContactoWa> {
+  if (!parche.sesion) {
+    await deps.almacen.actualizarContacto(contacto.id, parche);
+    return { ...contacto, ...parche };
+  }
+  const previa = deps._versiones?.get(contacto.id) ?? contacto.sesion?.v ?? 0;
+  const sesion: SesionWa = { ...parche.sesion, v: previa + 1 };
+  const ok = await deps.almacen.actualizarContacto(contacto.id, { ...parche, sesion }, { versionSesion: previa });
+  if (ok === false) throw new ConflictoSesion();
+  deps._versiones?.set(contacto.id, previa + 1);
+  return { ...contacto, ...parche, sesion };
 }
 
 function puedeEscribirle(contacto: ContactoWa, deps: DependenciasOrquestador): boolean {
@@ -681,27 +1071,31 @@ function puedeEscribirle(contacto: ContactoWa, deps: DependenciasOrquestador): b
 
 async function trasEnvio(contacto: ContactoWa, deps: DependenciasOrquestador, contenido: string, idMeta: string | null) {
   if (!contacto.consentimientoDatos) return;
-  await deps.almacen.registrarMensaje(contacto.id, { direccion: 'saliente', contenido, idMeta, tipo: 'texto' });
+  await deps.almacen.registrarMensaje(contacto.id, { direccion: 'saliente', contenido: etiquetaQa(deps, contenido), idMeta, tipo: 'texto' });
 }
+
+type DesenlaceEnvio = 'ok' | 'bloqueado' | 'fallo';
 
 async function envolver(
   contacto: ContactoWa,
   deps: DependenciasOrquestador,
   contenido: string,
   enviar: () => Promise<{ idMensaje: string | null }>
-): Promise<boolean> {
+): Promise<DesenlaceEnvio> {
   if (!puedeEscribirle(contacto, deps)) {
     deps.log?.('wa_envio_bloqueado_ventana_o_baja', { numero: enmascarar(contacto.e164) });
-    return false;
+    return 'bloqueado';
   }
   try {
     const r = await enviar();
+    // Hora de envío al ms relativa al inicio del mensaje (C-53).
+    deps.log?.('QA_wa_envio', { numero: enmascarar(contacto.e164), msDesdeInicio: Date.now() - (deps._inicioMs || Date.now()) });
     await trasEnvio(contacto, deps, contenido, r.idMensaje);
-    return true;
+    return 'ok';
   } catch (error) {
     if (error instanceof WhatsAppApiError) {
       deps.log?.('wa_envio_fallido', { status: error.status, codigoMeta: error.codigoMeta, tipo: error.tipo });
-      return false;
+      return 'fallo';
     }
     throw error;
   }
@@ -718,7 +1112,7 @@ function enviarBotones(contacto: ContactoWa, deps: DependenciasOrquestador, cuer
 function enviarLista(
   contacto: ContactoWa,
   deps: DependenciasOrquestador,
-  input: { cuerpo: string; textoBoton: string; tituloSeccion: string; filas: FilaLista[] }
+  input: { cuerpo: string; textoBoton: string; tituloSeccion: string; filas: FilaLista[]; pie?: string }
 ) {
   return envolver(contacto, deps, input.cuerpo, () => deps.enviador.enviarLista(contacto.e164, input));
 }

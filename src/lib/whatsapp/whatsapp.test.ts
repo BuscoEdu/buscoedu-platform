@@ -283,7 +283,8 @@ describe('BA-032 · piloto cerrado (allowlist)', () => {
   it('número dentro de la allowlist → responde', async () => {
     const e = crearEntorno();
     assert.equal(await procesarMensajeEntrante(msg(), e.deps), 'respondido');
-    assert.equal(e.enviados.length, 1);
+    // T01 v1.3: bienvenida en 2 mensajes (saludo + autorización con botones).
+    assert.equal(e.enviados.length, 2);
   });
 
   it('número fuera de la allowlist → no responde ni guarda nada', async () => {
@@ -307,7 +308,7 @@ describe('BA-032 · idempotencia, ventana 24 h y rate limit', () => {
     const m = msg();
     assert.equal(await procesarMensajeEntrante(m, e.deps), 'respondido');
     assert.equal(await procesarMensajeEntrante(m, e.deps), 'duplicado');
-    assert.equal(e.enviados.length, 1);
+    assert.equal(e.enviados.length, 2);
   });
 
   it('mensaje con más de 24 h → no envía nada', async () => {
@@ -329,7 +330,8 @@ describe('BA-032 · idempotencia, ventana 24 h y rate limit', () => {
     for (let i = 0; i < 21; i++) resultados.push(await procesarMensajeEntrante(msg(), e.deps));
     assert.equal(resultados[19] !== 'rate_limit', true);
     assert.equal(resultados[20], 'rate_limit');
-    assert.equal(e.enviados.length, 20);
+    // 20 saludos atendidos × 2 mensajes de bienvenida (T01 v1.3).
+    assert.equal(e.enviados.length, 40);
   });
 
   it('limitador en memoria se libera al pasar la ventana', () => {
@@ -347,8 +349,9 @@ describe('BA-032 · consentimiento obligatorio (Ley 1581)', () => {
     const e = crearEntorno();
     await procesarMensajeEntrante(msg({ texto: 'quiero estudiar derecho, me llamo Ana Pérez' }), e.deps);
     assert.match(e.enviados[0].contenido, /BuscoEdu/);
-    assert.match(e.enviados[0].contenido, /1581/);
-    assert.equal(e.enviados[0].tipo, 'botones');
+    assert.match(e.enviados[1].contenido, /1581/);
+    assert.match(e.enviados[1].contenido, /buscoedu\.com\/privacidad/);
+    assert.equal(e.enviados[1].tipo, 'botones');
     const c = e.almacen.contactos.get(PILOTO)!;
     assert.equal(c.consentimientoDatos, false);
     assert.deepEqual(c.sesion.filtros, {});
@@ -384,25 +387,26 @@ describe('BA-032 · catálogo (máx 8 fichas, sin inventar)', () => {
     await conConsentimiento(e);
     await procesarMensajeEntrante(msg({ texto: 'quiero estudiar administración' }), e.deps);
     const lista = e.enviados.find((x) => x.tipo === 'lista')!;
-    assert.equal((lista.extra as unknown[]).length, 8);
-    const texto = e.enviados.filter((x) => x.tipo === 'texto').at(-1)!.contenido;
-    assert.match(texto, /https:\/\/www\.buscoedu\.com/);
+    const filas = lista.extra as Array<{ id: string }>;
+    // 8 programas + fila «Ver más» (C-37); el link vive en la ficha, no en el cuerpo de la lista (C-07).
+    assert.equal(filas.filter((f) => f.id.startsWith('oferta:')).length, 8);
+    assert.equal(filas.at(-1)!.id, 'menu:mas');
+    assert.doesNotMatch(lista.contenido, /https?:\/\//);
   });
 
   it('sin resultados → lo dice claro y no envía lista', async () => {
     const e = crearEntorno({ resultados: [] });
     await conConsentimiento(e);
     await procesarMensajeEntrante(msg({ texto: 'quiero estudiar astronáutica' }), e.deps);
-    assert.match(e.enviados.at(-1)!.contenido, /No encontré programas vigentes/);
+    assert.match(e.enviados.at(-1)!.contenido, /Por ahora no tengo programas verificados/);
     assert.equal(e.enviados.some((x) => x.tipo === 'lista'), false);
   });
 
-  it('catálogo caído → mensaje honesto con link', async () => {
+  it('catálogo caído → T13 error técnico con [Reintentar]', async () => {
     const e = crearEntorno({ catalogoFalla: true });
     await conConsentimiento(e);
     await procesarMensajeEntrante(msg({ texto: 'quiero estudiar administración' }), e.deps);
-    assert.match(e.enviados.at(-1)!.contenido, /https:\/\/www\.buscoedu\.com/);
-    assert.match(e.enviados.at(-1)!.contenido, /problema técnico/);
+    assert.match(e.enviados.at(-1)!.contenido, /Tuve un problema para consultar los programas/);
   });
 });
 
@@ -416,7 +420,8 @@ describe('BA-032 · BAJA/STOP y ASESOR', () => {
     assert.equal(c.optOut, true);
     assert.ok(c.optOutEn);
     assert.equal(e.enviados.length, antes + 1);
-    assert.equal(await procesarMensajeEntrante(msg({ texto: 'hola?' }), e.deps), 'silencio_baja');
+    // Tras STOP solo ALTA o un saludo reabren la conversación (S19); cualquier otro texto = silencio.
+    assert.equal(await procesarMensajeEntrante(msg({ texto: 'administración?' }), e.deps), 'silencio_baja');
     assert.equal(await procesarMensajeEntrante(msg({ texto: 'quiero estudiar' }), e.deps), 'silencio_baja');
     assert.equal(e.enviados.length, antes + 1);
   });
@@ -509,7 +514,8 @@ describe('BA-032 · Mi lista ≠ Aplicar ≠ Autorizar contacto; interruptor de 
     const o = await hastaAutorizar(e);
     await procesarMensajeEntrante(msg({ tipo: 'boton', texto: 'Autorizo contacto', respuestaId: `autorizar:${o.id}` }), e.deps);
     assert.equal(e.almacen.intenciones[0].paso, 'error_conversion');
-    assert.match(e.enviados.at(-1)!.contenido, /No guardé nada a medias/);
+    // v1.2: si el envío falla → T23 (piloto) + aviso al equipo; nunca «enviada».
+    assert.match(e.enviados.at(-1)!.contenido, /Estamos en piloto/);
   });
 
   it('número verificado por WhatsApp: no se pide OTP', async () => {
@@ -543,7 +549,7 @@ describe('BA-032 · cliente Graph API', () => {
     assert.equal(r.idMensaje, 'wamid.OUT');
   });
 
-  it('lista con más de 8 filas se recorta a 8', async () => {
+  it('lista con más de 10 filas se recorta a 10 (límite Meta: 8 programas + «Ver más»)', async () => {
     let cuerpo: any = null;
     const cliente = crearClienteGraph({
       token: 't', phoneNumberId: 'p', versionGraph: 'v26.0',
@@ -554,7 +560,7 @@ describe('BA-032 · cliente Graph API', () => {
       filas: Array.from({ length: 12 }, (_, i) => ({ id: `f${i}`, titulo: `Fila con un título demasiado largo ${i}` }))
     });
     const filas = cuerpo.interactive.action.sections[0].rows;
-    assert.equal(filas.length, 8);
+    assert.equal(filas.length, 10);
     assert.ok(filas.every((f: any) => f.title.length <= 24));
   });
 

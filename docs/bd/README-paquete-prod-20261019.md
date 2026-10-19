@@ -1,0 +1,44 @@
+# Paquete prod BD · 2026-10-19
+
+**Rama:** `feat/bd-paquete-prod-20261019` (desde `origin/main` 5993565 + carga de aliadas) · **Estado:** APLICADO en prod el 2026-10-19 (≈17:57–18:05 hora Madrid) con OK de Jhon 17:54; todo ✓. Evidencia: `supabase/ops/respaldos/20261019_paquete_prod/`.
+Todo está en `supabase/ops/20261019_paquete_*`. Cada bloque tiene script, `_deshacer.sql` y `_verificacion.sql` (solo lectura, criterios ✓/✗; los ensayos que escriben terminan en RAISE/ROLLBACK).
+
+## Orden de aplicación
+
+| # | Script | Qué hace (una línea) | Riesgo | Deshacer |
+|---|--------|----------------------|--------|----------|
+| 1 | `20261019_paquete_3_quitar_trg_universidad.sql` | Quita el trigger que rompe todo alta de universidad (propuesta de Backend, copia sin cambios). | Bajo: no se crean oportunidades B2B automáticas (hoy tampoco). Los scripts de carga 2 y 4 ya no se pueden re-correr tal cual. | `_deshacer.sql` recrea el trigger exacto (vuelve el bug). |
+| 2 | `20261019_paquete_1_convertir_modelo_null.sql` | `fn_convertir_aplicacion` toma `modelo_negocio` tal cual; asesor con `IF v_modelo IS NULL OR v_modelo = 'por_inscrito'`: NULL ⇒ snapshot NULL, con asesor, `es_facturable=false` (no hay transferencia). Verificación con caso NULL revertido y persona ficticia. | Medio: es la conversión de leads; solo cambian 3 líneas de BA-041. | `_deshacer.sql` = BA-041 literal. |
+| 3 | `20261019_paquete_2_precios_lectura_publica.sql` | `lectura_publica_precios`: anon/authenticated solo ven precios activos, validados, vigentes y de oferta visible. | Bajo: ningún lector público usa la tabla; admin va por `solo_super_admin_select`. | `_deshacer.sql` vuelve a la policy VIVA previa (BA-020 ya aplicado: TO public, activo+validado+vigente). |
+| 4a | `20261019_paquete_4_tablas_trabajo_exportar.sql` | Exporta las 3 tablas de trabajo (JSON + md5) y guarda la salida en `/home/box/.secrets/respaldos/`. | Ninguno (solo lectura). | — |
+| 4b | `20261019_paquete_4_tablas_trabajo_a_respaldos.sql` | Mueve las 3 tablas de `public` al schema privado `respaldos` (sin borrar nada). | Bajo: los deshacer del 19/10 ya apuntan a `respaldos.*`. | `_deshacer.sql` las devuelve a `public` (y usar los deshacer de abed234). |
+
+Después de cada script, correr su `_verificacion.sql`; si sale una ✗, se para y se corre el deshacer de ese bloque.
+Por qué este orden: el 3 no depende de nada y desbloquea el CRUD de IES; el 1 se prueba con ofertas reales visibles; el 2 se prueba mejor con las demo ya ocultas; el 4 va al final porque lo usan los deshacer de la carga.
+
+## Logos (`logos-aliadas`)
+- **OBSOLETO, NO CORRER:** Bloque 3 de `supabase/ops/20261017_carga_aliadas_4_paso2_carga.sql` (registraba logos con ruta por slug: `poli/logo.svg`, …). Lo reemplaza Backend con `scripts/subir-logos-aliadas.mjs`, ruta `{universidad_id}/logo.{ext}`.
+- Revisión del bucket creado el 19/10: las 3 policies (insert/update/delete super_admin) solo filtran `bucket_id`; ninguna restringe por slug ni carpeta ⇒ la ruta nueva está permitida, **sin fix**. El índice `uq_imagenes_universidad_logo_principal` es por `universidad_id` (no depende de la ruta). Límites: 500 KB y png/svg/webp, iguales a los que valida el script.
+- Verificación solo lectura: `20261019_paquete_5_logos_bucket_verificacion.sql` (antes y después de que Backend suba). BD no sube nada.
+
+## Logos desde `public/` (decisión 19/10 ~18:00): NO van a Storage
+- **Script:** `supabase/ops/20261019_logos_aliadas_public.sql` (+ `_deshacer.sql`, `_verificacion.sql`). **NO aplicado.** Se corre SOLO después del deploy de la PR #69 (Backend agrega `public/logos-aliadas/{universidad_id}.{ext}`) y con OK.
+- Qué hace: inserta o salta 4 filas en `imagenes_universidad` (`tipo='logo'`, `es_principal`, `activo`, `orden=0`) con `url_storage = /logos-aliadas/{universidad_id}.{ext}`. Usa los mismos ids uuid5 del Bloque 3 del 17/10 y del script de Backend. Aborta si falta una universidad, si ya hay una fila con ese id pero distinta, o si existe otro logo principal activo.
+- Extensiones: Poli `.svg`, Areandina `.svg`, UNIR `.svg`, Asturias `.png` (`aliadas-assets/asturias/logo-web.png`).
+- Deshacer: `activo=false` solo en esas 4 filas (id + ruta). Antes había 0 logos, así que el Home vuelve a quedar igual.
+- **✗ Lectura en el frontend actual:** `src/lib/logos-aliadas.ts` (`urlPublicaLogo`) solo deja pasar `http(s)`; cualquier otra ruta la manda a `storage.getPublicUrl('logos-aliadas', ruta)` ⇒ `…/storage/v1/object/public/logos-aliadas//logos-aliadas/{id}.svg` (404). Además, `components/restyle/LogoStrip.tsx` (`logoPintable`) hace `new URL(logo.url)` sin base: una ruta relativa lanza error y el logo se descarta. Con el código de `origin/main`, `feat/wa-copy-v1` y `feat/fe-logo-nombre`, la ruta relativa NO se pinta. Hay dos salidas: la PR #69 acepta rutas que empiezan por `/` en los dos sitios, o se pasa a la opción (b).
+- Lo de Storage (bucket `logos-aliadas`, `scripts/subir-logos-aliadas.mjs`, `paquete_5_logos_bucket_verificacion.sql`) queda sin uso para logos. El bucket existe vacío y no se borra.
+
+## ⚠ Para otros roles
+- **Backend:** `src/lib/demowapp/funnel-aplicar.ts` (líneas 514, 841 y 869) sigue con `modelo_negocio || 'por_inscrito'`; y `fn_ba031_convertir_si_consentido` (migración 20260927210000, línea 132) hace `coalesce(modelo_negocio,'por_inscrito')` solo para decidir si exige consentimiento de transferencia (con NULL no la exige, y es correcto porque no hay transferencia). No rompe nada, pero no está alineado con «NULL = sin definir».
+- **Lead Center:** la ficha ya muestra `—` / «Sin definir» cuando el snapshot es NULL; `copiloto/route.ts` lee `modelo_negocio_snapshot`; falta que Backend confirme que trata NULL.
+- `fn_crear_oportunidad_universidad()` queda sin uso, con EXECUTE para authenticated (hotfix 7fn). Al ser función de trigger no se puede llamar por RPC; queda para una limpieza aparte.
+- El schema `respaldos` no se debe agregar a los «Exposed schemas» de la API.
+
+## Bitácora
+
+| Fecha | Qué | Por qué | Quién |
+|-------|-----|---------|-------|
+| 2026-10-19 (hora Madrid) | Paquete prod de 4 bloques + verificación del bucket de logos (Bloque 3 del 17/10 marcado OBSOLETO) (modelo NULL en conversión, RLS de precios, quitar trigger de universidades, tablas de trabajo a `respaldos`) con deshacer y verificación; rutas de los deshacer del 19/10 a `respaldos.*`. NO aplicado. | Decisión de Producto (sin modelo no se asume cobro); 187 precios pendientes expuestos a anon; el alta de IES falla; tablas de trabajo en el schema expuesto. | Base de datos BuscoEdu |
+| 2026-10-19 ~18:05 (hora Madrid) | Paquete aplicado en prod en orden 3→1→2→4a→4b, todo ✓; verificación global ✓ (291 visibles, 0 demo, 19 oportunidades sin cambio, anon 0 pendientes, fn solo service_role, trigger fuera, tablas en `respaldos`); bucket logos ✓ antes de Backend. Ajustes: deshacer bloque 2 = policy viva; export 4a como texto jsonb exacto. | OK de Jhon 17:54 / Orquestador 17:55 | Base de datos BuscoEdu |
+| 2026-10-19 ~18:10 (hora Madrid) | SQL de logos desde `public/logos-aliadas/{universidad_id}.{ext}` (4 filas en `imagenes_universidad`, insertar o saltar, deshacer y verificación). NO aplicado: va después del deploy de la PR #69. ✗: el frontend actual no pinta rutas relativas. | Decisión del Orquestador: los logos no van a Storage | Base de datos BuscoEdu |

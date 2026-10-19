@@ -1,0 +1,57 @@
+{
+ "tablas": {
+  "sedes": {
+   "n": 59,
+   "md5": "cbf4271606a4586c42fb83eec8a41d41"
+  },
+  "ciudades": {
+   "n": 7
+  },
+  "oportunidades": {
+   "n": 19
+  },
+  "universidades": {
+   "n": 14,
+   "md5": "c926774a01d29e7ba5c7a185da15d679"
+  },
+  "precios_oferta": {
+   "n": 1013,
+   "md5": "eeb2eeb5891aee8846ee361413628bc0"
+  },
+  "cargas_catalogo": {
+   "n": 1
+  },
+  "storage_buckets": {
+   "n": 1,
+   "ids": [
+    "logos-aliadas"
+   ]
+  },
+  "ofertas_academicas": {
+   "n": 831,
+   "md5": "0e5ffc116659fe0ba4c02c31288f6a86"
+  },
+  "periodos_academicos": {
+   "n": 54,
+   "md5": "41a369f65c8a8016b93c699dec9092e8"
+  },
+  "imagenes_universidad": {
+   "n": 0
+  },
+  "programas_academicos": {
+   "n": 831,
+   "md5": "6344a5397a72c6b448bd2ecbec7264c4"
+  }
+ },
+ "tomado_en": "2026-10-19T14:27:39.890431+00:00",
+ "visibles_criterio": {
+  "demo": 0,
+  "total": 291,
+  "reales": 291
+ },
+ "demo_programas_md5": "016e46cf1751377680301dab5e9cd216",
+ "demo_universidades_md5": "924e31e035e38192a03755eff36f8a35",
+ "demo_ofertas_distribucion": {
+  "false/oculto/validado": 500
+ }
+}

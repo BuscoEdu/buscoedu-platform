@@ -2,6 +2,8 @@ import { randomUUID } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { normalizarE164, enmascararCelular } from '@/src/lib/phone';
 import { listarTiposConsentimientoActivos } from '@/src/lib/leadcenter/tipos-consentimiento';
+// Bloque: normalizador del modelo de negocio (NULL = «sin definir», sin cobro asumido).
+import { normalizarModeloNegocio } from '@/src/lib/leadcenter/modelo-negocio';
 import { getOrCreateActiveConversation } from './conversacion-service';
 import { appendConversationMessage } from './mensaje-service';
 import {
@@ -511,7 +513,9 @@ function baseInsert(
     oferta_id: oferta.id,
     paso,
     clave_idempotencia: clave,
-    modelo_negocio: oferta.modelo_negocio || 'por_inscrito',
+    // Bloque: modelo de la oferta tal cual (null = «sin definir»). Por qué: decisión de producto,
+    // NULL no se asume por_inscrito; la columna intenciones_aplicar_demowapp.modelo_negocio admite NULL.
+    modelo_negocio: normalizarModeloNegocio(oferta.modelo_negocio),
     oferta_nombre: oferta.nombre_oferta,
     mensajes,
     consentimientos: [],
@@ -838,7 +842,8 @@ async function aceptarYCrearLead(
     personaId: resultado.persona_id,
     oportunidadId: resultado.oportunidad_id,
     aplicacionId,
-    modeloNegocio: oferta.modelo_negocio || 'por_inscrito',
+    // Bloque: la traza guarda el modelo real (null = «sin definir»), sin inventar por_inscrito.
+    modeloNegocio: normalizarModeloNegocio(oferta.modelo_negocio),
     decididoEn,
     ipOrigen: ip,
     verificacionCelular: 'declarada_en_hilo_sin_otp',
@@ -866,7 +871,8 @@ async function aceptarYCrearLead(
   const guardada = await actualizar(db, fila.id, 'consentimiento', {
     paso: 'aceptada',
     motivo_cierre: 'consentimiento_aceptado_en_hilo',
-    modelo_negocio: oferta.modelo_negocio || 'por_inscrito',
+    // Bloque: igual que al crear la intención: null = «sin definir», sin cobro asumido.
+    modelo_negocio: normalizarModeloNegocio(oferta.modelo_negocio),
     consentimientos,
     traza_consentimiento: traza,
     mensajes,

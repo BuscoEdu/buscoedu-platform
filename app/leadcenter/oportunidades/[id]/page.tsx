@@ -8,6 +8,8 @@ import ComentariosNotaPanel from '@/components/leadcenter/ComentariosNotaPanel';
 import OpportunityWappPanel from '@/components/leadcenter/OpportunityWappPanel';
 import { calcularEstadoEstancamiento } from '@/src/lib/leadcenter/estancamiento';
 import { TEMPERATURA_META, temperaturaDesdePuntaje } from '@/src/lib/leadcenter/salud';
+// Bloque: etiqueta del modelo de negocio; NULL se muestra «Sin definir» (decisión de producto 2026-10-19).
+import { etiquetaModeloNegocio } from '@/src/lib/leadcenter/modelo-negocio';
 
 export const dynamic = 'force-dynamic';
 
@@ -301,7 +303,8 @@ export default async function FichaOportunidadPage({
           </div>
           <div>
             <p className="text-gray-400">Modelo</p>
-            <p className="font-semibold text-gray-900">{o.modelo_negocio_snapshot || '—'}</p>
+            {/* Bloque: modelo congelado de la oportunidad; sin modelo = «Sin definir» (no se asume por_inscrito ni cobro). */}
+            <p className="font-semibold text-gray-900">{etiquetaModeloNegocio(o.modelo_negocio_snapshot)}</p>
           </div>
           <div>
             <p className="text-gray-400">Próx. acción</p>

@@ -7,6 +7,7 @@ import { idsAliadasDesdeEnv } from './aliadas';
 import {
   altDeLogo,
   armarLogosAliadas,
+  nombreVisibleDeLogo,
   bucketLogosAliadas,
   logosOVacios,
   urlPublicaLogo,
@@ -94,11 +95,13 @@ describe('logos de aliadas', { concurrency: 1 }, () => {
       assert.deepEqual(logos, [
         {
           url: 'https://cdn.test/storage/v1/object/public/logos-aliadas/poli/logo.svg',
-          alt: 'Politécnico Grancolombiano'
+          alt: 'Politécnico Grancolombiano',
+          nombre: 'Politécnico Grancolombiano'
         },
         {
           url: 'https://cdn.test/storage/v1/object/public/logos-aliadas/areandina/principal.svg',
-          alt: 'Logo Areandina'
+          alt: 'Logo Areandina',
+          nombre: 'Areandina'
         }
       ]);
     } finally {
@@ -110,6 +113,19 @@ describe('logos de aliadas', { concurrency: 1 }, () => {
   it('arma la URL pública con la ruta dentro del bucket', () => {
     const url = urlPublicaLogo('poli/logo.svg', publicar, 'logos-aliadas');
     assert.equal(url, 'https://cdn.test/storage/v1/object/public/logos-aliadas/poli/logo.svg');
+  });
+
+  // Bloque: logos locales en public/ (decisión Orq 19/10) → ruta «/…» tal cual; «//…» de otro dominio va al bucket.
+  it('si url_storage es ruta local /logos-aliadas/… la deja igual y no usa el bucket', () => {
+    let llamadas = 0;
+    const local = urlPublicaLogo('/logos-aliadas/6069f39d-6bd2-5991-b922-24e58ac7137a.svg', () => {
+      llamadas += 1;
+      return 'no-debe-usarse';
+    }, 'logos-aliadas');
+    assert.equal(local, '/logos-aliadas/6069f39d-6bd2-5991-b922-24e58ac7137a.svg');
+    assert.equal(llamadas, 0);
+    const externa = urlPublicaLogo('//otro.dominio/logo.svg', () => 'bucket', 'logos-aliadas');
+    assert.equal(externa, 'bucket');
   });
 
   it('si url_storage ya es http(s) la deja igual', () => {
@@ -143,5 +159,20 @@ describe('logos de aliadas', { concurrency: 1 }, () => {
       if (previa === undefined) delete process.env.SUPABASE_LOGOS_BUCKET;
       else process.env.SUPABASE_LOGOS_BUCKET = previa;
     }
+  });
+
+  /* Areandina (19/10/2026): su archivo es solo el símbolo → el nombre en texto siempre viaja con el logo */
+  it('cada logo trae nombre visible: corto primero, oficial de respaldo', () => {
+    assert.equal(nombreVisibleDeLogo('Areandina', 'Fundación Universitaria del Área Andina'), 'Areandina');
+    assert.equal(nombreVisibleDeLogo('  ', 'Fundación Universitaria del Área Andina'), 'Fundación Universitaria del Área Andina');
+    assert.equal(nombreVisibleDeLogo(null, undefined), '');
+    const [logo] = armarLogosAliadas(
+      [fila({ universidad_id: AREANDINA, url_storage: 'a/logo.svg', es_principal: true, nombre_universidad: 'Fundación Universitaria del Área Andina', nombre_corto: 'Areandina' })],
+      [AREANDINA],
+      publicar,
+      'logos-aliadas'
+    );
+    assert.equal(logo.nombre, 'Areandina');
+    assert.equal(logo.alt, 'Fundación Universitaria del Área Andina');
   });
 });

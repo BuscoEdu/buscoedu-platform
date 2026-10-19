@@ -64,11 +64,19 @@ export function crearAlmacenMemoria(): AlmacenMemoria {
       return structuredClone(contacto);
     },
 
-    async actualizarContacto(id, parche: ParcheContacto) {
+    // Bloque: misma semántica que Supabase: con versionSesion solo escribe si sesion.v no cambió (C-25).
+    async actualizarContacto(id, parche: ParcheContacto, opciones?: { versionSesion?: number }) {
       const e164 = porId.get(id);
       if (!e164) throw new Error('contacto_inexistente');
       const actual = contactos.get(e164)!;
+      if (opciones?.versionSesion !== undefined && (actual.sesion?.v ?? 0) !== opciones.versionSesion) return false;
       contactos.set(e164, { ...actual, ...structuredClone(parche) });
+      return true;
+    },
+
+    // Bloque: libera el wamid para que un reintento de Meta se procese (C-24).
+    async liberarMensaje(id) {
+      procesados.delete(id);
     },
 
     async registrarMensaje(contactoId, m) {

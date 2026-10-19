@@ -128,6 +128,17 @@ function likePattern(value: string): string {
   return `%${clean}%`;
 }
 
+/**
+ * Bloque: error de un resolver previo (C-13 · error ≠ vacío).
+ * Qué: registra solo el código (sin el objeto completo, que puede traer valores de la consulta) y lanza.
+ * Por qué: antes devolvía [] y un fallo de BD se mostraba como «0 resultados»; ahora obtenerOfertas
+ * lo captura y responde ok:false (el bot muestra T13 y Explorar su estado de error).
+ */
+function resolverFallo(paso: string, error: unknown): never {
+  console.error(JSON.stringify({ origen: 'ofertas', evento: 'resolver_error', paso, codigo: (error as { code?: string })?.code ?? null }));
+  throw new Error(`ofertas_resolver_${paso}`);
+}
+
 function construirTerminosBusqueda(entrada: string): string[] {
   const raw = entrada.trim();
   const normalizado = normalizarTermino(raw);
@@ -202,8 +213,7 @@ async function idsPorNombre(tabla: string, termino: string): Promise<string[]> {
     .or(condiciones.join(','));
 
   if (error) {
-    console.error(`Error resolviendo IDs de ${tabla}:`, error);
-    return [];
+    resolverFallo(`ids_${tabla}`, error);
   }
   return (data || []).map((row: any) => row.id);
 }
@@ -234,8 +244,7 @@ async function resolverProgramasPorTexto(termino: string): Promise<string[]> {
     .or(condiciones.join(','));
 
   if (error) {
-    console.error('Error resolviendo programas por texto:', error);
-    return [];
+    resolverFallo('programas_texto', error);
   }
   return (data || []).map((row: any) => row.id);
 }
@@ -265,8 +274,7 @@ async function resolverProgramasPorNivelModalidad(
 
   const { data, error } = await query;
   if (error) {
-    console.error('Error resolviendo programas por nivel/modalidad:', error);
-    return [];
+    resolverFallo('programas_nivel_modalidad', error);
   }
   return (data || []).map((row: any) => row.id);
 }
@@ -290,8 +298,7 @@ async function resolverSedes(filtros: FiltrosOferta): Promise<string[] | null> {
 
   const { data, error } = await query;
   if (error) {
-    console.error('Error resolviendo sedes:', error);
-    return [];
+    resolverFallo('sedes', error);
   }
   return (data || []).map((row: any) => row.id);
 }
@@ -314,8 +321,7 @@ async function resolverUniversidades(filtros: FiltrosOferta): Promise<string[] |
     .or(condiciones.join(','));
 
   if (error) {
-    console.error('Error resolviendo universidades:', error);
-    return [];
+    resolverFallo('universidades', error);
   }
   return (data || []).map((row: any) => row.id);
 }
@@ -452,6 +458,10 @@ export async function obtenerOfertas(
       .eq('activo', true)
       .eq('estado_publicacion', 'publicado')
       .eq('estado_validacion', 'validado')
+      // Bloque: nunca mostrar ofertas demo en el catálogo público (portal, NaIA, WA, funnel).
+      // Por qué: con el catálogo real cargado (BD, 19-oct-2026) las demo sobran; BD ya las ocultó
+      // en datos (activo=false), esto es una segunda barrera en código por si alguna se reactiva.
+      .eq('es_demo', false)
       .lte('vigente_desde', hoy)
       .or(`vigente_hasta.is.null,vigente_hasta.gte.${hoy}`);
 
@@ -506,7 +516,7 @@ export async function obtenerOfertas(
     const { data, error, count } = await query;
 
     if (error) {
-      console.error('Error obteniendo ofertas:', error);
+      console.error(JSON.stringify({ origen: 'ofertas', evento: 'ofertas_query_failed', codigo: (error as { code?: string })?.code ?? null }));
       return {
         ok: false,
         error: {
@@ -528,7 +538,7 @@ export async function obtenerOfertas(
 
     return { ok: true, ofertas, total, page: safePage, pageSize: safeSize, hasMore };
   } catch (error) {
-    console.error('Error en obtenerOfertas:', error);
+    console.error(JSON.stringify({ origen: 'ofertas', evento: 'ofertas_unexpected', error: error instanceof Error ? error.name : 'desconocido' }));
     const message =
       error instanceof Error ? error.message : 'Error inesperado al consultar ofertas.';
     return {

@@ -54,7 +54,7 @@ En `components/restyle/`:
 | `SectionBand` | Fondo de banda a ancho completo. |
 | `SectionWrap` | Columna 1120px (760px si `narrow`). |
 | `FaqAccordion` | Acordeón. Botón nativo, Enter y Espacio, `aria-expanded` y `aria-controls`. |
-| `LogoStrip` | Logos `{url, alt}`. Es cliente por el `onError`. Al montar, si la imagen ya falló (`complete` y `naturalWidth === 0`), se oculta igual: ese fallo ocurre antes de hidratar y no dispara `onError`. |
+| `LogoStrip` | Logos `{url, alt, nombre}`; debajo de cada logo va el nombre en texto (todas las celdas iguales). Bitácora: 2026-10-19 — + nombre en texto bajo cada logo — porque el logo de Areandina es solo el símbolo y la regla es nunca mostrar solo el símbolo (decisión Orquestador 19/10) — Frontend BuscoEdu (bot). Es cliente por el `onError`. Al montar, si la imagen ya falló (`complete` y `naturalWidth === 0`), se oculta igual: ese fallo ocurre antes de hidratar y no dispara `onError`. |
 | `HeroIllustration` | Birrete. Sobre banda, el pompón es índigo y no highlight. |
 | `HablaConNaiaButton` | Abre `NaiaEntryModal`, el mismo modal del header. |
 

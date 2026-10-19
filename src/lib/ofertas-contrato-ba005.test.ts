@@ -137,20 +137,20 @@ test('BA-005 NaIA: obtenerOfertas(filtros, 0, 10) trae 10 y el total completo pa
   assert.equal(r.hasMore, true);
 });
 
-test('BA-005 WhatsApp: el catálogo pide máx. 8 (como siempre) y adapta las fichas con link', async () => {
+test('BA-005 WhatsApp: el catálogo pide 100 ofertas, agrupa por programa y devuelve máx. `max` con total real (C-52)', async () => {
   catalogo = crearCatalogo(50);
   const wa = crearCatalogoSupabase({} as never);
   const r = await wa.buscar({}, 20);
-  assert.equal(ultimaConsultaOfertas().searchParams.get('limit'), '8');
+  assert.equal(ultimaConsultaOfertas().searchParams.get('limit'), '100');
   assert.equal(ultimaConsultaOfertas().searchParams.get('order'), 'creado_en.desc,id.asc');
   assert.equal(r.ok, true);
   if (r.ok) {
-    assert.equal(r.ofertas.length, 8);
+    assert.ok(r.ofertas.length <= 20);
+    assert.ok((r.total ?? 0) >= r.ofertas.length);
     assert.ok(r.ofertas.every((o) => o.url.startsWith('http') && o.universidad));
   }
   const tres = await wa.buscar({}, 3);
-  assert.equal(ultimaConsultaOfertas().searchParams.get('limit'), '3');
-  assert.equal(tres.ok && tres.ofertas.length, 3);
+  assert.ok(tres.ok && tres.ofertas.length <= 3);
 });
 
 test('BA-005 Demo WApp: el corredor pide 5 y conserva el total real del catálogo', async () => {
