@@ -186,3 +186,61 @@ export function t23bEnviada(universidad: string): string {
 
 // T24 · Cierre.
 export const T24_CIERRE = '¡Con gusto! Cuando quieras seguir buscando, escríbeme. Para dejar de recibir mensajes, escribe STOP.';
+
+// ---------------------------------------------------------------------------
+// Lote WA-fix-1 (2026-10-19) · copy nuevo de Backend. PENDIENTE de revisión de FE/Producto.
+// ---------------------------------------------------------------------------
+
+// Bloque: S6 · nota cuando se piden virtuales con ciudad (texto del Orquestador, final).
+export function tVirtualDesdeCiudad(ciudad: string): string {
+  return `Son virtuales: las estudias desde ${ciudad} 💻`;
+}
+
+// Bloque: S5 · respaldo por área cuando la búsqueda exacta (AND) no dio resultados.
+export function tRespaldoArea(consulta: string, area: string): string {
+  return `No encontré «${consulta.slice(0, 60)}» exacto; te muestro programas del área ${area}`;
+}
+
+// Bloque: S14 · registro/acreditación. Nunca se afirma «acreditado».
+export function tRegistroSnies(codigo: string | null | undefined): string {
+  const registro = codigo ? `Registro SNIES ${codigo}.` : 'Registro SNIES por confirmar.';
+  return `${registro} Confirma el registro calificado y la acreditación con la universidad o con un asesor.`;
+}
+
+// Bloque: S10 · mensaje de solo emojis.
+export const T_SOLO_EMOJI = 'Cuéntame con palabras qué te gustaría estudiar. Ejemplo: «Psicología virtual».';
+
+// Bloque: S16 · «no entiendo» del estudiante: re-explicación con ejemplo.
+export const T_REEXPLICAR =
+  'Te explico: yo busco programas en el catálogo de BuscoEdu. Escríbeme qué quieres estudiar y, si quieres, dónde o cómo. Ejemplo: «Administración virtual» o «Psicología en Bogotá».';
+
+// Bloque: S18 · nombre de una sola palabra: se pide el apellido aparte.
+export function tPedirApellido(nombre: string): string {
+  return `Gracias, ${nombre}. ¿Cuál es tu apellido?`;
+}
+
+// Bloque: S12 · muchos resultados: se ofrecen áreas para acotar.
+export function tOfrecerAreas(total: number, areas: Array<{ area: string; cantidad: number }>): string {
+  const lista = areas.slice(0, 5).map((a) => `${a.area} (${a.cantidad})`).join(', ');
+  return `Encontré ${total} programas. Para acotar, escribe un área: ${lista}…`;
+}
+
+// Bloque: S12 · conteo de áreas de los resultados reales (máx 5, de mayor a menor; sin áreas inventadas).
+export function contarAreas(ofertas: Array<{ area?: string }>): Array<{ area: string; cantidad: number }> {
+  const conteo = new Map<string, number>();
+  for (const o of ofertas) if (o.area) conteo.set(o.area, (conteo.get(o.area) || 0) + 1);
+  return [...conteo.entries()]
+    .map(([area, cantidad]) => ({ area, cantidad }))
+    .sort((x, y) => y.cantidad - x.cantidad || x.area.localeCompare(y.area, 'es'))
+    .slice(0, 5);
+}
+
+// Bloque: B3 · «guardar»/«aplicar» escritos sin ficha abierta reciente.
+export const T_SIN_FICHA_ABIERTA = 'Primero abre la ficha de un programa y luego escribe *guardar* o *aplicar*.';
+
+// Bloque: S7 · tope de precio pedido (copy congelado v1.7). Reemplaza T17 en esa respuesta.
+export const T_SIN_FILTRO_PRECIO =
+  'Por ahora no puedo filtrar por precio; te muestro opciones y en cada ficha ves el precio si está publicado.';
+
+// Bloque: «Ver más» más allá del total (0 filas): fin de la lista, nunca error ni lista vacía.
+export const T_FIN_LISTA = 'Ya te mostré todos los programas de esta búsqueda. ¿Buscamos otra cosa?';

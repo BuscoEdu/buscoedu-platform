@@ -53,6 +53,10 @@ export function agruparPorPrograma(items: OfertaAcademica[]): OfertaWa[] {
       ...(ciudad ? { ciudad } : {}),
       ciudades: ciudad ? [ciudad] : [],
       ...(beneficio ? { beneficio } : {}),
+      // Bloque: WA-fix-1 · área del programa para S5 (respaldo) y S12 (ofrecer áreas).
+      ...(item.programa?.area ? { area: item.programa.area } : {}),
+      // S14 · código SNIES del programa para la respuesta de registro.
+      ...(item.programa?.codigo_snies ? { snies: item.programa.codigo_snies } : {}),
       url: urlFicha(nombrePrograma)
     });
   }
@@ -64,7 +68,9 @@ export function crearCatalogoSupabase(dbServicio: SupabaseClient): CatalogoWa {
     // Bloque: busca hasta 100 ofertas, agrupa por programa y devuelve hasta `max` programas + total real (C-12/C-52).
     // Si BD tiene más de 100 ofertas para la consulta, `total` = conteo exacto de ofertas (cota superior) y se loguea.
     async buscar(filtros, max) {
-      const resultado = await obtenerOfertas(filtros, 0, OFERTAS_POR_CONSULTA_WA);
+      // S5 · los términos AND viajan como opción aparte (FiltrosOferta es contrato de FE).
+      const { terminos_todos, ...base } = filtros;
+      const resultado = await obtenerOfertas(base, 0, OFERTAS_POR_CONSULTA_WA, { terminosTodos: terminos_todos });
       if (!resultado.ok) return { ok: false };
       const programas = agruparPorPrograma(resultado.ofertas);
       const completo = resultado.total <= resultado.ofertas.length;
@@ -72,7 +78,9 @@ export function crearCatalogoSupabase(dbServicio: SupabaseClient): CatalogoWa {
       return {
         ok: true,
         ofertas: programas.slice(0, Math.max(1, max)),
-        total: completo ? programas.length : resultado.total
+        total: completo ? programas.length : resultado.total,
+        // S5 · la RPC de BD avisa si devolvió el respaldo por área.
+        ...(resultado.fue_respaldo_area ? { respaldoArea: true } : {})
       };
     },
     async tiposConsentimiento() {

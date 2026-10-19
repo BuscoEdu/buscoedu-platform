@@ -29,6 +29,10 @@ export interface OfertaWa {
   programa_id?: string;
   /** Todas las ciudades donde está disponible el programa (la primera = `ciudad`). */
   ciudades?: string[];
+  /** WA-fix-1: área de conocimiento del programa (S12: ofrecer áreas si hay muchos resultados). */
+  area?: string;
+  /** WA-fix-1 (S14): `programas_academicos.codigo_snies`; vacío → «por confirmar». */
+  snies?: string;
 }
 
 /** Forma agrupada que consume presentacion.ts (contrato FE). */
@@ -41,6 +45,8 @@ export interface AplicacionEnCursoWa {
   universidad: string;
   paso: 'datos_nombre' | 'datos_correo' | 'consentimiento';
   nombreCompleto?: string;
+  /** WA-fix-1 (S18): nombre de una sola palabra a la espera del apellido. */
+  nombreParcial?: string;
   correo?: string | null;
 }
 
@@ -82,6 +88,8 @@ export interface SesionWa {
   consentimientoRevocadoEn?: string;
   /** Contacto creado desde simulación de preview (C-55/C-56): datos de QA. */
   simulacionQa?: boolean;
+  /** WA-fix-1 (B3): última ficha abierta y cuándo; «guardar»/«aplicar» escritos actúan sobre ella (<24 h). */
+  fichaAbierta?: { ofertaId: string; en: number };
 }
 
 export const SESION_WA_VACIA: SesionWa = { filtros: {}, ofertas: [], miLista: [], aplicacion: null };
@@ -147,6 +155,8 @@ export type FiltrosBusquedaWa = {
   modalidad?: string;
   ciudad?: string;
   nivel_academico?: string;
+  /** WA-fix-1 (S5): términos reconocidos que deben cumplirse TODOS (AND). */
+  terminos_todos?: string[];
 };
 
 /** Catálogo: solo ofertas activas + publicadas + validadas + vigentes. */
@@ -155,7 +165,7 @@ export interface CatalogoWa {
    * Busca y devuelve programas ya agrupados por programa_id (hasta `max`) y `total` = programas distintos (C-12/C-52).
    * `total` puede faltar en catálogos de prueba: entonces vale ofertas.length.
    */
-  buscar(filtros: FiltrosBusquedaWa, max: number): Promise<{ ok: true; ofertas: OfertaWa[]; total?: number } | { ok: false }>;
+  buscar(filtros: FiltrosBusquedaWa, max: number): Promise<{ ok: true; ofertas: OfertaWa[]; total?: number; respaldoArea?: boolean } | { ok: false }>;
   tiposConsentimiento(): Promise<TipoConsentimientoRegla[]>;
 }
 

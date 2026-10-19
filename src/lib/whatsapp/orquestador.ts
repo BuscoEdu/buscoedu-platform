@@ -24,7 +24,7 @@ import type { ConfigWhatsApp } from './config';
 import { puedeEnviar, remitentePuedeRecibirRespuesta } from './config';
 import type { BotonRespuesta, EnviadorWhatsApp, FilaLista } from './graph-client';
 import { destinoRemitente, MAX_FILAS_LISTA_BUSCOEDU, WhatsAppApiError } from './graph-client';
-import { filtrosDesdeTexto as filtrosBusqueda, filtrosVacios } from './busqueda';
+import { ciudadNotaVirtual, filtrosDesdeTexto as filtrosBusqueda, filtrosRespaldoArea, filtrosVacios } from './busqueda';
 import * as C from './copy';
 import { clasificarTexto, esRevocacion, NO_CONSENTIMIENTO, SALUDOS, SI_CONSENTIMIENTO } from './intenciones';
 import * as M from './mensajes';
@@ -388,6 +388,22 @@ async function atenderTextoLibre(
   deps: DependenciasOrquestador,
   ahora: number
 ): Promise<ResultadoProceso> {
+  // Bloque: B3 · «guardar» / «aplicar» escritos = mismos botones sobre la última ficha abierta (<24 h).
+  // Guardar ≠ Aplicar ≠ Autorizar: aquí nunca se autoriza ni se crea lead.
+  const plano = plegarComando(texto);
+  if (plano === 'guardar' || plano === 'aplicar') {
+    const ficha = fichaAbiertaVigente(contacto, ahora);
+    if (!ficha) {
+      await enviarBotones(contacto, deps, C.T_SIN_FICHA_ABIERTA, C.BOTONES_NUEVA_O_ASESOR);
+      return 'respondido';
+    }
+    return gestionarRespuestaInteractiva(contacto, `${plano === 'guardar' ? 'lista' : 'aplicar'}:${ficha.id}`, deps, ahora);
+  }
+  // Bloque: S16 · «no entiendo» del estudiante: re-explicación con ejemplo (no el T10 genérico).
+  if (NO_ENTIENDE_ESTUDIANTE.has(plano)) {
+    await enviarBotones(contacto, deps, C.T_REEXPLICAR, C.BOTONES_MENU);
+    return 'respondido';
+  }
   const intencion = clasificarTexto(texto);
   // Cualquier intención reconocida reinicia el contador de «no entendí».
   if (intencion.tipo !== 'no_entendi' && contacto.sesion.fallosSeguidos) {
@@ -410,6 +426,16 @@ async function atenderTextoLibre(
     case 'precio':
       await enviarBotones(contacto, deps, C.T17_PRECIO, C.BOTONES_NUEVA_O_ASESOR);
       return 'respondido';
+    case 'registro': {
+      // S14 · SNIES de la ficha abierta si el catálogo lo trae; nunca se dice «acreditado».
+      const ficha = fichaAbiertaVigente(contacto, ahora);
+      await enviarBotones(contacto, deps, C.tRegistroSnies(ficha?.snies), C.BOTONES_ASESOR_O_BUSCAR);
+      return 'respondido';
+    }
+    case 'emoji':
+      // S10 · solo emojis: respuesta propia.
+      await enviarBotones(contacto, deps, C.T_SOLO_EMOJI, C.BOTONES_MENU);
+      return 'respondido';
     case 'pregunta_abierta':
       await enviarBotones(contacto, deps, C.T12_PREGUNTA_ABIERTA, C.BOTONES_ASESOR_O_BUSCAR);
       return 'respondido';
@@ -418,6 +444,16 @@ async function atenderTextoLibre(
     default:
       return buscarYMostrar(contacto, deps, ahora, { texto });
   }
+}
+
+// Bloque: S16 · frases con las que el estudiante dice que no entendió al bot.
+const NO_ENTIENDE_ESTUDIANTE = new Set(['no entiendo', 'no entendi', 'no te entiendo', 'no comprendo', 'no entiendo nada', 'como asi']);
+
+// Bloque: B3 · ficha abierta hace menos de 24 h (y aún en la sesión).
+function fichaAbiertaVigente(contacto: ContactoWa, ahora: number): OfertaWa | null {
+  const f = contacto.sesion.fichaAbierta;
+  if (!f || ahora - f.en > VIGENCIA_LISTA_MS) return null;
+  return ofertaDeSesion(contacto, f.ofertaId, ahora);
 }
 
 // Bloque: T10 «no entendí»; a la 2.ª seguida ofrece asesor (re-explica en otras palabras, criterio S16).
@@ -618,7 +654,7 @@ export function filtrosDesdeTexto(texto: string, _previos: Record<string, string
 async function buscarConTimeout(
   deps: DependenciasOrquestador,
   filtros: FiltrosBusquedaWa
-): Promise<{ ok: true; ofertas: OfertaWa[]; total: number } | { ok: false }> {
+): Promise<{ ok: true; ofertas: OfertaWa[]; total: number; respaldoArea?: boolean } | { ok: false }> {
   let temporizador: ReturnType<typeof setTimeout> | undefined;
   try {
     const limite = new Promise<{ ok: false }>((resolver) => {
@@ -629,7 +665,7 @@ async function buscarConTimeout(
       deps.log?.('wa_catalogo_error');
       return { ok: false };
     }
-    return { ok: true, ofertas: r.ofertas, total: Math.max(r.total ?? r.ofertas.length, r.ofertas.length) };
+    return { ok: true, ofertas: r.ofertas, total: Math.max(r.total ?? r.ofertas.length, r.ofertas.length), ...(r.respaldoArea ? { respaldoArea: true } : {}) };
   } catch (error) {
     deps.log?.('wa_catalogo_error', { error: error instanceof Error ? error.name : 'desconocido' });
     return { ok: false };
@@ -658,10 +694,12 @@ async function buscarYMostrar(
   let filtros: FiltrosBusquedaWa;
   let etiqueta: string;
   let pagina = 0;
+  let topePrecio = false;
   if ('texto' in origen) {
     const r = filtrosBusqueda(origen.texto);
     filtros = r.filtros;
     etiqueta = r.etiqueta;
+    topePrecio = r.topePrecio;
   } else {
     filtros = origen.filtros;
     etiqueta = origen.etiqueta;
@@ -669,7 +707,23 @@ async function buscarYMostrar(
   }
   if (filtrosVacios(filtros)) return noEntendi(contacto, deps);
 
-  const resultado = await buscarConTimeout(deps, filtros);
+  let resultado = await buscarConTimeout(deps, filtros);
+  let areaRespaldo: string | null = null;
+  // Bloque: S5 · respaldo por área. La RPC de BD lo marca (respaldoArea); sin RPC, se reintenta aquí con el
+  // primer término cuando el AND dio 0 resultados.
+  if (resultado.ok && resultado.respaldoArea) {
+    areaRespaldo = resultado.ofertas[0]?.area || filtros.terminos_todos?.[0] || filtros.programa_o_area || null;
+  } else if (resultado.ok && resultado.ofertas.length === 0 && pagina === 0) {
+    const respaldo = filtrosRespaldoArea(filtros);
+    if (respaldo) {
+      const r2 = await buscarConTimeout(deps, respaldo.filtros);
+      if (r2.ok && r2.ofertas.length > 0) {
+        resultado = r2;
+        filtros = respaldo.filtros;
+        areaRespaldo = respaldo.area;
+      }
+    }
+  }
   if (!resultado.ok) {
     // Se guarda la consulta para que [Reintentar] la repita tal cual.
     contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, filtrosBusqueda: filtros, consulta: etiqueta, pagina } });
@@ -680,8 +734,21 @@ async function buscarYMostrar(
   const desde = pagina * PROGRAMAS_POR_PAGINA;
   const pag = resultado.ofertas.slice(desde, desde + PROGRAMAS_POR_PAGINA);
   if (pag.length === 0) {
+    // Bloque: más allá del total (Ver más) → fin de lista; nunca error ni lista vacía.
+    if (pagina > 0) {
+      await enviarBotones(contacto, deps, C.T_FIN_LISTA, C.BOTONES_NUEVA_O_ASESOR);
+      return 'respondido';
+    }
     await enviarBotones(contacto, deps, C.t11SinResultados(etiqueta), C.BOTONES_NUEVA_O_ASESOR);
     return 'respondido';
+  }
+
+  // Bloque: avisos previos a la lista (solo en la 1.ª página): S7 precio, S5 respaldo, S6 virtual + ciudad.
+  if (pagina === 0) {
+    if (topePrecio) await enviarTexto(contacto, deps, C.T_SIN_FILTRO_PRECIO);
+    if (areaRespaldo) await enviarTexto(contacto, deps, C.tRespaldoArea(etiqueta, areaRespaldo));
+    const ciudadVirtual = ciudadNotaVirtual(filtros);
+    if (ciudadVirtual) await enviarTexto(contacto, deps, C.tVirtualDesdeCiudad(ciudadVirtual));
   }
 
   // Bloque: la lista nueva vale 24 h; las fichas de listas anteriores se conservan (máx 24) para toques tardíos.
@@ -700,6 +767,11 @@ async function buscarYMostrar(
   };
   contacto = await actualizar(contacto, deps, { sesion });
   await enviarListaResultados(contacto, deps, pag, resultado.total, pagina, etiqueta);
+  // Bloque: S12 · más de 20 programas → se ofrecen áreas para acotar (solo si hay 2+ áreas distintas).
+  if (pagina === 0 && resultado.total > 20) {
+    const areas = C.contarAreas(resultado.ofertas);
+    if (areas.length >= 2) await enviarTexto(contacto, deps, C.tOfrecerAreas(resultado.total, areas));
+  }
   return 'respondido';
 }
 
@@ -772,6 +844,8 @@ async function elegirPorNumero(contacto: ContactoWa, numero: number, deps: Depen
 }
 
 async function mostrarFicha(contacto: ContactoWa, oferta: OfertaWa, deps: DependenciasOrquestador): Promise<ResultadoProceso> {
+  // Bloque: B3 · se recuerda la ficha abierta para «guardar»/«aplicar» escritos.
+  contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, fichaAbierta: { ofertaId: oferta.id, en: deps.ahora?.() ?? Date.now() } } });
   const ficha = armarFicha(aAgrupada(oferta));
   await enviarBotones(contacto, deps, ficha.cuerpo, ficha.botones);
   return 'respondido';
@@ -875,6 +949,18 @@ async function gestionarRespuestaInteractiva(
  * Acepta «Ana María Gómez-Ruiz», «D'Angelo Pérez», «QA-WA Prueba Jota».
  */
 export const PATRON_NOMBRE = /^(?=.{3,120}$)[A-Za-zÁÉÍÓÚáéíóúÑñÜü]+(?:['’-][A-Za-zÁÉÍÓÚáéíóúÑñÜü]+)*(?:\s+[A-Za-zÁÉÍÓÚáéíóúÑñÜü]+(?:['’-][A-Za-zÁÉÍÓÚáéíóúÑñÜü]+)*)+$/;
+// Bloque: S18 · una sola palabra de letras = nombre sin apellido (se pide aparte).
+const PATRON_UNA_PALABRA = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü]+(?:['’-][A-Za-zÁÉÍÓÚáéíóúÑñÜü]+)*$/;
+
+/**
+ * S18 · nombres / apellidos sin perder el apellido: 2 palabras = 1+1; 3 = 1 nombre + 2 apellidos;
+ * 4 o más = 2 nombres + el resto como apellidos.
+ */
+export function partirNombre(completo: string): { nombres: string; apellidos: string } {
+  const partes = completo.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+  const corte = partes.length >= 4 ? 2 : 1;
+  return { nombres: partes.slice(0, corte).join(' '), apellidos: partes.slice(corte).join(' ') };
+}
 const PATRON_CORREO = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 const MAX_INTENTOS = 3;
 
@@ -893,7 +979,14 @@ async function capturarDatosAplicacion(
   }
 
   if (aplicacion.paso === 'datos_nombre') {
-    const nombre = texto.replace(/\s+/g, ' ').trim().slice(0, 120);
+    const escrito = texto.replace(/\s+/g, ' ').trim();
+    // Bloque: S18 · si ya teníamos el nombre de una palabra, este mensaje es el apellido.
+    const nombre = (aplicacion.nombreParcial ? `${aplicacion.nombreParcial} ${escrito}` : escrito).slice(0, 120);
+    if (!aplicacion.nombreParcial && PATRON_UNA_PALABRA.test(nombre)) {
+      contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, aplicacion: { ...aplicacion, nombreParcial: nombre } } });
+      await enviarTexto(contacto, deps, C.tPedirApellido(nombre));
+      return 'respondido';
+    }
     if (!PATRON_NOMBRE.test(nombre)) {
       // Bloque: contador de intentos T20; al 3.º pasa a asesor (T14).
       const intentos = (contacto.sesion.intentosNombre || 0) + 1;
@@ -903,7 +996,7 @@ async function capturarDatosAplicacion(
       return 'respondido';
     }
     contacto = await actualizar(contacto, deps, {
-      sesion: { ...contacto.sesion, intentosNombre: 0, aplicacion: { ...aplicacion, nombreCompleto: nombre, paso: 'datos_correo' } }
+      sesion: { ...contacto.sesion, intentosNombre: 0, aplicacion: { ...aplicacion, nombreParcial: undefined, nombreCompleto: nombre, paso: 'datos_correo' } }
     });
     await enviarTexto(contacto, deps, C.t21PedirCorreo(nombre.split(' ')[0]));
     return 'respondido';
@@ -996,7 +1089,7 @@ async function resolverAutorizacion(
   }
 
   // Conversión real (fn_ba031_convertir_si_consentido): atómica; si falla no queda lead a medias.
-  const partes = aplicacion.nombreCompleto.split(' ');
+  const partes = partirNombre(aplicacion.nombreCompleto);
   const resultado = await deps.conversor.convertir(
     {
       consentimiento_aceptado: true,
@@ -1004,8 +1097,8 @@ async function resolverAutorizacion(
       celular_e164: contacto.e164,
       // Null-safe: si algún día hay contactos sin teléfono (propuesta BD), no debe lanzar TypeError.
       pais_celular: (contacto.e164 || '').startsWith('+57') ? 'CO' : null,
-      nombres: partes[0],
-      apellidos: partes.slice(1).join(' '),
+      nombres: partes.nombres,
+      apellidos: partes.apellidos,
       nombre_completo: aplicacion.nombreCompleto,
       correo: aplicacion.correo ?? null,
       visitante_id: null,

@@ -1,0 +1,29 @@
+diff --git a/components/explorar/OfferDetailModal.tsx b/components/explorar/OfferDetailModal.tsx
+index 0b8f334..5feb8ce 100644
+--- a/components/explorar/OfferDetailModal.tsx
++++ b/components/explorar/OfferDetailModal.tsx
+@@ -211,7 +211,8 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
+       {/*
+         BA-001: la ficha va por encima del panel de resultados móvil (z-[70])
+         y del FAB. Ola 2: jerarquía qué es → vigencia (si hay fecha) → becas → acciones.
+-        No se pinta precio: la oferta no trae ese campo. Un dato ausente no se inventa.
++        WA-fix-1: precio desde BE (`oferta.texto_precio`, puerta precios-publicos): «Precio: $monto COP por semestre»
++        si hay precio publicable; si no, T17. FE no formatea ni decide: pinta el texto tal cual.
+         «Becas y beneficios» solo si etiquetaBeneficio() devuelve una etiqueta.
+       */}
+       <div
+@@ -266,6 +267,14 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
+                   </section>
+                 ) : null}
+ 
++                {/* Precio publicable o T17 (texto armado en BE). */}
++                <section className="rounded-[var(--radius-card)] border-2 border-[var(--color-text)] bg-white p-4 shadow-[var(--shadow-hard)]">
++                  <h3 className="text-lg font-bold text-[var(--color-text)]">Precio</h3>
++                  <p className="mt-2 break-words text-sm text-[var(--color-text)]">
++                    {oferta.texto_precio || 'Precio no disponible. Puedes consultarlo con la universidad o con un asesor.'}
++                  </p>
++                </section>
++
+                 {vigenciaHasta ? (
+                   <section className="rounded-[var(--radius-card)] border-2 border-[var(--color-text)] bg-white p-4 shadow-[var(--shadow-hard)]">
+                     <h3 className="text-lg font-bold text-[var(--color-text)]">Vigencia</h3>
