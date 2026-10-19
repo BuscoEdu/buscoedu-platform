@@ -5,17 +5,19 @@
 --   datos personales. Aun así, guardar la salida en /home/box/.secrets/respaldos/ (700/600)
 --   como 20261019_tablas_trabajo_{staging,respaldo,demo_previo}.json, no en el repo.
 --   (demo_previo ya tiene copia en supabase/ops/respaldos/20261019_carga_aliadas/05_demo_previo.json).
--- Cada consulta devuelve: tabla, filas, md5 del JSON y el JSON. El md5 se compara en la verificación.
+-- Cada consulta devuelve: tabla, filas, md5 y el JSON como TEXTO jsonb exacto (json_texto).
+-- Ajuste 19/10 al aplicar: el JSON como jsonb perdía la escala de numeric (16000000.0 → 16000000)
+-- al pasar por el cliente, y el md5 local no cuadraba; con ::text, md5(json_texto) = md5_json.
 -- =====================================================================
 SELECT 'carga_aliadas_20261019' AS tabla, count(*) AS filas,
        md5(coalesce(jsonb_agg(to_jsonb(t) ORDER BY t.oferta_id)::text,'')) AS md5_json,
-       jsonb_agg(to_jsonb(t) ORDER BY t.oferta_id) AS json
+       jsonb_agg(to_jsonb(t) ORDER BY t.oferta_id)::text AS json_texto
   FROM public.carga_aliadas_20261019 t;
 SELECT 'carga_aliadas_20261019_respaldo' AS tabla, count(*) AS filas,
        md5(coalesce(jsonb_agg(to_jsonb(t) ORDER BY t.universidad_id)::text,'')) AS md5_json,
-       jsonb_agg(to_jsonb(t) ORDER BY t.universidad_id) AS json
+       jsonb_agg(to_jsonb(t) ORDER BY t.universidad_id)::text AS json_texto
   FROM public.carga_aliadas_20261019_respaldo t;
 SELECT 'carga_aliadas_20261019_demo_previo' AS tabla, count(*) AS filas,
        md5(coalesce(jsonb_agg(to_jsonb(t) ORDER BY t.oferta_id)::text,'')) AS md5_json,
-       jsonb_agg(to_jsonb(t) ORDER BY t.oferta_id) AS json
+       jsonb_agg(to_jsonb(t) ORDER BY t.oferta_id)::text AS json_texto
   FROM public.carga_aliadas_20261019_demo_previo t;
