@@ -7,6 +7,9 @@ import type { LogoAliada } from "@/src/lib/logos-aliadas";
  * Franja de logos reales. Lista vacía o todas las URL rotas: no se pinta,
  * sin hueco y sin icono roto. Cada alt es el nombre de la universidad.
  * Las celdas miden igual para no destacar a una aliada.
+ * Debajo de cada logo va el nombre en texto (siempre, para todas): así un
+ * archivo que es solo símbolo (Areandina) nunca queda sin nombre, y todas las
+ * celdas se ven iguales. El texto es aria-hidden porque el alt ya lo anuncia.
  */
 
 function logoPintable(logo: LogoAliada): boolean {
@@ -62,7 +65,7 @@ export default function LogoStrip({ logos }: { logos: LogoAliada[] }) {
           return (
             <li
               key={id}
-              className="flex h-16 items-center justify-center rounded-xl border border-[var(--color-line)] bg-white px-3"
+              className="flex h-20 flex-col items-center justify-center gap-1 rounded-xl border border-[var(--color-line)] bg-white px-3"
             >
               <img
                 ref={(nodo) => {
@@ -70,10 +73,19 @@ export default function LogoStrip({ logos }: { logos: LogoAliada[] }) {
                 }}
                 src={logo.url}
                 alt={logo.alt.trim()}
-                className="max-h-10 w-auto max-w-full object-contain"
+                className="max-h-9 w-auto max-w-full object-contain"
                 decoding="async"
                 onError={() => setRotos((previo) => ({ ...previo, [id]: true }))}
               />
+              {/* Nombre en texto junto al símbolo; una línea con puntos suspensivos si no cabe a 360 */}
+              {logo.nombre ? (
+                <span
+                  aria-hidden="true"
+                  className="max-w-full truncate text-xs font-semibold text-[#6b63a8]"
+                >
+                  {logo.nombre}
+                </span>
+              ) : null}
             </li>
           );
         })}

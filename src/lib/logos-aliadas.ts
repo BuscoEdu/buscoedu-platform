@@ -10,6 +10,12 @@ import { idsAliadasDesdeEnv } from './aliadas';
 export type LogoAliada = {
   url: string;
   alt: string;
+  /*
+   * Nombre en texto que se pinta junto al logo (nombre corto si existe).
+   * Por qué: hay aliadas cuyo archivo es solo el símbolo (Areandina, 19/10/2026);
+   * nunca se muestra un símbolo sin el nombre al lado.
+   */
+  nombre: string;
 };
 
 export type FilaLogoAliada = {
@@ -19,6 +25,8 @@ export type FilaLogoAliada = {
   es_principal: boolean;
   orden: number;
   nombre_universidad: string;
+  /* Nombre corto de la universidad para el texto visible; opcional (si falta, nombre_universidad). */
+  nombre_corto?: string;
 };
 
 type PublicarRuta = (bucket: string, ruta: string) => string;
@@ -52,6 +60,19 @@ export function altDeLogo(
 ): string {
   const texto = (textoAlternativo ?? '').trim();
   if (texto) return texto;
+  return (nombreUniversidad ?? '').trim();
+}
+
+/**
+ * Nombre visible junto al logo: el corto primero (cabe en la celda a 360),
+ * si no, el oficial. Vacío solo si la BD no trae ninguno.
+ */
+export function nombreVisibleDeLogo(
+  nombreCorto: string | null | undefined,
+  nombreUniversidad: string | null | undefined
+): string {
+  const corto = (nombreCorto ?? '').trim();
+  if (corto) return corto;
   return (nombreUniversidad ?? '').trim();
 }
 
@@ -90,7 +111,8 @@ export function armarLogosAliadas(
     .sort((a, b) => ordenDe(a.fila) - ordenDe(b.fila))
     .map(({ fila, url }) => ({
       url,
-      alt: altDeLogo(fila.texto_alternativo, fila.nombre_universidad)
+      alt: altDeLogo(fila.texto_alternativo, fila.nombre_universidad),
+      nombre: nombreVisibleDeLogo(fila.nombre_corto, fila.nombre_universidad)
     }));
 }
 
@@ -116,6 +138,13 @@ function texto(valor: unknown): string {
   return typeof valor === 'string' ? valor.trim() : '';
 }
 
+/** Nombre corto del embed de universidades (objeto o arreglo de un elemento). */
+function nombreCortoUniversidad(rel: unknown): string {
+  const fila = Array.isArray(rel) ? rel[0] : rel;
+  if (!fila || typeof fila !== 'object') return '';
+  return texto((fila as { nombre_corto?: unknown }).nombre_corto);
+}
+
 /** El embed de PostgREST puede venir como objeto o como arreglo de un elemento. */
 function nombreUniversidad(rel: unknown): string {
   const fila = Array.isArray(rel) ? rel[0] : rel;
@@ -132,7 +161,8 @@ function filaDesdeTabla(row: Record<string, unknown>): FilaLogoAliada {
     texto_alternativo: texto(row.texto_alternativo),
     es_principal: row.es_principal === true,
     orden: Number.isFinite(orden) ? orden : 0,
-    nombre_universidad: nombreUniversidad(row.universidad)
+    nombre_universidad: nombreUniversidad(row.universidad),
+    nombre_corto: nombreCortoUniversidad(row.universidad)
   };
 }
 

@@ -7,6 +7,7 @@ import { idsAliadasDesdeEnv } from './aliadas';
 import {
   altDeLogo,
   armarLogosAliadas,
+  nombreVisibleDeLogo,
   bucketLogosAliadas,
   logosOVacios,
   urlPublicaLogo,
@@ -94,11 +95,13 @@ describe('logos de aliadas', { concurrency: 1 }, () => {
       assert.deepEqual(logos, [
         {
           url: 'https://cdn.test/storage/v1/object/public/logos-aliadas/poli/logo.svg',
-          alt: 'Politécnico Grancolombiano'
+          alt: 'Politécnico Grancolombiano',
+          nombre: 'Politécnico Grancolombiano'
         },
         {
           url: 'https://cdn.test/storage/v1/object/public/logos-aliadas/areandina/principal.svg',
-          alt: 'Logo Areandina'
+          alt: 'Logo Areandina',
+          nombre: 'Areandina'
         }
       ]);
     } finally {
@@ -143,5 +146,20 @@ describe('logos de aliadas', { concurrency: 1 }, () => {
       if (previa === undefined) delete process.env.SUPABASE_LOGOS_BUCKET;
       else process.env.SUPABASE_LOGOS_BUCKET = previa;
     }
+  });
+
+  /* Areandina (19/10/2026): su archivo es solo el símbolo → el nombre en texto siempre viaja con el logo */
+  it('cada logo trae nombre visible: corto primero, oficial de respaldo', () => {
+    assert.equal(nombreVisibleDeLogo('Areandina', 'Fundación Universitaria del Área Andina'), 'Areandina');
+    assert.equal(nombreVisibleDeLogo('  ', 'Fundación Universitaria del Área Andina'), 'Fundación Universitaria del Área Andina');
+    assert.equal(nombreVisibleDeLogo(null, undefined), '');
+    const [logo] = armarLogosAliadas(
+      [fila({ universidad_id: AREANDINA, url_storage: 'a/logo.svg', es_principal: true, nombre_universidad: 'Fundación Universitaria del Área Andina', nombre_corto: 'Areandina' })],
+      [AREANDINA],
+      publicar,
+      'logos-aliadas'
+    );
+    assert.equal(logo.nombre, 'Areandina');
+    assert.equal(logo.alt, 'Fundación Universitaria del Área Andina');
   });
 });
