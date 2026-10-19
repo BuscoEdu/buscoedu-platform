@@ -97,7 +97,7 @@ Todos los caminos públicos filtran la oferta por activo + publicado + validado 
 4. `20261019_carga_aliadas_1_bucket_deshacer.sql` (solo si el bucket está vacío).
 
 ### Pendientes
-- **Logos:** el bucket existe, pero los 4 archivos (`/workspace/aliadas-assets/…`) no se subieron. Subir objetos requiere la Storage API con credencial de servicio y BD no la usa. Después de subirlos con las rutas `poli/logo.svg`, `areandina/logo.svg`, `unir/logo.svg` y `asturias/logo-web.png`, correr el Bloque 3 del paso 2 del 17/10 (solo inserta si el objeto existe).
+- **Logos:** el bucket existe, pero los 4 archivos (`/workspace/aliadas-assets/…`) no se subieron. Subir objetos requiere la Storage API con credencial de servicio y BD no la usa. Después de subirlos con las rutas `poli/logo.svg`, `areandina/logo.svg`, `unir/logo.svg` y `asturias/logo-web.png`, ~~correr el Bloque 3 del paso 2 del 17/10~~ **OBSOLETO (19/10): no correr; Backend registra los logos con `scripts/subir-logos-aliadas.mjs` y ruta `{universidad_id}/logo.{ext}`.**
 - **`NEXT_PUBLIC_ALIADAS_IDS`** en Vercel: `6069f39d-6bd2-5991-b922-24e58ac7137a,53f1c6bc-3e06-5b8d-91e0-6ed8b25b5998,79de384c-1c32-5c80-b5c0-70a12a7fa79d,031ff5d5-fc68-519c-88d7-bd37765715b1`. Sin ella, la búsqueda por nombre en `aliadas.ts` también encuentra las 4 (y Unired demo, que ya no tiene ofertas visibles).
 - ⚠ `vigente_hasta` de las 291 está entre 2026-11-07 y 2026-12-31: el 01/01/2027 no queda ninguna visible si no se renueva antes.
 - `modelo_negocio` NULL en las ofertas reales (el código asume `por_inscrito`).

@@ -277,7 +277,9 @@ HAVING r.ofertas_visibles <> count(o.id) FILTER (WHERE o.activo AND o.estado_pub
        AND (o.vigente_hasta IS NULL OR o.vigente_hasta >= current_date));
 
 -- ---------------------------------------------------------------------
--- Bloque 3 · Logos (correr SOLO después de: bucket SQL 20261007 bloques 0→1→2
+-- Bloque 3 · Logos · ⚠ OBSOLETO desde 2026-10-19: NO CORRER. Lo reemplaza scripts/subir-logos-aliadas.mjs
+--   (Backend, ruta {universidad_id}/logo.{ext}). Se deja solo como historia.
+-- (Original: correr SOLO después de: bucket SQL 20261007 bloques 0→1→2
 -- + subir los 4 archivos al bucket logos-aliadas con estas rutas exactas:
 --   poli/logo.svg · areandina/logo.svg · unir/logo.svg · asturias/logo-web.png)
 -- Solo inserta el logo si el archivo ya está en el bucket (si falta uno, ese no se registra).

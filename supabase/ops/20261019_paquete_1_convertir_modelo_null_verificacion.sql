@@ -11,8 +11,8 @@ WITH f AS (SELECT p.oid, pg_get_functiondef(p.oid) AS def, p.prosecdef, p.procon
 SELECT 'A1 modelo sin coalesce' AS chequeo,
        CASE WHEN def LIKE '%v_modelo          := v_oferta.modelo_negocio;%'
              AND def NOT LIKE '%coalesce(v_oferta.modelo_negocio, ''por_inscrito'')%' THEN '✓' ELSE '✗' END AS r FROM f
-UNION ALL SELECT 'A2 asesor si no es por_lead',
-       CASE WHEN def LIKE '%IF v_modelo IS DISTINCT FROM ''por_lead'' THEN%' THEN '✓' ELSE '✗' END FROM f
+UNION ALL SELECT 'A2 asesor con NULL o por_inscrito',
+       CASE WHEN def LIKE '%IF v_modelo IS NULL OR v_modelo = ''por_inscrito'' THEN%' THEN '✓' ELSE '✗' END FROM f
 UNION ALL SELECT 'A3 transferencia solo por_lead',
        CASE WHEN def LIKE '%IF v_modelo = ''por_lead'' THEN%' THEN '✓' ELSE '✗' END FROM f
 UNION ALL SELECT 'A4 SECURITY DEFINER', CASE WHEN prosecdef THEN '✓' ELSE '✗' END FROM f
@@ -34,8 +34,10 @@ UNION ALL SELECT 'C2 CHECK del snapshot admite NULL',
        CASE WHEN (SELECT pg_get_constraintdef(oid) FROM pg_constraint
                   WHERE conname='oportunidades_modelo_negocio_snapshot_check') ILIKE '%IS NULL%' THEN '✓' ELSE '✗' END;
 
--- Bloque D · Ensayo revertido con una oferta real visible de modelo NULL.
--- Esperado en el mensaje: ok=true snapshot=NULL asesor=✓ transferencias=0 (es_facturable no aplica).
+-- Bloque D · Caso NULL en transacción revertida (DO que SIEMPRE termina en RAISE).
+-- Sin datos personales reales: la persona es ficticia (celular +570000019101, «Ensayo BD»).
+-- Usa como referencia una oferta visible de aliada con modelo NULL (no se modifica; todo se revierte).
+-- Esperado en el mensaje: ok=true snapshot=NULL asesor=✓ facturables=0 → ✓.
 DO $ensayo$
 DECLARE v_oferta uuid; v_res jsonb; v_cons jsonb; v_snap text; v_asesor uuid; v_transf int;
 BEGIN
@@ -55,9 +57,10 @@ BEGIN
     'consentimientos', v_cons));
   SELECT modelo_negocio_snapshot, asesor_asignado_id INTO v_snap, v_asesor
     FROM public.oportunidades WHERE id = nullif(v_res->>'oportunidad_id','')::uuid;
+  -- es_facturable=false: no debe existir ninguna transferencia facturable para esa oportunidad
   SELECT count(*) INTO v_transf FROM public.transferencias_universidad
-   WHERE oportunidad_id = nullif(v_res->>'oportunidad_id','')::uuid;
-  RAISE EXCEPTION 'ENSAYO_REVERTIDO ok=% snapshot=% asesor=% transferencias=% → %',
+   WHERE oportunidad_id = nullif(v_res->>'oportunidad_id','')::uuid AND es_facturable IS TRUE;
+  RAISE EXCEPTION 'ENSAYO_REVERTIDO ok=% snapshot=% asesor=% facturables=% → %',
     v_res->>'ok', coalesce(v_snap,'NULL'), CASE WHEN v_asesor IS NOT NULL THEN '✓' ELSE '✗' END, v_transf,
     CASE WHEN (v_res->>'ok')::boolean AND v_snap IS NULL AND v_asesor IS NOT NULL AND v_transf = 0
          THEN '✓' ELSE '✗ ' || v_res::text END;

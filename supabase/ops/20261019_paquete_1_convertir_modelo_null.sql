@@ -6,7 +6,7 @@
 --   función lo convertía en 'por_inscrito' (invento de un modelo comercial).
 -- Qué cambia (3 líneas, el resto es copia exacta de BA-041):
 --   1. v_modelo := v_oferta.modelo_negocio (sin coalesce).
---   2. Asesor: se asigna si el modelo NO es por_lead (por_inscrito o NULL).
+--   2. Asesor: IF v_modelo IS NULL OR v_modelo = 'por_inscrito' (antes solo por_inscrito).
 --   3. Comentario de la función. Transferencia y es_facturable: solo por_lead (igual que antes),
 --      así que con NULL no hay transferencia ni nada facturable.
 -- Destinos que reciben v_modelo: oportunidades.modelo_negocio_snapshot (nullable; CHECK admite NULL),
@@ -287,8 +287,8 @@ BEGIN
 
   -- Asesor activo de menor carga; fallback super_admin.
   -- Paquete 20261019: también se asigna asesor cuando el modelo es NULL (sin definir),
-  -- decisión de Producto. Solo por_lead queda sin asesor (como antes).
-  IF v_modelo IS DISTINCT FROM 'por_lead' THEN
+  -- decisión de Producto. por_lead sigue sin asesor (como antes).
+  IF v_modelo IS NULL OR v_modelo = 'por_inscrito' THEN
     SELECT ui.id INTO v_asesor_id
     FROM public.usuarios_internos ui
     JOIN public.roles r ON r.id = ui.rol_id
