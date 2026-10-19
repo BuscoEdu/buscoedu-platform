@@ -28,7 +28,7 @@ import { filtrosDesdeTexto as filtrosBusqueda, filtrosVacios } from './busqueda'
 import * as C from './copy';
 import { clasificarTexto, esRevocacion, NO_CONSENTIMIENTO, SALUDOS, SI_CONSENTIMIENTO } from './intenciones';
 import * as M from './mensajes';
-import { armarFicha, armarResultados, PROGRAMAS_POR_PAGINA } from './presentacion';
+import { armarFicha, armarResultados, armarResultadosTexto, PROGRAMAS_POR_PAGINA } from './presentacion';
 import type { LimitadorTasa } from './rate-limit';
 import type {
   AlmacenWhatsApp,
@@ -721,18 +721,8 @@ async function enviarListaResultados(
     filas: armado.filas,
     ...(armado.pie ? { pie: armado.pie } : {})
   });
-  if (r === 'fallo') await enviarTexto(contacto, deps, textoRespaldoResultados(agrupadas, total, pagina));
-}
-
-/** Respaldo si la lista interactiva falla: top 3, sin URLs, ≤600 caracteres (C-39). */
-export function textoRespaldoResultados(ofertas: OfertaAgrupadaWa[], total: number, pagina: number): string {
-  const desde = pagina * PROGRAMAS_POR_PAGINA;
-  const lineas = ofertas.slice(0, 3).map((o, i) => {
-    const lugar = o.ciudades.length > 1 ? `${o.ciudades[0]} +${o.ciudades.length - 1} ciudades` : o.ciudades[0] || '';
-    return `${desde + i + 1}. *${o.nombre.slice(0, 80)}*\n${[o.universidad, o.modalidad, lugar].filter(Boolean).join(' · ').slice(0, 72)}`;
-  });
-  const mas = total > desde + 3 ? ' o escribe *más*' : '';
-  return `Encontré ${total} programas vigentes:\n${lineas.join('\n')}\nEscribe el número para ver la ficha${mas}.`.slice(0, 600);
+  // Respaldo FE (top 3 ≤600, «escribe *más*» solo si hay otra página), nunca el bloque de 8 fichas.
+  if (r === 'fallo') await enviarTexto(contacto, deps, armarResultadosTexto(agrupadas, total, pagina, etiqueta));
 }
 
 function aAgrupada(o: OfertaWa): OfertaAgrupadaWa {

@@ -15,9 +15,9 @@ import { leerConfigWhatsApp } from './config';
 import { crearClienteGraph, WhatsAppApiError } from './graph-client';
 import type { EnviadorWhatsApp } from './graph-client';
 import { clasificarTexto } from './intenciones';
-import { PATRON_NOMBRE, procesarMensajeEntrante, textoRespaldoResultados } from './orquestador';
+import { PATRON_NOMBRE, procesarMensajeEntrante } from './orquestador';
 import type { DependenciasOrquestador } from './orquestador';
-import { armarFicha, armarResultados } from './presentacion';
+import { armarFicha, armarResultados, armarResultadosTexto } from './presentacion';
 import { crearLimitadorMemoria } from './rate-limit';
 import { crearEnviadorSimulado } from './simulador';
 import type { CatalogoWa, FiltrosBusquedaWa, OfertaAgrupadaWa, OfertaWa } from './tipos';
@@ -189,8 +189,9 @@ describe('Ola 1/2 · límites Meta/FE (C-38, C-40, C-07, C-17, C-39)', () => {
     assert.equal(e.enviados.filter((x) => x.tipo === 'texto' && /Encontré/.test(x.contenido)).length, 0, 'sin bloque largo duplicado');
   });
 
-  it('si la lista falla → texto top 3 ≤600 con «escribe *más*», nunca el bloque de 8', async () => {
-    const e = entorno({ resultados: () => Array.from({ length: 8 }, (_, i) => oferta(i)) });
+  it('si la lista falla → texto top 3 ≤600 con «escribe *más*» (hay página 2), nunca el bloque de 8', async () => {
+    // 12 programas: existe otra página, por eso sí se ofrece «más» (con exactamente 8 no habría).
+    const e = entorno({ resultados: () => Array.from({ length: 12 }, (_, i) => oferta(i)) });
     await aceptado(e);
     e.fallarLista();
     await e.texto('quiero estudiar psicología');
@@ -199,7 +200,7 @@ describe('Ola 1/2 · límites Meta/FE (C-38, C-40, C-07, C-17, C-39)', () => {
     assert.ok(t.contenido.length <= 600);
     assert.match(t.contenido, /escribe \*más\*/);
     assert.equal((t.contenido.match(/^\d+\. /gm) || []).length, 3);
-    const largo = textoRespaldoResultados(Array.from({ length: 3 }, (_, i) => ({ ...oferta(i), nombre: 'N'.repeat(300) }) as OfertaAgrupadaWa), 50, 0);
+    const largo = armarResultadosTexto(Array.from({ length: 3 }, (_, i) => ({ ...oferta(i), nombre: 'N'.repeat(300) }) as OfertaAgrupadaWa), 50, 0);
     assert.ok(largo.length <= 600);
   });
 
