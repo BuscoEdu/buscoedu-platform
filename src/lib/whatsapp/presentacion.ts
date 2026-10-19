@@ -391,9 +391,11 @@ export function armarFicha(oferta: OfertaAgrupadaWa): { cuerpo: string; botones:
       .filter(Boolean)
       .join(' · ');
     const beneficio = limpiar(oferta.beneficio) && maxBeneficio > 0 ? t16ConBeneficio(cortarPorPalabra(oferta.beneficio!, maxBeneficio)) : '';
+    // WA-fix-1 (MEDIA) · precio publicable de BE si viene; si no, T17 (nunca un precio inventado).
+    const precio = limpiar(oferta.texto_precio) || T17_PRECIO;
     // WA-fix-1b · S13 · duración del catálogo si viene (mismo rótulo «Duración:» que la ficha web).
     const duracion = limpiar(oferta.duracion) ? `Duración: ${limpiar(oferta.duracion)}` : '';
-    return [`*${cortarPorPalabra(oferta.nombre, maxNombre)}*`, detalle, duracion, beneficio, T17_PRECIO, url ? `${T09B_MAS_INFORMACION} ${url}` : '']
+    return [`*${cortarPorPalabra(oferta.nombre, maxNombre)}*`, detalle, duracion, beneficio, precio, url ? `${T09B_MAS_INFORMACION} ${url}` : '']
       .filter(Boolean)
       .join('\n');
   };

@@ -59,6 +59,8 @@ export function agruparPorPrograma(items: OfertaAcademica[]): OfertaWa[] {
       ...(item.programa?.codigo_snies ? { snies: item.programa.codigo_snies } : {}),
       // WA-fix-1b · S13 · duración del catálogo (si viene) para la ficha.
       ...(item.programa?.duracion ? { duracion: item.programa.duracion } : {}),
+      // Precio publicable (puerta precios-publicos); sin él la ficha usa T17.
+      ...(item.texto_precio ? { texto_precio: item.texto_precio } : {}),
       url: urlFicha(nombrePrograma)
     });
   }

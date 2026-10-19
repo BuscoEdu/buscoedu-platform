@@ -35,6 +35,8 @@ export interface OfertaWa {
   snies?: string;
   /** WA-fix-1b (S13): duración del programa tal como la trae el catálogo («8 semestres»); vacío → no se muestra. */
   duracion?: string;
+  /** WA-fix-1 (MEDIA): precio publicable ya formateado por BE («Precio: $4.316.000 COP por semestre»); vacío → T17. */
+  texto_precio?: string;
 }
 
 /** Forma agrupada que consume presentacion.ts (contrato FE). */

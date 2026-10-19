@@ -13,8 +13,8 @@ import { leerConfigWhatsApp } from './config';
 import { WhatsAppApiError } from './graph-client';
 import type { EnviadorWhatsApp } from './graph-client';
 import { clasificarTexto } from './intenciones';
-import { accionEscrita, partirNombre, procesarMensajeEntrante, respuestaAutorizacionEscrita } from './orquestador';
-import { buscarProgramasPaginado } from './catalogo-supabase';
+import { accionEscrita, filasMenuAreas, partirNombre, procesarMensajeEntrante, respuestaAutorizacionEscrita } from './orquestador';
+import { agruparPorPrograma, buscarProgramasPaginado } from './catalogo-supabase';
 import { armarFicha, armarResultados, pieResultados, tituloFila } from './presentacion';
 import type { OfertaAcademica } from '@/src/lib/ofertas';
 import type { DependenciasOrquestador } from './orquestador';
@@ -242,7 +242,9 @@ describe('WA-fix-1', () => {
     const e = entorno({ resultados: () => muchas });
     await aceptado(e);
     await e.texto('maestría');
-    assert.equal(e.ultimo().contenido, 'Encontré 25 programas. Para acotar, escribe un área: Ingeniería (13), Salud (12)…');
+    // v1.8: menú de áreas como lista interactiva (antes texto tOfrecerAreas).
+    assert.equal(e.ultimo().tipo, 'lista');
+    assert.equal(e.ultimo().contenido, 'Encontré 25 programas. Elige un área para ver los suyos 👇');
     // Máx 5 áreas, de mayor a menor, solo las que vienen en los resultados.
     const varias = ['A', 'B', 'B', 'C', 'C', 'C', 'D', 'E', 'F', 'F'].map((area) => ({ area }));
     assert.deepEqual(C.contarAreas([...varias, {}]).map((a) => `${a.area}${a.cantidad}`), ['C3', 'B2', 'F2', 'A1', 'D1']);
@@ -476,7 +478,7 @@ describe('WA-fix-1b', () => {
     assert.doesNotMatch(sin.cuerpo, /Duración/);
   });
 
-  it('S12 · frase sin término del catálogo («ayudar gente») con 0 resultados → T02 + menú, no T11 roto', async () => {
+  it('S12 · sin áreas en el catálogo: frase vaga («ayudar gente») → T02, nombre suelto → T11', async () => {
     const e = entorno({ modo: 'vacio' });
     await aceptado(e);
     await e.texto('ayudar gente');
@@ -494,5 +496,109 @@ describe('WA-fix-1b', () => {
     await e.texto('no entiendo');
     assert.equal(e.ultimo().contenido, C.T10_REPETIDO);
     assert.deepEqual(e.ultimo().extra, C.BOTONES_ASESOR_O_BUSCAR);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Copy v1.8 (2026-10-19) · «cancelar» por contexto + menú de áreas S12.
+// ---------------------------------------------------------------------------
+describe('Copy v1.8', () => {
+  async function enAplicar(e: ReturnType<typeof entorno>) {
+    await aceptado(e);
+    await e.texto('psicología');
+    const o = oferta(1);
+    await e.enviar({ tipo: 'lista', texto: 'x', respuestaId: `oferta:${o.id}` });
+    await e.boton(`aplicar:${o.id}`, 'Aplicar');
+    return o;
+  }
+
+  it('«cancelar» durante Aplicar → «Listo, no apliqué. Te dejo la lista de nuevo 👇» + última lista, sin lead', async () => {
+    const e = entorno();
+    await enAplicar(e);
+    const n = e.enviados.length;
+    await e.texto('Cancelar');
+    const nuevos = e.enviados.slice(n);
+    assert.equal(nuevos[0].contenido, 'Listo, no apliqué. Te dejo la lista de nuevo 👇');
+    assert.equal(nuevos[0].contenido, C.T_CANCELAR_APLICAR);
+    assert.equal(nuevos[1].tipo, 'lista');
+    assert.equal(e.contacto().sesion.aplicacion, null);
+    assert.equal(e.llamadasConversion.length, 0);
+  });
+
+  it('«cancelar» sin contexto → T_REEXPLICAR; con ficha abierta = [Ver otros]', async () => {
+    const e = entorno();
+    await aceptado(e);
+    await e.texto('cancelar');
+    assert.equal(e.ultimo().contenido, C.T_REEXPLICAR);
+    assert.equal(e.consultas.length, 0);
+    await e.texto('psicología');
+    await e.enviar({ tipo: 'lista', texto: 'x', respuestaId: `oferta:${oferta(1).id}` });
+    await e.texto('cancelar');
+    assert.equal(e.ultimo().tipo, 'lista');
+  });
+
+  it('[No, gracias] y «cancelar» al autorizar → 0 leads (consentimiento)', async () => {
+    for (const via of ['boton', 'cancelar'] as const) {
+      const e = entorno({ env: { WA_LEAD_CONVERSION_ENABLED: 'true' } });
+      const o = await enAplicar(e);
+      await e.texto('Ana Gómez');
+      await e.texto('OMITIR');
+      if (via === 'boton') await e.boton(`noautorizar:${o.id}`, 'No, gracias');
+      else await e.texto('cancelar');
+      assert.equal(e.ultimo().contenido, C.T22_NO, via);
+      assert.equal(e.llamadasConversion.length, 0, via);
+    }
+  });
+
+  it('S12 · filas del menú: máx 5 áreas por conteo desc, título ≤24, «{n} programas», sin 0 ni sin área, + «Escribir otra cosa»', () => {
+    const ofertas = [
+      ...Array(6).fill({ area: 'Ciencias Sociales y Humanidades' }), ...Array(5).fill({ area: 'Salud' }), ...Array(4).fill({ area: 'Ingeniería' }),
+      ...Array(3).fill({ area: 'Educación' }), ...Array(2).fill({ area: 'Arte' }), { area: 'Derecho' }, {}, {}
+    ];
+    const filas = filasMenuAreas(C.contarAreas(ofertas));
+    assert.equal(filas.length, 6);
+    assert.deepEqual(filas.slice(0, 5).map((f) => f.descripcion), ['6 programas', '5 programas', '4 programas', '3 programas', '2 programas']);
+    assert.equal(filas[0].titulo, 'Ciencias Sociales…');
+    assert.ok(filas.every((f) => f.titulo.length <= 24));
+    assert.deepEqual(filas.at(-1), { id: 'area:otra', titulo: 'Escribir otra cosa' });
+    assert.ok(!filas.some((f) => f.titulo === 'Derecho'));
+    assert.deepEqual(filasMenuAreas([{ area: 'X', cantidad: 0 }]), [{ id: 'area:otra', titulo: 'Escribir otra cosa' }]);
+    assert.equal(C.BOTON_VER_AREAS, 'Ver áreas');
+  });
+
+  it('S12 · 0 resultados → menú de áreas del catálogo (sin repetir el texto); elegir área busca esa área; «Escribir otra cosa» → T02', async () => {
+    const catalogo = [oferta(1, { area: 'Salud' }), oferta(2, { area: 'Salud' }), oferta(3, { area: 'Ingeniería' }), oferta(4)];
+    const e = entorno({ resultados: (f) => (Object.keys(f).length === 0 ? catalogo : f.programa_o_area === 'Salud' ? catalogo.slice(0, 2) : []) });
+    await aceptado(e);
+    await e.texto('ayudar gente');
+    const menu = e.ultimo();
+    assert.equal(menu.tipo, 'lista');
+    assert.equal(menu.contenido, 'No encontré programas con esas palabras. Elige un área que te interese 👇');
+    assert.doesNotMatch(menu.contenido, /ayudar/);
+    assert.deepEqual(menu.extra.map((f: any) => f.id), ['area:Salud', 'area:Ingeniería', 'area:otra']);
+    assert.equal(menu.extra[0].descripcion, '2 programas');
+    await e.enviar({ tipo: 'lista', texto: 'Salud', respuestaId: 'area:Salud' });
+    assert.equal(e.consultas.at(-1)?.programa_o_area, 'Salud');
+    assert.equal(e.ultimo().tipo, 'lista');
+    assert.match(e.ultimo().contenido, /2 programas vigentes para «Salud»/);
+    await e.enviar({ tipo: 'lista', texto: 'Escribir otra cosa', respuestaId: 'area:otra' });
+    assert.equal(e.ultimo().contenido, C.T02_PEDIR);
+  });
+});
+
+// Bloque: MEDIA · precio en la ficha WA = texto_precio de BE o T17 (fixture Poli con y sin precio publicable).
+describe('Ficha WA · precio', () => {
+  const poli = (extra: Partial<OfertaWa> = {}) => ({ ...oferta(1, { universidad: 'Politécnico Grancolombiano', nombre: 'Contaduría Pública Medellín', ...extra }), programa_id: 'p', ciudades: ['Medellín'] });
+  it('Poli con texto_precio → «Precio: $4.316.000 COP por semestre», sin T17', () => {
+    const f = armarFicha(poli({ texto_precio: 'Precio: $4.316.000 COP por semestre' }));
+    assert.match(f.cuerpo, /\nPrecio: \$4\.316\.000 COP por semestre\n/);
+    assert.ok(!f.cuerpo.includes(C.T17_PRECIO));
+  });
+  it('Poli sin texto_precio → T17', () => {
+    assert.ok(armarFicha(poli()).cuerpo.includes(C.T17_PRECIO));
+  });
+  it('agruparPorPrograma conserva texto_precio del catálogo', () => {
+    const [o] = agruparPorPrograma([{ id: 'x', programa_id: 'p', nombre: 'Contaduría', texto_precio: 'Precio: $4.316.000 COP por semestre', universidad: { nombre: 'Politécnico Grancolombiano' } } as unknown as OfertaAcademica]);
+    assert.equal(o.texto_precio, 'Precio: $4.316.000 COP por semestre');
   });
 });

@@ -244,3 +244,21 @@ export const T_SIN_FILTRO_PRECIO =
 
 // Bloque: «Ver más» más allá del total (0 filas): fin de la lista, nunca error ni lista vacía.
 export const T_FIN_LISTA = 'Ya te mostré todos los programas de esta búsqueda. ¿Buscamos otra cosa?';
+
+// ---------------------------------------------------------------------------
+// Copy v1.8 (2026-10-19, CONGELADO) · «cancelar» por contexto + menú de áreas S12 (briefs/copy-bot-wa-v1.md).
+// ---------------------------------------------------------------------------
+
+// Bloque: «cancelar» durante Aplicar: se cierra sin aplicar y se reenvía la última lista.
+export const T_CANCELAR_APLICAR = 'Listo, no apliqué. Te dejo la lista de nuevo 👇';
+
+// Bloque: S12 · menú de áreas (lista interactiva). Nunca repite el texto del usuario.
+export function tMenuAreasMuchos(total: number): string {
+  return `Encontré ${total} programas. Elige un área para ver los suyos 👇`;
+}
+export const T_MENU_AREAS_SIN_RESULTADOS = 'No encontré programas con esas palabras. Elige un área que te interese 👇';
+export const BOTON_VER_AREAS = 'Ver áreas';
+export const FILA_ESCRIBIR_OTRA = 'Escribir otra cosa';
+export function tFilaAreaDescripcion(n: number): string {
+  return `${n} programas`;
+}

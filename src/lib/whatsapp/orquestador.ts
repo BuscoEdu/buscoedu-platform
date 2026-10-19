@@ -383,6 +383,8 @@ async function atender(
   if (aplicacion && accionEscrita(mensaje.texto) === 'cancelar') {
     if (aplicacion.paso === 'consentimiento') return gestionarRespuestaInteractiva(contacto, `noautorizar:${aplicacion.ofertaId}`, deps, ahora);
     contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, aplicacion: null, intentosNombre: 0, intentosCorreo: 0 } });
+    // Copy v1.8: aviso «Listo, no apliqué…» y luego la última lista.
+    await enviarTexto(contacto, deps, C.T_CANCELAR_APLICAR);
     return reenviarLista(contacto, deps, ahora);
   }
   if (aplicacion && (aplicacion.paso === 'datos_nombre' || aplicacion.paso === 'datos_correo')) {
@@ -422,6 +424,11 @@ async function atenderTextoLibre(
   // «cancelar» con ficha abierta = botón [Ver otros]: vuelve a la lista, sin guardar ni aplicar.
   if (accion === 'cancelar' && fichaAbiertaVigente(contacto, ahora)) {
     return gestionarRespuestaInteractiva(contacto, 'menu:volver', deps, ahora);
+  }
+  // Copy v1.8 · «cancelar» sin ficha ni aplicación: no hay nada que cancelar → re-explicación (T_REEXPLICAR).
+  if (accion === 'cancelar') {
+    await enviarBotones(contacto, deps, C.T_REEXPLICAR, C.BOTONES_MENU);
+    return 'respondido';
   }
   // Bloque: S16 · «no entiendo» del estudiante: re-explicación con ejemplo (no el T10 genérico).
   // WA-fix-1b: la 2.ª seguida no repite el mismo texto; escala con T10_REPETIDO (B2) y botón de asesor.
@@ -820,6 +827,9 @@ async function buscarYMostrar(
     // Bloque: WA-fix-1b · S12 · texto sin ningún término del catálogo («ayudar gente», «autorizo»): T11 con esa
     // frase se leía roto («no tengo programas con «ayudar gente»»). Se pide de nuevo qué estudiar con el
     // ejemplo de área de T02 y el menú. Si la frase sí tenía un término reconocido, sigue T11.
+    // Copy v1.8 · 0 resultados → menú de áreas del catálogo (sin repetir el texto del usuario). Si el
+    // catálogo no da áreas, frase vaga → T02; nombre concreto → T11 (como antes).
+    if (await enviarMenuAreasCatalogo(contacto, deps)) return 'respondido';
     if (sinTerminoReconocido(filtros)) {
       await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
       return 'respondido';
@@ -854,10 +864,50 @@ async function buscarYMostrar(
   await enviarListaResultados(contacto, deps, pag, resultado.total, pagina, etiqueta);
   // Bloque: S12 · más de 20 programas → se ofrecen áreas para acotar (solo si hay 2+ áreas distintas).
   if (pagina === 0 && resultado.total > 20) {
+    // Copy v1.8 · ahora es lista interactiva «Ver áreas» (antes texto tOfrecerAreas).
     const areas = C.contarAreas(resultado.ofertas);
-    if (areas.length >= 2) await enviarTexto(contacto, deps, C.tOfrecerAreas(resultado.total, areas));
+    if (areas.length >= 2) await enviarMenuAreas(contacto, deps, C.tMenuAreasMuchos(resultado.total), areas);
   }
   return 'respondido';
+}
+
+/*
+ * Bloque: copy v1.8 · S12 · menú de áreas (lista interactiva).
+ * Qué: botón «Ver áreas», máx. 5 filas `area:{área}` (título = área ≤24, descripción «{n} programas»), de mayor
+ * a menor, + fila `area:otra` «Escribir otra cosa». contarAreas ya excluye programas sin área y áreas en 0.
+ * Por qué: «no tengo con «ayudar gente»» repetía el texto del usuario y no orientaba.
+ */
+export function filasMenuAreas(areas: Array<{ area: string; cantidad: number }>): FilaLista[] {
+  const filas = areas
+    .filter((a) => a.area && a.cantidad > 0)
+    .slice(0, 5)
+    .map((a) => ({ id: `area:${a.area}`.slice(0, 200), titulo: cortarArea(a.area), descripcion: C.tFilaAreaDescripcion(a.cantidad) }));
+  return [...filas, { id: 'area:otra', titulo: C.FILA_ESCRIBIR_OTRA }];
+}
+
+// Título de fila ≤24 sin partir palabras (áreas largas: «Ciencias Sociales y Humanidades» → «Ciencias Sociales…»).
+function cortarArea(area: string): string {
+  if (area.length <= 24) return area;
+  const palabras = area.slice(0, 23).split(' ');
+  if (palabras.length > 1) palabras.pop();
+  while (palabras.length > 1 && /^(y|e|de|del|la|el|en)$/i.test(palabras[palabras.length - 1])) palabras.pop();
+  return `${palabras.join(' ')}…`;
+}
+
+async function enviarMenuAreas(contacto: ContactoWa, deps: DependenciasOrquestador, cuerpo: string, areas: Array<{ area: string; cantidad: number }>) {
+  const filas = filasMenuAreas(areas);
+  if (filas.length < 2) return false;
+  const r = await enviarLista(contacto, deps, { cuerpo, textoBoton: C.BOTON_VER_AREAS, tituloSeccion: C.BOTON_VER_AREAS, filas });
+  return r !== 'fallo';
+}
+
+// 0 resultados: las áreas salen del catálogo completo (filtros vacíos); si falla, false y sigue el texto de antes.
+async function enviarMenuAreasCatalogo(contacto: ContactoWa, deps: DependenciasOrquestador): Promise<boolean> {
+  const todo = await buscarConTimeout(deps, {});
+  if (!todo.ok) return false;
+  const areas = C.contarAreas(todo.ofertas);
+  if (areas.length === 0) return false;
+  return enviarMenuAreas(contacto, deps, C.T_MENU_AREAS_SIN_RESULTADOS, areas);
 }
 
 // Bloque: S12 · la búsqueda solo trae texto libre (sin ciudad, modalidad, nivel ni término canónico).
@@ -970,6 +1020,17 @@ async function gestionarRespuestaInteractiva(
     // Ya hay consentimiento: un toque repetido no cambia nada.
     await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
     return 'respondido';
+  }
+
+  // Bloque: copy v1.8 · fila del menú de áreas: área → programas de esa área (misma búsqueda por área del
+  // respaldo S5); «Escribir otra cosa» → T02_PEDIR.
+  if (accion === 'area') {
+    const area = respuestaId.slice('area:'.length);
+    if (!area || area === 'otra') {
+      await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
+      return 'respondido';
+    }
+    return buscarYMostrar(contacto, deps, ahora, { filtros: { programa_o_area: area }, etiqueta: area, pagina: 0 });
   }
 
   // Bloque: botones de menú del flujo (copy.ts).
