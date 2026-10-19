@@ -241,8 +241,8 @@ export function armarResultados(
  * Bloque 8 · armarResultadosTexto (respaldo si la lista falla, C-39).
  * Qué: top 3 en texto plano ≤600, sin URLs, numerado como la lista, con «escribe *más*» solo si
  * hay página siguiente.
- * Por qué: si Meta rechaza la lista, el usuario igual puede elegir por número. Es una exportación
- * nueva: hoy el orquestador usa su propio textoRespaldoResultados (BE decide si cambia).
+ * Por qué: si Meta rechaza la lista, el usuario igual puede elegir por número. El orquestador
+ * (BE) la usa como único respaldo de texto desde PR #69; reemplazó a textoRespaldoResultados.
  * ──────────────────────────────────────────────────────────────────────────── */
 
 export function armarResultadosTexto(ofertasAgrupadas: OfertaAgrupadaWa[], total: number, pagina: number, consulta = ''): string {
