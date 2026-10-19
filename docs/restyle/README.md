@@ -218,3 +218,5 @@ Look y accesibilidad. El funnel (Aplicar, OTP, consentimiento, conversión) no c
 - Cruzar los colores reales de Sergio Arboleda, UNIR y Asturias con el índigo. Si alguna usa índigo o morado, reevaluar (fallback B del plan).
 - Lead Center: solo comprobar que sigue operable. No lleva sombra dura ni ilustraciones.
 - Testimonios: no van hasta tener textos reales y autorizados.
+
+| 2026-10-19 | WA-fix-1 · ficha Explorar muestra precio: bloque «Precio» en `OfferDetailModal.tsx` (antes de Vigencia) que pinta `oferta.texto_precio` (formateador único en BE, decisión Orq) o T17 si no viene | Prod mostraba 0 montos con 94 precios publicables (nadie los leía/pintaba); copy v1.7 congelado (Producto + Orq). Tarjeta sin precio = P2 | Frontend BuscoEdu (bot) |
