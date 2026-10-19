@@ -1,0 +1,128 @@
+{
+ "tablas": {
+  "sedes": {
+   "n": 50,
+   "md5": "050d50a5adc7769ad1dbe60250408fe6"
+  },
+  "universidades": {
+   "n": 10,
+   "md5": "924e31e035e38192a03755eff36f8a35"
+  },
+  "precios_oferta": {
+   "n": 720,
+   "md5": "96d7223d6fec7dde2a5788009920b3ff"
+  },
+  "cargas_catalogo": {
+   "n": 0,
+   "md5": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "storage_buckets": {
+   "n": 0,
+   "ids": null
+  },
+  "ofertas_academicas": {
+   "n": 500,
+   "md5": "bd02a178f52ce3040755aba7fa908263"
+  },
+  "periodos_academicos": {
+   "n": 50,
+   "md5": "fc68346e8174f97fb677b8c2673a02da"
+  },
+  "imagenes_universidad": {
+   "n": 0,
+   "md5": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "programas_academicos": {
+   "n": 500,
+   "md5": "016e46cf1751377680301dab5e9cd216"
+  }
+ },
+ "tomado_en": "2026-10-19T14:19:50.699616+00:00",
+ "visibles_criterio": 500,
+ "demo_universidades": [
+  {
+   "id": "aaaaaaaa-0001-0000-0000-000000000001",
+   "activo": true,
+   "es_demo": true,
+   "estado_alianza": "aliada",
+   "estado_validacion": "validado",
+   "estado_publicacion": "publicado"
+  },
+  {
+   "id": "aaaaaaaa-0002-0000-0000-000000000001",
+   "activo": true,
+   "es_demo": true,
+   "estado_alianza": "aliada",
+   "estado_validacion": "validado",
+   "estado_publicacion": "publicado"
+  },
+  {
+   "id": "aaaaaaaa-0003-0000-0000-000000000001",
+   "activo": true,
+   "es_demo": true,
+   "estado_alianza": "aliada",
+   "estado_validacion": "validado",
+   "estado_publicacion": "publicado"
+  },
+  {
+   "id": "aaaaaaaa-0004-0000-0000-000000000001",
+   "activo": true,
+   "es_demo": true,
+   "estado_alianza": "aliada",
+   "estado_validacion": "validado",
+   "estado_publicacion": "publicado"
+  },
+  {
+   "id": "aaaaaaaa-0005-0000-0000-000000000001",
+   "activo": true,
+   "es_demo": true,
+   "estado_alianza": "aliada",
+   "estado_validacion": "validado",
+   "estado_publicacion": "publicado"
+  },
+  {
+   "id": "aaaaaaaa-0006-0000-0000-000000000001",
+   "activo": true,
+   "es_demo": true,
+   "estado_alianza": "aliada",
+   "estado_validacion": "validado",
+   "estado_publicacion": "publicado"
+  },
+  {
+   "id": "aaaaaaaa-0007-0000-0000-000000000001",
+   "activo": true,
+   "es_demo": true,
+   "estado_alianza": "aliada",
+   "estado_validacion": "validado",
+   "estado_publicacion": "publicado"
+  },
+  {
+   "id": "aaaaaaaa-0008-0000-0000-000000000001",
+   "activo": true,
+   "es_demo": true,
+   "estado_alianza": "aliada",
+   "estado_validacion": "validado",
+   "estado_publicacion": "publicado"
+  },
+  {
+   "id": "aaaaaaaa-0009-0000-0000-000000000001",
+   "activo": true,
+   "es_demo": true,
+   "estado_alianza": "aliada",
+   "estado_validacion": "validado",
+   "estado_publicacion": "publicado"
+  },
+  {
+   "id": "aaaaaaaa-0010-0000-0000-000000000001",
+   "activo": true,
+   "es_demo": true,
+   "estado_alianza": "aliada",
+   "estado_validacion": "validado",
+   "estado_publicacion": "publicado"
+  }
+ ],
+ "demo_ofertas_distribucion": {
+  "true/publicado/validado": 500
+ },
+ "demo_ofertas_md5_visibilidad": "5906df4f759da9f67a7999a463e71bd1"
+}

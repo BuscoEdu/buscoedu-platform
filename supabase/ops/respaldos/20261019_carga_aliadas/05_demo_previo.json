@@ -1,0 +1,3002 @@
+[
+ {
+  "activo": true,
+  "oferta_id": "0072396b-f27e-4be5-8ab7-0e8fbf97c113",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "00841f27-a0d6-4e8c-8dff-bf20a284ae58",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "03481e08-a438-4d1c-979e-56917cd9ff0d",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "03835d3d-d7e2-4c88-b4c3-0473e696a18c",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "03b27e50-76e4-4e90-9222-ab7e80f964ae",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "04d98f5d-b2ed-47df-a59d-76ba457325c1",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "05286dcb-a4c9-4d1e-88dd-6bc15d5da5db",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "05e7622f-e9ca-4876-ac27-551e7fb6bd3a",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "061bb4ea-5d4d-462c-9bf9-7445edcf3bbd",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0726fd33-52fd-4c65-a43a-30cf15c89efe",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "07ffd2c5-366e-4413-bccf-3cf755199408",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "087720d0-cc15-441c-85d4-ad9b4cb60283",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "087957d6-c368-47c4-9bcd-7b53046e87a1",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0894daa1-0ab0-4a9d-a2ca-994f22a6aa2b",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "09260e79-ce13-4ee1-b6d0-3de8a5317388",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "09f3fe72-76d8-419b-968d-ac86c94f4ee0",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0a9c26c1-e3f9-4556-810d-a6b783c762b0",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0a9ce681-86df-4cd2-b6cb-2f187b559f6d",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0aa1f314-3ef7-48b8-836e-ab6be57f271b",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0c3a52d1-fde6-4d80-8ece-f8596fef546f",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0c5ce588-e653-447c-aa7d-d9ed5bd3adf0",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0ca1e67b-b2d0-413b-916f-27e285006a90",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0d72c834-2a8c-4b10-99d6-a1766c55f5c8",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0d9c415c-d15e-41b4-ad5d-9056a5558b37",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0ee3d365-847c-44e0-9702-74d8895c1459",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0f2d0832-7651-44a1-9d7b-d9b3b898e470",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0f467b35-c231-4880-84b1-cee4e7a0a044",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0f7344fc-a0c1-48da-8e58-094f78cfe72e",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0f8c59cb-9599-485c-8948-f8d0ca0a879f",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "0f934771-8710-45df-a539-7d921bc4b5a6",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "1068b66a-07af-4021-b686-52a6fb6cb371",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "10bb86e8-b760-424d-8fc4-426989da951f",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "10ce5dd4-9065-47a7-b087-ffa1e597e230",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "10d4fde6-ef51-41fe-8135-4f4613ad7e35",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "115951df-81da-4964-b9b7-85d241e63ac0",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "120d7420-1ad8-4caa-8f42-56aaf3223794",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "12169aa6-fa4a-448c-bec0-3806ecae6985",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "12df611e-f77a-499d-b103-0ec91db61391",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "13344c5a-e8bc-40cc-b02c-ad5ff4b309fa",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "138d1de3-1559-4bd4-83a6-bc26b99acdf7",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "15943d78-3808-46bd-bf21-aaa5c23bc505",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "15b16330-5435-4491-8167-e53936455081",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "15d35698-1a85-4ebe-9fc9-e3c2faec4810",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "15e2ee31-086e-48c8-be23-6edc0c49a686",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "15f5e41b-768e-460c-a665-5fc97475af21",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "1612926a-16f8-4b09-bbca-c9ab42082785",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "1685b4b0-33f6-487b-8be1-fead02bcccd9",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "16e0b9b6-d54f-4dae-9d8b-0157791c75bc",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "17563820-df57-4c4a-9e02-cec20aa06c67",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "17cc1571-0001-4f38-99eb-cd230e5a8a66",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "184fc712-d20a-4265-9a92-37975b29e1f8",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "18e4d7ba-74b0-4f77-a9a8-e50e63a7aee1",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "18e7edaa-5fec-4674-9026-807a3976def6",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "19801a30-3397-4c56-bda3-f67841dd324e",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "1ab8b997-166c-4e28-8c17-5b5324a0f3a4",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "1b08e457-9d96-48b9-b011-3a47ffdeaa56",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "1c2ed2c9-07cc-44be-9a79-0c4fe0395e8a",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "1eb8683e-1cc8-4add-b508-b78ba8473635",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "1fd82a6a-79d5-412c-9dff-9251d33e3f72",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "20885c67-0b76-420f-87ab-f444a44a74af",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "208caf11-feec-4acf-b520-e7df9ea5622b",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2092366f-9110-4173-850a-40fc320af3fe",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "20bb6b17-82c5-481d-8bf1-7b0b8a70c018",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "20f16cf3-f492-41c3-a1c6-e0b481888666",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2147f1ed-995c-4de0-9751-fa6c8dee547e",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "22d3fb38-f8c7-4509-92a5-6af2bd7ee288",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "233c83b7-02ee-420b-8e4c-af4065ac1a1d",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "23406843-2dfa-4f03-97f5-6a82024e9739",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2355a35c-4a05-4950-932d-23cd203a78ab",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "23aa4e81-005c-4da0-90a8-984a4b7d5cf7",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "23b8ddc8-14e9-4629-86f3-0c557850645a",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "242a391d-7f4c-4fde-8b53-63bad07ac233",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "245e4b0a-a348-4bb5-9d75-bc334600333c",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "24c404f2-f375-4e2b-83fd-f00ee6783182",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2571fce0-91e7-4d51-8dc7-6ab2b2a37226",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "25be86b2-e3ec-4247-b0b9-f4a028c20966",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "25c2bf9a-c934-4493-85b4-d6c0d73543b6",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "26333f4d-aeb5-47a3-95af-a6ba771d3a83",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "26bc292a-a9f9-416a-9771-5a7f4a8d7cad",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "26f237cb-1e02-442e-a42b-065b0885c181",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "26f456f2-c70e-4de7-a98d-52cd83d23699",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "27b50f14-1d70-494b-9741-09b592f94707",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "27ba37f0-b51c-499f-bc70-fd7df30325da",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "27cafb01-8514-4804-a160-36ac0f6750b4",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "27dde782-0612-4f57-9286-bcee598f49d4",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "280d43a0-d118-4756-90f9-8230c1b90277",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "28587f36-ae86-4560-9217-b93732de5a62",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2877fc5c-c6b8-4f69-a953-494840c568b7",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "28a52c5a-89ac-45bb-b7fe-3d5aebb88cc6",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "28fb3e38-1610-4202-9d8b-f03710ab4897",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "29203d20-b959-4560-8620-89b1338a0254",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2a44068b-07fc-4d7a-8fae-e8e0c4e3e659",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2a69ed2e-3773-4c6c-985c-dd6ff6ca64a1",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2add1e8c-4637-4592-aaa9-2b7c387419d9",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2b56175e-7b13-416d-85ac-ca74b7bb8881",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2cd2a3a9-3dea-4380-a55c-615e1a8025b2",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2d261906-657d-49d9-9448-dfc7451f353e",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2d682e7b-562f-4c0b-b8c0-317888cb0357",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2d6b7976-8524-4f89-a69c-4cad8d76c5b9",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2d6cb241-f981-4aea-bc28-4c746a583c74",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2d924fe9-5210-44b3-88a3-edae60cf6715",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2eac8cbd-68e2-41d6-b321-d8395a2eafef",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2eccb2bf-978d-45b5-a871-11878198162f",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2ece3390-90db-44d3-954c-71995716e19c",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2ee1e453-7d70-4045-ae31-2feb6405b0bd",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2f7427ba-b349-4237-a412-2ee8ef7c987d",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "2fa09740-9c3f-4688-bce2-25992d9e638d",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "301e8868-43dc-4081-8c5a-70f9038a561a",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "30464328-4c67-4582-a2bd-dd8f8d839fba",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "313bb908-7b65-4e57-88e9-1d20d131aebc",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "3193decd-5542-4439-9cab-b81d1498d910",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "320cdd20-419c-4dfa-9e1e-bb5793fb42ce",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "321a1b38-59f4-4d13-9ee5-82f06a56ed7c",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "329bbaa9-da00-42fd-a125-7564aa47e7e8",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "32a134ff-247f-4af1-a636-d1f434ec57f7",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "32b7854e-55ac-45c2-ac48-a93796829aa7",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "32cb178c-c492-4f2a-b40f-6d71ef8f47b1",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "32fa246f-f48b-4622-9537-6e1dbd698010",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "33aa729c-ac1a-489d-be68-80038c36975c",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "33ea06b2-b216-4df4-a324-412f1c1016b3",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "3483bcdc-dce3-4973-8953-468887338d5c",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "34f43a50-43c3-4e55-b0b1-4ef081ea9798",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "35215ca0-73c6-46d9-ad7b-f4c8acf55d55",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "36745759-bed6-4d70-9ce6-e9dd8b3c0f7b",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "369126d9-ff97-4080-9b7e-41a9a5aa8f3e",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "37d85c93-7b6c-4763-9306-d7a11958dd34",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "38211318-b114-4d89-a278-7de43286cb13",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "3846eee4-9215-48cb-b171-8e9fd4529a4a",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "389a1cda-347d-44b1-a300-d4f6ecef6704",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "394b7e05-4e0a-4599-8591-1a2022fe9def",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "39bfc165-26ec-49dd-af7d-17426046b166",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "39df169f-ab1b-4734-bcde-92222f0baf93",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "3a1c66b1-7495-4e5f-ae92-ac8d81f17e66",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "3a55fe6a-8f6c-4193-b76f-c0a1881287cd",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "3aa6c14f-e7f6-4c76-a19f-dc0ba0ae3a3c",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "3c450268-d44e-4134-a409-0057830a34a4",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "3c8f35f1-7c90-47e3-aded-a02d587ae799",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "3ca4543b-5c5c-4ac2-99e5-d689a292ae80",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "3cfb7e6c-c9a7-4125-8e08-0fd45bf3037e",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "3d795a59-2bb2-4d1a-b9f2-c39c18cee8d8",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "3dcf9bb5-7d82-4525-abab-ffc42d11d449",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "3e029f60-f818-4f50-b771-8ea86b93156e",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "3ec959d2-3f3c-464c-9f42-8714bd8b9487",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "40240174-36c1-44b9-ba94-e057637f8000",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "40293d74-aa0d-4385-960f-dd2fdf9683db",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "406e587c-3bd6-4d86-8787-edd5fdda988e",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4126afb8-b835-4757-831d-6b6e49fb184a",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "421dfdba-8ed2-487c-bb3d-023f5314a72c",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "42ed6072-93d7-40c3-a41b-0b9f35832a97",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4339660d-1569-4e10-9e60-49a938813717",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "434dadd5-0e9a-4fc5-b908-63c2e6653972",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "43a757f1-d989-4943-9f78-25f93d198416",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4407ebf3-d824-48d3-9a5d-eba0377a0a5d",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "441e56be-114c-46bf-ba42-cb5b1c58d7ad",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "44a9e3b7-da9c-45c5-98d1-acde6c3b463f",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "452b3e21-8cad-4404-84b6-292998f32f44",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "454d9be8-9a28-4388-8bca-2efa607a8b65",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "454f6656-bfe1-4704-8075-95bb5e1704af",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "45e4dd23-1f17-492d-a259-3367cd338162",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "465d5cd7-08bc-4770-9797-d8f4cb3381cc",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "46ba627b-9ef6-4305-8ed5-f237d7c183c9",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "47295532-1048-4f2a-b81f-42eedb2d044f",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4731f6f8-0e0a-43b1-bbcd-4ef459af0574",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "473e8882-a40a-43b0-81be-1cef1ab88a19",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "474dcce3-ef17-4049-bda0-b5d68c6e8a9e",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "47b5723c-27c1-40cc-b1aa-ee077ef439c0",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4887ad4b-2fc6-49f9-8e7e-39910c60baa2",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "498346f8-5c47-41f2-8013-5c5a6c5f56f6",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "49e69e91-3604-4cb5-be36-c7863098dda1",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4a7d05cb-1043-489c-9b1c-2d1822289369",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4aa5547e-69a9-4a67-ac8f-cbb763cc5dab",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4b507891-4f27-42e9-9f2a-4704aa87b5ac",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4cbe700b-9488-4f9c-854e-5197efee71ba",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4d2bd271-e18f-449d-8c4e-328c1afa5770",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4d846d33-79f9-446a-be91-d45e114d3fbe",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4d8cbfa6-6fd6-4c1c-8beb-a03e6c689d57",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4da76c14-b6e1-441d-aa48-2f4d79119d41",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4dc6dbf6-3977-478f-bd09-60a274eeda52",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4deb7539-3691-46ba-b7f6-68bc0d9e5c20",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4e418394-36e9-41e3-88e0-c2378bc0471c",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4f7c7248-2d92-47de-b5df-abfc41951c3f",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4f990111-0514-4454-ad96-e62052816418",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4f9cf6c8-d03a-4ca0-9d72-a30729a1f164",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4fe6ee6c-3420-4ad7-99d8-0d83463c8aac",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4fef451d-1a3e-4161-8293-13281d63e372",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "4ff541a1-2388-4542-a570-a2f6f1de1194",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "505897d5-b066-4df7-bfac-ce562b247080",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "508088c4-40c0-43ee-b017-984099e9e432",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "50ffcf4d-3c4a-4c69-9131-af9e3075e678",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "52c7d4dc-9df6-48fc-8fe2-0f559cf9c48d",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "532a7831-36d3-4324-ad36-d7cceb0689ea",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "53fd4a1d-4e48-4af8-a3af-33a16e6faf34",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "54056244-d98f-448e-bf2b-c458932255bb",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5563f6be-7abd-4cac-9678-f603e5c6ddd6",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "55645912-80c2-4d86-8683-6b396414ca43",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "55eebdf2-0d96-47ca-bf2e-34d138caa6cb",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5604104c-bbf3-4874-b4c1-5cdc4d54de82",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "56192147-11ce-4db6-86e4-8876bb58a128",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "586090e3-3ef6-4c0b-9e62-9995b2f35624",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5a075485-b2de-4174-b018-bc1ea2f584bd",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5a121ef3-d01c-47be-adff-c5cedfe4c9c7",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5a3c17a3-a080-4b71-a2b9-1769c2c74923",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5a4160db-cf1d-4bff-aadb-76dd2b70329c",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5b0c15d0-03c7-42c4-9565-f0d4898cd153",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5b925c6c-e4a8-4d36-b283-2e7186238681",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5bf8722a-704e-4d9e-a2a2-c23fb559d856",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5bf9fcfc-fc29-4283-83fc-7ac3900b9617",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5c0de2c2-bbbf-4e7f-8b2a-f3bd312a4ba7",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5ccd8195-a054-412f-9949-a81067b73b1c",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5d44945a-a172-4973-82b1-45c23f91e92e",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5d503c0d-2322-463f-8b04-a8373ec8d4c7",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5e325efd-6a72-47a9-93ac-8aef5896f8f4",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5e3342b9-c240-4a2c-9c7e-b9d344a637e1",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5e85bc13-8952-4865-bf22-92d00e4050e0",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5ef8e36d-a1f7-4a7b-bc7b-1fe6fa0c279f",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5f2d4043-44c6-42fc-9b22-1dd579d165f6",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "5f9511f6-a367-4bf5-b01b-728b0e4127d1",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "603b5bd6-c867-4dca-b5d8-2536c0461aad",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "60e42e34-1991-4719-95d1-b74b9d2efbed",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "616a2e77-51ca-4e42-b819-108ec5c1517f",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "61a2d916-a6a9-41c3-b45f-caa222f45bdd",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "61c1b3de-037c-4446-a1c8-01c8f6c72aed",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "61c3b52a-60e3-4b5f-bf16-cc7e3679a346",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6318fef2-e3e0-4e7b-ba8d-deaa2480611d",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6360d437-5d68-4be2-85e3-9ce125ab5696",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "63c12d18-797a-45ee-9fd8-d2328d5517ab",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "64179b2e-e7f9-4099-914c-a5b98d665288",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "644182a7-b730-4ca9-8ce9-0c4befd29206",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "64490efa-ea35-4194-89de-645e881bede3",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6578cd6d-3f60-44c1-847f-c12642b03958",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6713e269-0eb7-437c-ae09-6909a5dbdb2b",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "674481ba-3fe8-4873-818d-45a988ae4ad0",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "675ef49d-5a97-4ed8-aee5-07a076fb6a56",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "677935d6-5587-4bac-b78b-19ff3754fa79",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6788c280-3eb3-4de6-ad4b-b05f6574a4b4",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "68388455-830b-471c-bd86-4de5fc197eea",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "683f7f35-d707-49da-a73e-59f064bd4b63",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "694ade90-074f-4970-a9a5-b64ba09ddb97",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "695b575f-5372-4f1c-83c6-adbcbcd31d53",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6ae294c3-4456-4fa3-8cbc-51ffa5e03cc0",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6af4f4e3-7f4d-4f5b-8c1a-e81b4f18932d",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6b7c8814-0253-459f-bfbb-e81d4dc5e86a",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6bd6083e-9207-43a9-a308-a54ac521b435",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6c03ee13-481b-4337-908f-0f6599e6bc80",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6c2bfabc-ce2d-47aa-b9d1-fb675ed8998c",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6c78a9b8-61a0-4d23-bbf5-e2ca8f0538cd",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6c989eb8-2474-40ad-8952-a7d5e6f24273",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6cbc0fff-0199-47a2-8849-0b533199a3d4",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6ec59baa-cf1d-4c1f-8ad3-433bfa3aab62",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6eee8006-588a-4683-bd9f-155e89d9c085",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6f19c9f9-395e-4200-b55b-1fd574914553",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "6fb34c5f-d5e9-49b2-aef7-868931a94a38",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "706f78b6-d675-4fcd-a31b-5f5226a01196",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "70760f7c-3b09-41eb-a7f2-5669eca9d57d",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "72092ffa-d59e-45b6-9363-d878d92ee3b2",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "72cb27cb-929b-47b5-9f4d-ab606a458a64",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "735861ba-abec-4cf2-985c-8c3f68342730",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "73b29ca5-ad1f-412e-87ce-1002381a23c6",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "76261cf0-6692-4798-bccc-f6f8102250c9",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "768b80c8-a785-4b14-86bf-b48faf2ef0ac",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "769b17ca-8716-4f03-bf17-f4e68ee88add",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "775cea8b-5025-4183-8e60-df930a92a654",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "787d906a-61b0-4f89-bd24-fc7f5d18a659",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "78f5953c-3ca7-46ad-b387-3eb2d8f423f0",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "791670cb-579b-4594-a91f-3566b00cca5e",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "7a918ba1-4550-4cc3-9241-cd5742417051",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "7adbc2a3-5315-404c-a9d8-4db92cc459c0",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "7b9363ad-7313-46b1-81d0-97a401a98b4e",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "7be8186c-6b3b-4d8c-bdbc-b28b04acc4f2",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "7c6b778f-9c32-4e85-8c78-78b39d57ea7a",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "7ca7f5e2-f93f-4e29-b8e0-d1f7e9dd70b0",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "7e92037c-d01d-4721-a51d-fbe077021989",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "7f917685-7fdf-4f52-a1f7-bf9a57f685e8",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "8016ab52-0bd7-457b-8325-7b79ff3f5b13",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "80246832-7590-4097-a235-9acb59adee45",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "803e3b8e-28ee-426c-803b-237587aa63d3",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "803ed5de-aed6-48e1-b385-188f5f2238ba",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "807c5c7e-1aba-4eb6-80b1-9fb60b6455c4",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "80879618-bea5-4a5f-b3cd-92a572e6555f",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "80a1652d-fd73-471c-9946-c21eebdd2eb8",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "80eae364-f8e3-4133-8eef-810134981e71",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "819a76d4-ac6b-4c20-b3cd-f7c294002bcb",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "81d68883-ceb6-45b3-833d-880aa3e913e2",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "82cd7e79-1380-4acb-9890-433037470c7a",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "82ea5e75-626e-4e94-a3ba-6cf003ffa264",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "82f20c7f-c141-44aa-8fff-ef010c8089b2",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "83741f71-2f9a-4c4b-aaec-6bea9ab8531e",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "837453e1-02d2-4701-8c30-7481d78446de",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "841ca42d-279e-4bfe-9594-1119a731613c",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "84b6239b-03a5-491c-81a1-5c3836eb263a",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "85adbebf-49f1-45c5-a4e0-98f9a89e1edd",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "86525ddf-90c4-4f94-852d-54c59c7a0ba9",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "8767d392-f75f-40b0-82d4-b4b30eb7715a",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "87cdbd13-5b64-445a-917f-659986d6a872",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "8812129c-0bdc-47e6-bdf9-2745985c6c5d",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "885bb2fb-4f3d-481d-a18b-b56e0c4775a7",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "886d199c-3e54-4e9a-b18a-a25f05c07d89",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "888e3f1f-d4e4-4874-81fc-923981454842",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "892f7007-46df-47ff-b8d9-60d8c207bfe3",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "895adea3-4ee7-45b7-bff7-568706b84b19",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "8adf7855-2767-4d19-a3a2-686b4af4e271",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "8c8cc615-1214-4ba7-91e9-94805e6fe547",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "8de150dd-0ef8-4a68-b097-7a3bc62afbb9",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "8eacaf6f-97fe-4d75-af29-d18fe844f958",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "8eff1fe3-6a14-48c1-82b9-2ce93410321a",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "9087e7bb-5f2e-4096-a820-aa6508716f63",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "90ec5536-6706-4fbe-b9f7-8eba9585407a",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "91a856fa-45b0-408b-8d85-c57e9d6c5c65",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "91f81c49-741c-4cef-993e-1fd8fe4237d9",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "9275921a-b02c-48b7-a71f-1e7f27ed192b",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "92f2f788-6d6b-448a-988d-7f9a2d931c3f",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "93b0fe3b-dd94-46f4-b90e-ffe4c4c2e088",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "93c6fec3-d8d1-42c5-88f5-48acb37343d9",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "94161e5e-46ed-4d08-b1f2-d30b93bcb6c5",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "94e0dd85-2836-4b22-8ed9-8e6a70af21e7",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "95b3acd8-cf38-4112-926d-ba5bda19183f",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "96967cdf-ba2a-4b6e-8a1e-df157d675cfc",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "977d958c-1b70-4ca7-ada3-5ba917ecfc3b",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "97d923c0-0ff0-4a0d-a68e-4578337f100d",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "97ed2822-ea43-4f67-9e8f-260cffd82246",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "9847de61-fef4-4bc0-ae21-1996e320eb37",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "98a72665-f7bb-465f-9d69-12d1f14b415d",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "99402e77-8aa8-464b-9b3a-1bbacf76047d",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "996f5106-1600-4aa5-ae76-c50f73af12bc",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "99919bda-fcf3-4740-a19f-018575739fee",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "99cc0499-7bb0-419c-8a97-69929d59acb8",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "9a7c7829-3a11-4bf3-a18e-1581065f0054",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "9b49a899-e0de-4071-9b52-3e1a9f1f209c",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "9cbf20c2-7f3d-4cba-9a3d-91f07b6096dd",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "9d711bfe-6022-4b9c-b953-01f091aa465b",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "9e174d4d-a75d-4e47-9248-bc5e3258bb02",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "9f3c8d0f-ff2a-42e6-9884-0efe6d9cb500",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "9f97574a-7d95-4748-8ecd-71b653039ceb",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a02deb4a-14c0-4d2a-944e-c31e58df80b3",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a182b3e3-6da4-41af-bb08-ea58b56f65f3",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a1c58af9-48e3-4bf2-abd1-b2b6ed5fef4b",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a23f5c16-d2ae-492b-bb23-2305b744c21b",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a24a2f30-86e2-41cc-869a-26d017cde4a8",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a26ec36e-c318-4db5-9bba-f195d5c9dfe1",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a27612bc-16b2-495b-9f28-ceb1ead0fa7d",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a29ed94f-47a9-4fe0-b1ce-387c27c2549b",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a3844564-2354-479e-a8e4-9c838fb9f72a",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a3a180d2-fade-4416-9d32-1c3e0ab9932f",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a3dc2e4c-0b49-4384-845a-c06a469c909c",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a433d735-ab90-432a-ab55-b0145991201d",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a492194d-489c-4a2f-9ea6-024dece52724",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a646f91c-989e-4cb4-8d3c-2fd9e60db25d",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a68943ab-5888-4ed1-b4ae-49ed3a098b3b",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a725dc6b-3152-44df-97e5-883315d24a93",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a73d84a3-95cc-499a-8659-e973db6e588d",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "a82a06a1-42cf-4e40-a5b7-444ba0ea582c",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "ab6aaac3-4555-44b9-8acc-37a0cf637785",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "acf86850-8538-4b38-83bc-7dca27fdbb09",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "ae0d7512-5d42-4cbe-9996-e9291dcb2a51",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "afc6c3e1-5ce6-46ed-9026-5ca3cf1359d0",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b04816bf-8718-4e26-b9a8-1cb6d234b7aa",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b0cbe632-8f66-4193-8bd3-718442205c49",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b0d26310-e5ca-47be-bbdd-86de4238d6ac",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b0ddc242-98b9-43e9-b0cc-7edcacd367d0",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b0efa844-738f-4e0f-b7b4-ce0736d62576",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b12077a2-8842-43f1-82eb-6f593b7bd764",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b1971ed6-a05b-447a-9166-da563c4ee73d",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b2fe7fc6-604a-44a1-96e6-295b06856742",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b3ae4ddd-828f-42b2-a7d2-2ec2f3924cd0",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b3dc38a6-9bb8-4c50-b1ce-9e075546d529",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b3fd3a9f-5d54-483c-9aee-610aa508f728",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b41617ca-3419-4a66-bbe7-0d75e699d693",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b5abb197-7d08-4ae4-8094-038e3b9132ea",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b6b9d957-b695-4a95-bf50-8e9499299c77",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b6bfd2b7-43e9-4384-92ba-c00756a8fb24",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b74d58ec-a332-44a3-8470-3f0eee0d4b56",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b85738e2-4b77-455a-b4a1-620072ca7a3e",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "b8b3522c-715d-464d-80bb-baf4b894db51",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "ba06141b-7a2c-482b-9a6e-747ef32e9ba7",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "bb72016d-1d59-4869-8bba-2b9476fffbd7",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "bd3479bb-a6b6-4034-a7d4-aeafdfcabd30",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "bd5a67aa-daea-4a85-b804-98756dbff572",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "bda79102-6817-4ceb-a4c2-80248627468a",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "be488332-23cd-49c7-89c1-77a7d4a184df",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "bf0e502f-14d8-4099-8695-c559d7626397",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "bf867cf5-c09d-41f7-92ba-eb6dbe4643d0",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c00daf7b-b5f9-4967-8fb6-739b42bcfc08",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c05fb492-9553-4651-890e-7d781cc4bf0b",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c18bf2b9-5f27-4aeb-8d0b-e87bce09dd72",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c2f47814-ced7-473c-ba4a-e942fd674723",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c48e7b92-2419-4a36-82b4-44af75759ee0",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c4c45a59-8b51-4caf-8d7f-a4d27dbce2f6",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c4e55f65-5586-4d97-be88-a382bdcd03f4",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c548c253-d956-4445-ab19-67fca6a8d08e",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c55d87c4-01a2-4292-98fd-9c3f783ff523",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c633d643-523f-49bf-86b7-362d260a2b50",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c66fcbda-bb80-477b-8bb6-a9154e5eda76",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c6758295-183a-4ae9-934d-d95147a8f57c",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c6ce3df6-399a-4bfe-bd91-a6350d8aff3a",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c796dd49-1061-4cb0-8545-bcd88bea675a",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c7d6f027-4955-4d8f-903c-ff97bd20c9cd",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c8b4b0ff-96bf-437e-8673-bf443fafcd94",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c9005b5d-c688-47ac-95ec-8e5c3f588151",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "c90a149f-e6d4-485c-81b6-2afbd5beb361",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "ca124e09-7993-4583-b8c4-ff84e0823e17",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "cafeab0f-95d1-4782-86ae-805767ebf516",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "cd8cd8a3-6e44-42a0-a245-16ab07cc29ca",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "cdaba488-01a7-42ab-b821-2b75cc36c37c",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "cead260a-0ed1-4a35-82d3-5a8db938cb0f",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d019ffcc-99f1-4a37-a8a3-30867f2cfa9a",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d0237328-67ec-474e-9dd5-b84e87da839e",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d07e7e3e-ada0-467c-9104-5b7c67151596",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d09e6346-31cc-446b-b44f-e3ffdd4cc67d",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d0f86cbe-671e-4c97-b71f-23caae64f765",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d1441083-1475-421c-9517-107f7846f474",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d1865214-9acf-4ae8-8aaf-a2629f6eda4b",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d1cee1ec-92d3-47e0-9d62-1d06a5d78f1e",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d201e4ef-602a-4fdb-8748-f762b54e43ed",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d2379157-e8fe-4d4e-8cec-6841511148bd",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d2792970-5ada-46e9-bb29-ac909a90b4fd",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d3a4d32f-16ff-4241-bee1-d2444a5790c5",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d3ba0472-7ee5-4c66-ac37-f9454ccc49a4",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d404fc25-41d8-4dac-8715-4b83f92b4f04",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d4d4a238-5a00-4197-9134-c043bb032025",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d65e5623-773f-42e5-81de-8b4bb3a7aa5e",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d68c5e29-d0a2-4759-b9b4-f6176e673692",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d6a35578-ae01-4e46-8871-42fa59b74a21",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d7bf1517-1e57-4a98-b8c0-c2162086bbfe",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d8a634a1-1ad9-44d4-9381-fad443a99b3c",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d8afb661-617a-4ca4-8978-6c1d9a2eb829",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d8d92847-50ed-4765-801d-637ffd2a07ee",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d900b3ce-3aaa-4d46-bbd6-6547545b966e",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "d924aee0-e206-4fcf-8243-c533f295a115",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "da06a28d-3264-4391-b4a1-248aaec599cf",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "da635779-03e5-4c5a-9323-f918c98f4515",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "dabe59d1-ebc4-49f9-b80b-fdbe2951c7c6",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "dbbf2b37-eef0-4abc-a4be-51e9ecb2ba69",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "dc108bab-b23e-4faf-8f3c-fa56e59442bd",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "dc353872-db17-4815-8416-de6d97dc4987",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "dc3ab644-af56-4167-954f-013259021b68",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "dcc724e8-7be8-4aa1-a8be-f8cd3cb9c971",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "dd87f3f2-b6d9-4204-8b8e-e6c75212bbfd",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e00f149c-9c39-41ea-bd9a-a4437e9f56b4",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e04e3d99-ad0e-4ee9-bfa4-0bd7179c56f5",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e0db8a5e-0d6d-4853-afa7-1270edbd2f90",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e15d17df-9ec3-4b79-a97d-c73c5bbaf7d5",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e2654918-3ce7-439a-92b1-91dbe27939f9",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e289b4b4-3bf8-419a-bdf2-eda7977a703d",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e2b3b8da-5def-482d-8b4a-b1434046ec83",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e2badc1a-66c3-4234-aaab-56792e362757",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e2d0d414-86fb-469d-bcba-317c328736b8",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e33ab3f4-2ce8-4525-a438-b0738480c780",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e37bcb7d-4418-4f5b-b4bb-dd7438a18cf4",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e416afa6-b6bb-4858-85cf-178ffb64554d",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e46c2de3-0fe3-46e2-a6f0-91741b08c33d",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e5666ec3-b91d-4791-b309-16385faf7e4b",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e619e582-e98b-45d3-b1dc-86f8d5346d14",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e6255b7c-5384-4c2f-ae85-9c4de045716a",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e78a7194-54db-4437-8801-dc1b8129da1e",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e792fac7-4d4d-45f1-b0ad-f03f770d7317",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e7a3d5f3-49d3-45fa-a807-e9ed1d4a70f9",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e85a6b4d-f694-467e-9aaa-03630df97d7c",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e88eb733-46f5-4b02-9c14-51029a44cb4c",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e8ed5985-3ff7-4b05-9932-fcdcbac8bed7",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "e9471464-f80d-43cb-b23c-8189e6bec529",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "ea613479-8857-47e3-bf3d-792f9837c16c",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "ea890d50-42fe-49e4-90bf-570c299673df",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "eb656742-ba11-4ae9-8bf2-fcca0d07d7b7",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "eba3fcfe-1cbe-40fe-b243-be50bc51abfa",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "ec9f9d51-12ba-431a-993b-fc4e35fd4340",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "ed78d1e0-720b-454e-91bf-942bf0d54848",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "eddbb474-b89c-4404-acad-cffeb99c3db6",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "ee2eeba1-5af9-4e29-8cd2-660cba211763",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "eef042d7-dc0b-41fa-95e9-2bbef309d39b",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "ef08f81a-83ff-4573-af5d-4f68cd03135a",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "ef2276ef-eff0-442e-a21e-58632b27868b",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f14873cc-599e-40fb-9b82-0338131d42a5",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f16bdd70-e60a-4a67-80b7-8d97635d9da6",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f1dbcccb-4b06-4bdb-b5d8-f136b266f7a6",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f1fff63a-32b5-467a-9b3c-f94206015e73",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f26a7735-3736-4ce2-875e-20270e5ca6dc",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f30b1bf5-842b-4a5b-8f27-f7ca35fd96ee",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f366e874-a265-4eab-a18a-64774d493fbd",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f3d9c0a3-233e-4385-a7de-ade690b711ab",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f46626a4-6623-4563-b201-5c95771da4b2",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f487e237-2831-42bc-b208-48b115c463f9",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f4945c53-f60e-4943-89fd-b8a6dcd2fc95",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f72d53de-51ad-45bd-b130-b1a75a131fdc",
+  "universidad_id": "aaaaaaaa-0009-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f79aa911-5fcb-4cbc-9e00-0d15e43678f5",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f7dca493-9655-4bd5-85a3-74af59e411ba",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f82a29ab-8eb9-4967-aef8-9bd16372ca64",
+  "universidad_id": "aaaaaaaa-0002-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f8b1a240-c66e-438a-9a79-df9be0977ed0",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f8bcb70c-250e-46f8-9a62-1e3ceb423b9b",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "f921a6c6-6ffb-43b2-b0af-2045b3d4e185",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "fa7a25ea-c205-4d9b-9a5c-b911afffc5d5",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "fab60ed2-faec-456f-94a9-1aa6b60ca9e0",
+  "universidad_id": "aaaaaaaa-0004-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "fb69bdae-4271-4f3a-8b3d-695baa9e8a0f",
+  "universidad_id": "aaaaaaaa-0003-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "fbd88a99-f1a7-46ea-9658-fdb4654d3f47",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "fc181744-0b8a-4472-bcdd-04c615816d7a",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "fc19c930-4724-44b5-81a8-981d06693ec5",
+  "universidad_id": "aaaaaaaa-0008-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "fcbcb075-149e-4c5a-ab6f-caa7820e405a",
+  "universidad_id": "aaaaaaaa-0001-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "fd104fe3-4814-47a2-a477-89af6eb6c46e",
+  "universidad_id": "aaaaaaaa-0007-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "fd3faf1b-5bc3-4dd6-adf5-09e0541564ff",
+  "universidad_id": "aaaaaaaa-0006-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "fd965525-a8c9-4a71-84b6-4a1f803ad8bc",
+  "universidad_id": "aaaaaaaa-0005-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ },
+ {
+  "activo": true,
+  "oferta_id": "fef7b6c4-d9d9-4561-b0c4-d059c09b1751",
+  "universidad_id": "aaaaaaaa-0010-0000-0000-000000000001",
+  "estado_publicacion": "publicado"
+ }
+]
