@@ -163,6 +163,21 @@ Para recibir mensajes reales en local hace falta un túnel HTTPS (p. ej. ngrok) 
 | Error 131047 = fuera de la ventana de 24 h | ≈ |
 | Precios: servicio cobrado desde el 1-oct-2026 tras 1.000 gratis/mes por número | Confirmado en FAQ oficial https://whatsappbusiness.com/resources/faq/ |
 
+## Logs de diagnóstico (2026-10-19)
+
+Qué: cada POST con firma válida deja, **antes** de responder, una línea JSON `{"origen":"wa_webhook","evento":"wa_webhook_recibido",…}` armada por `src/lib/whatsapp/diagnostico.ts`. Por qué: un POST firmado del 19/10 (13:02:55, hora Madrid) respondió 200 sin ningún log y no se podía saber qué traía.
+
+| Evento | Cuándo | Campos |
+|---|---|---|
+| `wa_webhook_recibido` | Siempre que la firma es válida | `object`, `json_valido`, `entradas`, `cambios`, `campos` (`change.field`), `mensajes`, `tipos_mensaje` (`message.type`), `estados`, `contactos`, `remitentes_en_allowlist` `{si,no}` (remitentes únicos), `remitente_ult4` (`***1234`), `phone_number_id_coincide` (true/false/null) |
+| `wa_webhook_sin_contenido` | El parser no sacó mensajes ni estados | `object`, `json_valido`, `campos`, `tipos_mensaje` |
+| `wa_webhook_resultado` | Al final: sincrónico si no hay nada que procesar; dentro de `after()` si lo hay | `resultado` (`fuera_allowlist` · `procesado` · `sin_contenido` · `solo_estados` · `error`), `mensajes`, `permitidos`, `rechazados`, `estados`, `duracion_ms`, `resultados` (conteo por resultado del orquestador), `error` (solo el nombre, p. ej. `TypeError`) |
+| `wa_webhook_diag_error` | Si el diagnóstico mismo falla | `error` (solo el nombre) |
+
+Nunca salen textos de mensajes, nombres, números completos (máx. 4 últimos dígitos) ni ids (wamid, phone_number_id, WABA). El diagnóstico va en `try/catch` y no puede cambiar la respuesta a Meta.
+
+El trabajo posterior a la respuesta usa `after()` de `next/server`, que en Vercel se registra con `waitUntil`: la función sigue viva hasta terminar el callback (dentro de `maxDuration = 30`), así que `lote_procesado` / `wa_webhook_resultado` no se cortan.
+
 ## Bitácora
 
 | Fecha | Qué | Por qué | Quién |
@@ -171,3 +186,4 @@ Para recibir mensajes reales en local hace falta un túnel HTTPS (p. ej. ngrok) 
 | 2026-10-17 | Piloto cerrado `WA_PILOTO_NUMEROS` (máx 5, fail-closed) e interruptor `WA_LEAD_CONVERSION_ENABLED` (solo `'true'`); tests de allowlist y de no-conversión con interruptor apagado o sin definir | Ajuste obligatorio de Producto/Orquestador: probar con el equipo sobre el catálogo actual sin generar leads facturables | Backend BuscoEdu (bot) |
 | 2026-10-17 | Textos de piloto: Autorizar contacto con interruptor apagado → «Estamos en piloto: tu autorización quedó registrada, pero todavía no enviamos datos a universidades.»; ASESOR → «Un asesor del equipo BuscoEdu te escribirá en horario hábil» (respuesta manual desde Meta). Criterio 8 ≈ parcial (historial en `wa_mensajes`). | Ajuste de Producto: no prometer envío ni asesor inexistente | Backend BuscoEdu (bot) |
 | 2026-10-17 | Deploy BA-032: migración `ba032_whatsapp_meta` aplicada en Supabase (5 tablas `wa_*`, RLS sin políticas), variables Meta/piloto en Vercel (Production y Preview), PR squash a `main` y deploy único a producción; smoke del webhook | Puesta en producción del piloto cerrado de WhatsApp | Orquestador BuscoEdu vía executor, con OK de Jhon |
+| 2026-10-19 | Logs de diagnóstico enmascarados `wa_webhook_recibido`, `wa_webhook_sin_contenido` y `wa_webhook_resultado` (helper puro `diagnostico.ts`, 14 pruebas); se confirma que el trabajo post-respuesta ya va con `after()` | Un POST firmado de Meta respondió 200 sin dejar logs | Backend BuscoEdu (bot), pedido del Orquestador |

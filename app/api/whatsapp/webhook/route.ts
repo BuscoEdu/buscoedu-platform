@@ -19,6 +19,13 @@ import { filtrarPermitidos, manejarPostWebhook, manejarVerificacionGet, procesar
 import { crearAlmacenSupabase } from '@/src/lib/whatsapp/almacen-supabase';
 import { crearCatalogoSupabase } from '@/src/lib/whatsapp/catalogo-supabase';
 import { conversorBloqueado, crearConversorSupabase } from '@/src/lib/whatsapp/conversor-supabase';
+import {
+  construirResultado,
+  construirSinContenido,
+  desenlaceSincronico,
+  diagnosticarSeguro,
+  nombreError
+} from '@/src/lib/whatsapp/diagnostico';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,6 +43,16 @@ function log(evento: string, datos?: Record<string, unknown>) {
   console.info(JSON.stringify({ origen: 'wa_webhook', evento, ...(datos || {}) }));
 }
 
+// Bloque: imprime una línea ya armada por diagnostico.ts (trae su propio `evento`).
+// Por qué: el diagnóstico nunca debe tumbar la respuesta a Meta; si falla, solo el nombre del error.
+function logLinea(linea: { evento: string }) {
+  try {
+    console.info(JSON.stringify({ origen: 'wa_webhook', ...linea }));
+  } catch (error) {
+    console.info(JSON.stringify({ origen: 'wa_webhook', evento: 'wa_webhook_diag_error', error: nombreError(error) }));
+  }
+}
+
 export async function GET(req: NextRequest) {
   const config = leerConfigWhatsApp();
   const r = manejarVerificacionGet(req.nextUrl.searchParams, config);
@@ -44,6 +61,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const inicioMs = Date.now();
   const config = leerConfigWhatsApp();
   const cuerpoCrudo = await req.text();
   const resultado = manejarPostWebhook(cuerpoCrudo, req.headers.get('x-hub-signature-256'), config);
@@ -51,14 +69,33 @@ export async function POST(req: NextRequest) {
   if (resultado.respuesta.status !== 200) {
     log('firma_invalida_o_sin_secreto');
   } else {
+    // Bloque: diagnóstico enmascarado, sincrónico y ANTES de responder.
+    // Qué: una línea con conteos, tipos y campos del payload (sin textos, nombres ni ids).
+    // Por qué: un POST firmado del 19/10 respondió 200 sin dejar rastro en los logs.
+    const diag = diagnosticarSeguro(cuerpoCrudo, config);
+    logLinea(diag);
+    if (resultado.mensajes.length === 0 && resultado.statuses === 0) logLinea(construirSinContenido(diag));
+
     if (resultado.statuses > 0) log('statuses_recibidos', { cantidad: resultado.statuses });
     // Piloto cerrado: fuera de la allowlist no se toca la base ni Graph API (solo log mínimo).
     const { permitidos, rechazados } = filtrarPermitidos(resultado.mensajes, config);
     if (rechazados.length > 0) {
       log('fuera_allowlist', { numeros: rechazados, pilotoInvalido: config.pilotoInvalido });
     }
+    // Bloque: conteos comunes para la línea final `wa_webhook_resultado`.
+    const conteos = {
+      mensajes: resultado.mensajes.length,
+      permitidos: permitidos.length,
+      rechazados: rechazados.length,
+      estados: resultado.statuses
+    };
+    const desenlace = desenlaceSincronico(conteos.mensajes, conteos.permitidos, conteos.rechazados, conteos.estados);
+    if (desenlace) logLinea(construirResultado({ resultado: desenlace, ...conteos, inicioMs }));
+
     if (permitidos.length > 0) {
       // Se responde 200 ya; el trabajo sigue después de enviar la respuesta.
+      // after() de next/server: en Vercel se registra con waitUntil, así que la función
+      // sigue viva hasta que termina el callback (dentro de maxDuration) y sus logs no se pierden.
       after(async () => {
         try {
           const db = getServiceRoleClient();
@@ -78,8 +115,10 @@ export async function POST(req: NextRequest) {
           };
           const resultados = await procesarLote(permitidos, deps);
           log('lote_procesado', { resultados });
+          logLinea(construirResultado({ resultado: 'procesado', ...conteos, inicioMs, resultados }));
         } catch (error) {
           log('lote_error', { error: error instanceof Error ? error.message.slice(0, 200) : 'desconocido' });
+          logLinea(construirResultado({ resultado: 'error', ...conteos, inicioMs, error }));
         }
       });
     }
