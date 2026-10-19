@@ -18,7 +18,7 @@ import { crearAlmacenSupabase } from './almacen-supabase';
 import { leerConfigWhatsApp } from './config';
 import { calcularFirma } from './firma';
 import { crearClienteGraph } from './graph-client';
-import * as M from './mensajes';
+import * as C from './copy';
 import { filtrarPermitidos, manejarPostWebhook, procesarLote } from './procesar-webhook';
 import { crearLimitadorMemoria } from './rate-limit';
 import type { CatalogoWa, ConversorLeadsWa, OfertaWa } from './tipos';
@@ -80,11 +80,14 @@ function crearSupabaseFalso() {
     return m ? fila[m[1]]?.[m[2]] : fila[col];
   }
 
+  // Bloque: query builder falso. UPDATE/DELETE se ejecutan al hacer await (thenable), como en supabase-js;
+  // soporta .or('col.is.null,col.eq.v') y .select() tras update (control optimista de sesion->>v, C-25).
   function from(tabla: string) {
-    const filtros: Array<[string, unknown]> = [];
-    let op: 'select' | 'update' = 'select';
+    const filtros: Array<(f: Fila) => boolean> = [];
+    let op: 'select' | 'update' | 'delete' = 'select';
     let parche: Fila = {};
-    const filtradas = () => tablas[tabla].filter((f) => filtros.every(([c, v]) => valor(f, c) === v));
+    let conDatos = false;
+    const filtradas = () => tablas[tabla].filter((f) => filtros.every((pred) => pred(f)));
     const qb: any = {
       insert(fila: Fila) {
         const err = validar(tabla, fila);
@@ -105,15 +108,34 @@ function crearSupabaseFalso() {
         }
         return Promise.resolve({ error: null });
       },
-      select() { op = 'select'; return qb; },
+      select() { if (op !== 'select') conDatos = true; return qb; },
       update(p: Fila) { op = 'update'; parche = p; return qb; },
+      delete() { op = 'delete'; return qb; },
       eq(col: string, v: unknown) {
-        filtros.push([col, v]);
-        if (op === 'update') {
-          for (const f of filtradas()) Object.assign(f, structuredClone(parche));
-          return Promise.resolve({ error: null });
-        }
+        filtros.push((f) => String(valor(f, col) ?? '') === String(v) || valor(f, col) === v);
         return qb;
+      },
+      or(expr: string) {
+        const partes = expr.split(',').map((x) => x.match(/^(.+)\.(is|eq)\.(.*)$/)!);
+        filtros.push((f) => partes.some(([, col, oper, v]) => (oper === 'is' ? valor(f, col) == null : String(valor(f, col)) === v)));
+        return qb;
+      },
+      then(resolver: (r: unknown) => unknown, rechazar?: (e: unknown) => unknown) {
+        try {
+          if (op === 'update') {
+            const filas = filtradas();
+            for (const f of filas) Object.assign(f, structuredClone(parche));
+            return Promise.resolve({ data: conDatos ? filas.map((f) => ({ id: f.id })) : null, error: null }).then(resolver, rechazar);
+          }
+          if (op === 'delete') {
+            const quitar = new Set(filtradas());
+            tablas[tabla] = tablas[tabla].filter((f) => !quitar.has(f));
+            return Promise.resolve({ error: null }).then(resolver, rechazar);
+          }
+          return Promise.resolve({ data: structuredClone(filtradas()), error: null }).then(resolver, rechazar);
+        } catch (error) {
+          return Promise.reject(error).then(resolver, rechazar);
+        }
       },
       limit(n: number) { return Promise.resolve({ data: structuredClone(filtradas().slice(0, n)), error: null }); },
       maybeSingle() { return Promise.resolve({ data: structuredClone(filtradas()[0] ?? null), error: null }); },
@@ -209,11 +231,13 @@ describe('E2E BSUID · flujo completo hasta NaIA con Meta y Supabase simulados',
     assert.equal(fila.celular_e164, TEL);
     assert.equal(fila.sesion.waUserId, UID, 'BSUID vinculado porque compartió su número');
     assert.equal(fila.consentimiento_datos, false);
-    const bienvenida = e.graph.llamadas[1].cuerpo;
+    // T01 v1.3 = 2 mensajes: saludo (texto) + autorización con botones.
+    assert.equal(e.graph.llamadas[1].cuerpo.text.body, C.T01_SALUDO);
+    const bienvenida = e.graph.llamadas[2].cuerpo;
     assert.equal(bienvenida.to, TEL.slice(1), 'ya con teléfono se responde por `to`');
     assert.equal('recipient' in bienvenida, false);
     assert.equal(bienvenida.interactive.type, 'button');
-    assert.equal(bienvenida.interactive.body.text, M.BIENVENIDA_CONSENTIMIENTO);
+    assert.equal(bienvenida.interactive.body.text, C.T01_AUTORIZACION);
     assert.equal(e.bd.tablas.wa_mensajes.length, 0, 'sin consentimiento no hay historial');
 
     // Paso 3: "Sí, autorizo" llega OTRA VEZ sin `from` → se reconoce por el BSUID vinculado.
@@ -228,10 +252,10 @@ describe('E2E BSUID · flujo completo hasta NaIA con Meta y Supabase simulados',
     assert.deepEqual(p3.resultados, ['respondido']);
     assert.equal(e.bd.tablas.wa_contactos[0].consentimiento_datos, true);
     assert.equal(e.bd.tablas.wa_contactos[0].estado, 'activo');
-    assert.equal(e.graph.llamadas[2].cuerpo.to, TEL.slice(1));
-    assert.equal(e.graph.llamadas[2].cuerpo.text.body, M.CONSENTIMIENTO_OK);
+    assert.equal(e.graph.llamadas[3].cuerpo.to, TEL.slice(1));
+    assert.equal(e.graph.llamadas[3].cuerpo.interactive.body.text, C.T02_ACEPTA);
 
-    // Paso 4: texto libre → NaIA busca en el catálogo → texto + lista de fichas.
+    // Paso 4: texto libre → NaIA busca en el catálogo → UNA sola lista (C-07, sin bloque de texto con URLs).
     const p4 = await e.webhook(
       payloadBsuid({
         id: 'wamid.FICTICIO0000000000000000000004',
@@ -241,11 +265,10 @@ describe('E2E BSUID · flujo completo hasta NaIA con Meta y Supabase simulados',
       })
     );
     assert.deepEqual(p4.resultados, ['respondido']);
-    const ultimos = e.graph.llamadas.slice(3).map((l) => l.cuerpo);
-    assert.equal(ultimos.length, 2);
-    assert.equal(ultimos[0].type, 'text');
-    assert.equal(ultimos[1].interactive.type, 'list');
-    assert.equal(ultimos[1].interactive.action.sections[0].rows.length, 3);
+    const ultimos = e.graph.llamadas.slice(4).map((l) => l.cuerpo);
+    assert.equal(ultimos.length, 1);
+    assert.equal(ultimos[0].interactive.type, 'list');
+    assert.equal(ultimos[0].interactive.action.sections[0].rows.length, 3);
     assert.ok(ultimos.every((c) => c.to === TEL.slice(1)));
     assert.ok(e.bd.tablas.wa_mensajes.length >= 3, 'con consentimiento sí hay historial');
 
