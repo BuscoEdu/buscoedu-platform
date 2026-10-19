@@ -133,7 +133,10 @@ let proveedores: ProveedorInterno[] = [
 ];
 
 let modelos: ModeloInterno[] = [
-  { id: 'm-abacus-naia', proveedor_id: 'p-abacus', proveedor_codigo: 'abacus_ai', nombre: 'Abacus NaIA', modelo: 'naia', encendido: true, parametros: PARAMS, capacidades: CAP(false, false), precio_vigente: { entrada_usd_1k: 0.002, salida_usd_1k: 0.01, version: 'estimado-2026-10', es_estimado: true, modelo: '*' }, ultima_prueba: prueba(true, 612, 'naia', '2026-10-18T07:40:00-05:00') },
+  // Abacus como lo manda la API real (P4, BE 15ab441): `modelo` en null y las referencias del
+  // despliegue en `abacus` (solo nombres de variables). El respaldo tiene una referencia sin guardar.
+  { id: 'm-abacus-naia', proveedor_id: 'p-abacus', proveedor_codigo: 'abacus_ai', nombre: 'Abacus NaIA', modelo: null, abacus: { identificador_externo: 'ABACUS_NAIA_DEPLOYMENT_ID', referencia_secreto: 'ABACUS_NAIA_DEPLOYMENT_TOKEN' }, encendido: true, parametros: PARAMS, capacidades: CAP(false, false), precio_vigente: { entrada_usd_1k: 0.002, salida_usd_1k: 0.01, version: 'estimado-2026-10', es_estimado: true, modelo: '*' }, ultima_prueba: prueba(true, 612, 'naia', '2026-10-18T07:40:00-05:00') },
+  { id: 'm-abacus-respaldo', proveedor_id: 'p-abacus', proveedor_codigo: 'abacus_ai', nombre: 'Abacus NaIA · respaldo', modelo: null, abacus: { identificador_externo: 'ABACUS_NAIA_DEPLOYMENT_ID_RESPALDO', referencia_secreto: null }, encendido: false, parametros: PARAMS, capacidades: CAP(false, false), precio_vigente: null, ultima_prueba: null },
   { id: 'm-xai-grok4', proveedor_id: 'p-xai', proveedor_codigo: 'xai', nombre: 'xAI · grok-4', modelo: 'grok-4', encendido: true, parametros: PARAMS, capacidades: CAP(true, true), precio_vigente: { entrada_usd_1k: 0.003, salida_usd_1k: 0.015, version: '2026-10', es_estimado: false, modelo: 'grok-4' }, ultima_prueba: prueba(true, 820, 'grok-4', '2026-10-18T06:55:00-05:00') },
   { id: 'm-openai-41mini', proveedor_id: 'p-openai', proveedor_codigo: 'openai', nombre: 'OpenAI · gpt-4.1-mini', modelo: 'gpt-4.1-mini', encendido: false, parametros: PARAMS, capacidades: CAP(true, true), precio_vigente: { entrada_usd_1k: 0.0004, salida_usd_1k: 0.0016, version: '2026-10', es_estimado: false, modelo: 'gpt-4.1-mini' }, ultima_prueba: prueba(true, 731, 'gpt-4.1-mini', '2026-10-16T11:22:00-05:00') },
   { id: 'm-anthropic-haiku', proveedor_id: 'p-anthropic', proveedor_codigo: 'anthropic', nombre: 'Anthropic · claude-haiku-4-5', modelo: 'claude-haiku-4-5', encendido: false, parametros: PARAMS, capacidades: CAP(true, true), precio_vigente: null, ultima_prueba: prueba(false, 288, null, '2026-10-17T10:06:00-05:00', MOTIVO_LEGIBLE.autenticacion) },
@@ -220,10 +223,13 @@ function usadoPor(idsModelos: string[]) {
   };
 }
 
+// Como la API: `abacus` solo viaja en modelos de proveedores Abacus (en los demás, sin el campo).
 function modeloApi(m: ModeloInterno): ModeloApi {
   const prov = proveedores.find((p) => p.id === m.proveedor_id);
+  const { abacus, ...resto } = m;
   return {
-    ...m,
+    ...resto,
+    ...(prov?.preset_codigo === 'abacus_ai' ? { abacus: abacus ?? { identificador_externo: null, referencia_secreto: null } } : {}),
     estado_panel: estadoPanel({
       claveConfigurada: !!prov?.clave.configurada,
       tieneModelos: true,
@@ -387,7 +393,11 @@ export const clienteEjemplo: ClienteAdminIa = {
     leer<DetalleProveedorApi>(() => {
       const p = proveedores.find((x) => x.id === id);
       if (!p) return err(404, 'no_encontrado', 'No encontramos ese proveedor.');
-      return { ...proveedorApi(p), modelos: modelosDe(p.id).map(modeloApi), bitacora: [...(bitacora[p.id] ?? [])].slice(0, 50), asistente: { ...p.asistente } };
+      // P4 · `abacus` a nivel proveedor, como BE 15ab441: el primer modelo con alguna referencia
+      // (o ambas en null); null en proveedores que no son Abacus.
+      const ms = modelosDe(p.id).map(modeloApi);
+      const abacus = p.preset_codigo === 'abacus_ai' ? ms.map((m) => m.abacus!).find((r) => r.identificador_externo || r.referencia_secreto) ?? { identificador_externo: null, referencia_secreto: null } : null;
+      return { ...proveedorApi(p), abacus, modelos: ms, bitacora: [...(bitacora[p.id] ?? [])].slice(0, 50), asistente: { ...p.asistente } };
     }),
 
   // P5 · editar (incluye el borrador del asistente; rechaza campos llamados como una clave).
@@ -495,7 +505,9 @@ export const clienteEjemplo: ClienteAdminIa = {
         proveedor_id: p.id,
         proveedor_codigo: p.codigo,
         nombre: body.nombre.trim(),
-        modelo: body.modelo?.trim() || 'naia',
+        // Como la API: sin `modelo` queda en null (Abacus se identifica por su despliegue).
+        modelo: body.modelo?.trim() || null,
+        abacus: p.preset_codigo === 'abacus_ai' ? { identificador_externo: body.abacus?.identificador_externo ?? null, referencia_secreto: body.abacus?.referencia_secreto ?? null } : undefined,
         encendido: false,
         parametros: { ...body.parametros },
         capacidades: { json: !!body.capacidades?.json, herramientas: !!body.capacidades?.herramientas },

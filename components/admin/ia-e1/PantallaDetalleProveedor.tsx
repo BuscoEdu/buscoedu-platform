@@ -16,13 +16,47 @@ import { TEXTO_PRECIO_ESTIMADO, fechaHora, formatoUsd, leerNumeroEs } from '@/sr
 import type { DetalleProveedorApi, ModeloApi, PruebaApi } from '@/src/lib/admin-ia/tipos';
 import { AvisoAmbar, AvisoDatosEjemplo, Campo, ChipEstado, EncabezadoPantalla, ErrorEnLinea, FaseNoOk, TextoExito } from './Base';
 import Bitacora, { textoAccion, valorTexto } from './Bitacora';
-import { etiquetaCapacidad, etiquetaModelo, etiquetaParametro, etiquetaProveedor } from '@/src/lib/admin-ia/etiquetas';
+import { etiquetaCapacidad, etiquetaParametro, etiquetaProveedor } from '@/src/lib/admin-ia/etiquetas';
+import { esModeloAbacus, esProveedorAbacus, lineasReferenciasAbacus, opcionesPrecioPorModelo, subtituloModelo } from '@/src/lib/admin-ia/referencias-abacus';
+import type { ReferenciasAbacusApi } from '@/src/lib/admin-ia/tipos';
 import EstadoClave from './EstadoClave';
 import InterruptorConImpacto from './InterruptorConImpacto';
 import { nombreCorto } from './PantallaProveedores';
 import { BOTON_SECUNDARIO, CAMPO, FOCO, TARJETA, TEXTO_SECUNDARIO } from './estilos';
 import { IconoError } from './Iconos';
 import { usarCarga } from './usarCarga';
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Bloque 0 · Referencias de Abacus (2026-10-19).
+ * Qué hace: pinta «Despliegue: NOMBRE_DE_VARIABLE» y «Token: NOMBRE_DE_VARIABLE» con los NOMBRES que
+ * manda la API en `abacus` (P4, BE 15ab441); si un campo viene null, «Sin referencia configurada»
+ * (texto neutro, no de error). Nunca muestra valores: la lógica está en referencias-abacus.ts.
+ * Para qué: que el equipo vea qué variables de Vercel usa cada despliegue de Abacus, en vez de
+ * «Sin modelo». Se usa en la cabecera del proveedor y en cada tarjeta de modelo Abacus.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+function ReferenciasAbacus({ refs, titulo }: { refs: ReferenciasAbacusApi | null | undefined; titulo: string }) {
+  const lineas = lineasReferenciasAbacus(refs);
+  return (
+    <div className="text-sm">
+      <p className={TEXTO_SECUNDARIO}>{titulo}</p>
+      <dl className="mt-1 space-y-1">
+        {lineas.map((l) => (
+          <div key={l.campo} className="flex flex-wrap items-baseline gap-x-1">
+            <dt className={`${TEXTO_SECUNDARIO}`}>{l.etiqueta}:</dt>
+            <dd className="min-w-0 break-all">
+              {l.nombre ? (
+                <code className="rounded bg-[#f3f0fb] px-1.5 py-0.5 font-mono text-[13px] text-[#1a1830]">{l.nombre}</code>
+              ) : (
+                <span className={`italic ${l.estado === 'no_valida' ? 'text-[#b45309]' : TEXTO_SECUNDARIO}`}>{l.texto}</span>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Bloque 1 · Tarjeta de un modelo.
@@ -53,10 +87,18 @@ function TarjetaModelo({ m, onCambio }: { m: ModeloApi; onCambio: () => void }) 
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-bold text-[#1a1830]">{m.nombre}</p>
-          <p className={`break-all text-sm ${TEXTO_SECUNDARIO}`}>{etiquetaModelo(m.modelo)}</p>
+          {/* Subtítulo: el modelo legible; en Abacus sin `modelo` (la API lo manda en null), «Despliegue
+              de Abacus AI» en vez de «Sin modelo». Los demás proveedores no cambian. */}
+          <p className={`break-all text-sm ${TEXTO_SECUNDARIO}`}>{subtituloModelo(m)}</p>
         </div>
         <ChipEstado estado={m.estado_panel} />
       </div>
+      {/* Solo Abacus: referencias de ESTE modelo (`modelos[i].abacus`), nombres de variables, nunca valores. */}
+      {esModeloAbacus(m) && (
+        <div className="mt-3">
+          <ReferenciasAbacus refs={m.abacus} titulo="Referencias del despliegue (nombres de variables en Vercel, no valores):" />
+        </div>
+      )}
       <dl className="mt-3 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
         <div><dt className={`inline ${TEXTO_SECUNDARIO}`}>Parámetros: </dt><dd className="inline">{etiquetaParametro('temperature')} {String(m.parametros.temperature).replace('.', ',')} · {etiquetaParametro('max_tokens')} {m.parametros.max_tokens} · {etiquetaParametro('timeout_ms')} {m.parametros.timeout_ms} ms</dd></div>
         <div>
@@ -152,7 +194,8 @@ function CargarPrecio({ d, onCambio }: { d: DetalleProveedorApi; onCambio: () =>
         <label htmlFor="precio-modelo" className="block font-semibold">Modelo</label>
         <select id="precio-modelo" value={modelo} onChange={(e) => setModelo(e.target.value)} className={CAMPO}>
           <option value="*">Todo el proveedor (todos sus modelos)</option>
-          {d.modelos.map((m) => <option key={m.id} value={m.modelo}>{etiquetaModelo(m.modelo)}</option>)}
+          {/* Solo modelos con identificador; los de Abacus (sin `modelo`) se cobran con «Todo el proveedor». */}
+          {opcionesPrecioPorModelo(d.modelos).map((o) => <option key={o.id} value={o.valor}>{o.etiqueta}</option>)}
         </select>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -202,6 +245,8 @@ export default function PantallaDetalleProveedor({ id }: { id: string }) {
           <div className="min-w-0 space-y-1">
             <ChipEstado estado={d.estado_panel} />
             <p className={`break-all text-sm ${TEXTO_SECUNDARIO}`}>Proveedor: {etiquetaProveedor(d.codigo)} · Dirección: {d.url_base ?? 'dirección fija de Abacus AI'}</p>
+            {/* Solo Abacus: referencias a nivel proveedor (`abacus` de P4: las del primer modelo que tenga). */}
+            {esProveedorAbacus(d) && <ReferenciasAbacus refs={d.abacus} titulo="Referencias de Abacus (nombres de variables en Vercel, no valores):" />}
             {d.salud.circuito_abierto_hasta && <AvisoAmbar>En pausa por errores seguidos hasta {fechaHora(d.salud.circuito_abierto_hasta)} (orientativo).</AvisoAmbar>}
           </div>
           <InterruptorConImpacto

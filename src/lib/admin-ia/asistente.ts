@@ -350,7 +350,12 @@ export function elegirProveedorPorRetomar(
 /** Número de la API → texto con coma decimal, como lo escribe el admin en el formulario. */
 const textoNumero = (n: unknown): string => (typeof n === 'number' && Number.isFinite(n) ? String(n).replace('.', ',') : '');
 
-/** Campos del formulario «Modelos» a partir del modelo guardado (M1). Abacus no viaja en M1. */
+/**
+ * Campos del formulario «Modelos» a partir del modelo guardado (M1).
+ * Abacus (2026-10-19): desde P4 (BE 15ab441) el detalle trae `modelos[i].abacus` con los NOMBRES de
+ * las variables; si vienen, mandan sobre lo local (así otro navegador ve las referencias guardadas).
+ * Si el servidor manda null o no manda el campo, queda lo que se escribió en este navegador.
+ */
 export function modelosDesdeServidor(m: ModeloApi, abacus?: { abacus_identificador?: string; abacus_referencia?: string }): Record<CampoModelo, string> {
   return {
     ...MODELO_POR_DEFECTO,
@@ -361,8 +366,8 @@ export function modelosDesdeServidor(m: ModeloApi, abacus?: { abacus_identificad
     timeout_ms: textoNumero(m.parametros?.timeout_ms) || MODELO_POR_DEFECTO.timeout_ms,
     costo_usd_1k_entrada: textoNumero(m.precio_vigente?.entrada_usd_1k),
     costo_usd_1k_salida: textoNumero(m.precio_vigente?.salida_usd_1k),
-    abacus_identificador: abacus?.abacus_identificador ?? '',
-    abacus_referencia: abacus?.abacus_referencia ?? ''
+    abacus_identificador: m.abacus?.identificador_externo || abacus?.abacus_identificador || '',
+    abacus_referencia: m.abacus?.referencia_secreto || abacus?.abacus_referencia || ''
   };
 }
 
