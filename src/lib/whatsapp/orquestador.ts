@@ -144,8 +144,18 @@ export async function procesarMensajeEntrante(
   // Qué: no se crea contacto ni historial (wa_contactos.celular_e164 es NOT NULL con CHECK E.164);
   // solo se le pide el número con el botón oficial de Meta, dirigido por `recipient` (BSUID).
   // Por qué: sin número no hay dónde guardar su autorización de datos (Ley 1581) ni su estado.
+  // Si ese BSUID ya está vinculado a un contacto (compartió su número antes), se sigue el flujo normal.
   if (!remitente.telefono) {
-    return atenderSoloUserId(remitente, deps, log, mascara);
+    const vinculado =
+      remitente.userId && almacen.obtenerContactoPorUserId ? await almacen.obtenerContactoPorUserId(remitente.userId) : null;
+    if (!vinculado) return atenderSoloUserId(remitente, deps, log, mascara);
+    log('wa_remitente_vinculado_por_user_id', { usuario: mascara });
+    mensaje = {
+      ...mensaje,
+      e164: vinculado.e164,
+      waId: vinculado.e164.slice(1),
+      remitente: { telefono: vinculado.e164, userId: remitente.userId }
+    };
   }
 
   try {
@@ -154,12 +164,30 @@ export async function procesarMensajeEntrante(
     // 7) Error inesperado: mensaje honesto + link. Nada de lead a medias (la conversión es atómica en SQL).
     log('wa_error_orquestador', { error: error instanceof Error ? error.message.slice(0, 200) : 'desconocido' });
     try {
-      await deps.enviador.enviarTexto(destinoRemitente(remitente), M.ERROR_HONESTO);
+      await deps.enviador.enviarTexto(destinoRemitente(remitenteDe(mensaje)), M.ERROR_HONESTO);
     } catch {
       // Si la API de Meta también está caída no hay nada más que hacer en este turno.
     }
     return 'error';
   }
+}
+
+/**
+ * Bloque: vincula el BSUID al contacto (sesion.waUserId) para reconocerlo si luego escribe sin `from`.
+ * Cuándo: solo si compartió su número con el botón (acto explícito) o si ya dio el consentimiento de datos.
+ * Por qué: antes del consentimiento la promesa es "solo guardo tu número" (Ley 1581).
+ */
+async function vincularUserIdSiCorresponde(
+  contacto: ContactoWa,
+  mensaje: MensajeEntrante,
+  deps: DependenciasOrquestador
+): Promise<ContactoWa> {
+  const userId = remitenteDe(mensaje).userId;
+  if (!userId || contacto.sesion?.waUserId === userId) return contacto;
+  if (!mensaje.contactoCompartido && !contacto.consentimientoDatos) return contacto;
+  const sesion: SesionWa = { ...contacto.sesion, waUserId: userId };
+  await deps.almacen.actualizarContacto(contacto.id, { sesion });
+  return { ...contacto, sesion };
 }
 
 /**
@@ -206,11 +234,13 @@ async function atender(
   let contacto = await almacen.obtenerContacto(mensaje.e164);
   if (!contacto) {
     contacto = await almacen.crearContactoSoloNumero(mensaje.e164, mensaje.timestampMs);
+    contacto = await vincularUserIdSiCorresponde(contacto, mensaje, deps);
     if (comando === 'baja') return darDeBaja(contacto, deps, ahora);
     await enviarBotones(contacto, deps, M.BIENVENIDA_CONSENTIMIENTO, BOTONES_CONSENTIMIENTO);
     return 'respondido';
   }
 
+  contacto = await vincularUserIdSiCorresponde(contacto, mensaje, deps);
   const ultimo = Math.max(contacto.ultimoEntranteMs || 0, mensaje.timestampMs);
   await almacen.actualizarContacto(contacto.id, { ultimoEntranteMs: ultimo });
   contacto = { ...contacto, ultimoEntranteMs: ultimo };
@@ -312,6 +342,11 @@ async function gestionarConsentimiento(
       consentimientoVersion: M.VERSION_TEXTO_DATOS,
       estado: 'activo'
     };
+    // Con el consentimiento ya se puede vincular el BSUID (si Meta lo mandó) para reconocerlo sin `from`.
+    const userIdConsentido = remitenteDe(mensaje).userId;
+    if (userIdConsentido && contacto.sesion?.waUserId !== userIdConsentido) {
+      parche.sesion = { ...contacto.sesion, waUserId: userIdConsentido };
+    }
     await actualizar(contacto, deps, parche);
     const actualizado = { ...contacto, ...parche } as ContactoWa;
     await deps.almacen.registrarMensaje(contacto.id, {
@@ -598,7 +633,8 @@ async function resolverAutorizacion(
       consentimiento_aceptado: true,
       clave_idempotencia: `wa:${contacto.id}:${oferta.id}`,
       celular_e164: contacto.e164,
-      pais_celular: contacto.e164.startsWith('+57') ? 'CO' : null,
+      // Null-safe: si algún día hay contactos sin teléfono (propuesta BD), no debe lanzar TypeError.
+      pais_celular: (contacto.e164 || '').startsWith('+57') ? 'CO' : null,
       nombres: partes[0],
       apellidos: partes.slice(1).join(' '),
       nombre_completo: aplicacion.nombreCompleto,

@@ -38,6 +38,11 @@ export interface MensajeEntrante {
   texto: string;
   /** id de la fila/botón elegido (interactivos). */
   respuestaId: string | null;
+  /**
+   * true si el usuario compartió SU número tocando el botón request_contact_info
+   * (mensaje type=contacts con origin=contact_request). El teléfono viene de ahí.
+   */
+  contactoCompartido?: boolean;
   /** phone_number_id que recibió el mensaje (para descartar otros números). */
   phoneNumberIdDestino: string | null;
 }
@@ -100,10 +105,31 @@ export function identificarRemitente(raw: any, contactos: any[], indice: number,
   return { telefono: waId ? `+${waId}` : null, userId };
 }
 
+/**
+ * Bloque: número que el propio usuario compartió con el botón REQUEST_CONTACT_INFO.
+ * Doc Meta (BSUID, "Webhook de contactos"): messages[].type='contacts', from_user_id, y
+ * messages[].contacts[] con origin='contact_request' y phones[].wa_id/phone (sin vCard).
+ * origin='other' es un contacto cualquiera compartido en el chat: NO es el remitente, se ignora.
+ */
+export function telefonoCompartidoPorBoton(raw: any): string | null {
+  if (raw?.type !== 'contacts') return null;
+  for (const c of Array.isArray(raw?.contacts) ? raw.contacts : []) {
+    if (c?.origin !== 'contact_request') continue;
+    for (const ph of Array.isArray(c?.phones) ? c.phones : []) {
+      const d = leerWaId(ph?.wa_id) || leerWaId(ph?.phone);
+      if (d) return `+${d}`;
+    }
+  }
+  return null;
+}
+
 // Bloque: un mensaje individual → MensajeEntrante (o null si no aplica).
 function leerMensaje(raw: any, phoneNumberId: string | null, contactos: any[], indice: number, total: number): MensajeEntrante | null {
   const id = texto(raw?.id, 256);
-  const remitente = identificarRemitente(raw, contactos, indice, total);
+  let remitente = identificarRemitente(raw, contactos, indice, total);
+  // Sin teléfono en `from`/`wa_id`: si compartió su número con el botón, se usa ese.
+  const compartido = remitente.telefono ? null : telefonoCompartidoPorBoton(raw);
+  if (compartido) remitente = { ...remitente, telefono: compartido };
   const ts = Number(raw?.timestamp);
   if (!id || (!remitente.telefono && !remitente.userId) || !Number.isFinite(ts)) return null;
   const waId = remitente.telefono ? remitente.telefono.slice(1) : '';
@@ -113,6 +139,7 @@ function leerMensaje(raw: any, phoneNumberId: string | null, contactos: any[], i
     waId,
     e164: remitente.telefono || '',
     remitente,
+    ...(compartido ? { contactoCompartido: true } : {}),
     timestampMs: ts * 1000,
     phoneNumberIdDestino: phoneNumberId
   };

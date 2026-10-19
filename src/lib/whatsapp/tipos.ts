@@ -42,6 +42,12 @@ export interface SesionWa {
   ofertas: OfertaWa[];
   miLista: string[];
   aplicacion: AplicacionEnCursoWa | null;
+  /**
+   * BSUID de WhatsApp vinculado a este contacto (2026-10-19). Se guarda en el jsonb `sesion`
+   * porque wa_contactos no tiene columna para él (propuesta no aplicada en supabase/ops).
+   * Solo se vincula cuando el usuario compartió su número con el botón o ya dio el consentimiento.
+   */
+  waUserId?: string;
 }
 
 export const SESION_WA_VACIA: SesionWa = { filtros: {}, ofertas: [], miLista: [], aplicacion: null };
@@ -81,6 +87,8 @@ export interface AlmacenWhatsApp {
   /** Idempotencia: true si el id es nuevo; false si ya se procesó. */
   marcarMensajeProcesado(idMensaje: string): Promise<boolean>;
   obtenerContacto(e164: string): Promise<ContactoWa | null>;
+  /** Contacto ya vinculado a un BSUID (sesion.waUserId). Opcional para almacenes antiguos. */
+  obtenerContactoPorUserId?(userId: string): Promise<ContactoWa | null>;
   /** Crea el contacto guardando SOLO el número (antes del consentimiento). */
   crearContactoSoloNumero(e164: string, ultimoEntranteMs: number): Promise<ContactoWa>;
   actualizarContacto(id: string, parche: ParcheContacto): Promise<void>;

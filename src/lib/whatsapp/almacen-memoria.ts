@@ -39,6 +39,12 @@ export function crearAlmacenMemoria(): AlmacenMemoria {
       return c ? structuredClone(c) : null;
     },
 
+    // Bloque: búsqueda por BSUID vinculado (misma semántica que el jsonb sesion.waUserId en Supabase).
+    async obtenerContactoPorUserId(userId) {
+      for (const c of contactos.values()) if (c.sesion?.waUserId === userId) return structuredClone(c);
+      return null;
+    },
+
     async crearContactoSoloNumero(e164, ultimoEntranteMs) {
       secuencia += 1;
       const contacto: ContactoWa = {
