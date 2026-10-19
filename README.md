@@ -122,6 +122,8 @@ Bitácora BE: 2026-10-18 — revisión del contrato BA-005 tras el orden estable
 
 `trackEvent` (`src/lib/events.ts`) inserta en `eventos_negocio` con las columnas reales `evento`, `metadatos` y `creado_en`. Antes enviaba `tipo_evento`, `metadata` y `fecha_evento`, que no existen, y PostgREST respondía PGRST204. Los callers no cambian. Prueba: `src/lib/events.test.ts`. Bitácora: 2026-10-18 — mapeo a columnas reales — para que los eventos de Explorar/NaIA dejen de perderse — Backend BuscoEdu (bot). Detalle: `docs/BUSCOEDU_DATA_DICTIONARY.md` (sección `eventos_negocio`). Bitácora: 2026-10-18 — sin `metadata` se envía `metadatos: {}` en vez de `null` — porque BD confirmó `metadatos jsonb NOT NULL default '{}'` y el null rompería el insert — Backend BuscoEdu (bot).
 
+Bitácora: 2026-10-19 — **qué**: los eventos se guardan en el servidor con `POST /api/eventos` (service role, lista permitida de 7 eventos, UUIDs, `metadatos` ≤ 2 KB, mismo origen, 120/min por IP y 60/min por visitante); `trackEvent` hace `fetch` con `keepalive` (respaldo `sendBeacon`) y el navegador ya no inserta en `eventos_negocio` ni en `visitantes` con la clave anon — **por qué**: en el smoke de QA en producción esos inserts fallaban por RLS (`42501` ×2, HTTP 401 ×3) y los eventos se perdían; no se abre RLS a anon y no hace falta política nueva (propuesta no aplicada: `supabase/ops/20261019_eventos_negocio_rls_propuesta.sql`) — **quién**: Backend BuscoEdu (bot). Contrato: [`docs/backend/README-eventos.md`](docs/backend/README-eventos.md).
+
 ## BA-034 — Capa IA multiproveedor (E1)
 
 NaIA llama al modelo a través de una capa común (`lib/agentes/llm/`). Abacus sigue siendo el proveedor por defecto y recibe exactamente la misma entrada que antes (decisión 13; lo prueba un test de regresión). OpenAI, xAI, Anthropic, Gemini y OpenRouter entran por el AI SDK de Vercel (decisión 12). Si un modelo falla responde el respaldo, que es opcional. Si no responde ninguno, el estudiante recibe un mensaje honesto con paso a una persona. Las URLs de proveedor salen de una lista fija en código. Las claves se leen de Vault y, si no están, de una variable de entorno. Cada intento deja su costo registrado, y si ese registro falla la respuesta sigue igual. Detalle, migración (sin aplicar), cómo deshacerla y bitácora: [`docs/backend/README-ba034.md`](docs/backend/README-ba034.md).
@@ -301,13 +303,13 @@ Contexto global de "Mi Lista":
 |--------|-------------|------------------|
 | `naia_modal_abierto` | Usuario abre modal inicial | `visitante_id` |
 | `intencion_busqueda_enviada` | Usuario envía búsqueda | `visitante_id`, `metadata.intencion` |
-| `filtro_aplicado` | Filtro manual aplicado | `visitante_id`, `metadata.filtro`, `metadata.valor` |
-| `filtro_retirado` | Filtro removido | `visitante_id`, `metadata.filtro` |
 | `ficha_oferta_abierta` | Usuario abre detalle de oferta | `visitante_id`, `oferta_id`, `programa_id`, `universidad_id` |
 | `ficha_oferta_cerrada` | Usuario cierra detalle | `visitante_id`, `oferta_id` |
 | `oferta_agregada_mi_lista` | Oferta guardada en Mi Lista | `visitante_id`, `oferta_id` |
 | `oferta_retirada_mi_lista` | Oferta quitada de Mi Lista | `visitante_id`, `oferta_id` |
 | `intento_aplicar_oferta` | Click en "Aplicar" | `visitante_id`, `oferta_id`, `programa_id`, `universidad_id` |
+
+Desde 2026-10-19 se envían a `POST /api/eventos` (servidor, service role); solo se aceptan estos 7 eventos. Contrato: `docs/backend/README-eventos.md`.
 
 ### Migración de Base de Datos
 
@@ -330,6 +332,8 @@ Ya configuradas en Vercel y `.env.local` (NO tocar):
 NEXT_PUBLIC_SUPABASE_URL=<URL de Supabase>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<Clave anónima>
 ```
+
+Solo servidor (sin prefijo `NEXT_PUBLIC_`, nunca llega al navegador): `SUPABASE_SERVICE_ROLE_KEY`, que usan `/api/naia`, OTP, Lead Center y, desde 2026-10-19, `POST /api/eventos`.
 
 ## 🎨 Sistema de Diseño
 

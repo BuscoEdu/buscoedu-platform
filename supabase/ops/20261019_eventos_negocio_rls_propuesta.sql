@@ -1,0 +1,52 @@
+-- =====================================================================
+-- NO APLICADA – requiere OK de Jhon y plan de BD
+-- =====================================================================
+-- 20261019_eventos_negocio_rls_propuesta.sql
+-- Autor: Backend BuscoEdu (bot), 2026-10-19. Para revisión de Base de datos BuscoEdu (bot).
+-- NO es una migración (no va en supabase/migrations) y NO se ejecutó contra ninguna BD.
+--
+-- Contexto: en el smoke de QA en producción los inserts del navegador (clave anon) en
+-- public.eventos_negocio fallaban con 42501 (RLS) y PostgREST devolvía HTTP 401 (rol anon sin JWT
+-- de usuario). Desde la rama fix/eventos-servidor los eventos se guardan en el SERVIDOR
+-- (POST /api/eventos) con SUPABASE_SERVICE_ROLE_KEY. service_role tiene BYPASSRLS, así que:
+--
+--   >>> NO SE NECESITA NINGUNA POLÍTICA NUEVA NI NINGÚN GRANT NUEVO. <<<
+--   No hay que abrir INSERT a anon en eventos_negocio ni en visitantes.
+--
+-- Qué encontró Backend en el repo (solo lectura de archivos):
+--   * Ninguna migración de supabase/migrations crea una política INSERT ni un GRANT INSERT para
+--     anon en eventos_negocio (ni en visitantes).
+--   * 20260829120300_leadcenter_rls_crm.sql solo agrega lc_eventos_select (SELECT para
+--     asesor/super_admin) y menciona un «INSERT anónimo del explorador» creado FUERA del repo.
+--     El 42501 de producción indica que hoy ese INSERT anónimo no existe o no aplica.
+--   * eventos_negocio.visitante_id tiene FK a visitantes(id) (20260815000000); por eso la ruta
+--     asegura la fila de visitantes con service role antes de insertar el evento.
+--
+-- Propuesta (decide BD con OK de Jhon):
+--   1. Mantener eventos_negocio y visitantes SIN INSERT para anon (estado deseado).
+--   2. Correr la verificación de solo lectura del bloque A. Si aparece alguna política INSERT para
+--      anon/public o un privilegio INSERT de anon, evaluar el bloque B (revocar) DESPUÉS de
+--      desplegar /api/eventos (antes no cambia nada: hoy ya falla).
+-- =====================================================================
+
+-- Bloque A (solo lectura): políticas y privilegios actuales de anon sobre las dos tablas.
+-- SELECT schemaname, tablename, policyname, cmd, roles, with_check
+--   FROM pg_policies
+--  WHERE schemaname = 'public' AND tablename IN ('eventos_negocio', 'visitantes')
+--  ORDER BY tablename, policyname;
+--
+-- SELECT table_name, grantee, privilege_type
+--   FROM information_schema.role_table_grants
+--  WHERE table_schema = 'public' AND table_name IN ('eventos_negocio', 'visitantes')
+--    AND grantee IN ('anon', 'authenticated', 'PUBLIC')
+--  ORDER BY table_name, grantee, privilege_type;
+
+-- Bloque B (SOLO si el bloque A muestra INSERT de anon y BD/Jhon lo aprueban). Comentado a propósito.
+-- BEGIN;
+-- -- Reemplazar <nombre_politica_insert_anon> por el nombre real que salga del bloque A.
+-- -- DROP POLICY IF EXISTS <nombre_politica_insert_anon> ON public.eventos_negocio;
+-- REVOKE INSERT ON public.eventos_negocio FROM anon;
+-- REVOKE INSERT ON public.visitantes FROM anon;
+-- COMMIT;
+-- Deshacer B: GRANT INSERT ON public.eventos_negocio TO anon; GRANT INSERT ON public.visitantes TO anon;
+-- (y recrear la política borrada con su definición original del bloque A).
