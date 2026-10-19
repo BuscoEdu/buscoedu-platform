@@ -163,9 +163,52 @@ export function nombreCortoFila(nombre: string): string {
   return nivelDe(nombre)?.abreviado ?? limpiar(nombre);
 }
 
+/*
+ * Bloque 4b · WA-fix-1b (QA ronda 4, MEDIA · cambio de BE en archivo FE, estrictamente necesario para el ítem
+ * «títulos de fila»). Qué: si el nombre no cabe, (1) se quitan los conectores («de», «en», «y»…) y (2) se corta
+ * por palabra sin dejar un conector colgando («Ingeniería de…» → «Ingeniería Sistemas…»). Si solo cabría la
+ * abreviatura («Mtría…»), se usa el nombre sin nivel (el nivel ya va en la descripción). Nunca corta a media palabra.
+ * Por qué: en el preview salían «Ingeniería de…» ×2 y «Esp. Neuropsicología…» ×3, sin saber cuál era cuál.
+ */
+const CONECTORES = new Set(['de', 'del', 'en', 'y', 'e', 'la', 'el', 'los', 'las', 'para', 'a', 'con', 'o', 'u', 'al', '-', '–']);
+
+function sinConectores(texto: string): string {
+  return texto
+    .split(' ')
+    .filter((w, i) => i === 0 || !CONECTORES.has(w.toLowerCase()))
+    .join(' ');
+}
+
+/** Corte por palabra que además quita conectores sueltos al final («Gestión de…» → «Gestión…»). */
+function cortarTitulo(texto: string, max: number): string {
+  const t = limpiar(texto);
+  if (t.length <= max) return t;
+  let corte = cortarPorPalabra(t, max).replace(/…$/, '');
+  const palabras = corte.split(' ');
+  while (palabras.length > 1 && CONECTORES.has(palabras[palabras.length - 1].toLowerCase())) palabras.pop();
+  corte = palabras.join(' ');
+  return `${corte}…`;
+}
+
 export function tituloFila(numero: number, nombre: string): string {
   const prefijo = `${numero}. `;
-  return `${prefijo}${cortarPorPalabra(nombreCortoFila(nombre), LIMITES.tituloFila - prefijo.length)}`;
+  const max = LIMITES.tituloFila - prefijo.length;
+  const corto = nombreCortoFila(nombre);
+  const nivel = nivelDe(nombre);
+  const candidatos = [corto, sinConectores(corto)];
+  if (nivel) {
+    const resto = limpiar(nombre).replace(ABREVIATURAS_NIVEL.find(([p]) => p.test(limpiar(nombre)))![0], '');
+    candidatos.push(sinConectores(resto));
+  }
+  // Orden: (1) con nivel abreviado, entero; (2) el corte que conserve más texto, salvo que solo quede la
+  // abreviatura («Mtría…»); (3) sin nivel (va en la descripción), entero o cortado.
+  const [conNivel, conNivelSinConectores, sinNivel] = candidatos;
+  for (const c of [conNivel, conNivelSinConectores]) if (c.length <= max) return `${prefijo}${c}`;
+  const cortes = [conNivel, conNivelSinConectores].map((c) => cortarTitulo(c, max)).sort((x, y) => y.length - x.length);
+  const util = cortes.find((r) => !(nivel && r.split(' ').length < 2));
+  if (util) return `${prefijo}${util}`;
+  if (sinNivel) return `${prefijo}${sinNivel.length <= max ? sinNivel : cortarTitulo(sinNivel, max)}`;
+  return `${prefijo}${cortes[0]}`;
 }
 
 /*
@@ -173,7 +216,7 @@ export function tituloFila(numero: number, nombre: string): string {
  * («Especialización · Areandina · Virtual»), como pide Producto. Mismo orden de recorte de siempre:
  * primero sale la modalidad, luego la ciudad; si ni nivel + universidad caben, queda la de siempre.
  */
-export function descripcionFila(o: OfertaAgrupadaWa): string {
+export function descripcionFila(o: OfertaAgrupadaWa, distinguir = false): string {
   const universidad = limpiar(o.universidad);
   const modalidad = limpiar(o.modalidad);
   // Si el catálogo trae «Virtual» como ciudad y también como modalidad, no se repite.
@@ -187,7 +230,17 @@ export function descripcionFila(o: OfertaAgrupadaWa): string {
         [nivel, universidad]
       ]
     : [];
+  // WA-fix-1b · si otra fila de la misma página tiene el mismo título, lo que distingue (modalidad y sede)
+  // va primero, antes de la universidad, para que no se vean dos filas iguales.
+  const distintivo = distinguir
+    ? [
+        [modalidad, lugar, nivel, universidad],
+        [modalidad, lugar, universidad],
+        [modalidad, lugar]
+      ]
+    : [];
   const intentos = [
+    ...distintivo,
     ...conNivel,
     [universidad, modalidad, lugar],
     [universidad, lugar], // sin modalidad
@@ -234,7 +287,8 @@ function encabezado(total: number, k: number, consulta: string, conEmoji: boolea
 
 export function pieResultados(total: number, consulta: string): string | undefined {
   if (total <= PROGRAMAS_POR_PAGINA) return undefined;
-  const palabras = limpiar(consulta).split(' ').filter(Boolean);
+  // WA-fix-1b · el separador «·» de la etiqueta no es parte de la búsqueda: antes quedaba «?q=virtual%20%C2%B7».
+  const palabras = limpiar(consulta).split(' ').filter((w) => /[\p{L}\p{N}]/u.test(w));
   for (let n = palabras.length; n > 0; n--) {
     const pie = `${URL_EXPLORAR}?q=${encodeURIComponent(palabras.slice(0, n).join(' '))}`;
     if (pie.length <= LIMITES.pie) return pie;
@@ -258,10 +312,12 @@ export function armarResultados(
   const p = Math.max(0, Math.floor(pagina || 0));
   const desde = p * PROGRAMAS_POR_PAGINA;
   const visibles = (ofertasAgrupadas || []).slice(0, PROGRAMAS_POR_PAGINA);
+  // WA-fix-1b · títulos repetidos dentro de la página (sin el número) → descripción con modalidad/sede primero.
+  const titulos = visibles.map((o, i) => tituloFila(desde + i + 1, o.nombre).replace(/^\d+\. /, ''));
   const filas: FilaLista[] = visibles.map((o, i) => ({
     id: `oferta:${o.id}`,
     titulo: tituloFila(desde + i + 1, o.nombre),
-    descripcion: descripcionFila(o)
+    descripcion: descripcionFila(o, titulos.filter((t) => t === titulos[i]).length > 1)
   }));
   // v1.4: la fila «Ver más» dice cuántos programas trae la página siguiente: k = min(8, N - (pagina+1)*8).
   const siguientes = Math.min(PROGRAMAS_POR_PAGINA, total - (p + 1) * PROGRAMAS_POR_PAGINA);
@@ -335,7 +391,9 @@ export function armarFicha(oferta: OfertaAgrupadaWa): { cuerpo: string; botones:
       .filter(Boolean)
       .join(' · ');
     const beneficio = limpiar(oferta.beneficio) && maxBeneficio > 0 ? t16ConBeneficio(cortarPorPalabra(oferta.beneficio!, maxBeneficio)) : '';
-    return [`*${cortarPorPalabra(oferta.nombre, maxNombre)}*`, detalle, beneficio, T17_PRECIO, url ? `${T09B_MAS_INFORMACION} ${url}` : '']
+    // WA-fix-1b · S13 · duración del catálogo si viene (mismo rótulo «Duración:» que la ficha web).
+    const duracion = limpiar(oferta.duracion) ? `Duración: ${limpiar(oferta.duracion)}` : '';
+    return [`*${cortarPorPalabra(oferta.nombre, maxNombre)}*`, detalle, duracion, beneficio, T17_PRECIO, url ? `${T09B_MAS_INFORMACION} ${url}` : '']
       .filter(Boolean)
       .join('\n');
   };

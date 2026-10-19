@@ -13,7 +13,10 @@ import { leerConfigWhatsApp } from './config';
 import { WhatsAppApiError } from './graph-client';
 import type { EnviadorWhatsApp } from './graph-client';
 import { clasificarTexto } from './intenciones';
-import { partirNombre, procesarMensajeEntrante } from './orquestador';
+import { accionEscrita, partirNombre, procesarMensajeEntrante, respuestaAutorizacionEscrita } from './orquestador';
+import { buscarProgramasPaginado } from './catalogo-supabase';
+import { armarFicha, armarResultados, pieResultados, tituloFila } from './presentacion';
+import type { OfertaAcademica } from '@/src/lib/ofertas';
 import type { DependenciasOrquestador } from './orquestador';
 import { crearLimitadorMemoria } from './rate-limit';
 import type { CatalogoWa, FiltrosBusquedaWa, OfertaWa } from './tipos';
@@ -300,5 +303,196 @@ describe('WA-fix-1', () => {
     assert.equal(e.contacto().sesion.aplicacion?.ofertaId, o.id);
     assert.equal(e.contacto().sesion.aplicacion?.paso, 'datos_nombre');
     assert.equal(e.llamadasConversion.length, 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lote WA-fix-1b (2026-10-19) · fallos de la ronda 4 del preview (resultado.md / logs-be-r4.md).
+// ---------------------------------------------------------------------------
+
+// Bloque: fixture «virtual · Medellín»: 196 ofertas de 16 programas (como en el preview), en orden estable de BD.
+function fixtureVirtualMedellin(): OfertaAcademica[] {
+  return Array.from({ length: 196 }, (_, i) => ({
+    id: `of-${i}`,
+    programa_id: `prog-${i % 16}`,
+    nombre: `Programa ${i % 16}`,
+    programa: { nombre: `Programa ${i % 16}`, modalidad: 'Virtual', duracion: i % 16 === 0 ? '4 semestres' : undefined },
+    universidad: { nombre: 'Universidad Demo' },
+    sede: { ciudad: 'Virtual' }
+  })) as unknown as OfertaAcademica[];
+}
+
+describe('WA-fix-1b', () => {
+  it('S6 · el total cuenta programas, no ofertas: virtual Medellín (196 ofertas) = 16', async () => {
+    const todas = fixtureVirtualMedellin();
+    const paginas: number[] = [];
+    const r = await buscarProgramasPaginado(async (pagina, tamano) => {
+      paginas.push(pagina);
+      return { ok: true, ofertas: todas.slice(pagina * tamano, (pagina + 1) * tamano), total: todas.length };
+    }, 100);
+    assert.ok(r.ok);
+    if (!r.ok) return;
+    assert.equal(r.total, 16);
+    assert.equal(r.ofertas.length, 16);
+    assert.equal(r.completo, true);
+    assert.deepEqual(paginas, [0, 1]);
+    // S13 · la duración del catálogo viaja a OfertaWa.
+    assert.equal(r.ofertas[0].duracion, '4 semestres');
+  });
+
+  it('S6 · con más de MAX_PAGINAS_WA páginas sigue contando programas (nunca ofertas) y un fallo de página = error', async () => {
+    const r = await buscarProgramasPaginado(async (pagina, tamano) => ({
+      ok: true,
+      ofertas: Array.from({ length: tamano }, (_, i) => ({ id: `o${pagina}-${i}`, programa_id: `p${(pagina * tamano + i) % 30}`, nombre: 'X' })) as unknown as OfertaAcademica[],
+      total: 5000
+    }), 8);
+    assert.ok(r.ok && r.total === 30 && r.completo === false);
+    const falla = await buscarProgramasPaginado(async (pagina) => (pagina === 0 ? { ok: true, ofertas: fixtureVirtualMedellin().slice(0, 100), total: 196 } : { ok: false }), 8);
+    assert.equal(falla.ok, false);
+  });
+
+  it('S7 · «presupuesto» / «$» / «barato» → copy v1.7 + resultados; nunca «No te entendí» ni filtro de precio', async () => {
+    for (const t of ['tengo un presupuesto de 3 millones', 'mi presupuesto es bajo', 'algo barato', 'menos de $2.500.000', 'psicologia de 800 mil']) {
+      assert.ok(detectarTopePrecio(t), t);
+    }
+    assert.ok(!detectarTopePrecio('administracion de 4 semestres'));
+    assert.ok(!detectarTopePrecio('maestria en finanzas'));
+    assert.equal(filtrosDesdeTexto('psicología con presupuesto de 3 millones').filtros.programa_o_area, 'Psicología');
+    // Sin búsqueda previa: opciones del catálogo (filtros vacíos, sin precio).
+    const e = entorno();
+    await aceptado(e);
+    await e.texto('tengo un presupuesto de 3 millones');
+    assert.ok(textos(e).includes(C.T_SIN_FILTRO_PRECIO));
+    assert.ok(!textos(e).includes(C.T10_NO_ENTENDI));
+    assert.equal(e.ultimo().tipo, 'lista');
+    assert.deepEqual(e.consultas.at(-1), {});
+    // Con búsqueda previa: se reutiliza esa búsqueda.
+    await e.texto('psicología');
+    await e.texto('mi presupuesto es bajo');
+    assert.equal(e.consultas.at(-1)?.programa_o_area, 'Psicología');
+    assert.equal(e.ultimo().tipo, 'lista');
+    assert.equal(C.T_SIN_FILTRO_PRECIO, 'Por ahora no puedo filtrar por precio; te muestro opciones y en cada ficha ves el precio si está publicado.');
+  });
+
+  async function hastaAutorizacion(e: ReturnType<typeof entorno>) {
+    await aceptado(e);
+    await e.texto('psicología');
+    const o = oferta(1);
+    await e.enviar({ tipo: 'lista', texto: 'x', respuestaId: `oferta:${o.id}` });
+    await e.boton(`aplicar:${o.id}`, 'Aplicar');
+    await e.texto('Ana Gómez');
+    await e.texto('ana@gmail.com');
+    assert.equal(e.contacto().sesion.aplicacion?.paso, 'consentimiento');
+    return o;
+  }
+
+  it('S18 · «Autorizo» escrito (mayúsculas/tildes) = botón [Sí, autorizo] → confirmación R4 (T23)', async () => {
+    for (const t of ['Autorizo', 'AUTORIZO', 'autorízo', 'Sí, autorizo', 'si autorizo.']) assert.equal(respuestaAutorizacionEscrita(t), 'si', t);
+    assert.equal(respuestaAutorizacionEscrita('No, gracias'), 'no');
+    assert.equal(respuestaAutorizacionEscrita('psicologia'), null);
+    const e = entorno();
+    await hastaAutorizacion(e);
+    const antes = e.consultas.length;
+    await e.texto('AUTORÍZO');
+    assert.equal(e.consultas.length, antes, 'no busca «autorizo»');
+    assert.ok(textos(e).some((t) => t.startsWith('Estamos en piloto: tu autorización quedó registrada, pero todavía no enviamos datos a universidades.')));
+    assert.equal(e.contacto().sesion.aplicacion, null);
+  });
+
+  it('S18 · «no autorizo» escrito en T22 = [No, gracias] (no revoca el consentimiento de datos)', async () => {
+    const e = entorno();
+    await hastaAutorizacion(e);
+    await e.texto('No autorizo');
+    assert.equal(e.ultimo().contenido, C.T22_NO);
+    assert.equal(e.contacto().consentimientoDatos, true);
+  });
+
+  it('B3 · «guardar en mi lista», «quiero aplicar», «cancelar» con ficha abierta = botones (también tras SNIES)', async () => {
+    assert.equal(accionEscrita('Guardar en mi lista'), 'guardar');
+    assert.equal(accionEscrita('quiero aplicar!'), 'aplicar');
+    assert.equal(accionEscrita('Cancelar'), 'cancelar');
+    assert.equal(accionEscrita('quiero aplicar a psicologia'), null);
+    const e = entorno({ resultados: () => [oferta(1, { snies: '102743' }), oferta(2)] });
+    await aceptado(e);
+    await e.texto('ingeniería de sistemas');
+    const o = oferta(1);
+    await e.enviar({ tipo: 'lista', texto: 'x', respuestaId: `oferta:${o.id}` });
+    await e.texto('tiene snies?');
+    const antes = e.consultas.length;
+    await e.texto('guardar en mi lista');
+    assert.equal(e.ultimo().contenido, C.t09bGuardado(o.nombre));
+    await e.texto('cancelar');
+    assert.equal(e.ultimo().tipo, 'lista', 'cancelar = [Ver otros]');
+    await e.texto('quiero aplicar');
+    assert.equal(e.contacto().sesion.aplicacion?.paso, 'datos_nombre');
+    // «cancelar» durante Aplicar cierra la aplicación (no se toma como nombre).
+    await e.texto('cancelar');
+    assert.equal(e.contacto().sesion.aplicacion, null);
+    assert.equal(e.ultimo().tipo, 'lista');
+    assert.equal(e.consultas.length, antes, 'ninguna frase se usó como búsqueda');
+    assert.equal(e.llamadasConversion.length, 0);
+  });
+
+  it('Títulos de fila: corte por palabra sin conector colgando, límites de Meta y filas iguales distinguidas por la descripción', () => {
+    assert.equal(tituloFila(4, 'Ingeniería de Sistemas Medellín'), '4. Ingeniería Sistemas…');
+    assert.equal(tituloFila(2, 'Maestría en arquitectura de software'), '2. Mtría. arquitectura…');
+    assert.equal(tituloFila(17, 'Maestría en Neuropsicología Clínica'), '17. Neuropsicología…');
+    assert.equal(tituloFila(10, 'Psicología Virtual'), '10. Psicología Virtual');
+    const nombres = ['Especialización en Neuropsicología y Educación', 'Ingeniería de Sistemas Medellín', 'Licenciatura en Educación Infantil', 'Tecnología en Gestión Logística', 'Maestría en Gestión del Talento Humano y Desarrollo Organizacional'];
+    for (let n = 1; n <= 40; n++) for (const x of nombres) {
+      const t = tituloFila(n, x);
+      assert.ok(t.length <= 24, t);
+      // Nunca a media palabra: cada palabra del título (sin «…») existe entera en el nombre o es abreviatura.
+      for (const w of t.replace(/^\d+\. /, '').replace('…', '').split(' ')) {
+        assert.ok(['Esp.', 'Mtría.', 'Tec.', 'Tecnól.', 'Prof.'].includes(w) || x.split(' ').includes(w), `${t} · ${w}`);
+      }
+      assert.doesNotMatch(t, / (de|en|y)…$/);
+    }
+    const iguales = [
+      { ...oferta(1), nombre: 'Ingeniería de Sistemas Medellín', universidad: 'Politécnico Grancolombiano', modalidad: 'Presencial', ciudades: ['Medellín'] },
+      { ...oferta(2), nombre: 'Ingeniería de Sistemas Medellín', universidad: 'Politécnico Grancolombiano', modalidad: 'Virtual', ciudades: [] }
+    ].map((o) => ({ ...o, programa_id: o.programa_id!, ciudades: o.ciudades! }));
+    const r = armarResultados(iguales, 2, 0, 'Ingeniería Sistemas');
+    assert.equal(r.filas[0].titulo.slice(3), r.filas[1].titulo.slice(3));
+    assert.notEqual(r.filas[0].descripcion, r.filas[1].descripcion);
+    assert.match(r.filas[0].descripcion!, /^Presencial · Medellín/);
+    assert.match(r.filas[1].descripcion!, /^Virtual/);
+    for (const f of r.filas) assert.ok((f.descripcion || '').length <= 72);
+    assert.ok(r.filas.length <= 10 && r.botonTexto.length <= 20 && r.cuerpo.length <= 1024);
+  });
+
+  it('Pie de lista: URL bien codificada, sin el separador «·» y ≤60', () => {
+    const pie = pieResultados(196, 'virtual · Medellín')!;
+    assert.equal(pie, `https://www.buscoedu.com/explorar?q=${encodeURIComponent('virtual Medellín')}`);
+    assert.ok(pie.length <= 60);
+    assert.doesNotMatch(pie, /%C2%B7/);
+  });
+
+  it('S13 · la ficha muestra la duración si el catálogo la trae (y nada si no)', () => {
+    const con = armarFicha({ ...oferta(1), programa_id: 'p', ciudades: ['Bogotá'], duracion: '4 semestres' });
+    assert.match(con.cuerpo, /\nDuración: 4 semestres\n/);
+    assert.ok(con.cuerpo.length <= 600);
+    const sin = armarFicha({ ...oferta(1), programa_id: 'p', ciudades: ['Bogotá'] });
+    assert.doesNotMatch(sin.cuerpo, /Duración/);
+  });
+
+  it('S12 · frase sin término del catálogo («ayudar gente») con 0 resultados → T02 + menú, no T11 roto', async () => {
+    const e = entorno({ modo: 'vacio' });
+    await aceptado(e);
+    await e.texto('ayudar gente');
+    assert.equal(e.ultimo().contenido, C.T02_PEDIR);
+    // Un nombre suelto que no está sigue con T11 (se lee bien).
+    await e.texto('mecatrónica');
+    assert.equal(e.ultimo().contenido, C.t11SinResultados('mecatrónica'));
+  });
+
+  it('S16 · 2.º «no entiendo» seguido no repite el mismo texto: escala a T10_REPETIDO con asesor', async () => {
+    const e = entorno();
+    await aceptado(e);
+    await e.texto('no entiendo');
+    assert.equal(e.ultimo().contenido, C.T_REEXPLICAR);
+    await e.texto('no entiendo');
+    assert.equal(e.ultimo().contenido, C.T10_REPETIDO);
+    assert.deepEqual(e.ultimo().extra, C.BOTONES_ASESOR_O_BUSCAR);
   });
 });

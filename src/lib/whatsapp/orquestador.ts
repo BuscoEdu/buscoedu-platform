@@ -24,7 +24,7 @@ import type { ConfigWhatsApp } from './config';
 import { puedeEnviar, remitentePuedeRecibirRespuesta } from './config';
 import type { BotonRespuesta, EnviadorWhatsApp, FilaLista } from './graph-client';
 import { destinoRemitente, MAX_FILAS_LISTA_BUSCOEDU, WhatsAppApiError } from './graph-client';
-import { ciudadNotaVirtual, filtrosDesdeTexto as filtrosBusqueda, filtrosRespaldoArea, filtrosVacios } from './busqueda';
+import { ciudadNotaVirtual, detectarTopePrecio, filtrosDesdeTexto as filtrosBusqueda, filtrosRespaldoArea, filtrosVacios, terminosReconocidos } from './busqueda';
 import * as C from './copy';
 import { clasificarTexto, esRevocacion, NO_CONSENTIMIENTO, SALUDOS, SI_CONSENTIMIENTO } from './intenciones';
 import * as M from './mensajes';
@@ -325,6 +325,17 @@ async function atender(
     tipo: mensaje.tipo
   });
 
+  // Bloque: WA-fix-1b · S18 · «Autorizo» / «No autorizo» escritos en el paso de autorización de contacto =
+  // mismos botones [Sí, autorizo] / [No, gracias] de ESA aplicación (tolerante a mayúsculas y tildes).
+  // Va antes de la revocación: aquí «no autorizo» responde a T22, no retira el consentimiento de datos.
+  const enAutorizacion = contacto.sesion.aplicacion;
+  if (mensaje.tipo === 'texto' && enAutorizacion?.paso === 'consentimiento') {
+    const respuesta = respuestaAutorizacionEscrita(mensaje.texto);
+    if (respuesta) {
+      return gestionarRespuestaInteractiva(contacto, `${respuesta === 'si' ? 'autorizar' : 'noautorizar'}:${enAutorizacion.ofertaId}`, deps, ahora);
+    }
+  }
+
   // Bloque: revocación con consentimiento previo (T05, C-03). UPDATE, nunca DELETE (C-51).
   if (mensaje.tipo === 'texto' && esRevocacion(mensaje.texto)) {
     return revocar(contacto, deps, ahora);
@@ -367,6 +378,13 @@ async function atender(
   // Bloque: aplicación en curso esperando datos escritos. Si el texto es claramente una búsqueda
   // («quiero estudiar…»), se cancela Aplicar en vez de guardar la frase como nombre (QA S18f).
   const aplicacion = contacto.sesion.aplicacion;
+  // Bloque: WA-fix-1b · B3 · «cancelar» (o «cancelar aplicación») durante Aplicar: se cierra la aplicación
+  // y se vuelve a la lista, en vez de tomarlo como nombre. En el paso de autorización equivale a [No, gracias].
+  if (aplicacion && accionEscrita(mensaje.texto) === 'cancelar') {
+    if (aplicacion.paso === 'consentimiento') return gestionarRespuestaInteractiva(contacto, `noautorizar:${aplicacion.ofertaId}`, deps, ahora);
+    contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, aplicacion: null, intentosNombre: 0, intentosCorreo: 0 } });
+    return reenviarLista(contacto, deps, ahora);
+  }
   if (aplicacion && (aplicacion.paso === 'datos_nombre' || aplicacion.paso === 'datos_correo')) {
     if (aplicacion.paso === 'datos_nombre' && extraerSlotsDeclarados(mensaje.texto).intereses) {
       contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, aplicacion: null, intentosNombre: 0 } });
@@ -390,19 +408,35 @@ async function atenderTextoLibre(
 ): Promise<ResultadoProceso> {
   // Bloque: B3 · «guardar» / «aplicar» escritos = mismos botones sobre la última ficha abierta (<24 h).
   // Guardar ≠ Aplicar ≠ Autorizar: aquí nunca se autoriza ni se crea lead.
+  // WA-fix-1b: también frases («guardar en mi lista», «quiero aplicar») y «cancelar» (= [Ver otros]).
   const plano = plegarComando(texto);
-  if (plano === 'guardar' || plano === 'aplicar') {
+  const accion = accionEscrita(texto);
+  if (accion === 'guardar' || accion === 'aplicar') {
     const ficha = fichaAbiertaVigente(contacto, ahora);
     if (!ficha) {
       await enviarBotones(contacto, deps, C.T_SIN_FICHA_ABIERTA, C.BOTONES_NUEVA_O_ASESOR);
       return 'respondido';
     }
-    return gestionarRespuestaInteractiva(contacto, `${plano === 'guardar' ? 'lista' : 'aplicar'}:${ficha.id}`, deps, ahora);
+    return gestionarRespuestaInteractiva(contacto, `${accion === 'guardar' ? 'lista' : 'aplicar'}:${ficha.id}`, deps, ahora);
+  }
+  // «cancelar» con ficha abierta = botón [Ver otros]: vuelve a la lista, sin guardar ni aplicar.
+  if (accion === 'cancelar' && fichaAbiertaVigente(contacto, ahora)) {
+    return gestionarRespuestaInteractiva(contacto, 'menu:volver', deps, ahora);
   }
   // Bloque: S16 · «no entiendo» del estudiante: re-explicación con ejemplo (no el T10 genérico).
+  // WA-fix-1b: la 2.ª seguida no repite el mismo texto; escala con T10_REPETIDO (B2) y botón de asesor.
   if (NO_ENTIENDE_ESTUDIANTE.has(plano)) {
-    await enviarBotones(contacto, deps, C.T_REEXPLICAR, C.BOTONES_MENU);
+    const fallos = (contacto.sesion.fallosSeguidos || 0) + 1;
+    contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, fallosSeguidos: fallos } });
+    if (fallos >= 2) await enviarBotones(contacto, deps, C.T10_REPETIDO, C.BOTONES_ASESOR_O_BUSCAR);
+    else await enviarBotones(contacto, deps, C.T_REEXPLICAR, C.BOTONES_MENU);
     return 'respondido';
+  }
+  // Bloque: WA-fix-1b · S7 · presupuesto/tope de precio va a la búsqueda (copy v1.7 + resultados), nunca a
+  // «No te entendí» ni a T17 suelto. No se filtra por precio.
+  if (detectarTopePrecio(texto)) {
+    if (contacto.sesion.fallosSeguidos) contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, fallosSeguidos: 0 } });
+    return buscarYMostrar(contacto, deps, ahora, { texto });
   }
   const intencion = clasificarTexto(texto);
   // Cualquier intención reconocida reinicia el contador de «no entendí».
@@ -444,6 +478,39 @@ async function atenderTextoLibre(
     default:
       return buscarYMostrar(contacto, deps, ahora, { texto });
   }
+}
+
+// Bloque: WA-fix-1b · B3 · frases escritas equivalentes a los botones de la ficha (texto ya plegado: sin
+// tildes, minúsculas, sin signos). Solo frases claras y completas, para no robar búsquedas.
+const FRASES_GUARDAR = new Set([
+  'guardar', 'guardalo', 'guardala', 'guardar en mi lista', 'guardar en lista', 'guardar en la lista', 'guardar lista',
+  'guardar mi lista', 'guardarlo', 'guardarla', 'agregar a mi lista', 'anadir a mi lista', 'quiero guardar', 'quiero guardarlo'
+]);
+const FRASES_APLICAR = new Set([
+  'aplicar', 'quiero aplicar', 'aplicar ya', 'deseo aplicar', 'me gustaria aplicar', 'voy a aplicar', 'aplicar a este',
+  'aplicar a este programa', 'quiero aplicar a este', 'quiero aplicar a este programa', 'aplico'
+]);
+const FRASES_CANCELAR = new Set(['cancelar', 'cancela', 'cancelo', 'cancelar aplicacion', 'cancelar la aplicacion', 'no quiero aplicar', 'mejor no']);
+
+/** B3 · acción escrita sobre la ficha o la aplicación en curso; null si el texto no es una de esas frases. */
+export function accionEscrita(texto: string): 'guardar' | 'aplicar' | 'cancelar' | null {
+  const t = plegarComando(texto);
+  if (FRASES_GUARDAR.has(t)) return 'guardar';
+  if (FRASES_APLICAR.has(t)) return 'aplicar';
+  if (FRASES_CANCELAR.has(t)) return 'cancelar';
+  return null;
+}
+
+// Bloque: WA-fix-1b · S18 · respuestas escritas a T22 (autorización de contacto). Mensaje completo y plegado.
+const SI_AUTORIZAR = new Set(['autorizo', 'si autorizo', 'si', 'si acepto', 'acepto', 'yo autorizo', 'lo autorizo', 'si lo autorizo', 'si claro', 'claro que si', 'de acuerdo']);
+const NO_AUTORIZAR = new Set(['no', 'no autorizo', 'no gracias', 'no acepto', 'no lo autorizo']);
+
+/** S18 · «Autorizo»/«AUTORÍZO»/«sí, autorizo» → 'si'; «no, gracias»/«no autorizo» → 'no'; otro texto → null. */
+export function respuestaAutorizacionEscrita(texto: string): 'si' | 'no' | null {
+  const t = plegarComando(texto);
+  if (SI_AUTORIZAR.has(t)) return 'si';
+  if (NO_AUTORIZAR.has(t)) return 'no';
+  return null;
 }
 
 // Bloque: S16 · frases con las que el estudiante dice que no entendió al bot.
@@ -705,7 +772,18 @@ async function buscarYMostrar(
     etiqueta = origen.etiqueta;
     pagina = origen.pagina;
   }
-  if (filtrosVacios(filtros)) return noEntendi(contacto, deps);
+  // Bloque: WA-fix-1b · S7 · solo presupuesto («tengo 3 millones»): se muestran opciones de la última búsqueda
+  // vigente o, si no hay, del catálogo completo; nunca «No te entendí» ni filtro por precio.
+  if (filtrosVacios(filtros) && topePrecio) {
+    const s = contacto.sesion;
+    if (s.filtrosBusqueda && !filtrosVacios(s.filtrosBusqueda)) {
+      filtros = s.filtrosBusqueda;
+      etiqueta = s.consulta || '';
+    } else {
+      filtros = {};
+      etiqueta = '';
+    }
+  } else if (filtrosVacios(filtros)) return noEntendi(contacto, deps);
 
   let resultado = await buscarConTimeout(deps, filtros);
   let areaRespaldo: string | null = null;
@@ -737,6 +815,13 @@ async function buscarYMostrar(
     // Bloque: más allá del total (Ver más) → fin de lista; nunca error ni lista vacía.
     if (pagina > 0) {
       await enviarBotones(contacto, deps, C.T_FIN_LISTA, C.BOTONES_NUEVA_O_ASESOR);
+      return 'respondido';
+    }
+    // Bloque: WA-fix-1b · S12 · texto sin ningún término del catálogo («ayudar gente», «autorizo»): T11 con esa
+    // frase se leía roto («no tengo programas con «ayudar gente»»). Se pide de nuevo qué estudiar con el
+    // ejemplo de área de T02 y el menú. Si la frase sí tenía un término reconocido, sigue T11.
+    if (sinTerminoReconocido(filtros)) {
+      await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
       return 'respondido';
     }
     await enviarBotones(contacto, deps, C.t11SinResultados(etiqueta), C.BOTONES_NUEVA_O_ASESOR);
@@ -775,6 +860,15 @@ async function buscarYMostrar(
   return 'respondido';
 }
 
+// Bloque: S12 · la búsqueda solo trae texto libre (sin ciudad, modalidad, nivel ni término canónico).
+// Solo frases de 2+ palabras: un nombre suelto que no está («mecatrónica») sigue con T11, que sí se lee bien.
+function sinTerminoReconocido(f: FiltrosBusquedaWa): boolean {
+  if (f.ciudad || f.modalidad || f.nivel_academico || f.terminos_todos?.length) return false;
+  const frase = (f.programa_o_area || '').trim();
+  if (frase.split(/\s+/).length < 2) return false;
+  return terminosReconocidos(frase).length === 0;
+}
+
 // Bloque: envía la lista armada por presentacion.ts (FE). Si Meta la rechaza, texto corto top 3 ≤600 (C-39).
 async function enviarListaResultados(
   contacto: ContactoWa,
@@ -804,7 +898,7 @@ function aAgrupada(o: OfertaWa): OfertaAgrupadaWa {
 // Bloque: «Ver más» = siguiente página de la MISMA consulta (orden estable en BD).
 async function verMas(contacto: ContactoWa, deps: DependenciasOrquestador, ahora: number): Promise<ResultadoProceso> {
   const s = contacto.sesion;
-  if (!s.filtrosBusqueda || !s.consulta) {
+  if (!s.filtrosBusqueda || s.consulta == null) {
     await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
     return 'respondido';
   }
@@ -824,7 +918,7 @@ async function reenviarLista(contacto: ContactoWa, deps: DependenciasOrquestador
     await enviarListaResultados(contacto, deps, lista, s.total ?? lista.length, s.pagina || 0, s.consulta || '');
     return 'respondido';
   }
-  if (s.filtrosBusqueda && s.consulta) {
+  if (s.filtrosBusqueda && s.consulta != null) {
     return buscarYMostrar(contacto, deps, ahora, { filtros: s.filtrosBusqueda, etiqueta: s.consulta, pagina: 0 });
   }
   await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
@@ -892,7 +986,7 @@ async function gestionarRespuestaInteractiva(
         return reenviarLista(contacto, deps, ahora);
       case 'reintentar': {
         const s = contacto.sesion;
-        if (s.filtrosBusqueda && s.consulta) {
+        if (s.filtrosBusqueda && s.consulta != null) {
           return buscarYMostrar(contacto, deps, ahora, { filtros: s.filtrosBusqueda, etiqueta: s.consulta, pagina: s.pagina || 0 });
         }
         break;

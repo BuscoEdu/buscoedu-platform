@@ -33,6 +33,8 @@ export interface OfertaWa {
   area?: string;
   /** WA-fix-1 (S14): `programas_academicos.codigo_snies`; vacío → «por confirmar». */
   snies?: string;
+  /** WA-fix-1b (S13): duración del programa tal como la trae el catálogo («8 semestres»); vacío → no se muestra. */
+  duracion?: string;
 }
 
 /** Forma agrupada que consume presentacion.ts (contrato FE). */

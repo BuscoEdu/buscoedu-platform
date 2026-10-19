@@ -25,17 +25,37 @@ const STOPWORDS = new Set([
   'postgrado', 'tecnico', 'tecnologo', 'tecnologa', 'tecnologos', 'profesional', 'beca', 'becas', 'ciudad', 'puede', 'ser', 'cerca'
 ]);
 
-// Bloque: S7 · tope de precio («menos de 5 millones», «máximo 3 millones», «hasta 4.5 millones»).
-// En este lote NO se filtra por precio: se detecta, se quita del texto y el bot responde T17.
-const PATRON_TOPE_PRECIO = /\b(menos de|maximo|max|hasta|no mas de|tope de)\s*\$?\s*\d+(?:[.,]\d+)?\s*(?:millones|millon|mill|m)\b/;
+// Bloque: S7 · tope de precio o presupuesto («menos de 5 millones», «tengo un presupuesto de 3 millones»,
+// «algo barato», «$2.500.000», «800 mil»). En este lote NO se filtra por precio: se detecta, se quita del
+// texto y el bot responde con el copy congelado v1.7 (T_SIN_FILTRO_PRECIO) + resultados.
+// WA-fix-1b: antes solo valía «menos de/hasta N millones»; «presupuesto» sin ese patrón caía en «No te entendí».
+const PATRONES_PRECIO: RegExp[] = [
+  /\b(menos de|maximo|max|hasta|no mas de|tope de)\s*\$?\s*\d+(?:[.,]\d+)*\s*(?:millones|millon|mill|mil|m|pesos)\b/g,
+  /\bpresupuestos?\b(?:\s+(?:de|es|es de|maximo de|limitado))?/g,
+  /\b(?:mi|un|tengo|con)?\s*(?:bajo\s+)?presupuesto\b/g,
+  /\$\s*\d[\d.,]*/g,
+  /\b\d+(?:[.,]\d+)*\s*(?:millones|millon|mill|mil|cop|pesos)\b/g,
+  /\b(?:barat[oa]s?|economic[oa]s?|que no sea caro|no muy caro)\b/g
+];
 
-export function detectarTopePrecio(texto: string): boolean {
-  const t = (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  return PATRON_TOPE_PRECIO.test(t);
+function plegarPrecio(texto: string): string {
+  return (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
+export function detectarTopePrecio(texto: string): boolean {
+  const t = plegarPrecio(texto);
+  return PATRONES_PRECIO.some((p) => new RegExp(p.source).test(t));
+}
+
+// Se trabaja sobre el texto plegado (sin tildes): lo que queda pasa por terminoPrograma, que ya pliega.
 function quitarTopePrecio(texto: string): string {
-  return texto.replace(/\b(menos de|m[aá]ximo|max|hasta|no m[aá]s de|tope de)\s*\$?\s*\d+(?:[.,]\d+)?\s*(?:millones|mill[oó]n|mill|m)\b/gi, ' ');
+  // Sin precio, el texto queda igual (se conservan tildes de palabras no reconocidas, p. ej. «mecatrónica»).
+  if (!detectarTopePrecio(texto)) return texto;
+  let t = plegarPrecio(texto);
+  for (const p of PATRONES_PRECIO) t = t.replace(new RegExp(p.source, 'g'), ' ');
+  // Palabras que solo acompañan al presupuesto («tengo», «puedo pagar», «es bajo») tampoco son búsqueda.
+  t = t.replace(/\b(tengo|cuento con|dispongo de|puedo pagar|pagar|pago|bajo|alto|limitado|es|maximo|solo)\b/g, ' ');
+  return t.replace(/\s+/g, ' ').trim();
 }
 
 /**
