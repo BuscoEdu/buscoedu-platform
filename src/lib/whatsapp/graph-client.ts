@@ -55,6 +55,11 @@ export interface EnviadorWhatsApp {
     input: { cuerpo: string; textoBoton: string; tituloSeccion: string; filas: FilaLista[] }
   ): Promise<ResultadoEnvio>;
   enviarBotones(para: string, input: { cuerpo: string; botones: BotonRespuesta[] }): Promise<ResultadoEnvio>;
+  /**
+   * Botón oficial de Meta para pedir que el usuario comparta su número (interactive request_contact_info).
+   * Opcional para no romper enviadores de prueba antiguos.
+   */
+  enviarSolicitudContacto?(para: string, cuerpo: string): Promise<ResultadoEnvio>;
 }
 
 export interface OpcionesClienteGraph {
@@ -81,6 +86,26 @@ function sinToken(texto: string, token: string): string {
 /** Destino: Meta acepta el número sin '+'. */
 export function destinoMeta(e164OWaId: string): string {
   return (e164OWaId || '').replace(/\D/g, '');
+}
+
+/**
+ * Bloque: direccionamiento del envío (teléfono o BSUID).
+ * Qué: `para` es un teléfono (E.164 o wa_id) o un BSUID (p. ej. CO.1234…, con o sin prefijo uid:).
+ * - teléfono → { to: "<dígitos>" } (como siempre);
+ * - BSUID    → { recipient: "<BSUID completo>" } (campo documentado por Meta; si van ambos, `to` gana).
+ * Por qué: un usuario con nombre de usuario puede no exponer su número; solo se le puede responder por BSUID.
+ * Un teléfono nunca trae letras; un BSUID siempre empieza por el código de país en letras.
+ */
+export function direccionMeta(para: string): { to: string } | { recipient: string } {
+  const limpio = (para || '').trim();
+  const sinPrefijo = limpio.toLowerCase().startsWith('uid:') ? limpio.slice(4).trim() : limpio;
+  if (/[A-Za-z]/.test(sinPrefijo)) return { recipient: sinPrefijo };
+  return { to: destinoMeta(sinPrefijo) };
+}
+
+/** Bloque: destino de respuesta para un remitente: teléfono si se conoce, si no BSUID. */
+export function destinoRemitente(remitente: { telefono: string | null; userId: string | null }): string {
+  return remitente.telefono || (remitente.userId ? `uid:${remitente.userId}` : '');
 }
 
 export function crearClienteGraph(opciones: OpcionesClienteGraph): EnviadorWhatsApp & {
@@ -144,14 +169,14 @@ export function crearClienteGraph(opciones: OpcionesClienteGraph): EnviadorWhats
     enviarTexto(para, cuerpo) {
       const texto = recortar(cuerpo, 4096);
       if (!texto) throw new WhatsAppApiError('Texto vacío.', { tipo: 'validacion' });
-      return publicar({ to: destinoMeta(para), type: 'text', text: { preview_url: true, body: texto } });
+      return publicar({ ...direccionMeta(para), type: 'text', text: { preview_url: true, body: texto } });
     },
 
     enviarLista(para, input) {
       const filas = (input.filas || []).slice(0, Math.min(MAX_FILAS_LISTA_BUSCOEDU, MAX_FILAS_LISTA_META));
       if (filas.length === 0) throw new WhatsAppApiError('La lista no tiene filas.', { tipo: 'validacion' });
       return publicar({
-        to: destinoMeta(para),
+        ...direccionMeta(para),
         type: 'interactive',
         interactive: {
           type: 'list',
@@ -177,7 +202,7 @@ export function crearClienteGraph(opciones: OpcionesClienteGraph): EnviadorWhats
       const botones = (input.botones || []).slice(0, MAX_BOTONES_META);
       if (botones.length === 0) throw new WhatsAppApiError('Sin botones.', { tipo: 'validacion' });
       return publicar({
-        to: destinoMeta(para),
+        ...direccionMeta(para),
         type: 'interactive',
         interactive: {
           type: 'button',
@@ -189,9 +214,20 @@ export function crearClienteGraph(opciones: OpcionesClienteGraph): EnviadorWhats
       });
     },
 
+    // Bloque: pide el número al usuario (doc BSUID de Meta: interactive.type = request_contact_info).
+    enviarSolicitudContacto(para, cuerpo) {
+      const texto = recortar(cuerpo, 1024);
+      if (!texto) throw new WhatsAppApiError('Texto vacío.', { tipo: 'validacion' });
+      return publicar({
+        ...direccionMeta(para),
+        type: 'interactive',
+        interactive: { type: 'request_contact_info', body: { text: texto }, action: { name: 'request_contact_info' } }
+      });
+    },
+
     // Solo para la prueba manual (hello_world). El MVP no usa plantillas en conversación.
     enviarPlantilla(para, nombre, idioma) {
-      return publicar({ to: destinoMeta(para), type: 'template', template: { name: nombre, language: { code: idioma } } });
+      return publicar({ ...direccionMeta(para), type: 'template', template: { name: nombre, language: { code: idioma } } });
     }
   };
 }

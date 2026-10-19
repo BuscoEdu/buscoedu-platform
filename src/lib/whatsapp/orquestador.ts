@@ -19,9 +19,9 @@ import { extraerSlotsDeclarados, fusionarSesion, sanearSesion } from '../../../l
 import { evaluarDecision, evaluarGuardadoDatos } from '../demowapp/funnel-aplicar-reglas';
 import { detectarComando, enHorarioAsesores, plegarComando } from './comandos';
 import type { ConfigWhatsApp } from './config';
-import { numeroPuedeRecibirRespuesta, puedeEnviar } from './config';
+import { puedeEnviar, remitentePuedeRecibirRespuesta } from './config';
 import type { BotonRespuesta, EnviadorWhatsApp, FilaLista } from './graph-client';
-import { MAX_FILAS_LISTA_BUSCOEDU, WhatsAppApiError } from './graph-client';
+import { destinoRemitente, MAX_FILAS_LISTA_BUSCOEDU, WhatsAppApiError } from './graph-client';
 import * as M from './mensajes';
 import type { LimitadorTasa } from './rate-limit';
 import type {
@@ -35,7 +35,8 @@ import type {
   SesionWa
 } from './tipos';
 import { SESION_WA_VACIA } from './tipos';
-import type { MensajeEntrante } from './webhook-parser';
+import type { MensajeEntrante, RemitenteEntrante } from './webhook-parser';
+import { claveRemitente, remitenteDe } from './webhook-parser';
 import { dentroDeVentana24h } from './ventana';
 
 export interface DependenciasOrquestador {
@@ -59,12 +60,25 @@ export type ResultadoProceso =
   | 'silencio_baja'
   | 'silencio_humano'
   | 'respondido'
+  | 'solo_user_id'
   | 'error';
 
 /** Enmascara un número para logs: +57••••••123. Nunca se loguea completo. */
 export function enmascarar(e164: string): string {
   if (!e164 || e164.length < 6) return '••••';
   return `${e164.slice(0, 3)}••••••${e164.slice(-3)}`;
+}
+
+/** Bloque: BSUID enmascarado para logs: uid:***ab12 (solo los 4 últimos caracteres). */
+export function enmascararUserId(userId: string | null | undefined): string {
+  const v = (userId || '').trim();
+  if (v.length < 6) return 'uid:***';
+  return `uid:***${v.slice(-4)}`;
+}
+
+/** Bloque: remitente enmascarado (teléfono si lo hay; si no, BSUID). */
+export function enmascararRemitente(r: RemitenteEntrante): string {
+  return r.telefono ? enmascarar(r.telefono) : enmascararUserId(r.userId);
 }
 
 // Bloque: palabras que cuentan como sí/no al consentimiento cuando se escriben en vez de tocar el botón.
@@ -91,9 +105,14 @@ export async function procesarMensajeEntrante(
     return 'otro_numero';
   }
 
-  // 1) Piloto cerrado: fuera de la allowlist no se responde ni se guarda nada (solo log mínimo).
-  if (!numeroPuedeRecibirRespuesta(config, mensaje.e164)) {
-    log('wa_fuera_allowlist', { numero: enmascarar(mensaje.e164), pilotoInvalido: config.pilotoInvalido });
+  // Bloque: identidad del remitente (teléfono y/o BSUID); la clave sirve para rate limit.
+  const remitente = remitenteDe(mensaje);
+  const clave = claveRemitente(mensaje);
+  const mascara = enmascararRemitente(remitente);
+
+  // 1) Piloto cerrado: fuera de la allowlist (por teléfono o por BSUID) no se responde ni se guarda nada.
+  if (!remitentePuedeRecibirRespuesta(config, remitente)) {
+    log('wa_fuera_allowlist', { numero: mascara, pilotoInvalido: config.pilotoInvalido });
     return 'fuera_allowlist';
   }
 
@@ -111,14 +130,32 @@ export async function procesarMensajeEntrante(
 
   // 3) Ventana de 24 h: un mensaje viejo (reintento tardío) no abre respuesta.
   if (!dentroDeVentana24h(mensaje.timestampMs, ahora)) {
-    log('wa_fuera_ventana', { numero: enmascarar(mensaje.e164) });
+    log('wa_fuera_ventana', { numero: mascara });
     return 'fuera_ventana';
   }
 
   // 4) Límite por número.
-  if (!deps.limitador.permitir(mensaje.e164, ahora)) {
-    log('wa_rate_limit', { numero: enmascarar(mensaje.e164) });
+  if (!deps.limitador.permitir(clave, ahora)) {
+    log('wa_rate_limit', { numero: mascara });
     return 'rate_limit';
+  }
+
+  // Bloque: remitente SOLO con BSUID (nombre de usuario de WhatsApp, sin número).
+  // Qué: no se crea contacto ni historial (wa_contactos.celular_e164 es NOT NULL con CHECK E.164);
+  // solo se le pide el número con el botón oficial de Meta, dirigido por `recipient` (BSUID).
+  // Por qué: sin número no hay dónde guardar su autorización de datos (Ley 1581) ni su estado.
+  // Si ese BSUID ya está vinculado a un contacto (compartió su número antes), se sigue el flujo normal.
+  if (!remitente.telefono) {
+    const vinculado =
+      remitente.userId && almacen.obtenerContactoPorUserId ? await almacen.obtenerContactoPorUserId(remitente.userId) : null;
+    if (!vinculado) return atenderSoloUserId(remitente, deps, log, mascara);
+    log('wa_remitente_vinculado_por_user_id', { usuario: mascara });
+    mensaje = {
+      ...mensaje,
+      e164: vinculado.e164,
+      waId: vinculado.e164.slice(1),
+      remitente: { telefono: vinculado.e164, userId: remitente.userId }
+    };
   }
 
   try {
@@ -127,12 +164,61 @@ export async function procesarMensajeEntrante(
     // 7) Error inesperado: mensaje honesto + link. Nada de lead a medias (la conversión es atómica en SQL).
     log('wa_error_orquestador', { error: error instanceof Error ? error.message.slice(0, 200) : 'desconocido' });
     try {
-      await deps.enviador.enviarTexto(mensaje.e164, M.ERROR_HONESTO);
+      await deps.enviador.enviarTexto(destinoRemitente(remitenteDe(mensaje)), M.ERROR_HONESTO);
     } catch {
       // Si la API de Meta también está caída no hay nada más que hacer en este turno.
     }
     return 'error';
   }
+}
+
+/**
+ * Bloque: vincula el BSUID al contacto (sesion.waUserId) para reconocerlo si luego escribe sin `from`.
+ * Cuándo: solo si compartió su número con el botón (acto explícito) o si ya dio el consentimiento de datos.
+ * Por qué: antes del consentimiento la promesa es "solo guardo tu número" (Ley 1581).
+ */
+async function vincularUserIdSiCorresponde(
+  contacto: ContactoWa,
+  mensaje: MensajeEntrante,
+  deps: DependenciasOrquestador
+): Promise<ContactoWa> {
+  const userId = remitenteDe(mensaje).userId;
+  if (!userId || contacto.sesion?.waUserId === userId) return contacto;
+  if (!mensaje.contactoCompartido && !contacto.consentimientoDatos) return contacto;
+  const sesion: SesionWa = { ...contacto.sesion, waUserId: userId };
+  await deps.almacen.actualizarContacto(contacto.id, { sesion });
+  return { ...contacto, sesion };
+}
+
+/**
+ * Bloque: respuesta sin estado a un remitente que solo trae BSUID.
+ * Usa request_contact_info si el enviador lo soporta; si Meta lo rechaza
+ * (p. ej. 131062 "BSUID recipients are not supported"), cae a un texto simple.
+ */
+async function atenderSoloUserId(
+  remitente: RemitenteEntrante,
+  deps: DependenciasOrquestador,
+  log: NonNullable<DependenciasOrquestador['log']>,
+  mascara: string
+): Promise<ResultadoProceso> {
+  log('wa_remitente_solo_user_id', { usuario: mascara });
+  const destino = destinoRemitente(remitente);
+  try {
+    if (deps.enviador.enviarSolicitudContacto) {
+      try {
+        await deps.enviador.enviarSolicitudContacto(destino, M.PEDIR_NUMERO_SOLO_USER_ID);
+        return 'solo_user_id';
+      } catch (error) {
+        if (!(error instanceof WhatsAppApiError)) throw error;
+        log('wa_envio_fallido', { status: error.status, codigoMeta: error.codigoMeta, tipo: error.tipo, via: 'request_contact_info' });
+      }
+    }
+    await deps.enviador.enviarTexto(destino, M.PEDIR_NUMERO_SOLO_USER_ID);
+  } catch (error) {
+    if (!(error instanceof WhatsAppApiError)) throw error;
+    log('wa_envio_fallido', { status: error.status, codigoMeta: error.codigoMeta, tipo: error.tipo });
+  }
+  return 'solo_user_id';
 }
 
 async function atender(
@@ -148,11 +234,13 @@ async function atender(
   let contacto = await almacen.obtenerContacto(mensaje.e164);
   if (!contacto) {
     contacto = await almacen.crearContactoSoloNumero(mensaje.e164, mensaje.timestampMs);
+    contacto = await vincularUserIdSiCorresponde(contacto, mensaje, deps);
     if (comando === 'baja') return darDeBaja(contacto, deps, ahora);
     await enviarBotones(contacto, deps, M.BIENVENIDA_CONSENTIMIENTO, BOTONES_CONSENTIMIENTO);
     return 'respondido';
   }
 
+  contacto = await vincularUserIdSiCorresponde(contacto, mensaje, deps);
   const ultimo = Math.max(contacto.ultimoEntranteMs || 0, mensaje.timestampMs);
   await almacen.actualizarContacto(contacto.id, { ultimoEntranteMs: ultimo });
   contacto = { ...contacto, ultimoEntranteMs: ultimo };
@@ -254,6 +342,11 @@ async function gestionarConsentimiento(
       consentimientoVersion: M.VERSION_TEXTO_DATOS,
       estado: 'activo'
     };
+    // Con el consentimiento ya se puede vincular el BSUID (si Meta lo mandó) para reconocerlo sin `from`.
+    const userIdConsentido = remitenteDe(mensaje).userId;
+    if (userIdConsentido && contacto.sesion?.waUserId !== userIdConsentido) {
+      parche.sesion = { ...contacto.sesion, waUserId: userIdConsentido };
+    }
     await actualizar(contacto, deps, parche);
     const actualizado = { ...contacto, ...parche } as ContactoWa;
     await deps.almacen.registrarMensaje(contacto.id, {
@@ -540,7 +633,8 @@ async function resolverAutorizacion(
       consentimiento_aceptado: true,
       clave_idempotencia: `wa:${contacto.id}:${oferta.id}`,
       celular_e164: contacto.e164,
-      pais_celular: contacto.e164.startsWith('+57') ? 'CO' : null,
+      // Null-safe: si algún día hay contactos sin teléfono (propuesta BD), no debe lanzar TypeError.
+      pais_celular: (contacto.e164 || '').startsWith('+57') ? 'CO' : null,
       nombres: partes[0],
       apellidos: partes.slice(1).join(' '),
       nombre_completo: aplicacion.nombreCompleto,

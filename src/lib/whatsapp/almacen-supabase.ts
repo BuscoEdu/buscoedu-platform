@@ -15,7 +15,8 @@ function aContacto(fila: any): ContactoWa {
   const sesion = (fila?.sesion && typeof fila.sesion === 'object' ? fila.sesion : {}) as Partial<SesionWa>;
   return {
     id: fila.id,
-    e164: fila.celular_e164,
+    // Null-safe (propuesta BD: celular_e164 podría ser NULL); el flujo actual nunca guarda NULL.
+    e164: fila.celular_e164 ?? '',
     estado: fila.estado,
     consentimientoDatos: fila.consentimiento_datos === true,
     consentimientoDatosEn: fila.consentimiento_datos_en ?? null,
@@ -27,7 +28,8 @@ function aContacto(fila: any): ContactoWa {
       filtros: sesion.filtros && typeof sesion.filtros === 'object' ? sesion.filtros : {},
       ofertas: Array.isArray(sesion.ofertas) ? sesion.ofertas : [],
       miLista: Array.isArray(sesion.miLista) ? sesion.miLista : [],
-      aplicacion: sesion.aplicacion ?? null
+      aplicacion: sesion.aplicacion ?? null,
+      ...(typeof sesion.waUserId === 'string' && sesion.waUserId ? { waUserId: sesion.waUserId } : {})
     }
   };
 }
@@ -61,6 +63,13 @@ export function crearAlmacenSupabase(db: SupabaseClient): AlmacenWhatsApp {
       const { data, error } = await db.from('wa_contactos').select('*').eq('celular_e164', e164).maybeSingle();
       if (error) throw new Error(`wa_contacto: ${error.message}`);
       return data ? aContacto(data) : null;
+    },
+
+    // Bloque: contacto por BSUID vinculado (filtro PostgREST sobre el jsonb `sesion`, sin migración).
+    async obtenerContactoPorUserId(userId) {
+      const { data, error } = await db.from('wa_contactos').select('*').eq('sesion->>waUserId', userId).limit(1);
+      if (error) throw new Error(`wa_contacto_uid: ${error.message}`);
+      return Array.isArray(data) && data[0] ? aContacto(data[0]) : null;
     },
 
     // Bloque: antes del consentimiento solo se guarda el número (y la hora técnica del último entrante).

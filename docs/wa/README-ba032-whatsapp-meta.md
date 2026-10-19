@@ -60,7 +60,7 @@ Nunca se imprimen sus valores. El código solo revisa si existen.
 | `META_WABA_ID` | informativa | — | Sin efecto en el MVP |
 | `META_APP_SECRET` | sí | — | **Todo POST → 401** |
 | `META_WA_VERIFY_TOKEN` | sí | — | **GET de verificación → 403** |
-| `WA_PILOTO_NUMEROS` | para el piloto | vacío | Vacía/ausente/inválida → **no se responde a nadie**. Formato: `+573001112233,+573004445566` (E.164, máx 5; si hay 6 o una entrada inválida, la lista entera se ignora) |
+| `WA_PILOTO_NUMEROS` | para el piloto | vacío | Vacía/ausente/todas inválidas → **no se responde a nadie**. Formato recomendado: `+573001112233,+573004445566` (E.164 con `+`, máx 5). Desde 2026-10-19 se toleran espacios/guiones/paréntesis y dígitos sin `+` (se agrega), las inválidas se descartan una a una (aviso `wa_allowlist_invalida` con conteos) y se aceptan BSUID (`uid:CO.123…`). 10 dígitos que empiezan por 3 (sin indicativo) son inválidos; con 6 o más válidas, nadie |
 | `WA_REAL_HABILITADO` | no | `false` | Solo el string exacto `true` abre el canal a **cualquier** número. **No encender** hasta que el catálogo real de aliadas esté cargado en prod (hoy solo hay universidades demo) |
 | `WA_LEAD_CONVERSION_ENABLED` | no | `false` | Solo el string exacto `true` permite llamar a `fn_ba031_convertir_si_consentido`. Apagado: el flujo llega hasta Autorizar contacto, se guarda en `wa_intenciones` con paso `consentimiento_registrado` y al usuario se le dice que un asesor revisa su solicitud (sin prometer envío a la universidad) |
 | `META_GRAPH_API_VERSION` | no | `v26.0` | Versión de Graph API (formato `vNN.N`) |
@@ -178,6 +178,33 @@ Nunca salen textos de mensajes, nombres, números completos (máx. 4 últimos d�
 
 El trabajo posterior a la respuesta usa `after()` de `next/server`, que en Vercel se registra con `waitUntil`: la función sigue viva hasta terminar el callback (dentro de `maxDuration = 30`), así que `lote_procesado` / `wa_webhook_resultado` no se cortan.
 
+## Remitentes sin teléfono: nombres de usuario y BSUID (2026-10-19)
+
+**Qué pasó**: el 19/10 a las 13:15:12 (hora Madrid) Meta entregó un mensaje de texto firmado (`field=messages`, `phone_number_id` correcto) **sin `from`**; el parser lo descartaba (`id/from/timestamp` obligatorios) y el resultado fue `sin_contenido`.
+
+**Doc oficial de Meta** (Business-scoped user IDs): <https://developers.facebook.com/documentation/business-messaging/whatsapp/business-scoped-user-ids> (la URL antigua `developers.facebook.com/docs/whatsapp/business-scoped-user-ids` redirige ahí). Lo que dice:
+
+- Webhook `messages`: nuevo `messages[].from_user_id` (BSUID) y `from_parent_user_id` (si hay BSUID principal); `contacts[].user_id` / `parent_user_id` y `contacts[].profile.username`. `from` y `contacts[].wa_id` **se omiten** cuando el usuario activó nombre de usuario y no se cumple ninguna condición para incluir el teléfono (mensaje/llamada con ese número en los últimos 30 días, o que esté en la libreta de contactos).
+- Formato BSUID: código de país ISO 3166 alfa-2 + `.` + hasta 128 alfanuméricos (`US.13491208655302741918`); principal: `US.ENT.…`. Debe usarse completo.
+- Envío: campo `recipient` (BSUID) en `POST /{phone-number-id}/messages`; se puede mandar `to` y `recipient`, y **`to` gana**. Error `131062` = «BSUID recipients are not supported for this message». Para pedir el número: `interactive.type = request_contact_info` (`action.name = request_contact_info`).
+- Estados: `recipient_user_id` (no lo usamos todavía).
+
+**Qué hace el código**:
+
+| Pieza | Comportamiento |
+|---|---|
+| `webhook-parser.ts` | Remitente = `from` → `from_user_id` (y `user_id`, por si acaso) → `contacts[]` (por `wa_id`, por índice o único contacto; también recupera `wa_id`). `MensajeEntrante.remitente = {telefono, userId}`; `e164`/`waId` siguen iguales cuando hay teléfono (`''` si solo hay BSUID). |
+| `config.ts` | Allowlist acepta E.164 y BSUID (`uid:CO.…` o detectado por formato); `remitentePuedeRecibirRespuesta` mira teléfono **o** BSUID. |
+| `orquestador.ts` | Remitente solo con BSUID y permitido → `solo_user_id`: **no** crea contacto ni historial; le manda `request_contact_info` por `recipient` (si Meta lo rechaza, un texto simple). Rate limit por `uid:<BSUID>`. Logs `uid:***1234`. |
+| `graph-client.ts` | `direccionMeta`: teléfono → `to`; BSUID → `recipient`. |
+| `diagnostico.ts` | Nuevos `remitentes_con_telefono`, `remitentes_solo_user_id`, `remitente_user_id_ult4` (`uid:***1234`). |
+
+**Por qué no se guarda el BSUID**: `wa_contactos.celular_e164` es `NOT NULL` con `CHECK` E.164 y índice único; meter el BSUID ahí rompería el CHECK y mezclaría identidades. Además sin teléfono no se puede crear la persona/lead (`celular_e164` en la conversión). Propuesta **no aplicada**: `supabase/ops/20261019_wa_contactos_user_id_propuesta.sql` (columna `wa_user_id`, `celular_e164` nullable, CHECK de identidad).
+
+**Compartir número (2026-10-19)**: cuando el usuario toca el botón, Meta manda `messages[].type='contacts'` con `from_user_id` y `contacts[].origin='contact_request'` + `phones[].wa_id` (sin vCard; doc BSUID, «Webhook de contactos»). El parser toma ese número como el del remitente (solo con `origin=contact_request`; `other` es otra persona y se ignora), se crea `wa_contactos` con teléfono y sigue el flujo normal (consentimiento → NaIA) respondiendo por `to`. El BSUID se vincula en `sesion.waUserId` (jsonb, sin migración) solo si compartió su número o dio el consentimiento, para reconocerlo si luego escribe otra vez sin `from`. Prueba de punta a punta: `src/lib/whatsapp/e2e-bsuid.test.ts`. La propuesta SQL quedó alineada con la de Base de datos (no aplicada y no necesaria para responder).
+
+**Incertidumbre**: la doc no dice si `from_user_id` puede faltar cuando sí viene `contacts[].user_id`; por eso se aceptan ambos. Si el usuario comparte su número con el botón, la doc indica que llega un webhook `contacts` y que desde entonces el teléfono vuelve a incluirse (regla de 30 días); no está probado en el piloto.
+
 ## Bitácora
 
 | Fecha | Qué | Por qué | Quién |
@@ -187,3 +214,6 @@ El trabajo posterior a la respuesta usa `after()` de `next/server`, que en Verce
 | 2026-10-17 | Textos de piloto: Autorizar contacto con interruptor apagado → «Estamos en piloto: tu autorización quedó registrada, pero todavía no enviamos datos a universidades.»; ASESOR → «Un asesor del equipo BuscoEdu te escribirá en horario hábil» (respuesta manual desde Meta). Criterio 8 ≈ parcial (historial en `wa_mensajes`). | Ajuste de Producto: no prometer envío ni asesor inexistente | Backend BuscoEdu (bot) |
 | 2026-10-17 | Deploy BA-032: migración `ba032_whatsapp_meta` aplicada en Supabase (5 tablas `wa_*`, RLS sin políticas), variables Meta/piloto en Vercel (Production y Preview), PR squash a `main` y deploy único a producción; smoke del webhook | Puesta en producción del piloto cerrado de WhatsApp | Orquestador BuscoEdu vía executor, con OK de Jhon |
 | 2026-10-19 | Logs de diagnóstico enmascarados `wa_webhook_recibido`, `wa_webhook_sin_contenido` y `wa_webhook_resultado` (helper puro `diagnostico.ts`, 14 pruebas); se confirma que el trabajo post-respuesta ya va con `after()` | Un POST firmado de Meta respondió 200 sin dejar logs | Backend BuscoEdu (bot), pedido del Orquestador |
+| 2026-10-19 | Fallback de remitente sin `from` (`from_user_id` / `contacts[].user_id`), envío por `recipient` (BSUID) con `request_contact_info`, allowlist tolerante (agrega `+`, quita espacios/guiones/paréntesis, descarta inválidas una a una, `wa_allowlist_invalida`, acepta `uid:`), conteos de remitentes en el diagnóstico; propuesta SQL no aplicada para `wa_user_id`; 26 pruebas nuevas | Meta entregó a las 13:15:12 (Madrid) un mensaje firmado sin `from` (usuario con nombre de usuario) y quedó `sin_contenido`; el valor de `WA_PILOTO_NUMEROS` sin `+` invalidaba la lista entera | Backend BuscoEdu (bot), pedido del Orquestador |
+| 2026-10-19 | Fixture `src/lib/whatsapp/__fixtures__/bsuid-sin-from.json` con la forma exacta del payload real de producción (13:26, hora Madrid; valores anonimizados: sin `from` ni `wa_id`, con `from_logical_id` y `contacts[].country_code`, que se ignoran) + 6 pruebas: parser, diagnóstico sin PII, allowlist `+57…,uid:CO.<id>` (y `CO.<id>` sin prefijo), camino completo hasta el POST a Graph con `recipient` + `request_contact_info`. El parser no necesitó cambios | Validar el fallback contra la forma real del mensaje de Jhon | Backend BuscoEdu (bot), pedido del Orquestador |
+| 2026-10-19 | Compartir número por `request_contact_info` → contacto con teléfono y flujo normal; vínculo BSUID en `sesion.waUserId`; prueba E2E con Supabase y Graph simulados (`e2e-bsuid.test.ts`, 6 casos: flujo completo, allowlist solo teléfono, 131030, ventana 24 h, origin=other); propuesta SQL reemplazada por la de Base de datos (sin aplicar); `pais_celular` null-safe | Que el primer intento de Jhon llegue hasta NaIA sin ida y vuelta | Backend BuscoEdu (bot), pedido del Orquestador; SQL de Base de datos BuscoEdu (bot) |

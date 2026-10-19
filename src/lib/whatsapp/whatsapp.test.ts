@@ -249,9 +249,16 @@ describe('BA-032 · configuración fail-closed', () => {
     assert.equal(numeroPuedeRecibirRespuesta(cfg, PILOTO), false);
   });
 
-  it('más de 5 números o un número inválido → lista inválida', () => {
-    assert.equal(leerAllowlistPiloto('+573001,+573002,+573003,+573004,+573005,+573006').invalida, true);
-    assert.equal(leerAllowlistPiloto('+573001112233,3001112233').invalida, true);
+  // 2026-10-19: una entrada inválida ya no tumba la lista; se descarta sola (ver user-id.test.ts).
+  it('más de 5 números → lista inválida; un número inválido se descarta solo', () => {
+    assert.equal(
+      leerAllowlistPiloto('+573001110001,+573001110002,+573001110003,+573001110004,+573001110005,+573001110006').invalida,
+      true
+    );
+    const conInvalida = leerAllowlistPiloto('+573001112233,3001112233');
+    assert.equal(conInvalida.invalida, false);
+    assert.deepEqual(conInvalida.numeros, ['+573001112233']);
+    assert.equal(conInvalida.invalidas, 1);
     assert.deepEqual(leerAllowlistPiloto(' +573001112233 , +573004445566 ').numeros, ['+573001112233', '+573004445566']);
   });
 
