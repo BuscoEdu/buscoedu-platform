@@ -34,6 +34,8 @@ export interface ConfigWhatsApp {
   realHabilitado: boolean;
   /** Piloto cerrado: celulares E.164 que sí reciben respuesta. */
   pilotoNumeros: string[];
+  /** Piloto cerrado: BSUID (usuarios con nombre de usuario sin teléfono visible) que sí reciben respuesta. */
+  pilotoUserIds: string[];
   /** true si la variable de piloto existe pero es inválida (se trata como vacía). */
   pilotoInvalido: boolean;
   /** Interruptor de conversión a lead (oportunidad / transferencia facturable). */
@@ -48,24 +50,107 @@ export function esVerdaderoEstricto(valor: string | undefined): boolean {
 }
 
 /**
- * Bloque: allowlist del piloto. Lista separada por comas en E.164.
- * Cualquier entrada inválida o más de 5 números invalida la lista completa
- * (preferimos no responder a nadie antes que responder a quien no toca).
+ * Bloque: formato de BSUID (business-scoped user id) según la doc oficial de Meta
+ * (https://developers.facebook.com/documentation/business-messaging/whatsapp/business-scoped-user-ids):
+ * código de país ISO 3166 alfa-2 + '.' + hasta 128 alfanuméricos (p. ej. US.13491208655302741918).
+ * El BSUID "principal" (parent) trae '.ENT.' en medio (p. ej. US.ENT.11815799212886844830).
  */
-export function leerAllowlistPiloto(valor: string | undefined): { numeros: string[]; invalida: boolean } {
-  if (!valor || !valor.trim()) return { numeros: [], invalida: false };
+export const PATRON_USER_ID = /^[A-Z]{2}(?:\.ENT)?\.[A-Za-z0-9]{1,128}$/;
+
+/** Bloque: prefijo explícito para entradas de allowlist que son BSUID (uid:CO.123…). */
+export const PREFIJO_USER_ID = 'uid:';
+
+export interface AllowlistPiloto {
+  numeros: string[];
+  /** BSUID permitidos (sin el prefijo uid:). */
+  userIds: string[];
+  /** true si la lista no deja pasar a nadie aunque la variable traiga algo (todas inválidas o > 5). */
+  invalida: boolean;
+  validas: number;
+  invalidas: number;
+}
+
+/**
+ * Bloque: normaliza UNA entrada de la allowlist.
+ * Qué: BSUID (con prefijo uid: o detectado por formato) o celular E.164.
+ * - quita espacios, guiones, paréntesis y puntos de los teléfonos;
+ * - si son solo dígitos se antepone '+' (se asume que ya traen indicativo de país);
+ * - 10 dígitos que empiezan por 3 = celular colombiano SIN indicativo: no adivinamos, inválida.
+ * Por qué: en Vercel prod el valor quedó con 12 dígitos sin '+' y la lista entera se invalidaba.
+ */
+export function normalizarEntradaAllowlist(entrada: string): { tipo: 'telefono' | 'user_id'; valor: string } | null {
+  const limpia = (entrada || '').trim();
+  if (!limpia) return null;
+  if (limpia.toLowerCase().startsWith(PREFIJO_USER_ID)) {
+    const uid = limpia.slice(PREFIJO_USER_ID.length).trim();
+    return PATRON_USER_ID.test(uid) ? { tipo: 'user_id', valor: uid } : null;
+  }
+  if (PATRON_USER_ID.test(limpia)) return { tipo: 'user_id', valor: limpia };
+  let tel = limpia.replace(/[\s\-().]/g, '');
+  if (/^\d+$/.test(tel)) {
+    if (tel.length === 10 && tel.startsWith('3')) return null;
+    tel = `+${tel}`;
+  }
+  return PATRON_E164.test(tel) ? { tipo: 'telefono', valor: tel } : null;
+}
+
+/**
+ * Bloque: allowlist del piloto. Lista separada por comas (E.164 y/o BSUID).
+ * Las entradas inválidas se descartan una por una (ya no tumban la lista completa).
+ * Sigue siendo fail-closed: vacía, todas inválidas o más de 5 → no se responde a nadie.
+ */
+export function leerAllowlistPiloto(valor: string | undefined): AllowlistPiloto {
+  const vacia: AllowlistPiloto = { numeros: [], userIds: [], invalida: false, validas: 0, invalidas: 0 };
+  if (!valor || !valor.trim()) return vacia;
   const partes = valor
     .split(',')
-    .map((parte) => parte.trim().replace(/[\s-]/g, ''))
+    .map((parte) => parte.trim())
     .filter(Boolean);
-  if (partes.length === 0) return { numeros: [], invalida: false };
-  if (partes.length > MAX_NUMEROS_PILOTO) return { numeros: [], invalida: true };
-  if (partes.some((parte) => !PATRON_E164.test(parte))) return { numeros: [], invalida: true };
-  return { numeros: Array.from(new Set(partes)), invalida: false };
+  if (partes.length === 0) return vacia;
+
+  const numeros = new Set<string>();
+  const userIds = new Set<string>();
+  let invalidas = 0;
+  for (const parte of partes) {
+    const n = normalizarEntradaAllowlist(parte);
+    if (!n) invalidas += 1;
+    else if (n.tipo === 'telefono') numeros.add(n.valor);
+    else userIds.add(n.valor);
+  }
+  const validas = numeros.size + userIds.size;
+  // Regla de Producto: máximo 5 personas en el piloto. Si hay más, no adivinamos cuáles: nadie.
+  if (validas > MAX_NUMEROS_PILOTO) return { ...vacia, invalida: true, validas, invalidas };
+  if (validas === 0) return { ...vacia, invalida: true, invalidas };
+  return { numeros: Array.from(numeros), userIds: Array.from(userIds), invalida: false, validas, invalidas };
+}
+
+// Bloque: el aviso `wa_allowlist_invalida` sale una sola vez por arranque en frío (instancia).
+// Por qué: leerConfigWhatsApp corre en cada request y no queremos inundar los logs.
+let avisoAllowlistEmitido = false;
+type LogAllowlist = (linea: Record<string, unknown>) => void;
+const logAllowlistPorDefecto: LogAllowlist = (linea) => console.info(JSON.stringify({ origen: 'wa_config', ...linea }));
+
+/** Solo conteos, nunca las entradas. */
+export function avisarAllowlistUnaVez(piloto: AllowlistPiloto, log: LogAllowlist = logAllowlistPorDefecto): boolean {
+  if (avisoAllowlistEmitido) return false;
+  if (piloto.invalidas === 0 && !piloto.invalida) return false;
+  avisoAllowlistEmitido = true;
+  try {
+    log({ evento: 'wa_allowlist_invalida', validas: piloto.validas, invalidas: piloto.invalidas, lista_bloqueada: piloto.invalida });
+  } catch {
+    // El log nunca debe tumbar la lectura de configuración.
+  }
+  return true;
+}
+
+/** Solo para tests: permite volver a emitir el aviso. */
+export function reiniciarAvisoAllowlist(): void {
+  avisoAllowlistEmitido = false;
 }
 
 export function leerConfigWhatsApp(env: EntornoLectura = process.env): ConfigWhatsApp {
   const piloto = leerAllowlistPiloto(env.WA_PILOTO_NUMEROS);
+  avisarAllowlistUnaVez(piloto);
   const version = (env.META_GRAPH_API_VERSION || '').trim();
   const timeout = Number(env.META_WA_TIMEOUT_MS);
   const limite = Number(env.WA_RATE_LIMIT_POR_MINUTO);
@@ -79,6 +164,7 @@ export function leerConfigWhatsApp(env: EntornoLectura = process.env): ConfigWha
     timeoutMs: Number.isFinite(timeout) && timeout >= 1000 && timeout <= 20000 ? timeout : 8000,
     realHabilitado: esVerdaderoEstricto(env.WA_REAL_HABILITADO),
     pilotoNumeros: piloto.numeros,
+    pilotoUserIds: piloto.userIds,
     pilotoInvalido: piloto.invalida,
     leadConversionHabilitada: esVerdaderoEstricto(env.WA_LEAD_CONVERSION_ENABLED),
     limiteMensajesPorMinuto: Number.isFinite(limite) && limite >= 1 && limite <= 120 ? Math.floor(limite) : 20
@@ -95,6 +181,27 @@ export function numeroPuedeRecibirRespuesta(config: ConfigWhatsApp, e164: string
   if (config.realHabilitado) return true;
   if (config.pilotoNumeros.length === 0) return false;
   return config.pilotoNumeros.includes(e164);
+}
+
+/** Remitente de WhatsApp: teléfono E.164 si Meta lo manda, BSUID si lo manda (pueden venir ambos). */
+export interface RemitenteWa {
+  telefono: string | null;
+  userId: string | null;
+}
+
+/**
+ * Bloque: allowlist por remitente (teléfono O BSUID).
+ * Qué: pasa si el teléfono está en la lista o si el BSUID está en la lista.
+ * Por qué: con los nombres de usuario de WhatsApp, Meta puede omitir `from` y mandar solo `from_user_id`.
+ */
+export function remitentePuedeRecibirRespuesta(
+  config: Pick<ConfigWhatsApp, 'realHabilitado' | 'pilotoNumeros'> & { pilotoUserIds?: string[] },
+  remitente: RemitenteWa
+): boolean {
+  if (config.realHabilitado) return Boolean(remitente.telefono || remitente.userId);
+  if (remitente.telefono && config.pilotoNumeros.includes(remitente.telefono)) return true;
+  if (remitente.userId && (config.pilotoUserIds || []).includes(remitente.userId)) return true;
+  return false;
 }
 
 /** Bloque: ¿hay credenciales suficientes para enviar por Graph API? (sin exponerlas) */

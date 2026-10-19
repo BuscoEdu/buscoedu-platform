@@ -12,9 +12,12 @@
  */
 
 import type { ConfigWhatsApp } from './config';
-import { numeroPuedeRecibirRespuesta } from './config';
+import { remitentePuedeRecibirRespuesta } from './config';
+import { identificarRemitente } from './webhook-parser';
 
-type ConfigDiagnostico = Pick<ConfigWhatsApp, 'phoneNumberId' | 'realHabilitado' | 'pilotoNumeros'>;
+type ConfigDiagnostico = Pick<ConfigWhatsApp, 'phoneNumberId' | 'realHabilitado' | 'pilotoNumeros'> & {
+  pilotoUserIds?: string[];
+};
 
 export interface DiagnosticoWebhook {
   evento: 'wa_webhook_recibido';
@@ -34,6 +37,12 @@ export interface DiagnosticoWebhook {
   remitentes_en_allowlist: { si: number; no: number };
   /** Últimos 4 dígitos de cada remitente único, enmascarados: ***1234. */
   remitente_ult4: string[];
+  /** Remitentes únicos que traen teléfono (`from` o `contacts[].wa_id`). */
+  remitentes_con_telefono: number;
+  /** Remitentes únicos que SOLO traen BSUID (`from_user_id` / `contacts[].user_id`). */
+  remitentes_solo_user_id: number;
+  /** Últimos 4 caracteres del BSUID de cada remitente sin teléfono: uid:***ab12. */
+  remitente_user_id_ult4: string[];
   /** ¿El phone_number_id del payload es el configurado? null si el payload no trae ninguno. */
   phone_number_id_coincide: boolean | null;
 }
@@ -58,6 +67,13 @@ function comoArreglo(valor: unknown): any[] {
   return Array.isArray(valor) ? valor : [];
 }
 
+/** Bloque: últimos 4 caracteres del BSUID con máscara (uid:***ab12); nunca el id completo. */
+export function enmascararUserIdUlt4(valor: unknown): string {
+  const v = typeof valor === 'string' ? valor.replace(/[^A-Za-z0-9]/g, '') : '';
+  if (v.length < 6) return 'uid:***';
+  return `uid:***${v.slice(-4)}`;
+}
+
 /** Bloque: últimos 4 dígitos con máscara (***1234); nunca el número completo. */
 export function enmascararUlt4(valor: unknown): string {
   const digitos = typeof valor === 'string' ? valor.replace(/\D/g, '') : '';
@@ -79,6 +95,9 @@ function diagnosticoVacio(): DiagnosticoWebhook {
     contactos: 0,
     remitentes_en_allowlist: { si: 0, no: 0 },
     remitente_ult4: [],
+    remitentes_con_telefono: 0,
+    remitentes_solo_user_id: 0,
+    remitente_user_id_ult4: [],
     phone_number_id_coincide: null
   };
 }
@@ -103,7 +122,8 @@ export function construirDiagnosticoWebhook(cuerpoCrudo: string, config: ConfigD
 
   d.object = typeof payload.object === 'string' ? etiqueta(payload.object) : null;
 
-  const remitentes = new Set<string>();
+  // Bloque: remitentes únicos con la MISMA regla de identidad que el parser (from → from_user_id → contacts[]).
+  const remitentes = new Map<string, { telefono: string | null; userId: string | null }>();
   const phoneIds: string[] = [];
 
   for (const entry of comoArreglo(payload.entry)) {
@@ -116,22 +136,31 @@ export function construirDiagnosticoWebhook(cuerpoCrudo: string, config: ConfigD
       const pnid = value?.metadata?.phone_number_id;
       if (typeof pnid === 'string' && pnid) phoneIds.push(pnid);
 
-      for (const m of comoArreglo(value?.messages)) {
+      const contactos = comoArreglo(value?.contacts);
+      const mensajes = comoArreglo(value?.messages);
+      mensajes.forEach((m, i) => {
         d.mensajes += 1;
         agregarAcotado(d.tipos_mensaje, etiqueta(m?.type));
-        const waId = typeof m?.from === 'string' ? m.from.replace(/\D/g, '') : '';
-        if (waId) remitentes.add(waId);
-      }
+        const r = identificarRemitente(m, contactos, i, mensajes.length);
+        const clave = r.telefono || (r.userId ? `uid:${r.userId}` : '');
+        if (clave && !remitentes.has(clave)) remitentes.set(clave, r);
+      });
       d.estados += comoArreglo(value?.statuses).length;
       d.contactos += comoArreglo(value?.contacts).length;
     }
   }
 
   // Bloque: allowlist con la MISMA regla que usa la ruta (numeroPuedeRecibirRespuesta).
-  for (const waId of remitentes) {
-    if (numeroPuedeRecibirRespuesta(config as ConfigWhatsApp, `+${waId}`)) d.remitentes_en_allowlist.si += 1;
+  for (const r of remitentes.values()) {
+    if (remitentePuedeRecibirRespuesta(config, r)) d.remitentes_en_allowlist.si += 1;
     else d.remitentes_en_allowlist.no += 1;
-    agregarAcotado(d.remitente_ult4, enmascararUlt4(waId));
+    if (r.telefono) {
+      d.remitentes_con_telefono += 1;
+      agregarAcotado(d.remitente_ult4, enmascararUlt4(r.telefono));
+    } else {
+      d.remitentes_solo_user_id += 1;
+      agregarAcotado(d.remitente_user_id_ult4, enmascararUserIdUlt4(r.userId));
+    }
   }
 
   // Bloque: solo un booleano; el id en sí nunca sale al log.

@@ -31,6 +31,13 @@ export const SIN_RESULTADOS =
   'No encontré programas vigentes con eso en el catálogo de BuscoEdu. No te voy a inventar opciones. ' +
   'Prueba con otra área, ciudad o modalidad, o mira ' + URL_WEB + '/explorar';
 
+// Bloque: remitente con nombre de usuario de WhatsApp y SIN número visible (solo BSUID).
+// Por qué: sin número no podemos guardar el contacto ni su autorización de datos (wa_contactos exige E.164).
+export const PEDIR_NUMERO_SOLO_USER_ID =
+  '¡Hola! 👋 Te escribe *BuscoEdu*, y yo soy NaIA. Para atenderte por este chat necesito tu número de WhatsApp, ' +
+  'porque con él guardo tu autorización de datos (Ley 1581 de 2012). Toca el botón para compartirlo. ' +
+  'Mientras tanto puedes ver los programas en ' + URL_WEB + '/explorar';
+
 export const ERROR_HONESTO =
   'Uy, tuve un problema técnico y no pude completar eso. No guardé nada a medias. ' +
   'Puedes intentarlo de nuevo en unos minutos o seguir en ' + URL_WEB;

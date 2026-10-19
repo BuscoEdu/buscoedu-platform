@@ -7,12 +7,12 @@
  */
 
 import type { ConfigWhatsApp } from './config';
-import { numeroPuedeRecibirRespuesta } from './config';
+import { remitentePuedeRecibirRespuesta } from './config';
 import { firmaMetaValida, verificarSuscripcion } from './firma';
 import type { DependenciasOrquestador, ResultadoProceso } from './orquestador';
-import { enmascarar, procesarMensajeEntrante } from './orquestador';
+import { enmascararRemitente, procesarMensajeEntrante } from './orquestador';
 import type { MensajeEntrante } from './webhook-parser';
-import { parsearWebhook } from './webhook-parser';
+import { parsearWebhook, remitenteDe } from './webhook-parser';
 
 export interface RespuestaHttp {
   status: number;
@@ -75,7 +75,7 @@ export async function procesarLote(mensajes: MensajeEntrante[], deps: Dependenci
 
 /**
  * Bloque: filtro previo del piloto cerrado, ANTES de crear clientes de base de datos.
- * Los números fuera de la allowlist solo dejan un log mínimo (enmascarado).
+ * Los remitentes fuera de la allowlist (por teléfono o por BSUID) solo dejan un log mínimo (enmascarado).
  * El orquestador vuelve a comprobarlo (defensa en profundidad).
  */
 export function filtrarPermitidos(
@@ -85,8 +85,9 @@ export function filtrarPermitidos(
   const permitidos: MensajeEntrante[] = [];
   const rechazados: string[] = [];
   for (const m of mensajes) {
-    if (numeroPuedeRecibirRespuesta(config, m.e164)) permitidos.push(m);
-    else rechazados.push(enmascarar(m.e164));
+    const remitente = remitenteDe(m);
+    if (remitentePuedeRecibirRespuesta(config, remitente)) permitidos.push(m);
+    else rechazados.push(enmascararRemitente(remitente));
   }
   return { permitidos, rechazados };
 }
