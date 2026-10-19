@@ -130,18 +130,67 @@ export function contarEmojis(texto: string): number {
  * ayuda a distinguir dos programas con el mismo nombre.
  * ──────────────────────────────────────────────────────────────────────────── */
 
-export function tituloFila(numero: number, nombre: string): string {
-  const prefijo = `${numero}. `;
-  return `${prefijo}${cortarPorPalabra(nombre, LIMITES.tituloFila - prefijo.length)}`;
+/*
+ * Bloque 4a · Nivel abreviado en el título (QA ronda 2, MEDIA 19/10/2026).
+ * Qué: «Especialización en Gerencia…» → «Esp. Gerencia…» solo en el título de la fila.
+ * Por qué: con 24 caracteres, tres filas quedaban «Especialización en…» iguales; lo que distingue
+ * (el área) tiene que ir primero. El nombre completo se sigue viendo en la ficha y, si el título
+ * se corta, al inicio de la descripción (ver descripcionFila).
+ */
+const ABREVIATURAS_NIVEL: Array<[RegExp, string]> = [
+  [/^especializaci[oó]n( en| de)?\s+/i, 'Esp. '],
+  [/^maestr[ií]a( en| de)?\s+/i, 'Mg. '],
+  [/^doctorado( en| de)?\s+/i, 'Doc. '],
+  [/^licenciatura( en| de)?\s+/i, 'Lic. '],
+  [/^tecnolog[ií]a( en| de)?\s+/i, 'Tecnol. '],
+  [/^t[eé]cnic[oa] profesional( en| de)?\s+/i, 'Téc. prof. '],
+  [/^profesional en\s+/i, 'Prof. ']
+];
+
+/** Nombre con el nivel abreviado; si no empieza por un nivel conocido, queda igual. */
+export function nombreCortoFila(nombre: string): string {
+  const t = limpiar(nombre);
+  for (const [patron, abreviatura] of ABREVIATURAS_NIVEL) {
+    if (patron.test(t)) {
+      const resto = t.replace(patron, '');
+      // Solo se abrevia si queda algo después del nivel (nunca un título «Esp. » vacío).
+      return resto ? `${abreviatura}${resto}` : t;
+    }
+  }
+  return t;
 }
 
-export function descripcionFila(o: OfertaAgrupadaWa): string {
+export function tituloFila(numero: number, nombre: string): string {
+  const prefijo = `${numero}. `;
+  return `${prefijo}${cortarPorPalabra(nombreCortoFila(nombre), LIMITES.tituloFila - prefijo.length)}`;
+}
+
+/** ¿El título de la fila se queda corto para el nombre? (ancho real: «N. » + nombre abreviado). */
+function tituloSeCorta(numero: number, nombre: string): boolean {
+  return `${numero}. ${nombreCortoFila(nombre)}`.length > LIMITES.tituloFila;
+}
+
+/*
+ * `numero` es opcional: con él, si el título se corta, la descripción intenta empezar por el
+ * nombre completo («Especialización en Gerencia de Proyectos · Areandina…») para que el estudiante
+ * vea qué programa es sin abrir la ficha. Si no cabe en 72, queda la descripción de siempre.
+ */
+export function descripcionFila(o: OfertaAgrupadaWa, numero?: number): string {
   const universidad = limpiar(o.universidad);
   const modalidad = limpiar(o.modalidad);
   // Si el catálogo trae «Virtual» como ciudad y también como modalidad, no se repite.
   const lugarCrudo = lugarCorto(ciudadesDe(o));
   const lugar = lugarCrudo.toLowerCase() === modalidad.toLowerCase() ? '' : lugarCrudo;
+  const nombreCompleto = limpiar(o.nombre);
+  const conNombre = numero !== undefined && nombreCompleto && tituloSeCorta(numero, nombreCompleto)
+    ? [
+        [nombreCompleto, universidad, modalidad, lugar],
+        [nombreCompleto, universidad, lugar]
+        // Sin [nombre, universidad] a secas: perder la ciudad confunde más que un nombre abreviado.
+      ]
+    : [];
   const intentos = [
+    ...conNombre,
     [universidad, modalidad, lugar],
     [universidad, lugar], // sin modalidad
     [universidad] // sin ciudad
@@ -214,7 +263,7 @@ export function armarResultados(
   const filas: FilaLista[] = visibles.map((o, i) => ({
     id: `oferta:${o.id}`,
     titulo: tituloFila(desde + i + 1, o.nombre),
-    descripcion: descripcionFila(o)
+    descripcion: descripcionFila(o, desde + i + 1)
   }));
   // v1.4: la fila «Ver más» dice cuántos programas trae la página siguiente: k = min(8, N - (pagina+1)*8).
   const siguientes = Math.min(PROGRAMAS_POR_PAGINA, total - (p + 1) * PROGRAMAS_POR_PAGINA);

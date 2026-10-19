@@ -5,7 +5,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   LIMITES, PROGRAMAS_POR_PAGINA, armarFicha, armarResultados, armarResultadosTexto, contarEmojis,
-  cortarPorPalabra, descripcionFila, lugarCorto, pieResultados, tituloFila
+  cortarPorPalabra, descripcionFila, lugarCorto, nombreCortoFila, pieResultados, tituloFila
 } from './presentacion';
 import { T17_PRECIO, URL_EXPLORAR, t16ConBeneficio } from './copy';
 import type { OfertaAgrupadaWa } from './tipos';
@@ -218,5 +218,26 @@ describe('presentacion · armarFicha (T09b)', () => {
   it('muchas ciudades: «A, B, C, D, E +N ciudades»', () => {
     const f = armarFicha(oferta(3, { ciudades: ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1'] }));
     assert.match(f.cuerpo, /A1, B1, C1, D1, E1 \+2 ciudades/);
+  });
+
+  /* QA ronda 2 (19/10/2026, MEDIA): tres filas «Especialización en…» iguales → el área va primero */
+  it('título abrevia el nivel y la descripción trae el nombre completo si el título se corta', () => {
+    assert.equal(nombreCortoFila('Especialización en Gerencia de Proyectos'), 'Esp. Gerencia de Proyectos');
+    assert.equal(nombreCortoFila('Maestría en Educación'), 'Mg. Educación');
+    assert.equal(nombreCortoFila('Tecnología en Gestión Logística'), 'Tecnol. Gestión Logística');
+    assert.equal(nombreCortoFila('Psicología'), 'Psicología');
+    assert.equal(nombreCortoFila('Especialización'), 'Especialización');
+    const nombres = ['Especialización en Gerencia de Proyectos', 'Especialización en Derecho Laboral', 'Especialización en Docencia Universitaria'];
+    const titulos = nombres.map((n, i) => tituloFila(i + 1, n));
+    for (const t of titulos) assert.ok(t.length <= LIMITES.tituloFila, t);
+    assert.equal(new Set(titulos.map((t) => t.replace(/^\d+\. /, ''))).size, 3, titulos.join(' | '));
+    assert.equal(titulos[1], '2. Esp. Derecho Laboral');
+    const o = oferta(1, { nombre: 'Especialización en Gerencia de Proyectos', modalidad: 'Virtual', ciudades: ['Virtual'] });
+    const d = descripcionFila(o, 1);
+    assert.ok(d.startsWith('Especialización en Gerencia de Proyectos · '), d);
+    assert.ok(d.length <= LIMITES.descripcionFila, d);
+    // Sin número (texto de respaldo) o con título que cabe → descripción de siempre.
+    assert.equal(descripcionFila(o), descripcionFila(oferta(1, { modalidad: 'Virtual', ciudades: ['Virtual'] })));
+    assert.equal(descripcionFila(oferta(1, { nombre: 'Psicología', modalidad: 'Virtual', ciudades: ['Virtual'] }), 1), 'Universidad Demo · Virtual');
   });
 });
