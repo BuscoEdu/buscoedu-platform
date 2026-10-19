@@ -6,7 +6,8 @@
  * Por qué aquí y no en copy.ts: copy.ts (BE) declara que T09/T09b son de Frontend; aquí vive el
  * formato (límites de Meta, cortes, numeración). Los textos que ya existen en copy.ts (T16
  * beneficio, T17 precio, URL de Explorar) se importan de allí, no se duplican. Los textos de T09
- * que copy.ts no tiene se transcriben literal del brief v1.3 (briefs/copy-bot-wa-v1.md).
+ * que copy.ts no tiene se transcriben literal del brief (briefs/copy-bot-wa-v1.md; v1.3 y, desde el
+ * 2026-10-19, v1.4: rango en página 2+, «Siguientes k de N programas», «Más información:»).
  *
  * Contrato que usa BE (orquestador.ts) — NO cambia:
  *   armarResultados(ofertasAgrupadas, total, pagina, consulta?) → { cuerpo, filas, botonTexto, seccion, pie? }
@@ -59,6 +60,17 @@ export const T09_BOTON_LISTA = 'Ver programas';
 export const T09_SECCION = 'Programas vigentes';
 export const T09_INDICACION = 'Toca *Ver programas* o escribe el número.';
 export const T09_VER_MAS = 'Ver más';
+// Copy v1.4 (2026-10-19): negrita solo en nombres y acciones («*Ver programas*» es una acción, se queda).
+/** v1.4 · cuerpo de la página 2 en adelante: «Programas 9 a 12 de 12 👇». */
+export function t09Rango(desde: number, hasta: number, total: number): string {
+  return `Programas ${desde} a ${hasta} de ${total}`;
+}
+/** v1.4 · descripción de la fila «Ver más»: cuántos programas trae la página siguiente. */
+export function t09VerMasDescripcion(k: number, total: number): string {
+  return `Siguientes ${k} de ${total} programas`;
+}
+/** v1.4 · etiqueta del link de la ficha: hoy la URL es /explorar?q=…, no la ficha exacta (no decir «Ficha:»). */
+export const T09B_MAS_INFORMACION = 'Más información:';
 export const T09B_GUARDAR = 'Guardar en Mi lista';
 export const T09B_APLICAR = 'Aplicar';
 export const T09B_VER_OTROS = 'Ver otros';
@@ -152,9 +164,15 @@ function textoPara(consulta: string, max: number): string {
   return q ? ` para «${q}»` : '';
 }
 
-function encabezado(total: number, k: number, consulta: string, conEmoji: boolean): string {
+// v1.4: en la página 2+ (pagina ≥ 1) el encabezado es el rango «Programas desde a hasta de N»;
+// la página 0 conserva el texto T09 de siempre.
+function encabezado(total: number, k: number, consulta: string, conEmoji: boolean, pagina = 0): string {
   const para = textoPara(consulta, 60);
   const emoji = conEmoji ? ' 👇' : '';
+  if (pagina >= 1) {
+    const desde = pagina * PROGRAMAS_POR_PAGINA + 1;
+    return `${t09Rango(desde, desde + Math.max(k, 1) - 1, total)}${emoji}`;
+  }
   return total > PROGRAMAS_POR_PAGINA
     ? `Encontré ${total} programas vigentes${para}. Te muestro ${k} de ${total}${emoji}`
     : `Encontré ${total} programas vigentes${para}${emoji}`;
@@ -198,9 +216,14 @@ export function armarResultados(
     titulo: tituloFila(desde + i + 1, o.nombre),
     descripcion: descripcionFila(o)
   }));
-  if (total > (p + 1) * PROGRAMAS_POR_PAGINA) filas.push({ id: 'menu:mas', titulo: T09_VER_MAS });
+  // v1.4: la fila «Ver más» dice cuántos programas trae la página siguiente: k = min(8, N - (pagina+1)*8).
+  const siguientes = Math.min(PROGRAMAS_POR_PAGINA, total - (p + 1) * PROGRAMAS_POR_PAGINA);
+  if (siguientes > 0) {
+    filas.push({ id: 'menu:mas', titulo: T09_VER_MAS, descripcion: cortarPorPalabra(t09VerMasDescripcion(siguientes, total), LIMITES.descripcionFila) });
+  }
 
-  let cuerpo = `${encabezado(total, visibles.length, consulta, true)}\n${T09_INDICACION}`;
+  // Página 0: T09 + indicación. Página 2+ (v1.4): solo el rango «Programas X a Y de N 👇».
+  let cuerpo = p >= 1 ? encabezado(total, visibles.length, consulta, true, p) : `${encabezado(total, visibles.length, consulta, true)}\n${T09_INDICACION}`;
   // Respaldo: si la consulta es muy larga y el cuerpo se pasa de 300, se quita «para «…»».
   if (cuerpo.length > LIMITES.cuerpoLista) cuerpo = `${encabezado(total, visibles.length, '', true)}\n${T09_INDICACION}`;
 
@@ -230,7 +253,8 @@ export function armarResultadosTexto(ofertasAgrupadas: OfertaAgrupadaWa[], total
   const cierre = `Escribe el número para ver la ficha${hayMas ? ' o escribe *más*' : ''}.`;
   const armar = (maxNombre: number, q: string) => {
     const lineas = top.map((o, i) => `${desde + i + 1}. *${cortarPorPalabra(o.nombre, maxNombre)}*\n${descripcionFila(o)}`);
-    return [`${encabezado(total, top.length, q, false)}:`, ...lineas, cierre].join('\n');
+    // v1.4: en la página 2+ el encabezado es el rango de los que se listan aquí («Programas 9 a 11 de 12:»).
+    return [`${encabezado(total, top.length, q, false, p)}:`, ...lineas, cierre].join('\n');
   };
   // Se acorta primero el nombre y luego se quita la consulta hasta caber en 600.
   for (const maxNombre of [120, 80, 50, 30]) {
@@ -243,7 +267,8 @@ export function armarResultadosTexto(ofertasAgrupadas: OfertaAgrupadaWa[], total
 /* ────────────────────────────────────────────────────────────────────────────
  * Bloque 9 · armarFicha (T09b, contrato BE).
  * Qué: nombre completo en negrita, detalle (universidad · modalidad · nivel · ciudades), beneficio
- * (T16 de copy.ts), precio (T17 de copy.ts) y 1 link a la ficha. Botones [Guardar en Mi lista]
+ * (T16 de copy.ts), precio (T17 de copy.ts) y 1 link con «Más información:» (v1.4: la URL hoy es
+ * /explorar?q=…, no la ficha exacta). Botones [Guardar en Mi lista]
  * [Aplicar] [Ver otros] con ids `lista:{id}`, `aplicar:{id}`, `menu:volver`.
  * Por qué: guardar ≠ aplicar (2 botones distintos) y la URL nunca se corta: si no cabe en 600, se
  * acortan primero el beneficio, luego las ciudades y por último el nombre.
@@ -263,7 +288,7 @@ export function armarFicha(oferta: OfertaAgrupadaWa): { cuerpo: string; botones:
       .filter(Boolean)
       .join(' · ');
     const beneficio = limpiar(oferta.beneficio) && maxBeneficio > 0 ? t16ConBeneficio(cortarPorPalabra(oferta.beneficio!, maxBeneficio)) : '';
-    return [`*${cortarPorPalabra(oferta.nombre, maxNombre)}*`, detalle, beneficio, T17_PRECIO, url ? `Ficha: ${url}` : '']
+    return [`*${cortarPorPalabra(oferta.nombre, maxNombre)}*`, detalle, beneficio, T17_PRECIO, url ? `${T09B_MAS_INFORMACION} ${url}` : '']
       .filter(Boolean)
       .join('\n');
   };

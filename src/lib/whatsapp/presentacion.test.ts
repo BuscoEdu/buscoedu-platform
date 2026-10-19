@@ -92,12 +92,16 @@ describe('presentacion · armarResultados (T09)', () => {
     assert.ok(contarEmojis(r.cuerpo) <= 1);
     assert.equal(r.filas.length, 9);
     assert.deepEqual(r.filas.slice(0, 8).map((f) => f.titulo.split('.')[0]), ['1', '2', '3', '4', '5', '6', '7', '8']);
-    assert.deepEqual(r.filas.at(-1), { id: 'menu:mas', titulo: 'Ver más' });
+    // v1.4: la fila «Ver más» dice cuántos trae la página siguiente (12 → 4).
+    assert.deepEqual(r.filas.at(-1), { id: 'menu:mas', titulo: 'Ver más', descripcion: 'Siguientes 4 de 12 programas' });
     assert.equal(r.filas[0].id, `oferta:${lote(1)[0].id}`);
   });
-  it('página 1: numeración desde 9 y sin «Ver más» si no hay página 3', () => {
+  it('página 1: numeración desde 9, cuerpo v1.4 «Programas 9 a 12 de 12 👇» y sin «Ver más» si no hay página 3', () => {
     const r = armarResultados(lote(4, 8), 12, 1, 'psicología');
     assert.deepEqual(r.filas.map((f) => f.titulo.split('.')[0]), ['9', '10', '11', '12']);
+    assert.equal(r.cuerpo, 'Programas 9 a 12 de 12 👇');
+    assert.doesNotMatch(r.cuerpo, URL_RE);
+    assert.ok(contarEmojis(r.cuerpo) <= 1);
     assert.ok(!r.filas.some((f) => f.id === 'menu:mas'));
   });
   it('página 1 con 30: 9..16 + «Ver más»; total exacto 16 → sin «Ver más»', () => {
@@ -106,6 +110,17 @@ describe('presentacion · armarResultados (T09)', () => {
     assert.equal(r.filas[7].titulo.startsWith('16. '), true);
     assert.equal(r.filas.at(-1)!.id, 'menu:mas');
     assert.ok(!armarResultados(lote(8, 8), 16, 1).filas.some((f) => f.id === 'menu:mas'));
+  });
+  it('v1.4 · k de la fila «Ver más» = min(8, N - (pagina+1)*8) para 12 / 16 / 23 y en página 1', () => {
+    const verMas = (n: number, pagina = 0) => armarResultados(lote(8, pagina * 8), n, pagina).filas.find((f) => f.id === 'menu:mas');
+    assert.equal(verMas(12)!.descripcion, 'Siguientes 4 de 12 programas');
+    assert.equal(verMas(16)!.descripcion, 'Siguientes 8 de 16 programas');
+    assert.equal(verMas(23)!.descripcion, 'Siguientes 8 de 23 programas');
+    assert.equal(verMas(23, 1)!.descripcion, 'Siguientes 7 de 23 programas');
+    assert.equal(verMas(16, 1), undefined);
+    for (const n of [12, 16, 23, 99999]) assert.ok(verMas(n)!.descripcion!.length <= LIMITES.descripcionFila);
+    // Página 1 de 23: cuerpo con el rango de esta página.
+    assert.equal(armarResultados(lote(8, 8), 23, 1).cuerpo, 'Programas 9 a 16 de 23 👇');
   });
   it('N ≤ 8: sin «de N», sin «Ver más» y sin pie', () => {
     const r = armarResultados(lote(5), 5, 0, 'diseño');
@@ -160,6 +175,7 @@ describe('presentacion · armarResultadosTexto (respaldo si falla la lista)', ()
     const t = armarResultadosTexto(lote(3, 8, { nombre: 'Programa '.repeat(40) }), 50, 1, 'q '.repeat(100));
     assert.ok(t.length <= LIMITES.textoRespaldo, String(t.length));
     assert.match(t, /^9\. /m);
+    assert.match(t, /^Programas 9 a 11 de 50:/);
     assert.ok(contarEmojis(t) <= 1);
   });
 });
@@ -184,7 +200,9 @@ describe('presentacion · armarFicha (T09b)', () => {
     assert.equal(lineas[1], 'Universidad Demo · Presencial · Especialización · Bogotá, Cali');
     assert.equal(lineas[2], t16ConBeneficio('15% de descuento en la matrícula'));
     assert.equal(lineas[3], T17_PRECIO);
-    assert.equal(lineas[4], `Ficha: ${o.url}`);
+    // v1.4: la URL es /explorar?q=…, no la ficha exacta → «Más información:», nunca «Ficha:».
+    assert.equal(lineas[4], `Más información: ${o.url}`);
+    assert.doesNotMatch(f.cuerpo, /Ficha:/);
     assert.equal((f.cuerpo.match(/https?:\/\//g) || []).length, 1);
     assert.ok(contarEmojis(f.cuerpo) <= 1);
     // Negrita solo en el nombre.
@@ -195,7 +213,7 @@ describe('presentacion · armarFicha (T09b)', () => {
     const o = oferta(2, { nombre: 'X'.repeat(400), beneficio: 'b '.repeat(300), ciudades: Array.from({ length: 30 }, (_, i) => `Ciudad ${i}`) });
     const f = armarFicha(o);
     assert.ok(f.cuerpo.length <= LIMITES.ficha, String(f.cuerpo.length));
-    assert.ok(f.cuerpo.endsWith(`Ficha: ${o.url}`));
+    assert.ok(f.cuerpo.endsWith(`Más información: ${o.url}`));
   });
   it('muchas ciudades: «A, B, C, D, E +N ciudades»', () => {
     const f = armarFicha(oferta(3, { ciudades: ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1'] }));
