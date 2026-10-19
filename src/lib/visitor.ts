@@ -21,7 +21,7 @@ function generateUUID(): string {
 /**
  * Obtiene o crea el identificador de visitante anónimo
  * - Si existe en localStorage, lo retorna
- * - Si no existe, crea uno nuevo y lo registra en Supabase
+ * - Si no existe, crea uno nuevo (solo local; el servidor crea la fila en `visitantes`)
  */
 export async function getOrCreateVisitorId(): Promise<string> {
   // Verificar si ya existe en localStorage
@@ -39,23 +39,10 @@ export async function getOrCreateVisitorId(): Promise<string> {
   visitorId = generateUUID();
   localStorage.setItem(VISITOR_ID_KEY, visitorId);
 
-  // Registrar en Supabase (visitantes table)
-  try {
-    const { error } = await supabase.from('visitantes').insert({
-      id: visitorId,
-      identificador_navegacion: visitorId,
-      primer_acceso_en: new Date().toISOString(),
-      ultimo_acceso_en: new Date().toISOString(),
-    });
-
-    if (error) {
-      console.warn('Error registrando visitante:', error.message);
-      // No bloqueamos - el UUID local sigue siendo válido
-    }
-  } catch (err) {
-    console.warn('Error al conectar con Supabase:', err);
-  }
-
+  // Ya NO se inserta en `visitantes` desde el navegador (2026-10-19): con la clave anon RLS lo
+  // rechazaba (42501 → HTTP 401 en consola) y la fila nunca se creaba. Para qué: la fila la asegura
+  // el servidor con service role al primer evento (POST /api/eventos) y al convertir
+  // (/api/leadcenter/convertir, funnel Demo WApp), que ya reparaban ese caso.
   return visitorId;
 }
 
