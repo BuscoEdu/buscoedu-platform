@@ -103,6 +103,7 @@ Rama `release/e1-prod` → PR a `main` (squash). Integra el Frontend (`feat/e1-f
 |---|---|---|---|
 | 2026-10-18 | Release E1: BA-034 (capa IA multiproveedor), BA-035 (claves en Vault), BA-036/037/038 (API y panel admin IA: proveedores, modelos, modelo + respaldo por agente, tope diario por canal, alertas), BA-039 (voz NaIA y canales desde BD), BA-040 (`fn_cambiar_etapa` con subestado obligatorio) y BA-041 (conversión valida antes de escribir + errores en español). Migraciones `20261018100000` → `20261018160000` ya aplicadas en prod por BD (`docs/bd/README-e1-prod-20261018.md`), más el `search_path` fijo de `fn_ia_solo_insercion` | Operar proveedores de IA, modelos, respaldos y tope de gasto sin tocar código; que nunca haya gasto sin límite; 0 leads sin consentimiento o con oferta vencida | Backend BuscoEdu (bot) integra; Frontend BuscoEdu (bot) y Base de datos BuscoEdu (bot) son autores de sus partes |
 | 2026-10-18 | Hotfix seguridad cambiar etapa: `POST /api/leadcenter/oportunidad/[id]/etapa` valida sesión (401), rol asesor/super_admin (403) y body (400, mensaje en español) antes de tocar la BD; errores sin detalle interno (`src/lib/leadcenter/cambiar-etapa.ts` + tests). La RPC sigue con el cliente del usuario: `fn_cambiar_etapa` autoriza con `auth.uid()` (`puede_ver_oportunidad`), así que con service role respondería siempre `no_autorizado`. REVOKE (decisión del Orquestador, opción A): tras el deploy, BD aplica solo la fase 1 (PUBLIC + anon); la fase 2 (`authenticated`) queda en standby hasta que exista una versión de `fn_cambiar_etapa` con `p_actor_usuario_id` ejecutable solo por service_role | Cerrar la RPC a quien no tiene sesión de Lead Center y no filtrar mensajes de Postgres | Backend BuscoEdu (bot) |
+| 2026-10-19 | Publicación a producción (rama `release/e1-eventos-abacus`, squash a `main`, un solo deploy): `POST /api/eventos` guarda los eventos desde el servidor (service role, lista permitida, mismo origen, cupos) y el navegador ya no inserta con la clave anon en `eventos_negocio` ni en `visitantes`; además, el asistente/detalle de Admin IA muestra las referencias de Abacus («Despliegue», «Token»; si faltan, «Sin referencia configurada») en vez de «Sin modelo». La propuesta RLS `supabase/ops/20261019_eventos_negocio_rls_propuesta.sql` **no se aplica** y no hay cambios en Supabase | En el smoke de QA del PR #65 los eventos de NaIA fallaban con `42501`/HTTP 401 (RLS) y se perdían, y Abacus aparecía como «Sin modelo» | Backend BuscoEdu (bot) integra; Frontend BuscoEdu (bot) es autor de `6b54fe4`; con OK de Jhon vía Orquestador |
 
 ## E1 Ola 3/4 — API admin de IA (BA-036/037/038)
 
@@ -110,7 +111,7 @@ Contrato de las rutas `/api/admin/ia/...` (solo super_admin) para que Frontend c
 
 ## E1 Ola 3/4 — Panel «IA multiproveedor» (Frontend)
 
-Pantallas de `/admin/ia/multiproveedor` (solo super_admin): asistente de 5 pasos para agregar proveedor, interruptor con aviso de impacto, ficha con bitácora, modelo + respaldos por agente y tope de gasto diario por canal. Usan la API real (`src/lib/admin-ia/api.ts`); el adaptador de ejemplo es solo para pruebas y capturas. El formulario viejo `/admin/ia/proveedores` ahora redirige aquí. Bitácora: 18/10/2026 — panel E1 + reemplazo del formulario viejo — para operar proveedores y topes sin tocar código — Frontend BuscoEdu (bot). 18/10/2026 — pulido QA: etiquetas en español centralizadas en `src/lib/admin-ia/etiquetas.ts` para todo `/admin/ia` (sin códigos ni inglés visibles), «Publicar vN» como único CTA coral en «Modelo por agente», `engines.node` `>=22 <23` y `.nvmrc` — para que el panel se lea en español claro y las pruebas corran con Node 22 — Frontend BuscoEdu (bot). 2026-10-18 — post-QA: «Cambios del tope» ya no queda bajo la barra fija a 390/360 (F1); el asistente retoma el paso desde el servidor y deja localStorage como respaldo (F2, sin cambios de BE) — para que nada quede tapado y se pueda seguir en otro navegador — Frontend BuscoEdu (bot FE). Detalle: [`docs/frontend/README-e1-admin-ia.md`](docs/frontend/README-e1-admin-ia.md).
+Pantallas de `/admin/ia/multiproveedor` (solo super_admin): asistente de 5 pasos para agregar proveedor, interruptor con aviso de impacto, ficha con bitácora, modelo + respaldos por agente y tope de gasto diario por canal. Usan la API real (`src/lib/admin-ia/api.ts`); el adaptador de ejemplo es solo para pruebas y capturas. El formulario viejo `/admin/ia/proveedores` ahora redirige aquí. Bitácora: 18/10/2026 — panel E1 + reemplazo del formulario viejo — para operar proveedores y topes sin tocar código — Frontend BuscoEdu (bot). 18/10/2026 — pulido QA: etiquetas en español centralizadas en `src/lib/admin-ia/etiquetas.ts` para todo `/admin/ia` (sin códigos ni inglés visibles), «Publicar vN» como único CTA coral en «Modelo por agente», `engines.node` `>=22 <23` y `.nvmrc` — para que el panel se lea en español claro y las pruebas corran con Node 22 — Frontend BuscoEdu (bot). 2026-10-18 — post-QA: «Cambios del tope» ya no queda bajo la barra fija a 390/360 (F1); el asistente retoma el paso desde el servidor y deja localStorage como respaldo (F2, sin cambios de BE) — para que nada quede tapado y se pueda seguir en otro navegador — Frontend BuscoEdu (bot FE). 2026-10-19 — el detalle de un proveedor Abacus muestra los nombres de sus referencias («Despliegue: ABACUS_NAIA_DEPLOYMENT_ID», «Token: ABACUS_NAIA_DEPLOYMENT_TOKEN»; si faltan, «Sin referencia configurada») en vez de «Sin modelo» — porque la API manda `modelo` en null para Abacus y el panel solo miraba ese campo; nunca se muestran valores — Frontend BuscoEdu (bot). Detalle: [`docs/frontend/README-e1-admin-ia.md`](docs/frontend/README-e1-admin-ia.md).
 
 ## Explorar — paginación estable de «Mostrar más»
 
@@ -121,6 +122,8 @@ Bitácora BE: 2026-10-18 — revisión del contrato BA-005 tras el orden estable
 ## Eventos de negocio del explorador — columnas reales
 
 `trackEvent` (`src/lib/events.ts`) inserta en `eventos_negocio` con las columnas reales `evento`, `metadatos` y `creado_en`. Antes enviaba `tipo_evento`, `metadata` y `fecha_evento`, que no existen, y PostgREST respondía PGRST204. Los callers no cambian. Prueba: `src/lib/events.test.ts`. Bitácora: 2026-10-18 — mapeo a columnas reales — para que los eventos de Explorar/NaIA dejen de perderse — Backend BuscoEdu (bot). Detalle: `docs/BUSCOEDU_DATA_DICTIONARY.md` (sección `eventos_negocio`). Bitácora: 2026-10-18 — sin `metadata` se envía `metadatos: {}` en vez de `null` — porque BD confirmó `metadatos jsonb NOT NULL default '{}'` y el null rompería el insert — Backend BuscoEdu (bot).
+
+Bitácora: 2026-10-19 — **qué**: los eventos se guardan en el servidor con `POST /api/eventos` (service role, lista permitida de 7 eventos, UUIDs, `metadatos` ≤ 2 KB, mismo origen, 120/min por IP y 60/min por visitante); `trackEvent` hace `fetch` con `keepalive` (respaldo `sendBeacon`) y el navegador ya no inserta en `eventos_negocio` ni en `visitantes` con la clave anon — **por qué**: en el smoke de QA en producción esos inserts fallaban por RLS (`42501` ×2, HTTP 401 ×3) y los eventos se perdían; no se abre RLS a anon y no hace falta política nueva (propuesta no aplicada: `supabase/ops/20261019_eventos_negocio_rls_propuesta.sql`) — **quién**: Backend BuscoEdu (bot). Contrato: [`docs/backend/README-eventos.md`](docs/backend/README-eventos.md).
 
 ## BA-034 — Capa IA multiproveedor (E1)
 
@@ -301,13 +304,13 @@ Contexto global de "Mi Lista":
 |--------|-------------|------------------|
 | `naia_modal_abierto` | Usuario abre modal inicial | `visitante_id` |
 | `intencion_busqueda_enviada` | Usuario envía búsqueda | `visitante_id`, `metadata.intencion` |
-| `filtro_aplicado` | Filtro manual aplicado | `visitante_id`, `metadata.filtro`, `metadata.valor` |
-| `filtro_retirado` | Filtro removido | `visitante_id`, `metadata.filtro` |
 | `ficha_oferta_abierta` | Usuario abre detalle de oferta | `visitante_id`, `oferta_id`, `programa_id`, `universidad_id` |
 | `ficha_oferta_cerrada` | Usuario cierra detalle | `visitante_id`, `oferta_id` |
 | `oferta_agregada_mi_lista` | Oferta guardada en Mi Lista | `visitante_id`, `oferta_id` |
 | `oferta_retirada_mi_lista` | Oferta quitada de Mi Lista | `visitante_id`, `oferta_id` |
 | `intento_aplicar_oferta` | Click en "Aplicar" | `visitante_id`, `oferta_id`, `programa_id`, `universidad_id` |
+
+Desde 2026-10-19 se envían a `POST /api/eventos` (servidor, service role); solo se aceptan estos 7 eventos. Contrato: `docs/backend/README-eventos.md`.
 
 ### Migración de Base de Datos
 
@@ -330,6 +333,8 @@ Ya configuradas en Vercel y `.env.local` (NO tocar):
 NEXT_PUBLIC_SUPABASE_URL=<URL de Supabase>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<Clave anónima>
 ```
+
+Solo servidor (sin prefijo `NEXT_PUBLIC_`, nunca llega al navegador): `SUPABASE_SERVICE_ROLE_KEY`, que usan `/api/naia`, OTP, Lead Center y, desde 2026-10-19, `POST /api/eventos`.
 
 ## 🎨 Sistema de Diseño
 

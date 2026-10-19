@@ -172,7 +172,7 @@ export interface DetalleProveedorApi extends Omit<ProveedorApi, 'modelos'> {
    * sin volver a pedir estos dos campos. Solo llega en proveedores Abacus; en los demás es null.
    * Cada campo puede venir null si ningún modelo tiene referencias guardadas.
    */
-  abacus?: { identificador_externo: string | null; referencia_secreto: string | null } | null;
+  abacus?: ReferenciasAbacusApi | null;
 }
 
 /** P3 · body para crear el proveedor (paso 1). */
@@ -210,13 +210,32 @@ export interface PrecioVigenteApi {
   modelo: string;
 }
 
+/**
+ * P4 (BE 15ab441) · Referencias de Abacus: NOMBRES de variables de entorno (p. ej.
+ * ABACUS_NAIA_DEPLOYMENT_ID), nunca valores. El servidor solo deja pasar nombres con forma
+ * LLM_* / ABACUS_NAIA_* (`nombreEnvPermitido`); un campo en null = sin referencia guardada.
+ */
+export interface ReferenciasAbacusApi {
+  identificador_externo: string | null;
+  referencia_secreto: string | null;
+}
+
 /** M1 · un modelo de un proveedor. */
 export interface ModeloApi {
   id: string;
   proveedor_id: string;
   proveedor_codigo: string;
   nombre: string;
-  modelo: string;
+  /**
+   * Identificador del modelo en el proveedor (p. ej. «grok-4»). En Abacus es OPCIONAL y la API lo
+   * manda en null: Abacus se identifica por su despliegue (ver `abacus`), no por un nombre de modelo.
+   */
+  modelo: string | null;
+  /**
+   * Solo en proveedores Abacus (P4 `modelos[i].abacus`, BE 15ab441): referencias de ESTE modelo.
+   * En los demás proveedores la API no manda el campo (undefined).
+   */
+  abacus?: ReferenciasAbacusApi | null;
   encendido: boolean;
   estado_panel: EstadoPanel;
   parametros: { temperature: number; max_tokens: number; timeout_ms: number };

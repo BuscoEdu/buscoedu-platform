@@ -79,6 +79,14 @@ export function etiquetaProveedorModelo(proveedor: string | null | undefined, mo
   return `${etiquetaProveedor(proveedor)} · ${etiquetaModelo(modelo)}`;
 }
 
+// Referencias de Abacus (P4, BE 15ab441): nombre visible de cada campo. El valor que se muestra al
+// lado es el NOMBRE de la variable de entorno (p. ej. ABACUS_NAIA_DEPLOYMENT_ID), nunca su contenido.
+// Para qué: que la pantalla no muestre «identificador_externo» ni «referencia_secreto».
+const REFERENCIAS_ABACUS: Record<string, string> = { identificador_externo: 'Despliegue', referencia_secreto: 'Token' };
+export function etiquetaReferenciaAbacus(campo: string | null | undefined): string {
+  return desde(REFERENCIAS_ABACUS, campo);
+}
+
 // Tipo de adaptador técnico del proveedor.
 const ADAPTADORES: Record<string, string> = {
   openai_compatible: 'Compatible con OpenAI', abacus: 'Abacus AI', abacus_ai: 'Abacus AI',

@@ -329,7 +329,8 @@ Log genérico de auditoría a nivel de sistema (entidad, acción, valor anterior
 
 ### `eventos_negocio`
 Log de eventos de negocio (ej. "vio_oferta", "solicito_info") usados para analítica y scoring.
-- FKs: `persona_id → personas`, `oportunidad_id → oportunidades`, `universidad_id → universidades`, `programa_id → programas_academicos`, `oferta_id → ofertas_academicas`.
+- FKs: `persona_id → personas`, `oportunidad_id → oportunidades`, `universidad_id → universidades`, `programa_id → programas_academicos`, `oferta_id → ofertas_academicas`, `visitante_id → visitantes`.
+- Escritura web: solo por `POST /api/eventos` (service role) desde 2026-10-19; ver sección de Fase 0 más abajo.
 
 ---
 
@@ -512,6 +513,8 @@ Esta sección complementa el snapshot del 15-ago-2026 con validaciones realizada
 - **Observación crítica**: existe desalineación de nombres en cliente (`tipo_evento`, `metadata`, `fecha_evento`) vs esquema real (`evento`, `metadatos`, `creado_en`).
 - **Corregido 2026-10-18 (Backend BuscoEdu (bot))**: `src/lib/events.ts` ahora arma la fila con `construirFilaEvento` y envía `evento`, `metadatos` y `creado_en` (antes `tipo_evento`, `metadata` y `fecha_evento` → PostgREST `PGRST204` y el evento se perdía). La interfaz pública de `trackEvent` no cambia: los callers siguen pasando `tipo_evento`/`metadata` y la traducción ocurre adentro. `generado_por` no se envía (el repo no documenta si es obligatorio; verificar con BD). Prueba: `src/lib/events.test.ts`.
   - Bitácora: 2026-10-18 — qué: mapeo a columnas reales en `events.ts` — por qué: el insert fallaba con PGRST204 por `fecha_evento` (y `tipo_evento`/`metadata`) inexistentes — quién: Backend BuscoEdu (bot).
+- **Escritura desde el servidor (2026-10-19, Backend BuscoEdu (bot))**: el navegador ya no inserta en la tabla. `trackEvent` envía a `POST /api/eventos`, que valida y guarda con service role (RLS no aplica; no se abre INSERT a anon). Fila: `visitante_id, evento, oferta_id, programa_id, universidad_id, metadatos` (objeto plano ≤ 2 KB, `{}` si no hay), `generado_por = 'web'`, `creado_en` = hora del servidor. `evento` solo admite: `naia_modal_abierto`, `intencion_busqueda_enviada`, `ficha_oferta_abierta`, `ficha_oferta_cerrada`, `intento_aplicar_oferta`, `oferta_agregada_mi_lista`, `oferta_retirada_mi_lista`. Antes del insert se asegura la fila en `visitantes` (FK `visitante_id → visitantes.id`). Otros escritores: funciones SQL de conversión y Demo WApp (`generado_por` `demowapp_ba031` / `demowapp_push_processor`). Contrato: `docs/backend/README-eventos.md`. Propuesta de RLS (no aplicada): `supabase/ops/20261019_eventos_negocio_rls_propuesta.sql`.
+  - Bitácora: 2026-10-19 — qué: eventos vía `POST /api/eventos` con service role — por qué: el insert con anon fallaba por RLS (42501, HTTP 401) en producción — quién: Backend BuscoEdu (bot).
 
 #### `desafios_otp`
 - **Propósito**: verificación OTP previa a conversión.
@@ -521,7 +524,7 @@ Esta sección complementa el snapshot del 15-ago-2026 con validaciones realizada
 ### Inconsistencias detectadas en Fase 0 (documentadas, no ocultas)
 
 1. **Esquema real vs documentación antigua de Lead Center**: `docs/leadcenter/DATA_MODEL_MAPPING.md` menciona columnas antiguas de `eventos_negocio` (`tipo_evento`,`metadata`,`fecha_evento`), incompatibles con el esquema real validado.
-2. **Cliente de eventos**: `src/lib/events.ts` usa nombres de columna anteriores para insertar en `eventos_negocio`; requiere ajuste en fases siguientes.
+2. **Cliente de eventos**: `src/lib/events.ts` usaba nombres de columna anteriores para insertar en `eventos_negocio` (corregido 2026-10-18; desde 2026-10-19 envía a `POST /api/eventos`).
 3. **`fn_convertir_aplicacion`**: existen dos migraciones con función (`20260829120500` y `20260830103000`). La vigente debe ser la segunda (schema real), y cualquier SQL manual operativo debe alinearse a esa versión.
 
 ### PROPUESTA - NO EXISTE AÚN

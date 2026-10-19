@@ -1,79 +1,68 @@
 /**
- * Sistema de tracking de eventos de negocio
- * Registra eventos de usuario en la tabla eventos_negocio
+ * Sistema de tracking de eventos de negocio (lado navegador).
+ * Envía cada evento a POST /api/eventos; el servidor lo guarda en `eventos_negocio` con service
+ * role. Desde 2026-10-19 el navegador ya no inserta en la tabla con la clave anon (RLS lo rechazaba).
  */
 
-import { supabase } from './supabase';
 import { getCurrentVisitorId } from './visitor';
+import type { EventData } from './eventos-contrato';
 
-export type EventType =
-  | 'naia_modal_abierto'
-  | 'intencion_busqueda_enviada'
-  | 'filtro_aplicado'
-  | 'filtro_modificado'
-  | 'filtro_retirado'
-  | 'ficha_oferta_abierta'
-  | 'ficha_oferta_cerrada'
-  | 'oferta_agregada_mi_lista'
-  | 'oferta_retirada_mi_lista'
-  | 'intento_aplicar_oferta';
+// Bloque reexportes: el contrato (tipos, lista permitida y construirFilaEvento) vive ahora en
+// `eventos-contrato.ts`, compartido con el servidor. Se reexporta para no romper imports existentes.
+export { construirFilaEvento, EVENTOS_PERMITIDOS } from './eventos-contrato';
+export type { EventData, EventType } from './eventos-contrato';
 
-// Datos de un evento en formato del cliente; se exporta para tiparlo en las pruebas de construirFilaEvento.
-export interface EventData {
-  tipo_evento: EventType;
-  oferta_id?: string;
-  programa_id?: string;
-  universidad_id?: string;
-  metadata?: Record<string, any>;
-}
+/** Ruta del servidor que guarda los eventos con service role (ver app/api/eventos/route.ts). */
+export const RUTA_EVENTOS = '/api/eventos';
 
 /**
- * Arma la fila que se inserta en `eventos_negocio` con los nombres REALES de columnas.
- * Qué hace: traduce el formato del cliente (`tipo_evento`, `metadata`) al esquema de la tabla
- * (`evento`, `metadatos`) y pone la fecha en `creado_en`.
- * Para qué: antes se enviaban `tipo_evento`, `metadata` y `fecha_evento`, que no existen en la
- * tabla (PostgREST respondía PGRST204 y el evento se perdía). Las columnas reales salen de las
- * migraciones que ya insertan en la tabla (20260830103000 y 20261018160000: evento, persona_id,
- * oportunidad_id, universidad_id, programa_id, oferta_id, metadatos, generado_por, creado_en,
- * visitante_id) y de docs/BUSCOEDU_DATA_DICTIONARY.md. Función pura para poder probarla.
+ * Arma el cuerpo JSON del POST /api/eventos con los nombres del contrato (columnas reales).
+ * Qué: `tipo_evento` → `evento`, `metadata` → `metadatos`; omite ids vacíos.
+ * Para qué: el servidor rechaza campos desconocidos y fija él mismo `creado_en` y `generado_por`.
  */
-export function construirFilaEvento(visitorId: string, eventData: EventData, ahora: Date = new Date()) {
-  return {
-    visitante_id: visitorId,
-    evento: eventData.tipo_evento,
-    oferta_id: eventData.oferta_id || null,
-    programa_id: eventData.programa_id || null,
-    universidad_id: eventData.universidad_id || null,
-    // `metadatos` es jsonb NOT NULL (default '{}', confirmado por BD 2026-10-18): enviar null
-    // haría fallar el insert, así que sin metadata se manda un objeto vacío.
-    metadatos: eventData.metadata || {},
-    // `creado_en` reemplaza a `fecha_evento` (columna inexistente). Se envía explícito, igual que
-    // las funciones SQL y Demo WApp, para no depender de un DEFAULT que el repo no documenta.
-    creado_en: ahora.toISOString()
-  };
+export function construirCuerpoEvento(visitorId: string, eventData: EventData): Record<string, unknown> {
+  const cuerpo: Record<string, unknown> = { evento: eventData.tipo_evento, visitante_id: visitorId };
+  if (eventData.oferta_id) cuerpo.oferta_id = eventData.oferta_id;
+  if (eventData.programa_id) cuerpo.programa_id = eventData.programa_id;
+  if (eventData.universidad_id) cuerpo.universidad_id = eventData.universidad_id;
+  if (eventData.metadata && Object.keys(eventData.metadata).length > 0) cuerpo.metadatos = eventData.metadata;
+  return cuerpo;
 }
 
 /**
- * Registra un evento de negocio
+ * Registra un evento de negocio enviándolo a POST /api/eventos (fire-and-forget).
+ * Qué: usa fetch con `keepalive` (sobrevive al router.push que sigue a varios eventos) y, si no
+ * hay fetch, `navigator.sendBeacon`. Nunca lanza: cualquier fallo solo deja un aviso en consola.
+ * Por qué: antes insertaba directo en `eventos_negocio` con la clave anon y RLS lo rechazaba
+ * (42501 / HTTP 401); el navegador ya no toca esa tabla. Los callers no cambian.
  */
 export async function trackEvent(eventData: EventData): Promise<void> {
-  // Obtener visitante ID (si existe)
-  const visitorId = getCurrentVisitorId();
-  
-  if (!visitorId) {
-    console.warn('No se puede registrar evento: visitante ID no disponible');
-    return;
-  }
-
   try {
-    // Inserta con los nombres reales de columnas (ver construirFilaEvento); antes fallaba con PGRST204.
-    const { error } = await supabase.from('eventos_negocio').insert(construirFilaEvento(visitorId, eventData));
+    const visitorId = getCurrentVisitorId();
+    if (!visitorId) {
+      console.warn('No se puede registrar evento: visitante ID no disponible');
+      return;
+    }
+    const cuerpo = JSON.stringify(construirCuerpoEvento(visitorId, eventData));
 
-    if (error) {
-      console.error('Error registrando evento:', error);
+    if (typeof fetch === 'function') {
+      const respuesta = await fetch(RUTA_EVENTOS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: cuerpo,
+        keepalive: true,
+        credentials: 'same-origin'
+      });
+      if (!respuesta.ok) console.warn('Evento no registrado:', respuesta.status);
+      return;
+    }
+
+    // Respaldo sin fetch: sendBeacon con text/plain (tipo "simple"; el servidor lee el texto como JSON).
+    if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+      navigator.sendBeacon(RUTA_EVENTOS, new Blob([cuerpo], { type: 'text/plain;charset=UTF-8' }));
     }
   } catch (err) {
-    console.error('Error en trackEvent:', err);
+    console.warn('Error en trackEvent:', err);
   }
 }
 
@@ -90,37 +79,8 @@ export function trackNaiaModalOpened() {
 export function trackSearchIntention(intention: string) {
   trackEvent({
     tipo_evento: 'intencion_busqueda_enviada',
-    metadata: { intencion: intention }
-  });
-}
-
-/**
- * Registra aplicación de filtro
- */
-export function trackFilterApplied(filterKey: string, filterValue: string) {
-  trackEvent({
-    tipo_evento: 'filtro_aplicado',
-    metadata: { filtro: filterKey, valor: filterValue }
-  });
-}
-
-/**
- * Registra modificación de filtro
- */
-export function trackFilterModified(filterKey: string, oldValue: string, newValue: string) {
-  trackEvent({
-    tipo_evento: 'filtro_modificado',
-    metadata: { filtro: filterKey, valor_anterior: oldValue, valor_nuevo: newValue }
-  });
-}
-
-/**
- * Registra remoción de filtro
- */
-export function trackFilterRemoved(filterKey: string) {
-  trackEvent({
-    tipo_evento: 'filtro_retirado',
-    metadata: { filtro: filterKey }
+    // Se recorta a 500 caracteres: es el tope por texto que acepta el servidor en `metadatos`.
+    metadata: { intencion: intention.slice(0, 500) }
   });
 }
 
