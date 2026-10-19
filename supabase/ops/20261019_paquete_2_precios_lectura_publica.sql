@@ -2,7 +2,9 @@
 -- Paquete prod 20261019 · Bloque 2 · Policy lectura_publica_precios (precios_oferta)
 -- Autor: Base de datos BuscoEdu · 2026-10-19 · NO aplicado en prod (espera OK).
 -- Base: supabase/ops/20260927_ba020_estrechar_lectura_publica_precios.sql (BA-020, nunca corrido).
--- Hoy (20260815000100): FOR SELECT TO public USING (true) ⇒ anon ve TODO el histórico,
+-- Viva en prod (leída 19/10 17:57 Madrid): BA-020 ya aplicado (TO public, activo+validado+vigente).
+--   Falta: roles explícitos y exigir oferta visible. (El repo decía USING (true), 20260815000100.)
+-- Antes de BA-020: FOR SELECT TO public USING (true) ⇒ anon veía TODO el histórico,
 --   incluidos los 187 precios pendientes con nota MARCA: de la carga del 19/10.
 -- Qué hace: anon y authenticated solo leen precios activos, validados, vigentes y de una
 --   oferta visible en el portal (mismo criterio que obtenerOfertas). Diferencia con BA-020:
