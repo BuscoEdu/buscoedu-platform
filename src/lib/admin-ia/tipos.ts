@@ -165,6 +165,14 @@ export interface DetalleProveedorApi extends Omit<ProveedorApi, 'modelos'> {
   modelos: ModeloApi[];
   bitacora: EventoBitacora[];
   asistente: { paso: number; completo: boolean; borrador?: Record<string, unknown> | null };
+  /**
+   * P4 (BE 15ab441, 2026-10-18) · Referencias de Abacus del proveedor.
+   * Qué es: NOMBRES de variables de entorno (p. ej. ABACUS_NAIA_DEPLOYMENT_ID), nunca valores secretos.
+   * Para qué: que el asistente retome el paso «Modelos» de Abacus desde el servidor, en otro navegador,
+   * sin volver a pedir estos dos campos. Solo llega en proveedores Abacus; en los demás es null.
+   * Cada campo puede venir null si ningún modelo tiene referencias guardadas.
+   */
+  abacus?: { identificador_externo: string | null; referencia_secreto: string | null } | null;
 }
 
 /** P3 · body para crear el proveedor (paso 1). */

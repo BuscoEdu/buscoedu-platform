@@ -36,6 +36,16 @@ export const CAMPO = `${FOCO} block w-full min-h-[44px] rounded-lg border border
 /** Campo con error: borde rojo. */
 export const CAMPO_ERROR = `${FOCO} block w-full min-h-[44px] rounded-lg border-2 border-[#b91c1c] bg-white px-3 py-2 text-base text-[#1a1830]`;
 
+/**
+ * F1 (post-QA) · Reserva al final de una pantalla con barra de acción fija en móvil.
+ * Qué hace: deja un padding-bottom igual al alto real de la barra (69 px medidos a 390 y 360:
+ * 12 px arriba + botón de 44 px + 12 px abajo + 1 px de borde), más 1,5 rem de margen y el área
+ * segura del iPhone. Desde `sm` la barra deja de ser fija y la reserva desaparece.
+ * Para qué: que lo último de la pantalla (p. ej. «Cambios del tope») se pueda ver completo por
+ * encima de la barra al terminar el scroll.
+ */
+export const RESERVA_BARRA_FIJA = 'pb-[calc(69px+1.5rem+env(safe-area-inset-bottom))] sm:pb-0';
+
 /** Tarjeta blanca con borde decorativo #ece8f7. */
 export const TARJETA = 'rounded-2xl border border-[#ece8f7] bg-white';
 

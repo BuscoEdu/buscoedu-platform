@@ -1,5 +1,5 @@
 -- =====================================================
--- HOTFIX (PREPARADO, NO APLICADO) · permisos de fn_cambiar_etapa(uuid,uuid,uuid,text)
+-- HOTFIX (FASE 1 APLICADA en prod 2026-10-18 ~16:25 Madrid; fase 2 en standby) · permisos de fn_cambiar_etapa(uuid,uuid,uuid,text)
 -- Autor: Base de datos BuscoEdu (bot) · 2026-10-18 · esperando OK de Jhon vía Orquestador
 -- Por qué: es SECURITY DEFINER, no valida quién llama (no usa auth.uid()) y tiene EXECUTE
 --   para PUBLIC, anon y authenticated → con la llave pública se puede mover de etapa

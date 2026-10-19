@@ -9,7 +9,7 @@
  * Módulo puro: la BD llega en `ctx`.
  */
 
-import { PRESETS_PROVEEDOR, URLS_PERMITIDAS, validarUrlBase } from '../agentes/llm/proveedores';
+import { nombreEnvPermitido, PRESETS_PROVEEDOR, URLS_PERMITIDAS, validarUrlBase } from '../agentes/llm/proveedores';
 import type { TipoAdaptador } from '../agentes/llm/tipos';
 import {
   ahoraDe,
@@ -163,6 +163,27 @@ export async function listarProveedores(ctx: CtxAdmin, req: Peticion): Promise<R
   });
 }
 
+/** Referencias de conexión Abacus de un modelo: solo NOMBRES de variables, nunca valores. */
+export interface ReferenciasAbacus {
+  identificador_externo: string | null;
+  referencia_secreto: string | null;
+}
+
+/**
+ * Qué hace: devuelve `identificador_externo` y `referencia_secreto` de un modelo (despliegues_ia)
+ * solo si cada uno es un NOMBRE de variable permitido (`^(LLM_…|ABACUS_NAIA_…)$`, el mismo que
+ * exige M2/M3 al guardar); cualquier otro contenido (p. ej. filas viejas con un id o un valor
+ * pegado) sale como null.
+ * Para qué: que el asistente pueda retomar el paso «Modelos» de Abacus en P4 sin exponer jamás un
+ * secreto: lo que pasa el filtro es, por construcción, un nombre y no un valor.
+ */
+export function referenciasAbacus(m: Pick<FilaModelo, 'identificador_externo' | 'referencia_secreto'>): ReferenciasAbacus {
+  return {
+    identificador_externo: nombreEnvPermitido(m.identificador_externo) ? m.identificador_externo : null,
+    referencia_secreto: nombreEnvPermitido(m.referencia_secreto) ? m.referencia_secreto : null
+  };
+}
+
 export async function verProveedor(ctx: CtxAdmin, req: Peticion): Promise<ResultadoApi> {
   const p = await proveedorOError(ctx, req.params.id);
   if (esResultado(p)) return p;
@@ -190,10 +211,22 @@ export async function verProveedor(ctx: CtxAdmin, req: Peticion): Promise<Result
     .sort((a, b) => Date.parse(b.creado_en) - Date.parse(a.creado_en))
     .slice(0, 50);
   const nombres = await ctx.datos.nombresActores(eventos.map((e) => e.actor_usuario_id).filter(Boolean) as string[]);
+  // Abacus: referencias (nombres de variables) por modelo y, a nivel proveedor, las del primer
+  // modelo que tenga alguna; en otros proveedores `abacus` es null. Ver referenciasAbacus.
+  const esAbacus = conexionDe(p).tipo_adaptador === 'abacus';
+  const refsPorModelo = modelos.map((m) => referenciasAbacus(m));
+  const abacus: ReferenciasAbacus | null = esAbacus
+    ? refsPorModelo.find((r) => r.identificador_externo || r.referencia_secreto) ?? { identificador_externo: null, referencia_secreto: null }
+    : null;
   return exito({
     item: {
       ...vistaProveedor(p, { clave, modelos, pruebas, uso, circuito: ctx.circuitoAbiertoHasta }),
-      modelos: modelos.map((m, i) => vistaModelo(m, { proveedor: p, prueba: pruebas.get(m.id), precio: precios[i], uso: uso.get(m.id) })),
+      abacus,
+      modelos: modelos.map((m, i) => ({
+        ...vistaModelo(m, { proveedor: p, prueba: pruebas.get(m.id), precio: precios[i], uso: uso.get(m.id) }),
+        // Solo en proveedores Abacus: referencias del modelo para el paso «Modelos» del asistente.
+        ...(esAbacus ? { abacus: refsPorModelo[i] } : {})
+      })),
       bitacora: eventos.map(({ actor_usuario_id, ...e }) => ({
         ...e,
         actor: actor_usuario_id ? { id: actor_usuario_id, nombre: nombres.get(actor_usuario_id) ?? null } : null

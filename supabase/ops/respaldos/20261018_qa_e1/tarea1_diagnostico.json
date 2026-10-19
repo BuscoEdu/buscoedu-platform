@@ -1,0 +1,6 @@
+{"tomado":"2026-10-18 (UTC+2)","aplicado":false,
+"fila_qa":{"usuarios_internos.id":"edc0fed8-de52-4536-9447-794836fe0477","activo":true,"rol":"asesor","auth_existe":true,"email_confirmado":true,"baneado":null},
+"asesores_reales_activos":0,"nota":"No hay asesor real activo para comparar; solo 2 super_admin (activo=true, mismo patrón de columnas).",
+"politicas_select":{"usuarios_internos":"solo is_super_admin()","roles":"solo is_super_admin()"},
+"prueba_real":{"login_password":200,"rest_usuarios_internos_propia_fila":"200 []","oportunidades":"200 []","tareas_crm":"200 []"},
+"prueba_revertida_propuesta":{"antes":{"ui":0,"rol":null},"con_propuesta":{"ui":1,"rol":["asesor"],"roles_visibles":1},"tras_deshacer":{"ui":0}}}

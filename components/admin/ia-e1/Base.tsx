@@ -361,11 +361,14 @@ export function Interruptor({
  * Para qué: que el CTA esté siempre a mano en 390 px sin tapar el último campo (el espaciador reserva el alto).
  * ──────────────────────────────────────────────────────────────────────────── */
 
-export function AccionesFijas({ children, nota }: { children: ReactNode; nota?: ReactNode }) {
+// `espaciador`: true (por defecto) cuando la barra va al final de la pantalla, como en el asistente.
+// Si la barra va en medio (Topes), se pasa false y la pantalla reserva el alto al final con
+// RESERVA_BARRA_FIJA; así no queda un hueco a mitad de página ni se tapa lo que viene después.
+export function AccionesFijas({ children, nota, espaciador = true }: { children: ReactNode; nota?: ReactNode; espaciador?: boolean }) {
   return (
     <>
       {/* Espaciador solo en móvil: reserva el alto de la barra fija para no tapar el último campo. */}
-      <div className="h-28 sm:hidden" aria-hidden="true" />
+      {espaciador && <div className="h-28 sm:hidden" aria-hidden="true" />}
       {/* z-50: por encima del botón flotante «NaIA» del layout raíz (z-40), que en móvil tapaba la acción principal. */}
       <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#ece8f7] bg-white/95 px-4 pt-3 shadow-[0_-4px_16px_rgba(26,24,48,0.08)] backdrop-blur pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mt-6 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none">
         {nota && <div className="mb-2 text-sm">{nota}</div>}

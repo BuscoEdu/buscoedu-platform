@@ -112,6 +112,19 @@ src/lib/admin-ia/asistente.ts   lógica pura del asistente (pasos, botón Encend
   - se tomaron con una **página de vista previa local sin commitear** (`app/vista-previa-e1/[pantalla]`) que monta las pantallas dentro de una imitación del shell de `/admin` y activa el adaptador de ejemplo;
   - se eligió así porque `/admin` exige sesión de Supabase (middleware + layout). La página se borró antes del build y del commit; no se agregó ningún bypass al código.
 
+## 5b. Retomar el asistente desde el servidor (F2, post-QA)
+
+- **Fuente principal: el servidor.** Al abrir `/admin/ia/multiproveedor/agregar`:
+  1. si este navegador tiene borrador con `proveedor_id`, se pide ese proveedor (P4);
+  2. si no (otro navegador, incógnito), se elige con P2 el proveedor **apagado** con `asistente.completo = false` y `asistente.paso` guardado, el actualizado más recientemente (desempate por `id`), sin contar los que se descartaron en este navegador;
+  3. con P4 se arma el borrador (`borradorDesdeServidor` en `src/lib/admin-ia/asistente.ts`): preset, URL, estado de la clave, modelo guardado (M1 → formulario), última prueba si sigue vigente y `asistente.paso`. El paso se valida con las reglas de navegación: si el servidor dice 4 pero falta la clave, se queda en Clave.
+- **localStorage es respaldo:** solo aporta texto aún no guardado del **mismo** proveedor, y se usa entero si la API no responde. Si el proveedor ya está encendido o no existe (404), el borrador local se borra.
+- Aviso «Retomamos X en el paso N de 5» con **«Empezar otro proveedor»** (lo recuerda en este navegador, `buscoedu:e1:asistente-descartados:v1`; el proveedor sigue apagado en el servidor, no se borra nada).
+- **No hizo falta campo ni endpoint nuevo de BE**: P3 deja `asistente.paso = 2`, P5 guarda `asistente { paso, borrador }`, P2 da `asistente { paso, completo }` + `actualizado_en`, y P4 da `asistente { paso, borrador }`.
+- **Mejoras opcionales para BE (no bloquean):**
+  - `GET /api/admin/ia/proveedores` (P2): `asistente.actualizado_por: { id, nombre } | null` (y, si se quiere, filtro `?asistente=pendiente&mio=true`) para retomar solo los borradores propios cuando haya varios administradores. Hoy se retoma el más reciente de cualquiera.
+  - `GET /api/admin/ia/modelos` / P4 `modelos[]` (M1): `abacus: { identificador_externo: string, referencia_secreto: string } | null` (son **nombres** de variables, no secretos). Sin eso, un Abacus retomado en otro navegador sin `asistente.borrador` vuelve a pedir esos dos campos en Modelos.
+
 ## 6. Bitácora
 
 | Fecha | Qué | Por qué | Quién |
@@ -120,3 +133,6 @@ src/lib/admin-ia/asistente.ts   lógica pura del asistente (pasos, botón Encend
 | 18/10/2026 | Pulido QA (N1, N3): módulo único de etiquetas `src/lib/admin-ia/etiquetas.ts` (canales, proveedores, modelos, parámetros, estados, roles, tipos, errores y bitácora, con fallback que humaniza cualquier código; 8 pruebas) aplicado en todo `/admin/ia` (Resumen IA, Guía, agentes, contextos, canales, herramientas, fuentes, versiones, ejecuciones y multiproveedor); sin columnas «Código», «(obligatorio)» en vez de «*», «Proveedor: xAI» en vez de «Código: xai». En «Modelo por agente» se edita un agente a la vez y «Publicar vN» es el único botón coral; guardar, duplicar y restaurar son secundarios. `engines.node` `>=22 <23` y `.nvmrc` (22). | Que el panel no muestre códigos internos ni inglés y respete un solo CTA coral por pantalla; fijar la versión de Node con la que pasan las pruebas. | Frontend BuscoEdu (bot) |
 | 18/10/2026 | Se reemplazó el formulario viejo `/admin/ia/proveedores` (`PaginaCatalogo`): ahora redirige al panel nuevo; se actualizaron el menú, el Dashboard IA y la Guía. | La API ya no crea proveedores sin `preset_codigo` ni deja editar `estado`; el formulario viejo fallaba y se saltaba la prueba de conexión. | Frontend BuscoEdu (bot) |
 | 18/10/2026 | La barra fija de acciones móvil (z-50) queda por encima del botón flotante «NaIA» (z-40) y los diálogos (z-60) por encima de ambos. | En 390/360 el botón flotante tapaba «Continuar». | Frontend BuscoEdu (bot) |
+| 2026-10-18 | F1: en `/admin/ia/multiproveedor/topes` la pantalla reserva al final el alto real de la barra fija «Guardar tope» (`RESERVA_BARRA_FIJA`: 69 px + 1,5 rem + área segura, solo móvil) y la barra ya no deja un hueco a mitad de página (`AccionesFijas espaciador={false}`). | A 390 y 360 la barra tapaba 45 px del final de «Cambios del tope». | Frontend BuscoEdu (bot FE) |
+| 2026-10-18 | F2: el asistente retoma el paso desde el servidor (P2/P4 `asistente`) y deja localStorage como respaldo; aviso «Retomamos…» con «Empezar otro proveedor». 9 pruebas en `src/lib/admin-ia/asistente-servidor.test.ts`. Sin cambios de BE (ver §5b). | Otro navegador sin localStorage empezaba en el paso 1 aunque el proveedor ya estuviera creado (paso 2). | Frontend BuscoEdu (bot FE) |
+| 2026-10-18 | Explorar: «Mostrar más» con orden estable (`creado_en` desc + `id` asc) y paginación por páginas pedidas (`src/lib/paginacion-ofertas.ts`, 7 pruebas). Detalle: `docs/frontend/README-explorar-paginacion.md`. «Coordinar con BE» por tocar `src/lib/ofertas.ts`. | Se quedaba en 14 de 50 por empates de `creado_en` y por calcular la página con lo deduplicado. | Frontend BuscoEdu (bot FE) |

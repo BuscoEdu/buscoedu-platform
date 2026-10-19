@@ -178,6 +178,7 @@ Los presets son: `abacus_ai`, `openai`, `xai`, `anthropic`, `google`, `openroute
 ```
 - `clave` sale de `fn_ia_estado_clave(codigo)` (BA-035) y nunca trae el valor.
 - `salud` viene del circuito en memoria de BA-034. Es por instancia del servidor y orientativo (ver Riesgos).
+- **`asistente.actualizado_por` — no incluido (2026-10-18):** `proveedores_ia` no tiene columna `actualizado_por` en ninguna migración del repo (solo `agentes_ia`, `componentes_contexto_ia` y `topes_gasto_ia` la tienen). Tampoco se guarda quién movió `asistente_paso`. Para exponerlo hace falta una de dos cosas: (1) BD agrega `proveedores_ia.actualizado_por uuid` y el PATCH P5 lo llena, o (2) se deriva del último evento de la bitácora de configuración, lo que cuesta una consulta más por proveedor en la lista. **Standby** (Orquestador, 2026-10-18): no se crea columna nueva por ahora.
 
 ### P3 · `POST /api/admin/ia/proveedores` (paso 1 «Elegir»)
 
@@ -211,6 +212,16 @@ Devuelve la forma de P2 más:
 - `modelos[]`: forma de M1.
 - `bitacora[]`: los últimos 50 eventos, uniendo `bitacora_claves_ia` (guardar, reemplazar o revocar clave) y la bitácora de configuración (§6). Cada evento: `{ accion, actor: { id, nombre }, creado_en, valor_anterior?, valor_nuevo? }`, siempre sin la clave.
 - `asistente`: `{ paso: 1-5, borrador: {...} }` (A8).
+- `abacus` (desde 2026-10-18): `{ identificador_externo: string | null, referencia_secreto: string | null }` si el proveedor es Abacus (`tipo_adaptador = 'abacus'`), y `null` en los demás. Sale de las columnas de `despliegues_ia` del **primer modelo** del proveedor que tenga alguna referencia. Si ningún modelo tiene, los dos campos van en `null`.
+- `modelos[i].abacus` (solo proveedores Abacus): las mismas dos referencias, pero del modelo `i`. Las usa el asistente para retomar el paso «Modelos» (`modelosDesdeServidor(m, abacus)`).
+- **Nunca un secreto:** cada campo se devuelve solo si es un **nombre** de variable permitido (`^(LLM_[A-Z0-9_]+|ABACUS_NAIA_[A-Z0-9_]+)$`, `nombreEnvPermitido`, la misma regla con la que M2/M3 lo guardan). Cualquier otro contenido sale `null`, por ejemplo una fila vieja con un id crudo o un valor pegado. Función: `referenciasAbacus` en `lib/admin-ia/servicioProveedores.ts`.
+
+```json
+{ "ok": true, "item": { "…": "forma de P2",
+  "abacus": { "identificador_externo": "ABACUS_NAIA_DEPLOYMENT_ID", "referencia_secreto": "ABACUS_NAIA_DEPLOYMENT_TOKEN" },
+  "modelos": [ { "…": "forma de M1", "abacus": { "identificador_externo": "ABACUS_NAIA_DEPLOYMENT_ID", "referencia_secreto": "ABACUS_NAIA_DEPLOYMENT_TOKEN" } } ],
+  "bitacora": [], "asistente": { "paso": 5, "borrador": null } } }
+```
 
 Error: 404 `no_encontrado` · «No encontramos ese proveedor.».
 
@@ -834,6 +845,7 @@ Oferta → 409: la petición está bien, pero la oferta no está en estado de re
 ## Bitácora
 | Fecha | Qué | Por qué | Quién |
 |---|---|---|---|
+| 2026-10-18 | P4: el detalle del proveedor agrega `abacus { identificador_externo, referencia_secreto }` (proveedor y por modelo, solo en Abacus). Cada campo pasa por `nombreEnvPermitido`, así que solo salen nombres de variables, nunca valores. P2 `asistente.actualizado_por` **no** se agregó: no existe la columna en `proveedores_ia` (ver P2). Tests nuevos en `lib/admin-ia/e1-api.test.ts` | Que el asistente retome el paso «Modelos» de Abacus desde el servidor sin exponer secretos (post-QA F2) | Backend BuscoEdu (bot) |
 | 2026-10-18 | BA-041: `/api/leadcenter/convertir` traduce los 6 códigos nuevos de `fn_convertir_aplicacion` (5f9c97b) y los previos a HTTP + código + mensaje en español; desconocido → 500 `error_conversion` genérico; sin `error.message`, `sqlstate` ni objeto crudo de la RPC en la respuesta | Con la validación previa de BD, el asesor necesita saber por qué no se creó el lead (oferta o consentimiento) sin ver detalles internos (E1 §G G2/G3) | Backend BuscoEdu (bot) |
 | 2026-10-18 | Fase 2: implementadas las 24 rutas E1 (P1–P10, M1–M8, B-1–B-6, T1–T6) con zod, errores en español, impacto + `impacto_hash`, N1–N8 cableadas (interruptor y restaurar transaccionales). Motor: tope por canal antes de la IA (cortado → C3 + alerta; alerta → sigue; fallo o canal inexistente → C3; `panel` no consulta), costo con `fn_ia_precio_vigente`. `tope_maximo` USD 1000. Tests nuevos en `lib/admin-ia/e1-api.test.ts` | Cumplir BA-036, BA-037 y BA-038 (parte API) contra el contrato de 824ac4d y lo entregado por BD (787554a); que nunca haya gasto sin límite | Backend BuscoEdu (bot) |
 | 2026-10-18 | Contrato API admin IA (fase 1): proveedores, clave, prueba, interruptor con impacto, modelos, precios, modelo + respaldo por agente, restaurar versión, topes, consumo y alertas. Lista de lo que falta en BD | BA-036, BA-037 y BA-038 (parte API): que Frontend y BD trabajen en paralelo con un contrato fijo. Ajustado al contrato BD BA-038 v2 (b4cf029, 081ba33, f590fd6): tope por canal, precio estimado, sin_costo | Backend BuscoEdu (bot) |

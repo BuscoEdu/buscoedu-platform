@@ -14,6 +14,7 @@
 
 import { supabase } from './supabase';
 import { resolverIdsAliadas } from './aliadas';
+import { ORDEN_ESTABLE_OFERTAS, hayMasPaginas, rangoPagina } from './paginacion-ofertas';
 
 export interface OfertaAcademica {
   id: string;
@@ -442,8 +443,8 @@ export async function obtenerOfertas(
       ? await resolverProgramasPorTexto(terminoPrograma)
       : null;
 
-    const from = safePage * safeSize;
-    const to = from + safeSize - 1;
+    // Rango de la página pedida (base 0); ver src/lib/paginacion-ofertas.ts.
+    const { desde: from, hasta: to } = rangoPagina(safePage, safeSize);
 
     let query = supabase
       .from('ofertas_academicas')
@@ -493,9 +494,14 @@ export async function obtenerOfertas(
       query = query.ilike('tipo_beneficio', patronTipoBeneficio(filtros.tipo_beneficio));
     }
 
-    query = query
-      .order('creado_en', { ascending: false })
-      .range(from, to);
+    // «COORDINAR CON BE» (src/lib/ofertas.ts es la capa de datos del contrato BA-005): cambio mínimo
+    // de Frontend, solo orden y cálculo de rango/«hay más»; no cambia filtros, columnas ni la forma
+    // de ResultadoOfertas. Lo usan también NaIA, WhatsApp y el corredor de Demo WApp.
+    // Orden TOTAL y estable: creado_en desc + id asc. Solo con creado_en, las filas de una carga
+    // masiva (mismo creado_en) cambiaban de orden entre consultas y «Mostrar más» repetía o se
+    // saltaba ofertas (se quedaba en 14 de 50). El id desempata y hace el rango determinista.
+    for (const o of ORDEN_ESTABLE_OFERTAS) query = query.order(o.columna, { ascending: o.ascendente });
+    query = query.range(from, to);
 
     const { data, error, count } = await query;
 
@@ -517,7 +523,8 @@ export async function obtenerOfertas(
 
     const ofertas: OfertaAcademica[] = (data || []).map((item: any) => mapearOferta(item, hoy));
     const total = count ?? ofertas.length;
-    const hasMore = from + ofertas.length < total;
+    // «Hay más» con el total exacto del servidor (página vacía → no hay más).
+    const hasMore = hayMasPaginas(from, ofertas.length, total);
 
     return { ok: true, ofertas, total, page: safePage, pageSize: safeSize, hasMore };
   } catch (error) {

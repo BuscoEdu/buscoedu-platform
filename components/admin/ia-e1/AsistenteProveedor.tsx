@@ -6,7 +6,9 @@
  * Qué hace: guía en 5 pasos Elegir → Clave → Modelos → Probar → Encender, con barra fija,
  * caja ¿Por qué? / ¿Para qué? por paso, validación junto al campo, prueba de conexión con
  * resultado ✓/✗ en `aria-live`, botón Encender bloqueado con la razón escrita y borrador
- * persistente («Guardado hace N s») que vuelve al último paso al recargar.
+ * persistente («Guardado hace N s») que vuelve al último paso al recargar. F2 (post-QA): el paso se
+ * retoma desde el SERVIDOR (P2/P4 `asistente`), así otro navegador sin localStorage vuelve al
+ * mismo paso; localStorage queda solo como respaldo si la API no responde.
  * Para qué: que un super_admin agregue un proveedor de IA sin código y sin redeploy, sin poder
  * encender nada que no haya pasado una prueba (regla fija E1 §2).
  */
@@ -29,6 +31,10 @@ import {
   textoGuardadoHace,
   urlEfectiva,
   borradorParaApi,
+  borradorDesdeServidor,
+  descartarProveedor,
+  elegirProveedorPorRetomar,
+  leerDescartados,
   firmaModelo,
   type AlmacenBorrador,
   type BorradorAsistente,
@@ -118,6 +124,8 @@ export default function AsistenteProveedor() {
   const [erroresServidor, setErroresServidor] = useState<ErroresCampo<string>>({});
   const [avisos, setAvisos] = useState<Advertencia[]>([]);
   const [codigoOtro, setCodigoOtro] = useState('');
+  // F2: aviso «Retomamos X en el paso N» cuando el borrador vino del servidor (otro navegador).
+  const [retomado, setRetomado] = useState<{ nombre: string; paso: number } | null>(null);
   // Capacidades y «precio estimado» del modelo: no son texto, van aparte del borrador de texto.
   const [capJson, setCapJson] = useState(false);
   const [capHerr, setCapHerr] = useState(false);
@@ -126,10 +134,48 @@ export default function AsistenteProveedor() {
   const presets = usarCarga(() => clienteAdminIa.listarPresets());
   const tituloPaso = useRef<HTMLHeadingElement>(null);
 
-  // Carga inicial del borrador (solo en el navegador, para no romper la hidratación).
+  /*
+   * Carga inicial del borrador (solo en el navegador, para no romper la hidratación). F2:
+   * 1. Lee el borrador local (puede no existir: otro navegador o modo incógnito).
+   * 2. Decide qué proveedor retomar: el del borrador local o, si no hay, el más reciente a
+   *    medio configurar según P2 (`asistente.completo = false`, apagado, no descartado aquí).
+   * 3. Pide su detalle (P4) y arma el borrador con lo que dice el servidor (paso incluido).
+   * 4. Si la API falla, usa el borrador local como respaldo; si no hay, empieza de cero.
+   * Para qué: que el paso se retome desde el servidor y no dependa del navegador.
+   */
   useEffect(() => {
     if (!almacen) return;
-    setB(leerBorrador(almacen) ?? borradorNuevo());
+    let vigente = true;
+    void (async () => {
+      const local = leerBorrador(almacen);
+      let id = local?.proveedor_id ?? null;
+      if (!id) {
+        const lista = await clienteAdminIa.listarProveedores();
+        if (lista.tipo === 'ok') id = elegirProveedorPorRetomar(lista.datos, leerDescartados(almacen));
+      }
+      if (!id) {
+        if (vigente) setB(local ?? borradorNuevo());
+        return;
+      }
+      const det = await clienteAdminIa.obtenerProveedor(id);
+      if (!vigente) return;
+      if (det.tipo === 'ok' && !det.datos.encendido) {
+        const desdeServidor = guardarBorrador(almacen, borradorDesdeServidor(det.datos, local), Date.now());
+        setB(desdeServidor);
+        // Solo se avisa si el borrador no era de este navegador (lo retomamos del servidor).
+        if (local?.proveedor_id !== det.datos.id) setRetomado({ nombre: det.datos.nombre, paso: PASOS.findIndex((x) => x.id === desdeServidor.paso) + 1 });
+      } else if ((det.tipo === 'ok' && det.datos.encendido) || (det.tipo === 'error' && det.http === 404)) {
+        // Ya se terminó (encendido) o ya no existe: el borrador local quedó viejo.
+        borrarBorrador(almacen);
+        setB(borradorNuevo());
+      } else {
+        // La API no respondió: respaldo con lo que haya en este navegador.
+        setB(local ?? borradorNuevo());
+      }
+    })();
+    return () => {
+      vigente = false;
+    };
   }, [almacen]);
 
   // Reloj de «Guardado hace N s».
@@ -309,9 +355,14 @@ export default function AsistenteProveedor() {
     }
   }
 
-  // Descartar el borrador y empezar de cero.
+  // Descartar el borrador y empezar de cero. F2: si ya había un proveedor creado, se recuerda en
+  // este navegador para no retomarlo solo otra vez (el proveedor sigue apagado en el servidor).
   function descartar() {
-    if (almacen) borrarBorrador(almacen);
+    if (almacen) {
+      borrarBorrador(almacen);
+      if (b?.proveedor_id) descartarProveedor(almacen, b.proveedor_id);
+    }
+    setRetomado(null);
     setB(borradorNuevo());
     setIntentoAvanzar({});
     setErroresServidor({});
@@ -357,6 +408,13 @@ export default function AsistenteProveedor() {
       />
       <AvisoDatosEjemplo visible={clienteAdminIa.esEjemplo} />
 
+      {/* F2: el borrador vino del servidor (otro navegador); se puede empezar otro proveedor. */}
+      {retomado && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#8a84b8] bg-[#ece8f7]/50 px-4 py-3">
+          <p>Retomamos <strong>{retomado.nombre}</strong> en el paso {retomado.paso} de 5, donde lo dejaste.</p>
+          <button type="button" onClick={descartar} className={`${FOCO} min-h-[44px] rounded px-1 font-semibold text-[#3b2f8f] underline underline-offset-2`}>Empezar otro proveedor</button>
+        </div>
+      )}
       <BarraPasos actual={borrador.paso} completo={(p) => pasoCompleto(p, borrador)} navegable={(p) => puedeIrAPaso(p, borrador)} onIr={irA} />
 
       <div className="mx-auto max-w-[640px]">

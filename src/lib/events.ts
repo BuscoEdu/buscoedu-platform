@@ -18,12 +18,39 @@ export type EventType =
   | 'oferta_retirada_mi_lista'
   | 'intento_aplicar_oferta';
 
-interface EventData {
+// Datos de un evento en formato del cliente; se exporta para tiparlo en las pruebas de construirFilaEvento.
+export interface EventData {
   tipo_evento: EventType;
   oferta_id?: string;
   programa_id?: string;
   universidad_id?: string;
   metadata?: Record<string, any>;
+}
+
+/**
+ * Arma la fila que se inserta en `eventos_negocio` con los nombres REALES de columnas.
+ * Qué hace: traduce el formato del cliente (`tipo_evento`, `metadata`) al esquema de la tabla
+ * (`evento`, `metadatos`) y pone la fecha en `creado_en`.
+ * Para qué: antes se enviaban `tipo_evento`, `metadata` y `fecha_evento`, que no existen en la
+ * tabla (PostgREST respondía PGRST204 y el evento se perdía). Las columnas reales salen de las
+ * migraciones que ya insertan en la tabla (20260830103000 y 20261018160000: evento, persona_id,
+ * oportunidad_id, universidad_id, programa_id, oferta_id, metadatos, generado_por, creado_en,
+ * visitante_id) y de docs/BUSCOEDU_DATA_DICTIONARY.md. Función pura para poder probarla.
+ */
+export function construirFilaEvento(visitorId: string, eventData: EventData, ahora: Date = new Date()) {
+  return {
+    visitante_id: visitorId,
+    evento: eventData.tipo_evento,
+    oferta_id: eventData.oferta_id || null,
+    programa_id: eventData.programa_id || null,
+    universidad_id: eventData.universidad_id || null,
+    // `metadatos` es jsonb NOT NULL (default '{}', confirmado por BD 2026-10-18): enviar null
+    // haría fallar el insert, así que sin metadata se manda un objeto vacío.
+    metadatos: eventData.metadata || {},
+    // `creado_en` reemplaza a `fecha_evento` (columna inexistente). Se envía explícito, igual que
+    // las funciones SQL y Demo WApp, para no depender de un DEFAULT que el repo no documenta.
+    creado_en: ahora.toISOString()
+  };
 }
 
 /**
@@ -39,15 +66,8 @@ export async function trackEvent(eventData: EventData): Promise<void> {
   }
 
   try {
-    const { error } = await supabase.from('eventos_negocio').insert({
-      visitante_id: visitorId,
-      tipo_evento: eventData.tipo_evento,
-      oferta_id: eventData.oferta_id || null,
-      programa_id: eventData.programa_id || null,
-      universidad_id: eventData.universidad_id || null,
-      metadata: eventData.metadata || null,
-      fecha_evento: new Date().toISOString()
-    });
+    // Inserta con los nombres reales de columnas (ver construirFilaEvento); antes fallaba con PGRST204.
+    const { error } = await supabase.from('eventos_negocio').insert(construirFilaEvento(visitorId, eventData));
 
     if (error) {
       console.error('Error registrando evento:', error);

@@ -25,7 +25,7 @@ import { crearLimitadorPruebas } from './limitador';
 import { crearProbador } from './probador';
 import { asignarModelo, restaurarVersion, validarModelosParaPublicar } from './servicioAgentes';
 import { apagarModelo, crearModelo, editarModelo, encenderModelo, probarModelo } from './servicioModelos';
-import { apagarProveedor, editarProveedor, revocarClave } from './servicioProveedores';
+import { apagarProveedor, editarProveedor, referenciasAbacus, revocarClave, verProveedor } from './servicioProveedores';
 import { consumo, guardarTope, listarTopes, marcarAlertaVista } from './servicioTopes';
 import { calcularCostoUsd, type RegistroLlamadaIa } from '../agentes/llm/costo';
 import { CANAL_PANEL, verificarGastoAntesDeIa, type ControlGasto, type EstadoGastoCanal } from '../agentes/llm/gasto';
@@ -456,4 +456,44 @@ test('T1/T6: avisos «precio estimado» y sin costo; marcar vista idempotente', 
   assert.equal(v.body.sin_cambios, true);
   const n = await marcarAlertaVista(ctxDe(fakeDatos({ marcarAlertaVista: async () => ({ encontrada: false, ya_vista: false }) })), req({ params: { id: 'x' } }));
   assert.equal(n.status, 404);
+});
+
+// ---------------------------------------------------------------------------
+// P4 · Abacus en el detalle del proveedor (2026-10-18, Backend BuscoEdu (bot)).
+// Qué prueba: `abacus{identificador_externo, referencia_secreto}` sale en el detalle de un proveedor
+// Abacus (y por modelo), solo con NOMBRES de variables permitidos; un valor que no sea nombre
+// (p. ej. un token pegado en una fila vieja) sale null; en otros proveedores `abacus` es null.
+// Para qué: el asistente retoma el paso «Modelos» de Abacus sin exponer jamás un secreto.
+// ---------------------------------------------------------------------------
+test('P4 Abacus: el detalle trae las referencias (solo nombres) a nivel proveedor y por modelo', async () => {
+  const pAbacus = proveedor({ codigo: 'abacus_ai', nombre: 'Abacus', preset_codigo: 'abacus_ai', tipo_adaptador: 'abacus', url_base: null });
+  const mAbacus = modelo({
+    nombre: 'Abacus NaIA', modelo: null, identificador_externo: 'ABACUS_NAIA_DEPLOYMENT_ID', referencia_secreto: 'ABACUS_NAIA_DEPLOYMENT_TOKEN',
+    proveedores_ia: { codigo: 'abacus_ai', estado: 'activo', activo: true }
+  });
+  const datos = fakeDatos({ obtenerProveedor: async () => pAbacus, listarModelos: async () => [mAbacus] });
+  const r = await verProveedor(ctxDe(datos), req({ params: { id: P1 } }));
+  assert.equal(r.status, 200);
+  const item = (r.body as { item: Record<string, any> }).item;
+  assert.deepEqual(item.abacus, { identificador_externo: 'ABACUS_NAIA_DEPLOYMENT_ID', referencia_secreto: 'ABACUS_NAIA_DEPLOYMENT_TOKEN' });
+  assert.deepEqual(item.modelos[0].abacus, item.abacus);
+});
+
+test('P4 Abacus: un valor que no es nombre de variable nunca se devuelve', async () => {
+  // Fila vieja con un token pegado (simulado) y un id externo crudo: ambos deben salir null.
+  const fila = { identificador_externo: 'dep-8f2a91', referencia_secreto: 'sk-ESTO-PARECE-UN-SECRETO' };
+  assert.deepEqual(referenciasAbacus(fila), { identificador_externo: null, referencia_secreto: null });
+  const pAbacus = proveedor({ codigo: 'abacus_ai', preset_codigo: 'abacus_ai', tipo_adaptador: 'abacus', url_base: null });
+  const datos = fakeDatos({ obtenerProveedor: async () => pAbacus, listarModelos: async () => [modelo(fila)] });
+  const r = await verProveedor(ctxDe(datos), req({ params: { id: P1 } }));
+  const texto = JSON.stringify(r.body);
+  assert.equal(texto.includes('sk-ESTO-PARECE-UN-SECRETO'), false);
+  assert.deepEqual((r.body as { item: Record<string, any> }).item.abacus, { identificador_externo: null, referencia_secreto: null });
+});
+
+test('P4 Abacus: en un proveedor que no es Abacus, abacus es null y los modelos no lo traen', async () => {
+  const r = await verProveedor(ctxDe(fakeDatos()), req({ params: { id: P1 } }));
+  const item = (r.body as { item: Record<string, any> }).item;
+  assert.equal(item.abacus, null);
+  assert.equal('abacus' in item.modelos[0], false);
 });
