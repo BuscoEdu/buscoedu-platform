@@ -458,6 +458,10 @@ export async function obtenerOfertas(
       .eq('activo', true)
       .eq('estado_publicacion', 'publicado')
       .eq('estado_validacion', 'validado')
+      // Bloque: nunca mostrar ofertas demo en el catálogo público (portal, NaIA, WA, funnel).
+      // Por qué: con el catálogo real cargado (BD, 19-oct-2026) las demo sobran; BD ya las ocultó
+      // en datos (activo=false), esto es una segunda barrera en código por si alguna se reactiva.
+      .eq('es_demo', false)
       .lte('vigente_desde', hoy)
       .or(`vigente_hasta.is.null,vigente_hasta.gte.${hoy}`);
 
