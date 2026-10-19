@@ -1,0 +1,7 @@
+{
+ "aplicado": "2026-10-19 20:02 Europe/Madrid · apply_migration name=bd_wafix1_buscar_ofertas_publicas → version 20261019180221",
+ "objetos": {"extensiones": "unaccent 1.1 y pg_trgm 1.6 en extensions", "indices": 2, "funciones": "f_unaccent, f_normalizar_busqueda, buscar_ofertas_publicas"},
+ "verificacion_10": "V1 ingenieria de sistemas=2 ✓ · V1b sistemas=3 ✓ · V2 tilde=sin tilde ✓ · V3/V4 administracion+virtual Bogotá=16 / Medellín=16 ✓ · V5 291 ✓ · V6 respaldo área ✓ · V7 anon EXECUTE ✓ · V8 INVOKER ✓ · V9 0 demo ✓",
+ "como_anon_read_only": "transaction_read_only=on, current_user=anon · admin+virtual Bogotá 16 / Medellín 16 · virtual sin texto Bogotá 196 / Medellín 196 · sin filtros 291",
+ "todas_las_paginas": "291 filas, 291 distintas, 0 demo"
+}

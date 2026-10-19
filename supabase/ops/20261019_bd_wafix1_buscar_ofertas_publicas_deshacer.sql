@@ -1,5 +1,5 @@
 -- =====================================================================
--- Deshacer · WA-fix-1 (BD) · 20261019200000_bd_wafix1_buscar_ofertas_publicas.sql
+-- Deshacer · WA-fix-1 (BD) · 20261019180221_bd_wafix1_buscar_ofertas_publicas.sql
 -- Quita RPC, índices y funciones de normalización, y las extensiones unaccent/pg_trgm, que antes de
 -- la migración NO estaban instaladas (respaldo 20261019_wafix1/01_previo.json). DROP EXTENSION sin
 -- CASCADE: si otra pieza ya las usa, falla y no se quita nada (revisar a mano).

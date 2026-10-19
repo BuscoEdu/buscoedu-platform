@@ -1,11 +1,11 @@
 # WA-fix-1 · BD · `buscar_ofertas_publicas` (2026-10-19)
 
-**Rama:** `feat/bd-wa-fix-1` (desde origin/main 0b2b916) · **Estado:** NO aplicada en prod.
+**Rama:** `feat/bd-wa-fix-1` (desde origin/main 0b2b916) · **Estado:** APLICADA en prod el 2026-10-19 20:02 (hora Madrid) con `apply_migration` (versión registrada `20261019180221`, nombre `bd_wafix1_buscar_ofertas_publicas`); OK de Jhon 20:01. Evidencia: `supabase/ops/respaldos/20261019_wafix1/`.
 
 | Archivo | Qué |
 |---|---|
-| `supabase/migrations/20261019200000_bd_wafix1_buscar_ofertas_publicas.sql` | unaccent + pg_trgm (schema `extensions`), `f_unaccent` / `f_normalizar_busqueda` inmutables, 2 índices GIN trigram, RPC y permisos. Idempotente. |
-| `supabase/ops/20261019_bd_wafix1_buscar_ofertas_publicas_deshacer.sql` | Quita RPC, índices y funciones (las extensiones se quedan) y borra la versión del historial. |
+| `supabase/migrations/20261019180221_bd_wafix1_buscar_ofertas_publicas.sql` | unaccent + pg_trgm (schema `extensions`), `f_unaccent` / `f_normalizar_busqueda` inmutables, 2 índices GIN trigram, RPC y permisos. Idempotente. |
+| `supabase/ops/20261019_bd_wafix1_buscar_ofertas_publicas_deshacer.sql` | Quita RPC, índices, funciones y las extensiones (antes no estaban instaladas) y borra la migración del historial por nombre. |
 | `supabase/ops/20261019_bd_wafix1_buscar_ofertas_publicas_verificacion.sql` | 10 chequeos ✓/✗ de solo lectura. |
 
 ## Contrato para Backend
@@ -27,3 +27,4 @@ Migración corrida 2 veces sin error, deshacer y re-aplicación ✓, verificaci�
 | Fecha | Qué | Por qué | Quién |
 |---|---|---|---|
 | 2026-10-19 ~19:55 (hora Madrid) | Migración + deshacer + verificación de `buscar_ofertas_publicas` (unaccent, AND entre tokens, respaldo por área, ciudad no filtra virtual). Probada en local. NO aplicada. | Fallas S5/S6 de la prueba WA de las 19:10–19:35: OR sin tildes daba 45; 400 por URL con ~755 UUID | Base de datos BuscoEdu |
+| 2026-10-19 20:02 (hora Madrid) | Migración aplicada en prod (versión 20261019180221). Verificación 10/10 ✓; como anon en transacción de solo lectura: admin+virtual Bogotá 16 = Medellín 16, sin filtros 291, 0 demo. Archivo renombrado a la versión registrada. | OK de Jhon 20:01 vía Orquestador (fallas S5/S6 de WA) | Base de datos BuscoEdu (bot) |
