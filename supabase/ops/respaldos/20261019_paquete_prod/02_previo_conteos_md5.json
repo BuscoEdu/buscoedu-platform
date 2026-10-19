@@ -1,0 +1,13 @@
+{
+ "tomado_en": "2026-10-19 17:57 Europe/Madrid",
+ "fn_convertir_aplicacion": {"md5_def": "f6fb4726ea4205c20d477af7f5156859", "cuerpo_igual_a_ba041": true, "acl": "{postgres=X/postgres,service_role=X/postgres}", "comment_igual_a_ba041": true},
+ "fn_ba031_convertir_si_consentido": {"md5_def": "a1dd226f498c5d86fb92ccdbc07b6264", "no_se_toca": true},
+ "trigger": {"def": "CREATE TRIGGER trg_universidad_crea_oportunidad AFTER INSERT ON public.universidades FOR EACH ROW EXECUTE FUNCTION fn_crear_oportunidad_universidad()", "tgenabled": "O", "fn_md5": "9e17fcf62d03dd24c3013c06d42ed21b", "fn_comment": null},
+ "lectura_publica_precios_viva": "TO public USING ((es_precio_activo IS TRUE) AND (estado_validacion = 'validado') AND vigencia) — BA-020 ya aplicado, NO USING (true)",
+ "tablas_trabajo": {
+  "carga_aliadas_20261019": {"filas": 331, "md5": "08ccc887ee125ae9c6c17e948674eada"},
+  "carga_aliadas_20261019_respaldo": {"filas": 10, "md5": "f83230a8caa2bdd6e7ecb5819d48de58"},
+  "carga_aliadas_20261019_demo_previo": {"filas": 500, "md5": "4828db2f5fb09d53b38fe9fc843f6c8f"}
+ },
+ "linea_base": {"ofertas_visibles": 291, "visibles_demo": 0, "oportunidades": 19, "oportunidades_universidad": 0, "transferencias": 0, "universidades": 14, "precios": 1013, "precios_no_validados": 627, "schema_respaldos": 0}
+}

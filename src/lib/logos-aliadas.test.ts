@@ -115,6 +115,19 @@ describe('logos de aliadas', { concurrency: 1 }, () => {
     assert.equal(url, 'https://cdn.test/storage/v1/object/public/logos-aliadas/poli/logo.svg');
   });
 
+  // Bloque: logos locales en public/ (decisión Orq 19/10) → ruta «/…» tal cual; «//…» de otro dominio va al bucket.
+  it('si url_storage es ruta local /logos-aliadas/… la deja igual y no usa el bucket', () => {
+    let llamadas = 0;
+    const local = urlPublicaLogo('/logos-aliadas/6069f39d-6bd2-5991-b922-24e58ac7137a.svg', () => {
+      llamadas += 1;
+      return 'no-debe-usarse';
+    }, 'logos-aliadas');
+    assert.equal(local, '/logos-aliadas/6069f39d-6bd2-5991-b922-24e58ac7137a.svg');
+    assert.equal(llamadas, 0);
+    const externa = urlPublicaLogo('//otro.dominio/logo.svg', () => 'bucket', 'logos-aliadas');
+    assert.equal(externa, 'bucket');
+  });
+
   it('si url_storage ya es http(s) la deja igual', () => {
     let llamadas = 0;
     const https = urlPublicaLogo('https://cdn.ejemplo/logo.png', () => {

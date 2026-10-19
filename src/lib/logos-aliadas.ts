@@ -49,6 +49,9 @@ export function urlPublicaLogo(
   const ruta = (urlStorage ?? '').trim();
   if (!ruta) return null;
   if (/^https?:\/\//i.test(ruta)) return ruta;
+  // Bloque: ruta local servida desde public/ (ej. /logos-aliadas/{id}.svg) → se usa tal cual.
+  // Se excluye «//» (URL sin protocolo hacia otro dominio) para no abrir orígenes externos.
+  if (ruta.startsWith('/') && !ruta.startsWith('//')) return ruta;
   const publica = publicar(bucket, ruta).trim();
   return publica || null;
 }

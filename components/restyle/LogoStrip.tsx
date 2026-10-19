@@ -15,6 +15,8 @@ import type { LogoAliada } from "@/src/lib/logos-aliadas";
 function logoPintable(logo: LogoAliada): boolean {
   if (!logo || typeof logo.alt !== "string" || logo.alt.trim().length === 0) return false;
   if (typeof logo.url !== "string") return false;
+  // Bloque: logos locales de public/ (ruta que empieza por «/», nunca «//» de otro dominio).
+  if (logo.url.startsWith("/") && !logo.url.startsWith("//")) return true;
   try {
     const parsed = new URL(logo.url);
     return parsed.protocol === "https:" || parsed.protocol === "http:";
