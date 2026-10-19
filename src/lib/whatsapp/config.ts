@@ -42,6 +42,12 @@ export interface ConfigWhatsApp {
   leadConversionHabilitada: boolean;
   /** Mensajes entrantes por número y por minuto antes de dejar de responder. */
   limiteMensajesPorMinuto: number;
+  /**
+   * Simulación de preview (C-55): WA_SIMULACION='true' y VERCEL_ENV distinto de 'production'.
+   * La salida va al log (no a Meta), la conversión a lead queda apagada y los datos se marcan como QA.
+   * En producción es siempre false (fail-closed), aunque la variable exista.
+   */
+  simulacion: boolean;
 }
 
 // Bloque: lectura estricta de booleanos. Solo el string exacto 'true' enciende.
@@ -166,8 +172,10 @@ export function leerConfigWhatsApp(env: EntornoLectura = process.env): ConfigWha
     pilotoNumeros: piloto.numeros,
     pilotoUserIds: piloto.userIds,
     pilotoInvalido: piloto.invalida,
-    leadConversionHabilitada: esVerdaderoEstricto(env.WA_LEAD_CONVERSION_ENABLED),
-    limiteMensajesPorMinuto: Number.isFinite(limite) && limite >= 1 && limite <= 120 ? Math.floor(limite) : 20
+    // Con simulación nunca hay lead (el preview usa la BD de producción, C-56).
+    leadConversionHabilitada: esVerdaderoEstricto(env.WA_LEAD_CONVERSION_ENABLED) && !simulacionActiva(env),
+    limiteMensajesPorMinuto: Number.isFinite(limite) && limite >= 1 && limite <= 120 ? Math.floor(limite) : 20,
+    simulacion: simulacionActiva(env)
   };
 }
 
@@ -205,6 +213,13 @@ export function remitentePuedeRecibirRespuesta(
 }
 
 /** Bloque: ¿hay credenciales suficientes para enviar por Graph API? (sin exponerlas) */
+// Bloque: la simulación solo vale fuera de producción (VERCEL_ENV !== 'production'); en prod se ignora.
+export function simulacionActiva(env: EntornoLectura): boolean {
+  return esVerdaderoEstricto(env.WA_SIMULACION) && (env.VERCEL_ENV || '').trim() !== 'production';
+}
+
 export function puedeEnviar(config: ConfigWhatsApp): boolean {
+  // En simulación no se llama a Meta: no hacen falta token ni phone number id.
+  if (config.simulacion) return true;
   return Boolean(config.token && config.phoneNumberId);
 }

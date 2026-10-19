@@ -8,12 +8,14 @@
  * Fail-closed: sin META_WA_VERIFY_TOKEN → 403; sin META_APP_SECRET → 401;
  * sin WA_PILOTO_NUMEROS y sin WA_REAL_HABILITADO='true' → no se responde a nadie;
  * WA_LEAD_CONVERSION_ENABLED distinto de 'true' → nunca se crea oportunidad.
+ * WA_SIMULACION='true' (solo si VERCEL_ENV !== 'production') → la salida va al log, no a Meta (C-55).
  */
 
 import { after, type NextRequest } from 'next/server';
 import { getServiceRoleClient } from '@/src/lib/supabase-server';
 import { leerConfigWhatsApp } from '@/src/lib/whatsapp/config';
 import { crearClienteGraph } from '@/src/lib/whatsapp/graph-client';
+import { crearEnviadorSimulado } from '@/src/lib/whatsapp/simulador';
 import { crearLimitadorMemoria, type LimitadorTasa } from '@/src/lib/whatsapp/rate-limit';
 import { filtrarPermitidos, manejarPostWebhook, manejarVerificacionGet, procesarLote } from '@/src/lib/whatsapp/procesar-webhook';
 import { crearAlmacenSupabase } from '@/src/lib/whatsapp/almacen-supabase';
@@ -92,6 +94,7 @@ export async function POST(req: NextRequest) {
     const desenlace = desenlaceSincronico(conteos.mensajes, conteos.permitidos, conteos.rechazados, conteos.estados);
     if (desenlace) logLinea(construirResultado({ resultado: desenlace, ...conteos, inicioMs }));
 
+    if (config.simulacion) log('QA_wa_simulacion_activa');
     if (permitidos.length > 0) {
       // Se responde 200 ya; el trabajo sigue después de enviar la respuesta.
       // after() de next/server: en Vercel se registra con waitUntil, así que la función
@@ -104,12 +107,16 @@ export async function POST(req: NextRequest) {
             almacen: crearAlmacenSupabase(db),
             catalogo: crearCatalogoSupabase(db),
             conversor: config.leadConversionHabilitada ? crearConversorSupabase(db, log) : conversorBloqueado,
-            enviador: crearClienteGraph({
-              token: config.token,
-              phoneNumberId: config.phoneNumberId,
-              versionGraph: config.versionGraph,
-              timeoutMs: config.timeoutMs
-            }),
+            // Bloque: en preview con WA_SIMULACION la salida va al log (QA_wa_sim_salida); en producción siempre Graph.
+            enviador: config.simulacion
+              ? crearEnviadorSimulado(log)
+              : crearClienteGraph({
+                  token: config.token,
+                  phoneNumberId: config.phoneNumberId,
+                  versionGraph: config.versionGraph,
+                  timeoutMs: config.timeoutMs,
+                  log
+                }),
             limitador: obtenerLimitador(config.limiteMensajesPorMinuto),
             log
           };
@@ -117,7 +124,8 @@ export async function POST(req: NextRequest) {
           log('lote_procesado', { resultados });
           logLinea(construirResultado({ resultado: 'procesado', ...conteos, inicioMs, resultados }));
         } catch (error) {
-          log('lote_error', { error: error instanceof Error ? error.message.slice(0, 200) : 'desconocido' });
+          // Solo el nombre del error: el mensaje crudo puede traer valores de la consulta (C-42).
+          log('lote_error', { error: error instanceof Error ? error.name : 'desconocido' });
           logLinea(construirResultado({ resultado: 'error', ...conteos, inicioMs, error }));
         }
       });

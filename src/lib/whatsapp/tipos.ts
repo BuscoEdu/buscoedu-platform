@@ -25,7 +25,14 @@ export interface OfertaWa {
   beneficio?: string;
   /** Link a la web de BuscoEdu para ver la ficha. */
   url: string;
+  /** Agrupación por programa (C-08/C-52): mismo programa en varias sedes = 1 fila. */
+  programa_id?: string;
+  /** Todas las ciudades donde está disponible el programa (la primera = `ciudad`). */
+  ciudades?: string[];
 }
+
+/** Forma agrupada que consume presentacion.ts (contrato FE). */
+export type OfertaAgrupadaWa = OfertaWa & { programa_id: string; ciudades: string[] };
 
 /** Aplicación en curso para UNA oferta. Mi lista ≠ Aplicar ≠ Autorizar contacto. */
 export interface AplicacionEnCursoWa {
@@ -48,6 +55,33 @@ export interface SesionWa {
    * Solo se vincula cuando el usuario compartió su número con el botón o ya dio el consentimiento.
    */
   waUserId?: string;
+  // Bloque: estado del lote Ola 1/2 (todo en el jsonb `sesion`, sin migración).
+  /** Versión de la sesión para control optimista (C-25): cada escritura de `sesion` la sube en 1. */
+  v?: number;
+  /** Etiqueta de la última búsqueda (T08 «¿Seguimos con…?» y T09 «para «…»»). */
+  consulta?: string;
+  /** Filtros de la última búsqueda con resultados (para «Ver más», «Seguir» y «Reintentar»). */
+  filtrosBusqueda?: FiltrosBusquedaWa;
+  /** Página mostrada (base 0) y total real de programas (C-12). */
+  pagina?: number;
+  total?: number;
+  /** Momento en que se mostró la lista: vale 24 h (C-18). */
+  listaEn?: number;
+  /** Fichas de listas recientes (<24 h) para que un toque a una lista vieja siga funcionando. */
+  ofertasRecientes?: OfertaWa[];
+  /** Ya se escaló a asesor en esta sesión (T14 una sola vez, C-20). */
+  asesorAvisado?: boolean;
+  /** Recordatorio de consentimiento ya enviado (máx 1, C-11). */
+  recordatorioConsentimiento?: boolean;
+  /** Fallbacks «no entendí» seguidos (T10 → oferta de asesor a la 2.ª). */
+  fallosSeguidos?: number;
+  /** Intentos inválidos de nombre / correo en Aplicar (T20/T21; al 3.º → T14). */
+  intentosNombre?: number;
+  intentosCorreo?: number;
+  /** Fecha de revocación (T05 / STOP). La sesión se reinicia, el contacto NO se borra (C-51). */
+  consentimientoRevocadoEn?: string;
+  /** Contacto creado desde simulación de preview (C-55/C-56): datos de QA. */
+  simulacionQa?: boolean;
 }
 
 export const SESION_WA_VACIA: SesionWa = { filtros: {}, ofertas: [], miLista: [], aplicacion: null };
@@ -91,7 +125,14 @@ export interface AlmacenWhatsApp {
   obtenerContactoPorUserId?(userId: string): Promise<ContactoWa | null>;
   /** Crea el contacto guardando SOLO el número (antes del consentimiento). */
   crearContactoSoloNumero(e164: string, ultimoEntranteMs: number): Promise<ContactoWa>;
-  actualizarContacto(id: string, parche: ParcheContacto): Promise<void>;
+  /**
+   * Actualiza el contacto. Con `versionSesion`, solo escribe si `sesion.v` sigue igual (control optimista, C-25)
+   * y devuelve false si otro mensaje la cambió primero. Sin opción: escritura directa (devuelve true).
+   * Nunca se borra el contacto (C-51): revocar/STOP = UPDATE.
+   */
+  actualizarContacto(id: string, parche: ParcheContacto, opciones?: { versionSesion?: number }): Promise<boolean | void>;
+  /** Idempotencia (C-24): libera el wamid si el procesamiento falló, para que el reintento de Meta se atienda. */
+  liberarMensaje?(idMensaje: string): Promise<void>;
   /** Historial: solo se llama con consentimiento de datos vigente. */
   registrarMensaje(
     contactoId: string,
@@ -110,7 +151,11 @@ export type FiltrosBusquedaWa = {
 
 /** Catálogo: solo ofertas activas + publicadas + validadas + vigentes. */
 export interface CatalogoWa {
-  buscar(filtros: FiltrosBusquedaWa, max: number): Promise<{ ok: true; ofertas: OfertaWa[] } | { ok: false }>;
+  /**
+   * Busca y devuelve programas ya agrupados por programa_id (hasta `max`) y `total` = programas distintos (C-12/C-52).
+   * `total` puede faltar en catálogos de prueba: entonces vale ofertas.length.
+   */
+  buscar(filtros: FiltrosBusquedaWa, max: number): Promise<{ ok: true; ofertas: OfertaWa[]; total?: number } | { ok: false }>;
   tiposConsentimiento(): Promise<TipoConsentimientoRegla[]>;
 }
 

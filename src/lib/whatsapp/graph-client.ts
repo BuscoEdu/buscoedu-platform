@@ -52,7 +52,7 @@ export interface EnviadorWhatsApp {
   enviarTexto(para: string, cuerpo: string): Promise<ResultadoEnvio>;
   enviarLista(
     para: string,
-    input: { cuerpo: string; textoBoton: string; tituloSeccion: string; filas: FilaLista[] }
+    input: { cuerpo: string; textoBoton: string; tituloSeccion: string; filas: FilaLista[]; pie?: string }
   ): Promise<ResultadoEnvio>;
   enviarBotones(para: string, input: { cuerpo: string; botones: BotonRespuesta[] }): Promise<ResultadoEnvio>;
   /**
@@ -69,7 +69,12 @@ export interface OpcionesClienteGraph {
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
   baseUrl?: string;
+  /** Log enmascarado (sin token ni números). Se usa para la alerta wa_token_invalido. */
+  log?: (evento: string, datos?: Record<string, unknown>) => void;
 }
+
+/** Código de Meta para token vencido o inválido (OAuthException). */
+export const CODIGO_META_TOKEN_INVALIDO = 190;
 
 // Bloque: recortes según límites documentados por Meta para mensajes interactivos (≈ verificados en guías de terceros).
 function recortar(valor: string, max: number): string {
@@ -153,6 +158,15 @@ export function crearClienteGraph(opciones: OpcionesClienteGraph): EnviadorWhats
     if (!respuesta.ok) {
       const err = datos?.error || {};
       const mensaje = sinToken(typeof err.message === 'string' ? err.message.slice(0, 300) : `HTTP ${respuesta.status}`, opciones.token);
+      // Bloque: alerta distinta si el token venció o es inválido (C-28; el token actual vence ≈2026-12-18).
+      // Solo status y códigos: nunca el valor del token ni el mensaje crudo de Meta.
+      if (Number(err.code) === CODIGO_META_TOKEN_INVALIDO) {
+        opciones.log?.('wa_token_invalido', {
+          status: respuesta.status,
+          codigoMeta: CODIGO_META_TOKEN_INVALIDO,
+          subcodigoMeta: Number.isFinite(Number(err.error_subcode)) ? Number(err.error_subcode) : null
+        });
+      }
       throw new WhatsAppApiError(mensaje, {
         tipo: 'http',
         status: respuesta.status,
@@ -173,7 +187,8 @@ export function crearClienteGraph(opciones: OpcionesClienteGraph): EnviadorWhats
     },
 
     enviarLista(para, input) {
-      const filas = (input.filas || []).slice(0, Math.min(MAX_FILAS_LISTA_BUSCOEDU, MAX_FILAS_LISTA_META));
+      // Hasta 10 filas (límite Meta): 8 programas + «Ver más» (C-37). El orquestador nunca manda más de 8 programas.
+      const filas = (input.filas || []).slice(0, MAX_FILAS_LISTA_META);
       if (filas.length === 0) throw new WhatsAppApiError('La lista no tiene filas.', { tipo: 'validacion' });
       return publicar({
         ...direccionMeta(para),
@@ -181,6 +196,8 @@ export function crearClienteGraph(opciones: OpcionesClienteGraph): EnviadorWhats
         interactive: {
           type: 'list',
           body: { text: recortar(input.cuerpo, 1024) },
+          // Pie opcional (≤60, límite Meta): un solo link a Explorar, nunca un link por ficha.
+          ...(input.pie ? { footer: { text: recortar(input.pie, 60) } } : {}),
           action: {
             button: recortar(input.textoBoton, 20),
             sections: [
