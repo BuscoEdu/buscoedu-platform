@@ -15,22 +15,27 @@ header{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:20p
 .points-badge{background:rgba(255,255,255,.2);padding:8px 14px;border-radius:999px;font-weight:700}
 .current-user{margin-top:12px;display:flex;align-items:center;gap:12px}
 .avatar{width:48px;height:48px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.6rem}
-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 0 12px;z-index:100}
-.nav-btn{background:none;border:none;font-size:.7rem;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:4px 8px;border-radius:12px;min-width:60px}
+nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 0 12px;z-index:100;overflow-x:auto}
+.nav-btn{background:none;border:none;font-size:.7rem;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:4px 8px;border-radius:12px;position:relative;min-width:60px}
 .nav-btn.active{color:var(--primary);background:#eef2ff}
 .section{display:none;padding:16px}.section.active{display:block}
 .card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;border:1px solid var(--border)}
 .btn{background:var(--primary);color:#fff;border:none;padding:10px 16px;border-radius:10px;font-weight:600;cursor:pointer}
 .btn.small{padding:6px 12px;font-size:.8rem}.btn.success{background:var(--success)}.btn.danger{background:var(--danger)}.btn.secondary{background:#e2e8f0;color:var(--text)}
-.task-item,.reward-item{display:flex;align-items:center;gap:12px;padding:12px;background:#f8fafc;border-radius:12px;margin-bottom:8px;border-left:4px solid #6366f1}
-.reward-item{border-left-color:#10b981}
+.member-item,.task-item,.reward-item{display:flex;align-items:center;gap:12px;padding:12px;background:#f8fafc;border-radius:12px;margin-bottom:8px;border-left:4px solid #6366f1}
+.task-item{border-left-color:#6366f1}.reward-item{border-left-color:#10b981}
 .form-group{margin-bottom:12px}.form-group label{display:block;font-size:.85rem;margin-bottom:4px;color:var(--muted)}
 .form-group input,.form-group select,.form-group textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px}
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}
 .modal.show{display:flex}.modal-content{background:#fff;width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:20px;max-height:85vh;overflow-y:auto}
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:12px;z-index:300;opacity:0;transition:opacity .3s}.toast.show{opacity:1}
-.login-screen{position:fixed;inset:0;background:#fff;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
 .empty{text-align:center;padding:32px;color:var(--muted)}
+.login-screen{position:fixed;inset:0;background:#fff;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.scroll-list{max-height:220px;overflow-y:auto}
+.badge{position:absolute;top:2px;right:8px;background:#ef4444;color:#fff;border-radius:999px;font-size:.65rem;padding:2px 6px;font-weight:700}
+.chat-msg{padding:8px 12px;border-radius:12px;margin:4px 0;max-width:80%}
+.chat-msg.me{background:#6366f1;color:#fff;margin-left:auto}
+.chat-msg.other{background:#e2e8f0}
 </style>
 </head>
 <body>
@@ -41,185 +46,286 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
   <button class="btn" style="width:100%;max-width:320px" onclick="doLogin()">Entrar</button>
   <p style="margin-top:12px;color:var(--muted);font-size:.85rem">PIN por defecto: oooo</p>
 </div>
+
 <div class="app" id="mainApp" style="display:none">
   <header>
     <div class="header-top"><div id="familyTitle">🏠 Familia</div><div class="points-badge" id="headerPoints">⭐ 0</div></div>
     <div class="current-user"><div class="avatar" id="currentAvatar">👨</div><div><h2 id="currentName">...</h2><p id="currentRole"></p><small id="currentFrase"></small></div></div>
   </header>
+
   <div class="section active" id="section-tareas">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>📋 Tareas</h3><button class="btn small" id="btnNewTask" onclick="openNewTask()" style="display:none">+ Nueva</button></div>
-    <div id="taskList"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>📋 Tareas</h3><button class="btn small" id="btnNewTask" onclick="openNewTask()">+ Nueva</button></div>
+    <div id="taskList" class="scroll-list"></div>
   </div>
+
   <div class="section" id="section-premios">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>🎁 Premios</h3><button class="btn small" id="btnNewReward" onclick="openNewReward()" style="display:none">+ Nuevo</button></div>
-    <div id="rewardList"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>🎁 Premios</h3><button class="btn small" id="btnNewReward" onclick="openNewReward()">+ Nuevo</button></div>
+    <div id="rewardList" class="scroll-list"></div>
+    <h4 style="margin:16px 0 8px">Solicitudes</h4>
+    <div id="rewardRequests" class="scroll-list"></div>
+    <button class="btn secondary" style="width:100%;margin-top:12px" onclick="openRewardHistory()">Ver historial de canjes</button>
   </div>
-  <div class="section" id="section-ranking">
-    <h3>🏆 Ranking (hijos)</h3>
-    <div id="rankingList"></div>
+
+  <div class="section" id="section-familia">
+    <h3 style="margin-bottom:12px">🏆 Ranking (hijos)</h3>
+    <div id="leaderboard"></div>
+    <h4 style="margin:16px 0 8px">Actividad reciente</h4>
+    <div id="activityList" class="scroll-list"></div>
   </div>
+
+  <div class="section" id="section-chat">
+    <h3 style="margin-bottom:12px">💬 Chat</h3>
+    <div class="form-group"><select id="chatTarget" onchange="loadChat()"><option value="grupo">Grupo familiar</option></select></div>
+    <div id="chatMessages" style="height:320px;overflow-y:auto;background:#fff;border-radius:12px;padding:8px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;position:sticky;bottom:70px;background:#f8fafc;padding:8px 0"><input id="chatInput" placeholder="Escribe un mensaje..." style="flex:1"><button class="btn small" onclick="sendMessage()">Enviar</button></div>
+  </div>
+
   <div class="section" id="section-yo">
-    <div class="card">
-      <h3>Mi perfil</h3>
-      <button class="btn secondary" style="width:100%;margin-top:8px" onclick="openProfile()">Editar perfil</button>
-    </div>
+    <div class="card">Mis puntos <span id="myPointsBadge">0</span><br><button class="btn small secondary" id="btnAdjust" style="margin-top:8px" onclick="openAdjust()">Ajustar consecuencia</button></div>
+    <div class="card">Mi perfil<button class="btn small" style="float:right" onclick="openProfile()">Editar</button><div id="profileInfo"></div><button class="btn small secondary" id="btnSwitchFather" style="margin-top:8px;display:none" onclick="openSwitchUser()">Ver como otro</button><button class="btn small" id="btnBackToPapa" style="margin-top:8px;display:none" onclick="backToPapa()">Volver a papá</button></div>
     <div class="card" id="adminResetAll" style="display:none">
       <strong>Resetear todo (solo papá)</strong>
-      <p style="font-size:.8rem;color:var(--muted);margin:8px 0">Borra puntos, historial y tareas actuales. Los premios se mantienen.</p>
+      <p style="font-size:.8rem;color:var(--muted);margin:8px 0">Borra puntos, historial y tareas actuales. Los premios y plantillas se mantienen.</p>
       <button class="btn danger" style="width:100%" onclick="confirmResetAll()">Resetear todo</button>
     </div>
+      <strong>Resetear PIN de un hijo</strong>
+      <div class="form-group" style="margin-top:8px"><select id="resetPinMember"></select></div>
+      <button class="btn small danger" onclick="resetOneKidPin()">Resetear a oooo</button>
+    </div>
+    <div class="card">Historial<div id="history" class="scroll-list"></div></div>
+    <button class="btn danger" style="width:100%;margin-top:12px" onclick="logout()">Salir</button>
   </div>
+
   <nav>
-    <button class="nav-btn active" data-section="tareas" onclick="showSection('tareas')">📋<br>Tareas</button>
-    <button class="nav-btn" data-section="premios" onclick="showSection('premios')">🎁<br>Premios</button>
-    <button class="nav-btn" data-section="ranking" onclick="showSection('ranking')">🏆<br>Ranking</button>
-    <button class="nav-btn" data-section="yo" onclick="showSection('yo')">👤<br>Yo</button>
+    <button class="nav-btn active" onclick="showSection('tareas')"><span>📋</span>Tareas<span id="badgeTasks" class="badge" style="display:none">0</span></button>
+    <button class="nav-btn" onclick="showSection('premios')"><span>🎁</span>Premios<span id="badgeRewards" class="badge" style="display:none">0</span></button>
+    <button class="nav-btn" onclick="showSection('familia')"><span>🏆</span>Ranking</button>
+    <button class="nav-btn" onclick="showSection('chat')"><span>💬</span>Chat<span id="badgeChat" class="badge" style="display:none">0</span></button>
+    <button class="nav-btn" onclick="showSection('yo')"><span>👤</span>Yo</button>
   </nav>
 </div>
-<div id="toast" class="toast"></div>
-<div class="modal" id="modal-tarea"><div class="modal-content">
-  <h3>Nueva tarea</h3>
-  <div class="form-group"><label>Título</label><input id="taskTitle"></div>
+
+<div class="modal" id="modal-tarea"><div class="modal-content"><h3>Nueva tarea</h3>
   <div class="form-group"><label>Asignar a</label><select id="taskAssignTo"></select></div>
-  <div class="form-group"><label>Puntos</label><input id="taskPoints" type="number" value="10"></div>
-  <button class="btn" onclick="createTask()">Crear</button>
-  <button class="btn secondary" onclick="closeModal('modal-tarea')">Cancelar</button>
+  <div class="form-group"><label>Plantilla</label><select id="taskPlantilla" onchange="applyPlantilla()"><option value="">-- personalizada --</option></select></div>
+  <div class="form-group"><label>Título</label><input id="taskTitle"></div>
+  <div class="form-group"><label>Puntos</label><input type="number" id="taskPoints" value="10"></div>
+  <div class="form-group"><label>Recurrencia</label><select id="taskRecurrence" onchange="updateDueFromRecurrence()"><option value="once">Una vez</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
+  <div class="form-group"><label>Fecha límite</label><input type="datetime-local" id="taskDue"></div>
+  <div class="form-group"><label>Penalización pts/día</label><input type="number" id="taskPenalty" value="2"></div>
+  <button class="btn" style="width:100%" onclick="createTask()">Crear</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-tarea')">Cerrar</button>
 </div></div>
-<div class="modal" id="modal-evidencia"><div class="modal-content">
-  <h3>Marcar como hecha</h3>
+
+<div class="modal" id="modal-premio"><div class="modal-content"><h3>Nuevo premio</h3>
+  <div class="form-group"><label>Para quién</label><select id="rewardFor"><option value="hijo">Hijos</option><option value="padre">Padres</option></select></div>
+  <div class="form-group"><label>Nombre</label><input id="rewardName"></div>
+  <div class="form-group"><label>Costo</label><input type="number" id="rewardCost" value="50"></div>
+  <div class="form-group"><label>Stock (-1 ilimitado)</label><input type="number" id="rewardStock" value="-1"></div>
+  <button class="btn" style="width:100%" onclick="createReward()">Crear</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-premio')">Cerrar</button>
+</div></div>
+
+<div class="modal" id="modal-evidencia"><div class="modal-content"><h3>Evidencia</h3>
   <div class="form-group"><label>Comentario (opcional)</label><textarea id="evComment" rows="2"></textarea></div>
-  <div class="form-group"><label>Foto (opcional)</label><input id="evPhoto" type="file" accept="image/*"></div>
-  <button class="btn success" onclick="submitEvidence()">Enviar</button>
-  <button class="btn secondary" onclick="closeModal('modal-evidencia')">Cancelar</button>
+  <div class="form-group"><label>Foto (opcional)</label><input type="file" id="evPhoto" accept="image/*" capture="environment"></div>
+  <button class="btn" style="width:100%" onclick="submitEvidence()">Enviar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-evidencia')">Cancelar</button>
 </div></div>
-<div class="modal" id="modal-perfil"><div class="modal-content">
-  <h3>Editar perfil</h3>
+
+<div class="modal" id="modal-perfil"><div class="modal-content"><h3>Editar perfil</h3>
   <div class="form-group"><label>Nombre</label><input id="profName"></div>
-  <div class="form-group"><label>Frase célebre</label><input id="profFrase"></div>
-  <div class="form-group"><label>Nuevo PIN (dejar vacío para no cambiar)</label><input id="profPin" type="password"></div>
-  <div class="form-group"><label>Confirmar PIN</label><input id="profPin2" type="password"></div>
-  <button class="btn" onclick="saveProfile()">Guardar</button>
-  <button class="btn secondary" onclick="closeModal('modal-perfil')">Cancelar</button>
+  <div class="form-group"><label>Frase</label><input id="profFrase"></div>
+  <div class="form-group"><label>Fecha nacimiento</label><input type="date" id="profBirth"></div>
+  <div class="form-group"><label>Nuevo PIN</label><input id="profPin" type="password" maxlength="8"></div>
+  <div class="form-group"><label>Confirmar PIN</label><input id="profPin2" type="password" maxlength="8"></div>
+  <button class="btn" style="width:100%" onclick="saveProfile()">Guardar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-perfil')">Cerrar</button>
 </div></div>
+
+<div class="modal" id="modal-puntos"><div class="modal-content"><h3>Consecuencia</h3>
+  <div class="form-group"><label>Miembro</label><select id="adjustMember"></select></div>
+  <div class="form-group"><label>Puntos a restar</label><input type="number" id="adjustPoints" value="5" min="1"></div>
+  <div class="form-group"><label>Motivo</label><input id="adjustReason"></div>
+  <button class="btn" style="width:100%" onclick="adjustPoints()">Aplicar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-puntos')">Cerrar</button>
+</div></div>
+
+<div class="modal" id="modal-aprobacion"><div class="modal-content"><h3>Aprobar con comentario</h3>
+  <div class="form-group"><label>Comentario (opcional)</label><textarea id="approvalComment" rows="3"></textarea></div>
+  <button class="btn" style="width:100%" onclick="confirmApproval()">Confirmar aprobación</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-aprobacion')">Cancelar</button>
+</div></div><div class="modal-content"><h3>Historial de canjes</h3><div id="rewardHistoryModal" class="scroll-list"></div><button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-historial-premios')">Cerrar</button></div></div>
+<div class="modal" id="modal-ficha-premio"><div class="modal-content"><h3>Ficha de premio</h3>
+  <div class="form-group"><label>Nombre</label><input id="fichaPremioNombre"></div>
+  <div class="form-group"><label>Puntos</label><input type="number" id="fichaPremioCosto"></div>
+  <div class="form-group"><label>Icono</label><input id="fichaPremioIcono" maxlength="4"></div>
+  <div class="form-group"><label>Activo</label><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="fichaPremioActivo"> <span id="fichaPremioActivoLabel">On</span></label></div>
+  <button class="btn" style="width:100%" onclick="saveFichaPremio()">Guardar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-ficha-premio')">Cerrar</button>
+</div></div>
+<div class="modal" id="modal-ficha-tarea"><div class="modal-content"><h3>Ficha de tarea</h3><div id="fichaContent"></div><button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-ficha-tarea')">Cerrar</button></div></div>
+<div class="modal" id="modal-usuario"><div class="modal-content"><h3>Cambiar usuario</h3><div id="userSelectList"></div></div></div>
+<div class="toast" id="toast"></div>
+
 <script>
-const SUPABASE_URL='https://khnrnnoxyzuulagemfbh.supabase.co';
-const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtobnJubm94eXp1dWxhZ2VtZmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MzM1NTMsImV4cCI6MjA5ODEwOTU1M30.uN8Vm9H-Na92r6UPOsP39F6pGwU6M_K6C4HJ5Tq-2Ts';
-let supabase, state={members:[],tasks:[],rewards:[],currentUserId:null}, pendingEvidenceTaskId=null;
-function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
-function currentUser(){return state.members.find(m=>m.id===state.currentUserId)}
-function isAdmin(u){return u&&/padre|mamá|papa|madre/i.test(u.rol||'')}
-function getMember(id){return state.members.find(m=>m.id===id)}
+const SUPABASE_URL = 'https://khnrnnoxyzuulagemfbh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtobnJubm94eXp1dWxhZ2VtZmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MzM1NTMsImV4cCI6MjA5ODEwOTU1M30.uN8Vm9H-Na92r6UPOsP39F6pGwU6M_K6C4HJ5Tq-2Ts';
+let supabase, state = { currentUserId: null, members: [], tasks: [], rewards: [], requests: [], history: [], config: {}, plantillas: [], mensajes: [] };
+let pendingEvidenceTaskId = null;
+let editingPremioId = null;
+function isAdmin(m){ return m && (m.es_admin || /padre|madre|papá|mamá/i.test(m.rol||'')); }
+function isKid(m){ return m && !isAdmin(m); }
+function currentUser(){ return state.members.find(m=>m.id===state.currentUserId); }
+function getMember(id){ return state.members.find(m=>m.id===id); }
+function calcAge(b){ if(!b) return null; const d=new Date(b), t=new Date(); return t.getFullYear()-d.getFullYear()-((t.getMonth()<d.getMonth()||(t.getMonth()===d.getMonth()&&t.getDate()<d.getDate()))?1:0); }
+function showToast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
+function showSection(n){ document.querySelectorAll('.section').forEach(s=>s.classList.remove('active')); document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); document.getElementById('section-'+n).classList.add('active'); event?.currentTarget?.classList.add('active'); }
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function updateDueFromRecurrence(){ const r=document.getElementById('taskRecurrence').value; const d=document.getElementById('taskDue'); const n=new Date(); if(r==='daily')n.setDate(n.getDate()+1); else if(r==='weekly')n.setDate(n.getDate()+7); else if(r==='monthly')n.setMonth(n.getMonth()+1); else if(r==='quarterly')n.setMonth(n.getMonth()+3); else n.setDate(n.getDate()+1); d.value=n.toISOString().slice(0,16); }
 async function loadAll(){
-  const {data:m}=await supabase.from('familia_miembros').select('*'); state.members=m||[];
-  const {data:t}=await supabase.from('familia_tareas').select('*'); state.tasks=t||[];
-  const {data:r}=await supabase.from('familia_premios').select('*'); state.rewards=r||[];
+  const [m,t,p,r,h,c,pl,msg] = await Promise.all([
+    supabase.from('familia_miembros').select('*').order('id'),
+    supabase.from('familia_tareas').select('*').order('creado_en',{ascending:false}),
+    supabase.from('familia_premios').select('*'),
+    supabase.from('familia_solicitudes_premios').select('*'),
+    supabase.from('familia_historial').select('*').order('creado_en',{ascending:false}).limit(15),
+    supabase.from('familia_config').select('*').eq('id',1).single(),
+    supabase.from('familia_plantillas_tareas').select('*'),
+    supabase.from('familia_mensajes').select('*').order('creado_en',{ascending:false}).limit(50)
+  ]);
+  state.members=m.data||[]; state.tasks=t.data||[]; state.rewards=p.data||[]; state.requests=r.data||[]; state.history=h.data||[]; state.config=c.data||{}; state.plantillas=pl.data||[]; state.mensajes=msg.data||[];
   render();
 }
 function render(){
-  const u=currentUser(); if(!u) return;
+  const u=currentUser(); if(!u) return; const admin=isAdmin(u);
+  document.getElementById('familyTitle').textContent='🏠 '+(state.config.nombre_familia||'Familia');
+  document.getElementById('currentAvatar').textContent=u.emoji||'👤';
   document.getElementById('currentName').textContent=u.nombre;
-  document.getElementById('currentRole').textContent=u.rol;
+  const age=calcAge(u.fecha_nacimiento)||u.edad;
+  document.getElementById('currentRole').textContent=u.rol+(age?' · '+age+' años':'')+(admin?' · Admin':'');
   document.getElementById('currentFrase').textContent=u.frase||'';
-  document.getElementById('headerPoints').textContent='⭐ '+(u.puntos||0);
-  const admin=isAdmin(u);
+  document.getElementById('headerPoints').textContent='⭐ '+u.puntos;
+  document.getElementById('myPointsBadge').textContent=u.puntos+' pts';
   document.getElementById('btnNewTask').style.display=admin?'':'none';
   document.getElementById('btnNewReward').style.display=admin?'':'none';
-  document.getElementById('adminResetAll').style.display=(/padre|papá/i.test(u.rol||''))?'':'none';
-  const tasks=state.tasks.filter(t=>t.asignada_a===u.id||admin);
-  document.getElementById('taskList').innerHTML=tasks.map(t=>`<div class="task-item">${t.titulo} (${t.puntos} pts) <button class="btn small" onclick="startComplete(${t.id})">Hecho</button></div>`).join('')||'<p class="empty">Sin tareas</p>';
-  document.getElementById('rewardList').innerHTML=state.rewards.map(r=>`<div class="reward-item">${r.titulo||r.nombre} (${r.puntos||r.costo} pts)</div>`).join('')||'<p class="empty">Sin premios</p>';
-  const kids=state.members.filter(m=>!isAdmin(m)).sort((a,b)=>(b.puntos||0)-(a.puntos||0));
-  document.getElementById('rankingList').innerHTML=kids.map((m,i)=>`<div class="task-item">${i+1}. ${m.emoji||''} ${m.nombre} — ⭐ ${m.puntos||0}</div>`).join('')||'<p class="empty">Sin ranking</p>';
+  document.getElementById('btnAdjust').style.display=admin?'':'none';
+  document.getElementById('adminPinReset').style.display=admin?'':'none';
+  document.getElementById('adminResetAll').style.display=(/padre|papá/i.test(u.rol||'') && !localStorage.getItem('familia_original_papa'))?'':'none';
+  const isRealPapa = /padre|papá/i.test(u.rol||''); 
+  document.getElementById('btnSwitchFather').style.display=isRealPapa?'':'none'; 
+  const switched = localStorage.getItem('familia_original_papa'); 
+  document.getElementById('btnBackToPapa').style.display=(switched && state.currentUserId != switched)?'':'none';
+  if(admin) document.getElementById('resetPinMember').innerHTML=state.members.filter(isKid).map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
+
+  let vis=state.tasks.filter(t=>!['completada','rechazada'].includes(t.estado)).sort((a,b)=>(a.fecha_limite||'9999')>(b.fecha_limite||'9999')?1:-1);
+  if(!admin) vis=vis.filter(t=>{ const c=getMember(t.creada_por), a=getMember(t.asignada_a); if(isAdmin(c)&&isAdmin(a)&&t.asignada_a!==u.id&&t.creada_por!==u.id) return false; return t.asignada_a===u.id||t.creada_por===u.id; });
+  const pendingApprove=vis.filter(t=>t.estado==='esperando_aprobacion').length;
+  document.getElementById('badgeTasks').style.display=pendingApprove>0?'':'none';
+  document.getElementById('badgeTasks').textContent=pendingApprove;
+  document.getElementById('taskList').innerHTML=vis.length?vis.map(t=>{
+    const a=getMember(t.asignada_a);
+    const now=new Date(); const due=t.fecha_limite?new Date(t.fecha_limite):null; const windowStart=due?new Date(due.getTime()-60*60*1000):null; const inWindow=due&&now>=windowStart&&now<=due; const pastWindow=due&&now>due;
+    const canC=t.asignada_a===state.currentUserId&&t.estado==='pendiente'&&(inWindow||pastWindow);
+    const canA=(admin||(isAdmin(getMember(t.creada_por))&&isAdmin(getMember(t.asignada_a))&&t.asignada_a===u.id))&&t.estado==='esperando_aprobacion';
+    const st=t.estado==='esperando_aprobacion'?'<b>esperando aprobación</b>':t.estado;
+    const windowNote = pastWindow ? ' · fuera de ventana' : (inWindow ? ' · en ventana' : '');
+    return `<div class="task-item" onclick="openFicha(${t.id})" style="cursor:pointer"><div style="font-size:1.5rem">${t.icono||a?.emoji||'📋'}</div><div style="flex:1"><strong>${t.titulo}</strong><br><small>A ${a?.nombre||'?'} · +${t.puntos} · ${st}${t.fecha_limite?' · vence '+new Date(t.fecha_limite).toLocaleDateString():''}${windowNote}</small></div><div>${canC?`<button class="btn small success" onclick="event.stopPropagation();startComplete(${t.id})">Hecho</button>`:''}${canA?`<button class="btn small success" onclick="event.stopPropagation();approveTask(${t.id})">Aprobar</button>`:''}</div></div>`;
+  }).join(''):'<div class="empty">🎉 Sin tareas pendientes</div>';
+
+  const vRew=state.rewards.filter(r=>admin||r.tipo==='hijo').sort((a,b)=>(a.activo===false?1:0)-(b.activo===false?1:0));
+  document.getElementById('rewardList').innerHTML=vRew.map(r=>`<div class="reward-item" onclick="openFichaPremio(${r.id})" style="cursor:pointer;opacity:${r.activo===false?0.6:1}"><div style="font-size:1.5rem">${r.icono||'🎁'}</div><div style="flex:1"><strong>${r.nombre}</strong><br><small>${r.costo} pts${r.activo===false?' · OFF':''}</small></div>${u.puntos>=r.costo&&r.activo!==false?`<button class="btn small success" onclick="event.stopPropagation();requestReward(${r.id})">Solicitar</button>`:`<small>${r.activo===false?'Desactivado':'Faltan '+(r.costo-u.puntos)}</small>`}</div>`).join('')||'<div class="empty">Sin premios</div>';
+
+  const pendReq=state.requests.filter(req=>req.estado==='pendiente');
+  document.getElementById('badgeRewards').style.display=(admin&&pendReq.length>0)?'':'none';
+  document.getElementById('badgeRewards').textContent=pendReq.length;
+  document.getElementById('rewardRequests').innerHTML=(admin?pendReq:pendReq.filter(req=>req.miembro_id===u.id)).map(req=>{
+    const rw=state.rewards.find(x=>x.id===req.premio_id); const m=getMember(req.miembro_id);
+    return `<div class="reward-item"><div>${m?.emoji||'👤'}</div><div style="flex:1">${m?.nombre} pide "${rw?.nombre}"</div>${admin?`<button class="btn small success" onclick="approveRequest(${req.id})">Aprobar</button>`:''}</div>`;
+  }).join('')||'<p style="color:var(--muted)">Sin solicitudes</p>';
+
+  const kids=state.members.filter(isKid).sort((a,b)=>b.puntos-a.puntos);
+  document.getElementById('leaderboard').innerHTML=kids.map((m,i)=>`<div class="member-item"><div>${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div><div style="font-size:1.5rem">${m.emoji||'👤'}</div><div style="flex:1"><strong>${m.nombre}</strong></div><strong>${m.puntos}</strong></div>`).join('');
+
+  const acts=state.history.filter(h=>isKid(getMember(h.miembro_id))).slice(0,12);
+  document.getElementById('activityList').innerHTML=acts.map(h=>`<div style="padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:.9rem">${h.texto}</div>`).join('')||'Sin actividad';
+
+  let hist=state.history; if(!admin) hist=hist.filter(h=>h.miembro_id===u.id);
+  document.getElementById('history').innerHTML=hist.slice(0,12).map(h=>`<div style="padding:6px 0;border-bottom:1px solid #f1f5f9">${h.texto}</div>`).join('')||'Sin actividad';
+  document.getElementById('profileInfo').innerHTML=`<p>${u.frase||'Sin frase'}</p><p>PIN: ${u.pin||'oooo'}</p>`;
+
+  const assignable=state.members.filter(m=> (admin && m.id!==u.id) || (isKid(m)&&m.id!==u.id) );
+  document.getElementById('taskAssignTo').innerHTML=assignable.map(m=>`<option value="${m.id}">${m.emoji||''} ${m.nombre}</option>`).join('');
+  document.getElementById('adjustMember').innerHTML=state.members.filter(isKid).map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
+  document.getElementById('chatTarget').innerHTML='<option value="grupo">Grupo familiar</option>'+state.members.filter(m=>m.id!==u.id).map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
+  loadChat();
 }
-function showSection(id){
-  console.log('showSection', id);
-  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  const el=document.getElementById('section-'+id);
-  if(el) el.classList.add('active');
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.section===id));
-}
-function openModal(id){document.getElementById(id).classList.add('show')}
-function closeModal(id){document.getElementById(id).classList.remove('show')}
-function openNewReward(){ showToast('Crear premio: pronto disponible'); }
-function openNewTask(){
+function openFicha(id){ const t=state.tasks.find(x=>x.id===id); if(!t) return; const a=getMember(t.asignada_a); const c=getMember(t.creada_por); document.getElementById('fichaContent').innerHTML=`<p><strong>${t.titulo}</strong></p><p>Asignada a: ${a?.nombre||'?'}</p><p>Creada por: ${c?.nombre||'?'}</p><p>Puntos: ${t.puntos}</p><p>Recurrencia: ${t.recurrencia||'una vez'}</p><p>Estado: ${t.estado}</p><p>Fecha límite: ${t.fecha_limite?new Date(t.fecha_limite).toLocaleString():'sin fecha'}</p><p>Penalización/día: ${t.puntos_penalizacion_dia||0}</p>`; openModal('modal-ficha-tarea'); }
+function openFichaPremio(id){
   if(!isAdmin(currentUser())) return;
-  document.getElementById('taskAssignTo').innerHTML=state.members.filter(m=>!isAdmin(m)).map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
-  openModal('modal-tarea');
+  const r = state.rewards.find(x=>x.id===id);
+  if(!r) return;
+  editingPremioId = id;
+  document.getElementById('fichaPremioNombre').value = r.nombre||'';
+  document.getElementById('fichaPremioCosto').value = r.costo||0;
+  document.getElementById('fichaPremioIcono').value = r.icono||'🎁';
+  document.getElementById('fichaPremioActivo').checked = r.activo!==false;
+  document.getElementById('fichaPremioActivoLabel').textContent = r.activo!==false?'On':'Off';
+  openModal('modal-ficha-premio');
 }
-async function createTask(){
-  const u=currentUser(); if(!isAdmin(u)) return;
-  const titulo=document.getElementById('taskTitle').value.trim();
-  const asignada_a=+document.getElementById('taskAssignTo').value;
-  const puntos=+document.getElementById('taskPoints').value||10;
-  if(!titulo||!asignada_a) return showToast('Completa los campos');
-  const {error}=await supabase.from('familia_tareas').insert({titulo,asignada_a,creada_por:u.id,puntos,estado:'pendiente'});
+async function saveFichaPremio(){
+  if(!editingPremioId) return;
+  const updates = {
+    nombre: document.getElementById('fichaPremioNombre').value.trim(),
+    costo: +document.getElementById('fichaPremioCosto').value||0,
+    icono: document.getElementById('fichaPremioIcono').value.trim()||'🎁',
+    activo: document.getElementById('fichaPremioActivo').checked
+  };
+  const {error} = await supabase.from('familia_premios').update(updates).eq('id', editingPremioId);
   if(error) return showToast(error.message);
-  document.getElementById('taskTitle').value='';
-  closeModal('modal-tarea'); showToast('Tarea creada'); loadAll();
+  closeModal('modal-ficha-premio');
+  showToast('Premio actualizado');
+  loadAll();
 }
-function startComplete(id){pendingEvidenceTaskId=id; document.getElementById('evComment').value=''; document.getElementById('evPhoto').value=''; openModal('modal-evidencia')}
-async function submitEvidence(){
-  const id=pendingEvidenceTaskId;
-  const comment=document.getElementById('evComment').value.trim();
-  const {error}=await supabase.from('familia_tareas').update({estado:'esperando_aprobacion',comentario_completado:comment}).eq('id',id);
-  if(error) return showToast(error.message);
-  closeModal('modal-evidencia'); showToast('Enviada'); loadAll();
-}
-function openProfile(){
-  const u=currentUser();
-  document.getElementById('profName').value=u.nombre||'';
-  document.getElementById('profFrase').value=u.frase||'';
-  document.getElementById('profPin').value='';
-  document.getElementById('profPin2').value='';
-  openModal('modal-perfil');
-}
-async function saveProfile(){
-  const u=currentUser();
-  const np=document.getElementById('profPin').value.trim();
-  const np2=document.getElementById('profPin2').value.trim();
-  if(np && np!==np2) return showToast('Los PIN no coinciden');
-  const updates={nombre:document.getElementById('profName').value.trim(),frase:document.getElementById('profFrase').value.trim()};
-  if(np) updates.pin=np;
-  const {error}=await supabase.from('familia_miembros').update(updates).eq('id',u.id);
-  if(error) return showToast(error.message);
-  closeModal('modal-perfil'); showToast('Actualizado'); loadAll();
-}
+function openRewardHistory(){ const rewHist=state.history.filter(h=>h.texto&&h.texto.includes('canjeó')).slice(0,20); document.getElementById('rewardHistoryModal').innerHTML=rewHist.map(h=>`<div style="padding:6px 0;border-bottom:1px solid #f1f5f9">${h.texto}</div>`).join('')||'Sin canjes'; openModal('modal-historial-premios'); }
+async function doLogin(){ const id=+document.getElementById('loginMember').value; const pin=document.getElementById('loginPin').value.trim()||'oooo'; const m=state.members.find(x=>x.id===id); if(!m||(m.pin||'oooo')!==pin) return showToast('PIN incorrecto'); state.currentUserId=id; localStorage.setItem('familia_current',id); if(/padre|papá/i.test(m.rol||'')) localStorage.setItem('familia_original_papa',id); document.getElementById('loginScreen').style.display='none'; document.getElementById('mainApp').style.display=''; render(); }
+function openSwitchUser(){ document.getElementById('userSelectList').innerHTML=state.members.map(m=>`<div class="member-item" style="cursor:pointer" onclick="selectUser(${m.id})"><div style="font-size:1.5rem">${m.emoji||'👤'}</div><div><strong>${m.nombre}</strong></div></div>`).join(''); openModal('modal-usuario'); }
+function selectUser(id){ state.currentUserId=id; localStorage.setItem('familia_current',id); closeModal('modal-usuario'); render(); }
+function backToPapa(){ const papaId = +localStorage.getItem('familia_original_papa'); if(papaId){ state.currentUserId=papaId; localStorage.setItem('familia_current',papaId); render(); } }
+function logout(){ localStorage.removeItem('familia_current'); localStorage.removeItem('familia_original_papa'); location.reload(); }
+function openNewTask(){ if(!isAdmin(currentUser())) return; const sel=document.getElementById('taskPlantilla'); sel.innerHTML='<option value="">-- personalizada --</option>'+state.plantillas.map(p=>`<option value="${p.id}">${p.icono||''} ${p.titulo}</option>`).join(''); updateDueFromRecurrence(); openModal('modal-tarea'); }
+function applyPlantilla(){ const id=+document.getElementById('taskPlantilla').value; if(!id) return; const p=state.plantillas.find(x=>x.id===id); if(p){ document.getElementById('taskTitle').value=p.titulo; document.getElementById('taskPoints').value=p.puntos; document.getElementById('taskRecurrence').value=p.recurrencia||'once'; updateDueFromRecurrence(); } }
+function openNewReward(){ if(!isAdmin(currentUser())) return; openModal('modal-premio'); }
+async function createTask(){ const u=currentUser(); if(!isAdmin(u)) return; const titulo=document.getElementById('taskTitle').value.trim(); const asignada_a=+document.getElementById('taskAssignTo').value; if(asignada_a===u.id) return showToast('No puedes asignarte una tarea a ti mismo'); const puntos=+document.getElementById('taskPoints').value||10; const recurrencia=document.getElementById('taskRecurrence').value; const fecha_limite=document.getElementById('taskDue').value||null; const puntos_penalizacion_dia=+document.getElementById('taskPenalty').value||2; if(!titulo||!asignada_a) return showToast('Completa'); const {error}=await supabase.from('familia_tareas').insert({titulo,asignada_a,creada_por:u.id,puntos,recurrencia,fecha_limite,puntos_penalizacion_dia,estado:'pendiente'}); if(error) return showToast(error.message); document.getElementById('taskTitle').value=''; document.getElementById('taskPoints').value='10'; closeModal('modal-tarea'); showToast('Creada'); loadAll(); }
+function startComplete(id){ pendingEvidenceTaskId=id; document.getElementById('evComment').value=''; document.getElementById('evPhoto').value=''; openModal('modal-evidencia'); }
+async function submitEvidence(){ const id=pendingEvidenceTaskId; const file=document.getElementById('evPhoto').files[0]; const comment=document.getElementById('evComment').value.trim(); const updates={estado:'esperando_aprobacion',comentario_completado:comment}; if(file){ /* foto opcional: si hay file se sube, por ahora solo se marca */ } const {error}=await supabase.from('familia_tareas').update(updates).eq('id',id); if(error) return showToast(error.message); closeModal('modal-evidencia'); showToast(file?'Enviada con foto':'Enviada'); loadAll(); }
+async function approveTask(id){ const task=state.tasks.find(t=>t.id===id); if(!task) return; const member=getMember(task.asignada_a); await supabase.from('familia_tareas').update({estado:'completada'}).eq('id',id); await supabase.from('familia_miembros').update({puntos:member.puntos+task.puntos}).eq('id',task.asignada_a); await supabase.from('familia_historial').insert({miembro_id:task.asignada_a,texto:member.nombre+' recibió +'+task.puntos+' pts por "'+task.titulo+'"'}); if(task.recurrencia&&task.recurrencia!=='once'){ await supabase.from('familia_tareas').insert({titulo:task.titulo,asignada_a:task.asignada_a,creada_por:task.creada_por,puntos:task.puntos,recurrencia:task.recurrencia,estado:'pendiente'}); } showToast('Aprobado'); loadAll(); }
+async function createReward(){ const u=currentUser(); if(!isAdmin(u)) return; const nombre=document.getElementById('rewardName').value.trim(); const costo=+document.getElementById('rewardCost').value||50; const tipo=document.getElementById('rewardFor').value; const stock=+document.getElementById('rewardStock').value; if(!nombre) return; const {error}=await supabase.from('familia_premios').insert({nombre,costo,creado_por:u.id,tipo,stock,activo:true}); if(error) return showToast(error.message); closeModal('modal-premio'); showToast('Creado'); loadAll(); }
+async function requestReward(id){ if(!confirm("¿Seguro que quieres solicitar este premio?")) return; const r=state.rewards.find(x=>x.id===id); const u=currentUser(); if(r&&r.tipo==='padre'&&isAdmin(u)&&r.creado_por===u.id) return showToast('No puedes reclamar un premio que tú creaste'); if(r&&r.tipo==='hijo'&&isAdmin(u)) return showToast('Los padres no pueden solicitar premios de hijos'); const {error}=await supabase.from('familia_solicitudes_premios').insert({premio_id:id,miembro_id:state.currentUserId,estado:'pendiente'}); if(error) return showToast(error.message); showToast('Solicitado'); loadAll(); }
+async function approveRequest(id){ const req=state.requests.find(x=>x.id===id); const r=state.rewards.find(x=>x.id===req.premio_id); const u=currentUser(); if(r&&r.tipo==='padre'&&req.miembro_id===u.id) return showToast('No puedes aprobar tu propia solicitud'); const m=getMember(req.miembro_id); if(m.puntos<r.costo) return showToast('Puntos insuficientes'); await supabase.from('familia_miembros').update({puntos:m.puntos-r.costo}).eq('id',m.id); await supabase.from('familia_solicitudes_premios').update({estado:'aprobada'}).eq('id',id); if(r.stock>0) await supabase.from('familia_premios').update({stock:r.stock-1}).eq('id',r.id); await supabase.from('familia_historial').insert({miembro_id:m.id,texto:m.nombre+' canjeó "'+r.nombre+'"'}); showToast('Aprobado'); loadAll(); }
+function openAdjust(){ if(!isAdmin(currentUser())) return; openModal('modal-puntos'); }
+async function adjustPoints(){ const u=currentUser(); if(!isAdmin(u)) return; const mid=+document.getElementById('adjustMember').value; const pts=Math.abs(+document.getElementById('adjustPoints').value||0); const reason=document.getElementById('adjustReason').value; const m=getMember(mid); await supabase.from('familia_miembros').update({puntos:m.puntos-pts}).eq('id',mid); await supabase.from('familia_historial').insert({miembro_id:mid,texto:u.nombre+' aplicó consecuencia de -'+pts+' pts a '+m.nombre+': '+reason}); closeModal('modal-puntos'); showToast('Aplicada'); loadAll(); }
+async function resetOneKidPin(){ const mid=+document.getElementById('resetPinMember').value; const m=getMember(mid); if(!m||!confirm('Resetear PIN de '+m.nombre+' a oooo?')) return; await supabase.from('familia_miembros').update({pin:'oooo'}).eq('id',mid); showToast('PIN reseteado'); loadAll(); }
+function openProfile(){ const u=currentUser(); document.getElementById('profName').value=u.nombre||''; document.getElementById('profFrase').value=u.frase||''; document.getElementById('profBirth').value=u.fecha_nacimiento||''; document.getElementById('profPin').value=''; document.getElementById('profPin2').value=''; openModal('modal-perfil'); }
+async function saveProfile(){ const u=currentUser(); const np=document.getElementById('profPin').value.trim(); const np2=document.getElementById('profPin2').value.trim(); if(np && np!==np2) return showToast('Los PIN no coinciden'); const updates={nombre:document.getElementById('profName').value.trim(),frase:document.getElementById('profFrase').value.trim(),fecha_nacimiento:document.getElementById('profBirth').value||null}; if(np) updates.pin=np; const {error}=await supabase.from('familia_miembros').update(updates).eq('id',u.id); if(error) return showToast(error.message); closeModal('modal-perfil'); showToast('Actualizado'); loadAll(); }
+function loadChat(){ const target=document.getElementById('chatTarget').value; const u=currentUser(); let msgs=state.mensajes; const tid = target==='grupo' ? null : +target; if(tid===null) msgs=msgs.filter(m=>m.para_id==null||m.para_id===undefined); else msgs=msgs.filter(m=> (Number(m.de_id)===u.id && Number(m.para_id)===tid) || (Number(m.de_id)===tid && Number(m.para_id)===u.id) ); msgs=msgs.slice(0,20).reverse(); document.getElementById('chatMessages').innerHTML=msgs.map(m=>{ const from=getMember(m.de_id); const me=m.de_id===u.id; return `<div class="chat-msg ${me?'me':'other'}"><small>${from?.nombre||'?'}</small><br>${m.texto}</div>`; }).join('')||'<p style="color:var(--muted);text-align:center">Sin mensajes</p>'; }
+async function sendMessage(){ const text=document.getElementById('chatInput').value.trim(); if(!text) return; const target=document.getElementById('chatTarget').value; const para=target==='grupo'?null:+target; const {error}=await supabase.from('familia_mensajes').insert({de_id:state.currentUserId,para_id:para,texto:text}); if(error) return showToast(error.message); document.getElementById('chatInput').value=''; loadAll(); }
 function confirmResetAll(){
-  if(!confirm('¿Estás seguro de que quieres borrar TODO el historial, puntos y tareas actuales?\\nLos premios se mantienen.\\nEsta acción no se puede deshacer.')) return;
+  if(!confirm('¿Estás seguro de que quieres borrar TODO el historial, puntos y tareas actuales?\\nLos premios y plantillas se mantienen.\\nEsta acción no se puede deshacer.')) return;
   if(!confirm('Última confirmación: ¿borrar todo y empezar desde cero?')) return;
   resetAll();
 }
 async function resetAll(){
-  const u=currentUser();
+  const u = currentUser();
   if(!u || !/padre|papá/i.test(u.rol||'')) return showToast('Solo papá puede resetear');
   await supabase.from('familia_tareas').delete().neq('id',0);
   await supabase.from('familia_historial').delete().neq('id',0);
-  await supabase.from('familia_miembros').update({puntos:0});
-  showToast('Todo reseteado'); loadAll();
-}
-async function doLogin(){
-  const id=+document.getElementById('loginMember').value;
-  const pin=document.getElementById('loginPin').value;
-  const m=state.members.find(x=>x.id===id);
-  if(!m || (m.pin && m.pin!==pin)) return showToast('PIN incorrecto');
-  state.currentUserId=id;
-  localStorage.setItem('familia_current',id);
-  document.getElementById('loginScreen').style.display='none';
-  document.getElementById('mainApp').style.display='';
-  render();
-}
-async function init(){
-  supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-  await loadAll();
-  document.getElementById('loginMember').innerHTML=state.members.map(m=>`<option value="${m.id}">${m.emoji||''} ${m.nombre}</option>`).join('');
-  const saved=+localStorage.getItem('familia_current');
-  if(saved && state.members.find(m=>m.id===saved)){
-    state.currentUserId=saved;
-    document.getElementById('loginScreen').style.display='none';
-    document.getElementById('mainApp').style.display='';
-    render();
-  }
-}
+  await supabase.from('familia_solicitudes_premios').delete().neq('id',0);
+  await supabase.from('familia_miembros').update({puntos:0, puntos_historicos:0});
+  showToast('Todo reseteado. Empezando desde cero.');
+  loadAll();
+async function init(){ supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY); await loadAll(); document.getElementById('loginMember').innerHTML=state.members.map(m=>`<option value="${m.id}">${m.emoji||''} ${m.nombre}</option>`).join(''); const saved=+localStorage.getItem('familia_current'); if(saved&&state.members.find(m=>m.id===saved)){ state.currentUserId=saved; document.getElementById('loginScreen').style.display='none'; document.getElementById('mainApp').style.display=''; render(); } }
 init();
 </script>
 </body>
