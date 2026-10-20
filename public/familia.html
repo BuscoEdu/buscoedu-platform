@@ -78,11 +78,16 @@ function setStatus(title, sub) {
 
 function loadSupabaseLib() {
   return new Promise((resolve, reject) => {
-    if (window.supabase) return resolve();
+    if (window.supabase && window.supabase.createClient) return resolve();
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('No se pudo cargar la librería de Supabase (CDN bloqueado o sin red)'));
+    s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js';
+    s.onload = () => {
+      setTimeout(() => {
+        if (window.supabase && window.supabase.createClient) resolve();
+        else reject(new Error('La librería cargó pero no expuso createClient'));
+      }, 100);
+    };
+    s.onerror = () => reject(new Error('No se pudo cargar la librería de Supabase desde el CDN'));
     document.head.appendChild(s);
   });
 }
