@@ -6,180 +6,204 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>FamiliaTareas</title>
-<!-- Librería de Supabase para conectar con la base de datos -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <style>
-/* Estilos generales y variables de color */
 :root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
-/* Contenedor principal de la app (máximo 480px para móvil) */
-.app{max-width:480px;margin:0 auto;min-height:100vh;padding-bottom:90px}
-/* Cabecera con gradiente */
-header{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:20px 16px;border-radius:0 0 24px 24px}
-.header-top{display:flex;justify-content:space-between;align-items:center}
-.points-badge{background:rgba(255,255,255,.2);padding:8px 14px;border-radius:999px;font-weight:700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;height:100%;overflow:hidden}
+.app{max-width:480px;margin:0 auto;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+header{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:20px 16px;border-radius:0 0 24px 24px;flex:none}
+.header-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.points-badge{background:rgba(255,255,255,.2);padding:8px 14px;border-radius:999px;font-weight:700;white-space:nowrap}
 .current-user{margin-top:12px;display:flex;align-items:center;gap:12px}
-.avatar{width:48px;height:48px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.6rem}
-/* Barra de navegación inferior fija */
-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 0 calc(12px + env(safe-area-inset-bottom));z-index:100}
+.avatar{width:48px;height:48px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex:none}
+nav{position:relative;width:100%;background:#fff;border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;flex:none}
 .nav-btn{background:none;border:none;font-size:.65rem;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:4px 6px;border-radius:12px;position:relative;min-width:52px}
 .nav-btn.active{color:var(--primary);background:#eef2ff}
 .badge{position:absolute;top:0;right:2px;background:#ef4444;color:#fff;font-size:.55rem;min-width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700}
-/* Secciones de contenido (solo una visible a la vez) */
-.section{display:none;padding:16px}
+.section{display:none;padding:16px;overflow-y:auto;flex:1;min-height:0;-webkit-overflow-scrolling:touch}
 .section.active{display:block}
 .card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;border:1px solid var(--border)}
-/* Botones */
 .btn{background:var(--primary);color:#fff;border:none;padding:12px 16px;border-radius:10px;font-weight:600;cursor:pointer;font-size:1rem}
 .btn.small{padding:6px 12px;font-size:.8rem}
 .btn.success{background:var(--success)}
 .btn.danger{background:var(--danger)}
 .btn.secondary{background:#e2e8f0;color:var(--text)}
-/* Items de listas (tareas, premios, miembros) */
-.task-item,.reward-item,.member-item{display:flex;align-items:center;gap:12px;padding:12px;background:#f8fafc;border-radius:12px;margin-bottom:8px;border-left:4px solid #6366f1}
-.reward-item{border-left-color:#10b981}
-/* Formularios */
+.task-item,.reward-item,.member-item{display:flex;align-items:center;gap:12px;padding:12px;background:#fff;border-radius:12px;margin-bottom:8px;border:1px solid var(--border);border-left:4px solid #6366f1}
+.reward-item.inactive{opacity:.5;filter:grayscale(1);border-left-color:#94a3b8;background:#f1f5f9}
+.nav-ico{font-size:1.15rem;line-height:1.15;display:block}
+.figure-btn{width:48px;height:48px;border:2px solid var(--border);border-radius:12px;background:#e2e8f0;cursor:pointer;padding:4px}
+.figure-btn.selected{border-color:var(--primary);background:#eef2ff}
+.figure-btn svg{width:100%;height:100%;display:block}
+.goal-item,.badge-item{padding:8px 0;border-bottom:1px solid var(--border);font-size:.9rem}
+.badge-item.off{opacity:.4}
+.task-item{cursor:pointer}
+.reward-item{cursor:pointer}
 .form-group{margin-bottom:12px}
 .form-group label{display:block;font-size:.85rem;margin-bottom:4px;color:var(--muted)}
-.form-group input,.form-group select,.form-group textarea{width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:16px}
-/* Modales (ventanas emergentes desde abajo) */
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:16px;background:#fff;color:var(--text)}
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}
 .modal.show{display:flex}
-.modal-content{background:#fff;width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:20px;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
-/* Mensaje toast (notificación temporal) */
-.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:12px;z-index:300;opacity:0;transition:opacity .3s;font-size:.9rem}
+.modal-content{background:#fff;width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:20px 20px calc(16px + env(safe-area-inset-bottom));max-height:78vh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:12px;z-index:400;opacity:0;transition:opacity .3s;font-size:.9rem;max-width:90%}
 .toast.show{opacity:1}
-/* Pantalla de login */
 .login-screen{position:fixed;inset:0;background:#fff;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
-.empty{text-align:center;padding:32px;color:var(--muted)}
-/* Selector de emojis */
-.emoji-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.empty{text-align:center;padding:24px;color:var(--muted)}
+.emoji-grid,.color-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
 .emoji-btn{width:40px;height:40px;border:2px solid var(--border);border-radius:10px;background:#fff;font-size:1.3rem;cursor:pointer}
 .emoji-btn.selected{border-color:var(--primary);background:#eef2ff}
-/* Mensajes de chat */
-.chat-msg{padding:8px 12px;border-radius:12px;margin:4px 0;max-width:80%;word-break:break-word}
-.chat-msg.me{background:#6366f1;color:#fff;margin-left:auto}
-.chat-msg.other{background:#e2e8f0}
-.scroll-list{max-height:300px;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.color-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
 .color-btn{width:36px;height:36px;border:3px solid transparent;border-radius:50%;cursor:pointer}
 .color-btn.selected{border-color:#1e293b}
-
+.chat-msg{padding:8px 12px;border-radius:12px;margin:4px 0;max-width:85%;word-break:break-word}
+.chat-msg.me{background:#6366f1;color:#fff;margin-left:auto}
+.chat-msg.other{background:#e2e8f0}
+.chat-msg small{opacity:.8}
+.pill{display:inline-block;font-size:.72rem;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#4338ca;margin-top:4px}
+.pill.warn{background:#fef3c7;color:#92400e}
+.pill.danger{background:#fee2e2;color:#991b1b}
+.section-label{margin:8px 0;font-size:.85rem;color:var(--muted);font-weight:600}
+.actions{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.photo-preview{width:100%;border-radius:12px;margin-top:8px;max-height:240px;object-fit:cover}
+h3{margin-bottom:12px}
 </style>
 </head>
 <body>
-<!-- ========== PANTALLA DE LOGIN ========== -->
 <div class="login-screen" id="loginScreen">
-  <h2 style="margin-bottom:16px">🏠 Entrar</h2>
+  <h2 style="margin-bottom:16px">Entrar</h2>
   <div class="form-group" style="width:100%;max-width:320px"><label>Soy</label><select id="loginMember"></select></div>
   <div class="form-group" style="width:100%;max-width:320px"><label>PIN</label><input id="loginPin" type="password" placeholder="oooo" maxlength="8" inputmode="numeric"></div>
   <button class="btn" style="width:100%;max-width:320px" onclick="doLogin()">Entrar</button>
   <p style="margin-top:12px;color:var(--muted);font-size:.85rem">PIN por defecto: oooo</p>
-  <!-- Botón de cambio rápido para pruebas -->
-  <button class="btn secondary" style="margin-top:16px;width:100%;max-width:320px" onclick="quickSwitch()">Cambiar usuario (prueba)</button>
 </div>
 
-<!-- ========== APP PRINCIPAL ========== -->
 <div class="app" id="mainApp" style="display:none">
-  <!-- Cabecera: nombre familia + puntos del usuario actual -->
   <header>
-    <div class="header-top"><div id="familyTitle">🏠 Familia</div><div class="points-badge" id="headerPoints">⭐ 0</div></div>
-    <div class="current-user"><div class="avatar" id="currentAvatar">👨</div><div><h2 id="currentName">...</h2><p id="currentRole"></p><small id="currentFrase"></small></div></div>
+    <div class="header-top"><div id="familyTitle">Familia</div><div class="points-badge" id="headerPoints">0 pts</div></div>
+    <div class="current-user"><div class="avatar" id="currentAvatar">👤</div><div><h2 id="currentName">...</h2><p id="currentRole"></p><small id="currentFrase"></small></div></div>
   </header>
 
-  <!-- Sección TAREAS -->
   <div class="section active" id="section-tareas">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>📋 Tareas</h3><div><button class="btn small secondary" id="btnLoadTasks" onclick="loadTaskCatalog()" style="display:none">Cargar catálogo</button> <button class="btn small" id="btnNewTask" onclick="openNewTask()" style="display:none">+ Nueva</button></div></div>
-    <div id="taskList" class="scroll-list"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px">
+      <h3 style="margin:0">📋 Tareas</h3>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn small danger" id="btnPenalty" onclick="openPenalty()" style="display:none">Penalización</button>
+        <button class="btn small secondary" id="btnSiblingTask" onclick="openSiblingTask()" style="display:none">Para un hermano</button>
+        <button class="btn small" id="btnNewTask" onclick="openNewTask('hijo')" style="display:none">Para un hijo</button>
+        <button class="btn small secondary" id="btnParentTask" onclick="openNewTask('padres')" style="display:none">Entre padres</button>
+      </div>
+    </div>
+    <div id="kidsTasksWrap">
+      <div class="section-label" id="kidsTasksTitle">Tareas de los hijos</div>
+      <div id="taskList"></div>
+    </div>
+    <div id="parentTasksWrap" style="display:none">
+      <div class="section-label">Tareas entre padres</div>
+      <div id="parentTaskList"></div>
+    </div>
   </div>
 
-  <!-- Sección PREMIOS -->
   <div class="section" id="section-premios">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>🎁 Premios</h3><div><button class="btn small secondary" id="btnLoadRewards" onclick="loadRewardCatalog()" style="display:none">Cargar catálogo</button> <button class="btn small" id="btnNewReward" onclick="openNewReward()" style="display:none">+ Nuevo</button></div></div>
-    <div id="rewardList" class="scroll-list"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0">🎁 Premios</h3>
+      <button class="btn small" id="btnNewReward" onclick="openNewReward()" style="display:none">+ Nuevo</button>
+    </div>
+    <div id="rewardList"></div>
     <button class="btn secondary" style="width:100%;margin-top:12px" onclick="openRewardHistory()">Ver historial de canjes</button>
   </div>
 
-  <!-- Sección RANKING -->
-  <div class="section" id="section-ranking"><h3>🏆 Ranking (hijos)</h3><div id="rankingList"></div></div>
-
-  <!-- Sección CHAT -->
-  <div class="section" id="section-chat">
-    <h3 style="margin-bottom:12px">💬 Chat</h3>
-    <div id="chatMessages" style="height:280px;overflow-y:auto;background:#fff;border-radius:12px;padding:8px;margin-bottom:8px"></div>
-    <div style="display:flex;gap:8px;margin-bottom:8px"><select id="chatTo" style="flex:1"><option value="">Grupo familiar</option></select><input id="chatInput" placeholder="Mensaje..." style="flex:2"><button class="btn small" onclick="sendMessage()">Enviar</button></div>
+  <div class="section" id="section-ranking">
+    <h3>🏆 Ranking (hijos)</h3>
+    <p style="font-size:.8rem;color:var(--muted);margin:-4px 0 12px">63/80 es lo que le queda / lo que generó. Histórico muestra la tarea, el premio o la penalización.</p>
+    <div id="rankingList"></div>
   </div>
 
-  <!-- Sección YO (perfil y admin) -->
+  <div class="section" id="section-chat">
+    <h3>💬 Chat</h3>
+    <div id="chatMessages" style="height:320px;overflow-y:auto;background:#fff;border-radius:12px;padding:8px;margin-bottom:8px;border:1px solid var(--border)"></div>
+    <div style="display:flex;gap:8px">
+      <select id="chatTo" style="flex:1" onchange="renderChat()"><option value="">Grupo familiar</option></select>
+      <input id="chatInput" placeholder="Mensaje..." style="flex:1.4">
+      <button class="btn small" onclick="sendMessage()">Enviar</button>
+    </div>
+    <p style="font-size:.75rem;color:var(--muted);margin-top:6px">Elige Grupo o una persona. Solo ves esa conversación.</p>
+  </div>
+
   <div class="section" id="section-yo">
-    <div class="card"><h3>Mi perfil</h3><button class="btn secondary" style="width:100%;margin-top:8px" onclick="openProfile()">Editar perfil</button></div>
-    <!-- Botón ver como otro (solo papá) -->
+    <div class="card"><h3>👤 Mi perfil</h3><button class="btn secondary" style="width:100%;margin-top:8px" onclick="openProfile()">Editar perfil</button></div>
+    <div class="card"><h3>🎯 Metas</h3>
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px">Es un objetivo personal. No suma ni resta puntos. Solo compara lo que te queda hoy con el número que te pusiste.</p>
+      <div id="goalList"></div>
+      <div class="form-group" style="margin-top:8px"><input id="goalTitle" placeholder="Ej. Llegar al cine"></div>
+      <div class="form-group"><input type="number" id="goalPoints" value="100" min="1" placeholder="Puntos objetivo"></div>
+      <button class="btn small" onclick="createGoal()">Guardar meta</button>
+    </div>
+    <div class="card"><h3>🏅 Logros</h3><div id="badgeList"></div></div>
     <div class="card" id="switchUserCard" style="display:none"><button class="btn secondary" style="width:100%" onclick="openSwitchUser()">Ver como otro</button></div>
-    <div class="card" id="backToDadCard" style="display:none"><button class="btn" style="width:100%" onclick="backToDad()">Volver a papá</button></div>
-    <!-- Resetear todo (solo papá) -->
+    <div class="card" id="backToDadCard" style="display:none"><button class="btn" style="width:100%" onclick="backToDad()">Volver a mi usuario</button></div>
     <div class="card" id="adminResetAll" style="display:none">
       <strong>Resetear todo (solo papá)</strong>
       <p style="font-size:.8rem;color:var(--muted);margin:8px 0">Borra puntos, historial y tareas actuales. Premios y plantillas se mantienen.</p>
       <button class="btn danger" style="width:100%" onclick="confirmResetAll()">Resetear todo</button>
     </div>
-    <!-- Resetear PIN de un hijo (admin) -->
     <div class="card" id="adminPinReset" style="display:none">
       <strong>Resetear PIN de un hijo</strong>
       <div class="form-group" style="margin-top:8px"><select id="resetPinMember"></select></div>
       <button class="btn small danger" onclick="resetOneKidPin()">Resetear a oooo</button>
     </div>
-    <div class="card"><h4>Historial</h4><div id="historyList" class="scroll-list"></div></div>
+    <div class="card"><h4 style="margin-bottom:8px">Historial</h4><div id="historyList"></div></div>
     <button class="btn danger" style="width:100%;margin-top:12px" onclick="logout()">Salir</button>
   </div>
 
-  <!-- Navegación inferior -->
   <nav>
-    <button class="nav-btn active" onclick="showSection('tareas')">📋<br>Tareas<span id="badgeTasks" class="badge" style="display:none">0</span></button>
-    <button class="nav-btn" onclick="showSection('premios')">🎁<br>Premios<span id="badgeRewards" class="badge" style="display:none">0</span></button>
-    <button class="nav-btn" onclick="showSection('ranking')">🏆<br>Ranking</button>
-    <button class="nav-btn" onclick="showSection('chat')">💬<br>Chat</button>
-    <button class="nav-btn" onclick="showSection('yo')">👤<br>Yo</button>
+    <button class="nav-btn active" onclick="showSection('tareas', this)"><span class="nav-ico">📋</span>Tareas<span id="badgeTasks" class="badge" style="display:none">0</span></button>
+    <button class="nav-btn" onclick="showSection('premios', this)"><span class="nav-ico">🎁</span>Premios<span id="badgeRewards" class="badge" style="display:none">0</span></button>
+    <button class="nav-btn" onclick="showSection('ranking', this)"><span class="nav-ico">🏆</span>Ranking</button>
+    <button class="nav-btn" onclick="showSection('chat', this)"><span class="nav-ico">💬</span>Chat</button>
+    <button class="nav-btn" onclick="showSection('yo', this)"><span class="nav-ico">👤</span>Yo</button>
   </nav>
 </div>
 <div id="toast" class="toast"></div>
 
-<!-- ========== MODAL: NUEVA TAREA ========== -->
-<div class="modal" id="modal-tarea"><div class="modal-content"><h3>Nueva tarea</h3>
-  <div class="form-group"><label>Asignar a</label><select id="taskAssignTo"></select></div>
+<div class="modal" id="modal-tarea"><div class="modal-content"><h3 id="taskModalTitle">Nueva tarea</h3>
+  <p id="taskModalHint" style="font-size:.8rem;color:var(--muted);margin-bottom:12px"></p>
+  <div class="form-group"><label id="taskAssignLabel">Asignar a</label><select id="taskAssignTo"></select></div>
   <div class="form-group"><label>Plantilla</label><select id="taskPlantilla" onchange="applyPlantilla()"><option value="">-- personalizada --</option></select></div>
   <div class="form-group"><label>Título</label><input id="taskTitle"></div>
   <div class="form-group"><label>Puntos</label><input type="number" id="taskPoints" value="10"></div>
   <div class="form-group"><label>Recurrencia</label><select id="taskRecurrence" onchange="updateDue()"><option value="once">Una vez</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
-  <div class="form-group"><label>Fecha límite</label><input type="datetime-local" id="taskDue"></div>
-  <div class="form-group"><label>Penalización pts/día</label><input type="number" id="taskPenalty" value="2"></div>
-  <div class="form-group"><label><input type="checkbox" id="taskSaveTemplate"> Guardar como plantilla</label></div>
+  <div class="form-group" id="taskCountWrap"><label>Cuántas en el ciclo</label><input type="number" id="taskCount" min="1" max="31" value="1"><small id="taskCountHelp" style="color:var(--muted)">Ejemplo: semanal y 3 = tres tareas, una por semana.</small></div>
+  <div class="form-group"><label>Fecha límite de la primera</label><input type="datetime-local" id="taskDue"></div>
+  <div class="form-group"><label>Resta por cada día de atraso</label><input type="number" id="taskPenalty" value="2"></div>
+  <div class="form-group"><label><input type="checkbox" id="taskSaveTemplate"> Guardar como plantilla para reutilizar</label></div>
   <button class="btn" style="width:100%" onclick="createTask()">Crear</button>
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-tarea')">Cerrar</button>
 </div></div>
 
-<!-- ========== MODAL: NUEVO PREMIO ========== -->
-<div class="modal" id="modal-premio"><div class="modal-content"><h3>Nuevo premio</h3>
+<div class="modal" id="modal-premio"><div class="modal-content">
+  <h3 id="rewardModalTitle">Premio</h3>
   <div class="form-group"><label>Nombre</label><input id="rewardName"></div>
-  <div class="form-group"><label>Costo</label><input type="number" id="rewardCost" value="50"></div>
+  <div class="form-group"><label>Costo en puntos</label><input type="number" id="rewardCost" value="50"></div>
   <div class="form-group"><label>Stock (-1 ilimitado)</label><input type="number" id="rewardStock" value="-1"></div>
+  <div class="form-group"><label><input type="checkbox" id="rewardActive" checked> Activo</label></div>
   <div class="form-group"><label>Icono</label><div class="emoji-grid" id="rewardEmojiGrid"></div><input type="hidden" id="rewardEmoji" value="🎁"></div>
-  <button class="btn" style="width:100%" onclick="createReward()">Crear</button>
+  <div id="rewardFalta" style="margin-bottom:12px"></div>
+  <div class="actions" id="rewardActions"></div>
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-premio')">Cerrar</button>
 </div></div>
 
-<!-- ========== MODAL: EVIDENCIA DE TAREA ========== -->
-<div class="modal" id="modal-evidencia"><div class="modal-content"><h3>Evidencia</h3>
+<div class="modal" id="modal-evidencia"><div class="modal-content"><h3>Ya la hice</h3>
+  <p id="evidenceHint" style="font-size:.85rem;color:var(--muted);margin-bottom:12px">Queda pendiente de aprobación.</p>
   <div class="form-group"><label>Comentario (opcional)</label><textarea id="evComment" rows="2"></textarea></div>
   <div class="form-group"><label>Foto (opcional)</label><input type="file" id="evPhoto" accept="image/*" capture="environment"></div>
-  <button class="btn" style="width:100%" onclick="submitEvidence()">Enviar</button>
+  <button class="btn" style="width:100%" onclick="submitEvidence()">Enviar a revisión</button>
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-evidencia')">Cancelar</button>
 </div></div>
 
-<!-- ========== MODAL: EDITAR PERFIL ========== -->
 <div class="modal" id="modal-perfil"><div class="modal-content"><h3>Editar perfil</h3>
   <div class="form-group"><label>Nombre</label><input id="profName"></div>
+  <div class="form-group" id="familyNameGroup" style="display:none"><label>Complemento de la familia</label><input id="profFamilyName" placeholder="Bejarano Mantilla"><small style="color:var(--muted)">El título queda Familia + este texto.</small></div>
   <div class="form-group"><label>Frase</label><input id="profFrase"></div>
+  <div class="form-group"><label>Figura</label><div class="emoji-grid" id="profileFigureGrid"></div></div>
   <div class="form-group"><label>Emoji</label><div class="emoji-grid" id="profileEmojiGrid"></div><input type="hidden" id="profEmoji"></div>
   <div class="form-group"><label>Color</label><div class="color-grid" id="profileColorGrid"></div><input type="hidden" id="profColor" value="#6366f1"></div>
   <div class="form-group"><label>Fecha nacimiento</label><input type="date" id="profBirth"></div>
@@ -189,319 +213,957 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-perfil')">Cerrar</button>
 </div></div>
 
-<!-- ========== MODAL: CONSECUENCIA (ajuste negativo) ========== -->
-<div class="modal" id="modal-puntos"><div class="modal-content"><h3>Consecuencia</h3>
-  <div class="form-group"><label>Miembro</label><select id="adjustMember"></select></div>
-  <div class="form-group"><label>Puntos a restar</label><input type="number" id="adjustPoints" value="5" min="1"></div>
-  <div class="form-group"><label>Motivo</label><input id="adjustReason"></div>
-  <button class="btn" style="width:100%" onclick="adjustPoints()">Aplicar</button>
-  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-puntos')">Cerrar</button>
+<div class="modal" id="modal-penalizacion"><div class="modal-content"><h3>Penalización</h3>
+  <p style="font-size:.85rem;color:var(--muted);margin-bottom:12px">Resta puntos y queda en el historial.</p>
+  <div class="form-group"><label>Hijo</label><select id="penaltyMember"></select></div>
+  <div class="form-group"><label>Puntos a restar</label><input type="number" id="penaltyPoints" value="5" min="1"></div>
+  <div class="form-group"><label>Motivo</label><input id="penaltyReason" placeholder="Ej. no hizo la cama"></div>
+  <button class="btn danger" style="width:100%" onclick="applyPenalty()">Aplicar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-penalizacion')">Cancelar</button>
 </div></div>
 
-<!-- ========== MODAL: APROBAR CON COMENTARIO ========== -->
-<div class="modal" id="modal-aprobacion"><div class="modal-content"><h3>Aprobar tarea</h3>
-  <div class="form-group"><label>Comentario (opcional)</label><textarea id="approvalComment" rows="3"></textarea></div>
-  <button class="btn" style="width:100%" onclick="confirmApproval()">Confirmar</button>
-  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-aprobacion')">Cancelar</button>
-</div></div>
+<div class="modal" id="modal-historial-premios"><div class="modal-content"><h3>Historial de canjes</h3><div id="rewardHistoryModal"></div><button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-historial-premios')">Cerrar</button></div></div>
 
-<!-- ========== MODAL: HISTORIAL DE CANJES ========== -->
-<div class="modal" id="modal-historial-premios"><div class="modal-content"><h3>Historial de canjes</h3><div id="rewardHistoryModal" class="scroll-list"></div><button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-historial-premios')">Cerrar</button></div></div>
-
-
-<!-- ========== MODAL: TRANSFERIR TAREA ========== -->
-<div class="modal" id="modal-transferir"><div class="modal-content"><h3>Pasar tarea a hermano</h3>
-  <p style="font-size:.85rem;color:var(--muted);margin-bottom:12px">La tarea se mueve. No genera puntos nuevos. El hermano debe aceptarla y los padres aprobarán al final.</p>
+<div class="modal" id="modal-transferir"><div class="modal-content"><h3>Pasar tarea a un hermano</h3>
+  <p style="font-size:.85rem;color:var(--muted);margin-bottom:12px">No crea puntos nuevos. Si no la acepta, sigue siendo tuya. Papá o mamá aprueban el traspaso.</p>
   <div class="form-group"><label>Pasar a</label><select id="transferTo"></select></div>
-  <button class="btn" style="width:100%" onclick="confirmTransfer()">Transferir</button>
+  <button class="btn" style="width:100%" onclick="confirmTransfer()">Enviar</button>
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-transferir')">Cancelar</button>
 </div></div>
-<!-- ========== MODAL: CAMBIAR USUARIO ========== -->
+
+<div class="modal" id="modal-balance"><div class="modal-content">
+  <h3 id="balanceTitle">Histórico</h3>
+  <p id="balanceSummary" style="font-size:.85rem;color:var(--muted);margin-bottom:8px"></p>
+  <div id="balanceList"></div>
+  <button class="btn secondary" style="width:100%;margin-top:12px" onclick="closeModal('modal-balance')">Cerrar</button>
+</div></div>
 <div class="modal" id="modal-usuario"><div class="modal-content"><h3>Ver como otro</h3><div id="userSelectList"></div><button class="btn secondary" style="width:100%;margin-top:12px" onclick="closeModal('modal-usuario')">Cancelar</button></div></div>
 
+<div class="modal" id="modal-ficha"><div class="modal-content">
+  <h3 id="fichaTitle">Tarea</h3>
+  <div id="fichaStatus" style="margin-bottom:12px"></div>
+  <div class="form-group"><label>Título</label><input id="fichaNombre"></div>
+  <div class="form-group"><label>Puntos</label><input type="number" id="fichaPuntos"></div>
+  <div class="form-group"><label>Asignada a</label><select id="fichaAsignada"></select></div>
+  <div class="form-group"><label>Recurrencia</label><select id="fichaRec"><option value="once">Una vez</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
+  <div class="form-group"><label>Fecha límite</label><input type="datetime-local" id="fichaDue"></div>
+  <div class="form-group"><label>Resta por cada día de atraso</label><input type="number" id="fichaPen"></div>
+  <div id="fichaEvidence" style="display:none">
+    <div class="section-label">Evidencia</div>
+    <p id="fichaComment" style="font-size:.9rem"></p>
+    <img id="fichaPhoto" class="photo-preview" alt="Evidencia" style="display:none">
+  </div>
+  <div class="form-group" id="fichaApprovalBox" style="display:none"><label>Comentario al aprobar o devolver</label><textarea id="fichaApprovalComment" rows="2"></textarea></div>
+  <div class="actions" id="fichaActions"></div>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-ficha')">Cerrar</button>
+</div></div>
+
 <script>
-/* ========== CONFIGURACIÓN SUPABASE ========== */
 const SUPABASE_URL='https://khnrnnoxyzuulagemfbh.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtobnJubm94eXp1dWxhZ2VtZmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MzM1NTMsImV4cCI6MjA5ODEwOTU1M30.uN8Vm9H-Na92r6UPOsP39F6pGwU6M_K6C4HJ5Tq-2Ts';
+const EMOJIS=['😎','❤️','👦','👧','👩‍🦰','👨','👩','🧑','😀','🙂','🤩','🥳','💪','⭐','🎯','🏆','🎁','🏠','📚','⚽','🎮','🍦','🎬','🚲','📱','🍕','🌳','😴','🎲','💰'];
+const COLORS=['#6366f1','#10b981','#ef4444','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16'];
 
-/* Lista de emojis disponibles para perfil y premios */
-const EMOJIS=['😎','❤️','👦','👧','👩‍🦰','👨','👩','🧑','😀','🙂','🤩','🥳','💪','⭐','🎯','🏆','🎁','🏠','📚','⚽','🎮','🍦','🎬','🚲'];
-
-/* Estado global de la app */
 let supabase;
-let state={currentUserId:null,members:[],tasks:[],rewards:[],history:[],config:{},plantillas:[],mensajes:[],requests:[]};
+let state={currentUserId:null,members:[],tasks:[],rewards:[],history:[],config:{},plantillas:[],mensajes:[]};
 let pendingTaskId=null;
-let pendingApprovalId=null;
+let pendingTransferId=null;
+let editingRewardId=null;
+let originalAdminId=null;
+let taskCreateMode='familia';
+let loadLock=false;
+let reloadTimer=null;
 
-/* ========== FUNCIONES AUXILIARES ========== */
-/* Verifica si un miembro es administrador (padre/madre) */
-function isAdmin(m){return m&&(m.es_admin||/padre|madre|papá|mamá/i.test(m.rol||''))}
-/* Verifica si es hijo */
-function isKid(m){return m&&!isAdmin(m)}
-/* Devuelve el usuario actualmente logueado */
-function currentUser(){return state.members.find(m=>m.id===state.currentUserId)}
-/* Muestra un mensaje toast temporal */
-function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
-/* Cambia de sección en la navegación */
-function showSection(n){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('section-'+n).classList.add('active');document.querySelector(`.nav-btn[onclick*="${n}"]`).classList.add('active');}
-/* Abre un modal */
-function openModal(id){document.getElementById(id).classList.add('show')}
-/* Cierra un modal */
-function closeModal(id){document.getElementById(id).classList.remove('show')}
-/* Cierra sesión */
-function logout(){localStorage.removeItem('familia_current');location.reload()}
+const FIGURES=[
+  '<svg viewBox="0 0 64 64"><circle cx="32" cy="22" r="12" fill="#fff"/><path d="M12 58c3-16 10-20 20-20s17 4 20 20" fill="#fff"/></svg>',
+  '<svg viewBox="0 0 64 64"><path d="M18 28c0-12 6-20 14-20s14 8 14 20c0 6-3 10-6 12 8 2 12 8 14 18H16c2-10 6-16 12-18-4-2-10-6-10-12z" fill="#fff"/></svg>',
+  '<svg viewBox="0 0 64 64"><path d="M14 24h36l-4 8H18z" fill="#fff"/><circle cx="32" cy="28" r="10" fill="#fff"/><path d="M14 58c3-14 10-18 18-18s15 4 18 18" fill="#fff"/></svg>',
+  '<svg viewBox="0 0 64 64"><circle cx="32" cy="22" r="12" fill="#fff"/><rect x="20" y="20" width="24" height="6" rx="2" fill="#334155"/><path d="M14 58c3-16 10-20 18-20s15 4 18 20" fill="#fff"/></svg>',
+  '<svg viewBox="0 0 64 64"><circle cx="32" cy="16" r="6" fill="#fff"/><circle cx="32" cy="26" r="11" fill="#fff"/><path d="M14 58c3-16 10-20 18-20s15 4 18 20" fill="#fff"/></svg>',
+  '<svg viewBox="0 0 64 64"><circle cx="32" cy="22" r="12" fill="#fff"/><path d="M22 30c2 6 6 8 10 8s8-2 10-8" fill="#fff"/><path d="M14 58c3-16 10-20 18-20s15 4 18 20" fill="#fff"/></svg>'
+];
 
-/* ========== CARGA DE DATOS ========== */
-/* Carga todos los datos desde Supabase */
-async function loadAll(){
-  const [m,t,r,h,c,p,msg]=await Promise.all([
-    supabase.from('familia_miembros').select('*').order('id'),
-    supabase.from('familia_tareas').select('*').order('creado_en',{ascending:false}),
-    supabase.from('familia_premios').select('*').order('costo'),
-    supabase.from('familia_historial').select('*').order('creado_en',{ascending:false}).limit(50),
-    supabase.from('familia_config').select('*').limit(1),
-    supabase.from('familia_plantillas_tareas').select('*'),
-    supabase.from('familia_mensajes').select('*').order('creado_en',{ascending:false}).limit(40)
-  ]);
-  state.members=m.data||[];
-  state.tasks=t.data||[];
-  state.rewards=r.data||[];
-  state.history=h.data||[];
-  state.config=(c.data&&c.data[0])||{};
-  state.plantillas=p.data||[];
-  state.mensajes=(msg.data||[]).reverse();
-  render();
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));}
+function isAdmin(m){return !!(m&&(m.es_admin||/padre|madre|papá|mamá/i.test(m.rol||'')));}
+function isKid(m){return !!(m&&!isAdmin(m));}
+function currentUser(){return state.members.find(m=>m.id===state.currentUserId);}
+function memberById(id){return state.members.find(m=>m.id===Number(id));}
+function isGoal(t){return t&&t.descripcion==='META';}
+function otherParent(id){return state.members.find(m=>isAdmin(m)&&m.id!==Number(id));}
+function spouseLabel(m){
+  if(/madre|mamá|esposa/i.test(m?.rol||'')) return 'esposo';
+  if(/padre|papá|esposo/i.test(m?.rol||'')) return 'esposa';
+  return 'esposo/a';
+}
+function face(m){
+  if(!m) return '';
+  return String(m.emoji||'').startsWith('fig:')?'🙂':(m.emoji||'');
+}
+function ageOf(m){
+  if(!m) return null;
+  if(m.fecha_nacimiento){
+    const b=new Date(m.fecha_nacimiento+'T00:00:00');
+    if(!isNaN(b)){
+      const now=new Date();
+      let a=now.getFullYear()-b.getFullYear();
+      const md=now.getMonth()-b.getMonth();
+      if(md<0||(md===0&&now.getDate()<b.getDate())) a--;
+      return a>=0?a:null;
+    }
+  }
+  return m.edad||null;
+}
+function paintAvatar(el,m){
+  if(!el) return;
+  el.style.background=m?.color||'#fff';
+  const code=String(m?.emoji||'');
+  if(code.startsWith('fig:')){
+    const n=+code.slice(4);
+    el.innerHTML=FIGURES[n-1]||'';
+  }else{
+    el.textContent=code||'👤';
+  }
+}
+function shiftDate(base, rec, steps){
+  const d=new Date(base);
+  if(rec==='daily') d.setDate(d.getDate()+steps);
+  else if(rec==='weekly') d.setDate(d.getDate()+7*steps);
+  else if(rec==='monthly') d.setMonth(d.getMonth()+steps);
+  else if(rec==='quarterly') d.setMonth(d.getMonth()+3*steps);
+  return d;
+}
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+function showSection(n,btn){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('section-'+n).classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+function openModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+function logout(){localStorage.removeItem('familia_current');location.reload();}
+
+function statusLabel(t){
+  const estado=t&&t.estado?t.estado:t;
+  if(t&&t.estado&&taskAudience(t)==='parent'&&t.estado==='esperando_aprobacion'){
+    const u=currentUser();
+    if(u&&u.id===t.asignada_a){
+      const s=otherParent(u.id);
+      return 'Pendiente de '+(s?s.nombre:'tu '+spouseLabel(u));
+    }
+    return 'Pendiente de tu aprobación';
+  }
+  return ({
+    borrador:'Por activar',
+    pendiente:'Pendiente',
+    esperando_aprobacion:'Pendiente de aprobación',
+    pendiente_transferencia:'Esperando que el hermano acepte',
+    transferencia_por_aprobar:'Traspaso por aprobar'
+  })[estado]||estado||'Pendiente';
+}
+function pillClass(t){
+  if(t.estado==='esperando_aprobacion'||t.estado==='transferencia_por_aprobar') return 'pill warn';
+  if(lateDays(t)>0) return 'pill danger';
+  return 'pill';
+}
+function lateDays(t){
+  if(!t.fecha_limite||t.estado==='completada'||t.estado==='borrador') return 0;
+  const due=new Date(t.fecha_limite).getTime();
+  if(isNaN(due)) return 0;
+  const diff=Date.now()-due;
+  return diff>0?Math.floor(diff/86400000):0;
+}
+function netPoints(t){
+  const days=lateDays(t);
+  return (Number(t.puntos)||0)-days*(Number(t.puntos_penalizacion_dia)||0);
+}
+function taskAudience(t){
+  const m=memberById(t.asignada_a);
+  return m&&isAdmin(m)?'parent':'kid';
+}
+function byDue(a,b){
+  const da=a.fecha_limite?new Date(a.fecha_limite).getTime():Infinity;
+  const db=b.fecha_limite?new Date(b.fecha_limite).getTime():Infinity;
+  return da-db;
+}
+function toLocalInput(iso){
+  if(!iso) return '';
+  const d=new Date(iso);
+  if(isNaN(d)) return '';
+  const p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());
+}
+function fromLocalInput(v){return v?new Date(v).toISOString():null;}
+function fmtDate(iso){
+  if(!iso) return '';
+  const d=new Date(iso);
+  if(isNaN(d)) return '';
+  return d.toLocaleString('es-CO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+function familyTitleText(){
+  const raw=(state.config.nombre_familia||'Familia').trim();
+  if(/^familia\b/i.test(raw)) return raw;
+  return 'Familia '+(raw||'');
 }
 
-/* ========== RENDERIZADO ========== */
-/* Renderiza toda la interfaz según el usuario actual */
+function fillEmojiGrid(containerId,hiddenId){
+  const c=document.getElementById(containerId);
+  const current=document.getElementById(hiddenId).value;
+  c.innerHTML=EMOJIS.map(e=>`<button type="button" class="emoji-btn${e===current?' selected':''}" onclick="selectEmoji(this,'${e}','${hiddenId}')">${e}</button>`).join('');
+}
+function selectEmoji(btn,emoji,hiddenId){
+  btn.parentElement.querySelectorAll('.emoji-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById(hiddenId).value=emoji;
+  if(hiddenId==='profEmoji') fillFigureGrid();
+}
+function fillFigureGrid(){
+  const c=document.getElementById('profileFigureGrid');
+  if(!c) return;
+  const current=document.getElementById('profEmoji').value;
+  c.innerHTML=FIGURES.map((svg,i)=>`<button type="button" class="figure-btn${current==='fig:'+(i+1)?' selected':''}" onclick="selectFigure(${i+1})">${svg}</button>`).join('');
+}
+function selectFigure(n){
+  document.getElementById('profEmoji').value='fig:'+n;
+  fillFigureGrid();
+  fillEmojiGrid('profileEmojiGrid','profEmoji');
+}
+function fillColorGrid(containerId,hiddenId){
+  const c=document.getElementById(containerId);
+  const current=document.getElementById(hiddenId).value;
+  c.innerHTML=COLORS.map(col=>`<button type="button" class="color-btn${col===current?' selected':''}" style="background:${col}" onclick="selectColor(this,'${col}','${hiddenId}')"></button>`).join('');
+}
+function selectColor(btn,color,hiddenId){
+  btn.parentElement.querySelectorAll('.color-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById(hiddenId).value=color;
+}
+function memberOptions(selected, opts){
+  opts=opts||{};
+  const me=state.currentUserId;
+  const opt=(m)=>`<option value="${m.id}"${Number(selected)===m.id?' selected':''}>${face(m)} ${esc(m.nombre)}</option>`;
+  if(opts.onlySiblings){
+    const kids=state.members.filter(m=>isKid(m)&&m.id!==me);
+    return kids.map(opt).join('')||'<option value="">Sin hermanos</option>';
+  }
+  if(opts.onlyKids) return state.members.filter(isKid).map(opt).join('')||'<option value="">Sin hijos</option>';
+  if(opts.onlyParents){
+    return state.members.filter(m=>isAdmin(m)&&(!opts.excludeSelf||m.id!==me)).map(opt).join('')||'<option value="">Sin el otro padre</option>';
+  }
+  let kids=state.members.filter(isKid);
+  let parents=state.members.filter(isAdmin);
+  if(opts.excludeSelf){
+    kids=kids.filter(m=>m.id!==me);
+    parents=parents.filter(m=>m.id!==me);
+  }
+  return `<optgroup label="Hijos">${kids.map(opt).join('')}</optgroup><optgroup label="Padres">${parents.map(opt).join('')}</optgroup>`;
+}
+
+async function loadAll(){
+  if(loadLock) return;
+  loadLock=true;
+  try{
+    const [m,t,p,h,c,pl,msg]=await Promise.all([
+      supabase.from('familia_miembros').select('*').order('id'),
+      supabase.from('familia_tareas').select('*').order('creado_en',{ascending:false}),
+      supabase.from('familia_premios').select('*').order('costo'),
+      supabase.from('familia_historial').select('*').order('creado_en',{ascending:false}).limit(1000),
+      supabase.from('familia_config').select('*').eq('id',1).maybeSingle(),
+      supabase.from('familia_plantillas_tareas').select('*'),
+      supabase.from('familia_mensajes').select('*').order('creado_en',{ascending:false}).limit(200)
+    ]);
+    if(m.error) return showToast('No se pudieron cargar los miembros');
+    state.members=m.data||[];
+    state.tasks=t.data||[];
+    state.rewards=p.data||[];
+    state.history=h.data||[];
+    state.config=c.data||{id:1,nombre_familia:'Familia'};
+    state.plantillas=pl.data||[];
+    state.mensajes=msg.data||[];
+    if(t.error) showToast('Tareas: '+t.error.message);
+    await applyLateness();
+    render();
+  }finally{
+    loadLock=false;
+  }
+}
+function scheduleReload(){
+  clearTimeout(reloadTimer);
+  reloadTimer=setTimeout(()=>{ if(!loadLock) loadAll(); },800);
+}
+async function applyLateness(){
+  const overdue=state.tasks.filter(t=>!isGoal(t)&&['pendiente','esperando_aprobacion'].includes(t.estado)&&Number(t.puntos_penalizacion_dia)>0&&lateDays(t)>0&&t.asignada_a);
+  if(!overdue.length) return;
+  const {data:prev}=await supabase.from('familia_historial').select('texto').ilike('texto','Atraso tarea%').limit(1000);
+  const have=new Set((prev||[]).map(r=>r.texto));
+  for(const t of overdue){
+    const days=Math.min(lateDays(t),45);
+    const rate=Number(t.puntos_penalizacion_dia)||0;
+    const who=memberById(t.asignada_a);
+    if(!who||!rate) continue;
+    const rows=[];
+    for(let d=1;d<=days;d++){
+      const texto=`Atraso tarea ${t.id} día ${d}: ${t.titulo} (-${rate} pts)`;
+      if(have.has(texto)) continue;
+      have.add(texto);
+      rows.push({miembro_id:who.id,texto});
+    }
+    if(!rows.length) continue;
+    who.puntos=(Number(who.puntos)||0)-rows.length*rate;
+    await supabase.from('familia_miembros').update({puntos:who.puntos}).eq('id',who.id);
+    await supabase.from('familia_historial').insert(rows);
+    state.history=rows.concat(state.history);
+  }
+}
+
 function render(){
   const u=currentUser();
-  if(!u)return;
-  document.getElementById('familyTitle').textContent='🏠 '+(state.config.nombre_familia||'Familia');
-  document.getElementById('headerPoints').textContent='⭐ '+(u.puntos||0);
-  document.getElementById('currentAvatar').textContent=u.emoji||'👤';
+  if(!u) return;
+  const admin=isAdmin(u);
+  document.getElementById('familyTitle').textContent=familyTitleText();
+  paintAvatar(document.getElementById('currentAvatar'), u);
   document.getElementById('currentName').textContent=u.nombre;
-  document.getElementById('currentRole').textContent=u.rol||'';
+  const age=ageOf(u);
+  document.getElementById('currentRole').textContent=(u.rol||'')+(admin?' · Admin':'')+(age?' · '+age+' años':'');
   document.getElementById('currentFrase').textContent=u.frase||'';
-  // Mostrar/ocultar botones de admin
-  const isAd=isAdmin(u);
-  ['btnNewTask','btnNewReward','btnLoadTasks','btnLoadRewards','switchUserCard','adminResetAll','adminPinReset'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el)el.style.display=isAd?'':'none';
-  });
+  document.getElementById('headerPoints').textContent=(u.puntos||0)+' pts';
+  document.getElementById('btnNewTask').style.display=admin?'':'none';
+  document.getElementById('btnParentTask').style.display=admin?'':'none';
+  document.getElementById('btnSiblingTask').style.display=isKid(u)?'':'none';
+  document.getElementById('btnNewReward').style.display=admin?'':'none';
+  document.getElementById('btnPenalty').style.display=admin?'':'none';
+  document.getElementById('adminResetAll').style.display=/padre|papá/i.test(u.rol||'')?'':'none';
+  document.getElementById('adminPinReset').style.display=admin?'':'none';
+  document.getElementById('switchUserCard').style.display=admin?'':'none';
+  document.getElementById('backToDadCard').style.display=originalAdminId?'':'none';
+  document.getElementById('kidsTasksTitle').textContent=admin?'Tareas de los hijos':'Mis tareas';
+  document.getElementById('parentTasksWrap').style.display=admin?'':'none';
+  if(admin){
+    document.getElementById('resetPinMember').innerHTML=state.members.filter(isKid).map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('');
+  }
   renderTasks();
   renderRewards();
   renderRanking();
   renderHistory();
+  renderGoals();
+  renderBadges();
+  fillChatTo();
   renderChat();
-  fillSelects();
+  const mine=state.tasks.filter(t=>!isGoal(t)&&t.estado!=='completada'&&(t.asignada_a===u.id||Number(t.para_quien)===u.id));
+  const badge=document.getElementById('badgeTasks');
+  badge.style.display=mine.length?'':'none';
+  badge.textContent=mine.length;
+  const afford=state.rewards.filter(r=>r.activo!==false&&(u.puntos||0)>=(r.costo||0)&&(r.stock!==0)).length;
+  const rb=document.getElementById('badgeRewards');
+  rb.style.display=afford?'':'none';
+  rb.textContent=afford;
 }
 
-/* Renderiza la lista de tareas */
+function taskCard(t){
+  const who=memberById(t.asignada_a);
+  const target=memberById(t.para_quien);
+  const days=lateDays(t);
+  const late=days>0?` · atrasada ${days} d`:'';
+  const extra=t.estado==='pendiente_transferencia'&&target?` · para ${esc(target.nombre)}`:'';
+  return `<div class="task-item" onclick="openTaskCard(${t.id})">
+    <div style="flex:1">
+      <strong>${esc(t.titulo||'Tarea')}</strong><br>
+      <small>${esc(who?.nombre||'Sin asignar')} · ${t.puntos||0} pts${late}${extra}</small><br>
+      <span class="${pillClass(t)}">${esc(statusLabel(t))}${t.fecha_limite?' · '+esc(fmtDate(t.fecha_limite)):''}</span>
+    </div>
+  </div>`;
+}
+function visibleToKid(u,t){
+  if(isGoal(t)||t.estado==='completada'||t.estado==='borrador') return false;
+  if(taskAudience(t)==='parent') return false;
+  return t.asignada_a===u.id||Number(t.para_quien)===u.id;
+}
 function renderTasks(){
-  const list=document.getElementById('taskList');
   const u=currentUser();
-  const tasks=state.tasks.filter(t=>{
-    if(isAdmin(u))return true;
-    return t.asignada_a===u.id||t.creada_por===u.id;
-  });
-  if(!tasks.length){list.innerHTML='<div class="empty">No hay tareas</div>';return}
-  list.innerHTML=tasks.map(t=>{
-    const asignado=state.members.find(m=>m.id===t.asignada_a);
-    const status=t.estado==='completada'?'✅':t.estado==='esperando'?'⏳':'';
-    const actions=[];
-    if(t.estado==='pendiente'&&t.asignada_a===u.id)actions.push(`<button class="btn small" onclick="openEvidence(${t.id})">Hecha</button>`);
-    if(t.estado==='esperando'&&isAdmin(u))actions.push(`<button class="btn small success" onclick="openApproval(${t.id})">Aprobar</button>`);
-    if(t.estado==='pendiente'&&isKid(u)&&t.asignada_a===u.id)actions.push(`<button class="btn small secondary" onclick="openTransfer(${t.id})">Pasar</button>`);
-    if(isAdmin(u))actions.push(`<button class="btn small secondary" onclick="editTask(${t.id})">Editar</button>`);
-    return `<div class="task-item"><div style="flex:1"><strong>${t.titulo}</strong><br><small>${asignado?.nombre||'?'} · ${t.puntos} pts ${status}</small></div><div style="display:flex;gap:6px">${actions.join('')}</div></div>`;
-  }).join('');
+  const open=state.tasks.filter(t=>!isGoal(t)&&t.estado!=='completada').sort(byDue);
+  const list=document.getElementById('taskList');
+  const parentList=document.getElementById('parentTaskList');
+  if(isAdmin(u)){
+    const kids=open.filter(t=>taskAudience(t)==='kid');
+    const parents=open.filter(t=>taskAudience(t)==='parent');
+    list.innerHTML=kids.map(taskCard).join('')||'<div class="empty">No hay tareas pendientes de los hijos</div>';
+    if(parentList) parentList.innerHTML=parents.map(taskCard).join('')||'<div class="empty">No hay tareas entre padres</div>';
+  }else{
+    const mine=open.filter(t=>visibleToKid(u,t));
+    list.innerHTML=mine.map(taskCard).join('')||'<div class="empty">No tienes tareas pendientes</div>';
+  }
 }
 
-/* Renderiza la lista de premios */
 function renderRewards(){
   const list=document.getElementById('rewardList');
   const u=currentUser();
-  if(!state.rewards.length){list.innerHTML='<div class="empty">No hay premios</div>';return}
-  list.innerHTML=state.rewards.filter(r=>r.activo!==false).map(r=>{
-  const falta=Math.max(0,(r.costo||0)-(u.puntos||0));
-  const canjear=u.puntos>=(r.costo||0)?`<button class="btn small" onclick="redeemReward(${r.id})">Canjear</button>`:'';
-  const faltatxt=falta>0?`<br><small style="color:#ef4444">Faltan ${falta} pts</small>`:'';
-  const edit=isAdmin(u)?`<button class="btn small secondary" onclick="editReward(${r.id})">Editar</button>`:'';
-  return `<div class="reward-item"><div style="flex:1">${r.icono||'🎁'} <strong>${r.nombre}</strong><br><small>${r.costo} pts${r.stock>=0?' · stock:'+r.stock:''}</small>${faltatxt}</div><div style="display:flex;gap:6px">${canjear}${edit}</div></div>`;
-}).join('');
+  const rows=state.rewards.slice().sort((a,b)=>{
+    const ai=a.activo===false?1:0;
+    const bi=b.activo===false?1:0;
+    if(ai!==bi) return ai-bi;
+    return (a.costo||0)-(b.costo||0);
+  });
+  if(!rows.length){list.innerHTML='<div class="empty">No hay premios</div>';return;}
+  list.innerHTML=rows.map(r=>{
+    const off=r.activo===false;
+    const falta=Math.max(0,(r.costo||0)-(u.puntos||0));
+    const faltaTxt=off?'<br><strong>Inactivo</strong>':(falta>0?`<br><small style="color:#ef4444">Faltan ${falta} pts</small>`:'<br><small style="color:#10b981">Ya puedes canjearlo</small>');
+    return `<div class="reward-item${off?' inactive':''}" onclick="openReward(${r.id})"><div style="flex:1">${r.icono||'🎁'} <strong>${esc(r.nombre)}</strong><br><small>${r.costo} pts${r.stock>=0?' · stock '+r.stock:''}</small>${faltaTxt}</div></div>`;
+  }).join('');
 }
-
-/* Ranking solo de hijos ordenados por puntos */
+function movementOf(h){
+  const t=h.texto||'';
+  const num=(re)=>{const m=t.match(re);return m?Number(m[1]):0;};
+  if(/^Aprobada/.test(t)) return {tipo:'Tarea',pts:num(/\(([+-]?\d+)\s*pts\)/),detalle:t.replace(/^Aprobada(?: entre padres)?:\s*/,'').replace(/\s*\([+-]?\d+\s*pts\).*$/,''),fecha:h.creado_en};
+  if(/^Recibió/.test(t)) return {tipo:'Tarea',pts:num(/Recibió\s+(\d+)/),detalle:t,fecha:h.creado_en};
+  if(/^Pasó/.test(t)) return {tipo:'Tarea',pts:-num(/Pasó\s+(\d+)/),detalle:t,fecha:h.creado_en};
+  if(/^Canjeó/i.test(t)) return {tipo:'Premio',pts:-num(/\(-(\d+)\s*pts\)/),detalle:t.replace(/^Canjeó:\s*/i,'').replace(/\s*\(-\d+\s*pts\).*$/,''),fecha:h.creado_en};
+  if(/^Penalización/.test(t)||/^Atraso/.test(t)) return {tipo:'Penalización',pts:-num(/\(-(\d+)\s*pts\)/),detalle:t,fecha:h.creado_en};
+  return null;
+}
+function kidLedger(id){
+  const moves=state.history.filter(h=>h.miembro_id===id).map(movementOf).filter(Boolean).sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+  let generado=0,canjeado=0,penalizado=0,bal=0;
+  moves.forEach(m=>{
+    if(m.pts>0) generado+=m.pts;
+    if(m.tipo==='Premio') canjeado+=-m.pts;
+    if(m.tipo==='Penalización') penalizado+=-m.pts;
+    bal+=m.pts;
+    m.saldo=bal;
+  });
+  return {moves,generado,canjeado,penalizado};
+}
 function renderRanking(){
-  const kids=state.members.filter(isKid).sort((a,b)=>(b.puntos||0)-(a.puntos||0));
-  document.getElementById('rankingList').innerHTML=kids.map((k,i)=>`<div class="member-item"><div style="font-size:1.2rem">${i+1}</div><div style="flex:1">${k.emoji||''} ${k.nombre}</div><div>⭐ ${k.puntos||0}</div></div>`).join('');
+  const kids=state.members.filter(isKid).map(k=>{
+    const led=kidLedger(k.id);
+    const quedan=Number(k.puntos)||0;
+    const generado=Math.max(led.generado,quedan);
+    return {k,led,quedan,generado};
+  }).sort((a,b)=>b.generado-a.generado||b.quedan-a.quedan);
+  document.getElementById('rankingList').innerHTML=kids.map((row,i)=>{
+    const canjes=row.led.moves.filter(m=>m.tipo==='Premio');
+    const canjeTxt=canjes.length?canjes.map(m=>esc(m.detalle)).join(', '):'Todavía no canjea';
+    const age=ageOf(row.k);
+    return `<div class="member-item" style="align-items:flex-start">
+      <span>${i+1}.</span><span>${face(row.k)}</span>
+      <div style="flex:1">
+        <strong>${esc(row.k.nombre)}</strong> ${age?`<small style="color:var(--muted)">${age} años</small>`:''}
+        <div style="font-weight:700;margin-top:2px">${row.quedan}/${row.generado}</div>
+        <small style="color:var(--muted)">Canjes: ${canjeTxt}</small>
+      </div>
+      <button class="btn small secondary" onclick="event.stopPropagation();openBalance(${row.k.id})">Histórico</button>
+    </div>`;
+  }).join('')||'<div class="empty">Sin hijos</div>';
 }
-
-/* Historial del usuario actual (o todo si es admin) */
+function openBalance(id){
+  const k=memberById(id);
+  if(!k) return;
+  const led=kidLedger(id);
+  const quedan=Number(k.puntos)||0;
+  const generado=Math.max(led.generado,quedan);
+  document.getElementById('balanceTitle').textContent='Histórico de '+k.nombre;
+  document.getElementById('balanceSummary').textContent=`${quedan}/${generado} · generó ${generado} · canjeó ${led.canjeado} · penalización ${led.penalizado} · le quedan ${quedan}`;
+  const rows=led.moves.slice().reverse();
+  document.getElementById('balanceList').innerHTML=rows.length?rows.map(m=>{
+    const when=m.fecha?new Date(m.fecha).toLocaleString('es-CO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+    const sign=m.pts>0?'+':'';
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem"><strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(m.detalle)}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span></div>`;
+  }).join(''):'<div class="empty">Sin movimientos</div>';
+  openModal('modal-balance');
+}
 function renderHistory(){
   const u=currentUser();
   const items=isAdmin(u)?state.history:state.history.filter(h=>h.miembro_id===u.id);
-  document.getElementById('historyList').innerHTML=items.slice(0,20).map(h=>`<div style="font-size:.85rem;padding:4px 0;border-bottom:1px solid #eee">${h.texto}</div>`).join('')||'<div class="empty">Sin historial</div>';
+  const el=document.getElementById('historyList');
+  el.innerHTML=items.length?items.slice(0,30).map(h=>`<div style="font-size:.85rem;padding:6px 0;border-bottom:1px solid var(--border)">${esc(h.texto||'')}</div>`).join(''):'<div class="empty">Sin historial</div>';
 }
-
-/* Renderiza mensajes de chat */
+function fillChatTo(){
+  const sel=document.getElementById('chatTo');
+  if(!sel) return;
+  const prev=sel.value;
+  const u=currentUser();
+  sel.innerHTML='<option value="">Grupo familiar</option>'+state.members.filter(m=>m.id!==u.id).map(m=>`<option value="${m.id}">${face(m)} ${esc(m.nombre)}</option>`).join('');
+  if([].some.call(sel.options,o=>o.value===prev)) sel.value=prev;
+}
 function renderChat(){
-  const box=document.getElementById('chatMessages');
-  if(!box)return;
-  box.innerHTML=state.mensajes.map(m=>{
-    const me=m.de_id===state.currentUserId;
-    const from=state.members.find(x=>x.id===m.de_id);
-    return `<div class="chat-msg ${me?'me':'other'}">${me?'':(from?.nombre||'')+': '}${m.texto}</div>`;
+  const el=document.getElementById('chatMessages');
+  const u=currentUser();
+  if(!el||!u) return;
+  const selVal=document.getElementById('chatTo')?.value||'';
+  const msgs=state.mensajes.filter(m=>{
+    if(!selVal) return m.para_id==null;
+    const other=+selVal;
+    return (m.de_id===u.id&&m.para_id===other)||(m.de_id===other&&m.para_id===u.id);
+  }).slice().reverse();
+  if(!msgs.length){el.innerHTML='<div class="empty">'+(selVal?'Sin mensajes privados':'Sin mensajes del grupo')+'</div>';return;}
+  el.innerHTML=msgs.map(m=>{
+    const from=memberById(m.de_id);
+    const me=m.de_id===u.id;
+    const tag=m.para_id?'Privado':'Grupo';
+    return `<div class="chat-msg ${me?'me':'other'}"><small>${tag}${me?'':' · '+esc(from?.nombre||'')}</small><br>${esc(m.texto||'')}</div>`;
   }).join('');
-  box.scrollTop=box.scrollHeight;
+  el.scrollTop=el.scrollHeight;
 }
 
-/* Llena los selects dinámicos (miembros, plantillas, etc.) */
-function fillSelects(){
-  const members=state.members;
-  const kids=members.filter(isKid);
-  const admins=members.filter(isAdmin);
-  // Asignar tarea
-  const ta=document.getElementById('taskAssignTo');
-  if(ta)ta.innerHTML=kids.map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
-  // Plantillas
-  const tp=document.getElementById('taskPlantilla');
-  if(tp)tp.innerHTML='<option value="">-- personalizada --</option>'+state.plantillas.map(p=>`<option value="${p.id}">${p.titulo}</option>`).join('');
-  // Reset PIN
-  const rp=document.getElementById('resetPinMember');
-  if(rp)rp.innerHTML=kids.map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
-  // Ajuste de puntos
-  const am=document.getElementById('adjustMember');
-  if(am)am.innerHTML=kids.map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
+function updateDue(){
+  const r=document.getElementById('taskRecurrence').value;
+  const n=new Date();
+  if(r==='daily') n.setDate(n.getDate()+1);
+  else if(r==='weekly') n.setDate(n.getDate()+7);
+  else if(r==='monthly') n.setMonth(n.getMonth()+1);
+  else if(r==='quarterly') n.setMonth(n.getMonth()+3);
+  else n.setDate(n.getDate()+1);
+  n.setHours(20,0,0,0);
+  document.getElementById('taskDue').value=toLocalInput(n.toISOString());
+  const wrap=document.getElementById('taskCountWrap');
+  wrap.style.display=r==='once'?'none':'';
+  const help={
+    daily:'Cada número es un día. 7 crea siete tareas, una por día.',
+    weekly:'Cada número es una semana. 3 crea tres tareas, una por semana.',
+    monthly:'Cada número es un mes.',
+    quarterly:'Cada número es un trimestre.'
+  };
+  document.getElementById('taskCountHelp').textContent=help[r]||'';
+  if(r==='once') document.getElementById('taskCount').value='1';
 }
-
-/* ========== TAREAS ========== */
-/* Abre modal de nueva tarea */
-function openNewTask(){
+const PARENT_BUILTINS=[
+  {id:'b-salida',titulo:'Salida de pareja',puntos:20,recurrencia:'once',icono:'padre'},
+  {id:'b-cuentas',titulo:'Revisar cuentas de la casa',puntos:15,recurrencia:'monthly',icono:'padre'},
+  {id:'b-semana',titulo:'Organizar la semana',puntos:10,recurrencia:'weekly',icono:'padre'}
+];
+function prepareTaskForm(audiencia){
+  const saved=state.plantillas.filter(p=>audiencia==='padres'?p.icono==='padre':p.icono!=='padre');
+  const list=audiencia==='padres'?PARENT_BUILTINS.concat(saved):saved;
+  document.getElementById('taskPlantilla').innerHTML='<option value="">-- personalizada --</option>'+list.map(p=>`<option value="${p.id}">${esc(p.titulo)}</option>`).join('');
   document.getElementById('taskTitle').value='';
   document.getElementById('taskPoints').value='10';
-  document.getElementById('taskPenalty').value='2';
+  document.getElementById('taskRecurrence').value='once';
+  document.getElementById('taskCount').value='1';
+  document.getElementById('taskPenalty').value=state.config.puntos_penalizacion_dia_default||2;
   document.getElementById('taskSaveTemplate').checked=false;
   updateDue();
+}
+function openNewTask(audiencia){
+  taskCreateMode=audiencia==='padres'?'padres':'hijo';
+  const padres=taskCreateMode==='padres';
+  document.getElementById('taskModalTitle').textContent=padres?'Tarea entre padres':'Tarea para un hijo';
+  document.getElementById('taskAssignLabel').textContent=padres?'Para':'Hijo';
+  document.getElementById('taskModalHint').textContent=padres
+    ?'Esta tarea es solo entre ustedes. No se puede pasar a un hijo.'
+    :'Esta tarea es solo para hijos. No se puede pasar a papá o mamá. Una de una sola vez queda por activar.';
+  document.getElementById('taskAssignTo').innerHTML=padres?memberOptions(null,{onlyParents:true,excludeSelf:true}):memberOptions(null,{onlyKids:true});
+  prepareTaskForm(taskCreateMode);
   openModal('modal-tarea');
 }
-/* Calcula fecha límite según recurrencia */
-function updateDue(){
-  const rec=document.getElementById('taskRecurrence').value;
-  const now=new Date();
-  let d=new Date(now);
-  if(rec==='daily')d.setDate(d.getDate()+1);
-  else if(rec==='weekly')d.setDate(d.getDate()+7);
-  else if(rec==='monthly')d.setMonth(d.getMonth()+1);
-  else if(rec==='quarterly')d.setMonth(d.getMonth()+3);
-  else d.setDate(d.getDate()+1);
-  d.setHours(20,0,0,0);
-  document.getElementById('taskDue').value=d.toISOString().slice(0,16);
+function openSiblingTask(){
+  taskCreateMode='hermano';
+  document.getElementById('taskModalTitle').textContent='Tarea para un hermano';
+  document.getElementById('taskAssignLabel').textContent='Hermano';
+  document.getElementById('taskModalHint').textContent='No crea puntos nuevos. Si la acepta y papá o mamá la aprueban, esos puntos salen de ti y se los gana tu hermano. Si no la acepta, sigue siendo tuya.';
+  document.getElementById('taskAssignTo').innerHTML=memberOptions(null,{onlySiblings:true});
+  prepareTaskForm('hijo');
+  openModal('modal-tarea');
 }
-/* Aplica datos de una plantilla al formulario */
-function applyPlantilla(){
-  const id=+document.getElementById('taskPlantilla').value;
-  const p=state.plantillas.find(x=>x.id===id);
-  if(!p)return;
-  document.getElementById('taskTitle').value=p.titulo||'';
-  document.getElementById('taskPoints').value=p.puntos||10;
-  document.getElementById('taskRecurrence').value=p.recurrencia||'once';
-  updateDue();
-}
-/* Crea una nueva tarea */
 async function createTask(){
   const titulo=document.getElementById('taskTitle').value.trim();
-  if(!titulo)return showToast('Escribe un título');
+  if(!titulo) return showToast('Escribe un título');
   const asignado=+document.getElementById('taskAssignTo').value;
+  if(!asignado) return showToast('Elige a quién');
+  if(taskCreateMode==='hijo'&&isAdmin(memberById(asignado))) return showToast('Una tarea de hijos no se asigna a un padre');
+  if(taskCreateMode==='padres'&&!isAdmin(memberById(asignado))) return showToast('Una tarea de padres no se asigna a un hijo');
+  if(taskCreateMode==='padres'&&asignado===state.currentUserId) return showToast('No puedes asignarte una tarea a ti mismo');
   const puntos=+document.getElementById('taskPoints').value||10;
   const recurrencia=document.getElementById('taskRecurrence').value;
-  const fecha=document.getElementById('taskDue').value||null;
+  const fechaBase=document.getElementById('taskDue').value;
+  if(!fechaBase) return showToast('Elige la fecha de la primera');
   const penalizacion=+document.getElementById('taskPenalty').value||0;
   const saveTpl=document.getElementById('taskSaveTemplate').checked;
-  const {error}=await supabase.from('familia_tareas').insert({titulo,asignada_a:asignado,puntos,estado:'pendiente',recurrencia,fecha_limite:fecha,puntos_penalizacion_dia:penalizacion,creada_por:state.currentUserId});
-  if(error)return showToast('Error: '+error.message);
-  if(saveTpl)await supabase.from('familia_plantillas_tareas').insert({titulo,puntos,recurrencia}).catch(()=>{});
-  showToast('Tarea creada');
+  const veces=recurrencia==='once'?1:Math.min(31,Math.max(1,+document.getElementById('taskCount').value||1));
+  const start=new Date(fechaBase);
+  const asignadaEsPadre=isAdmin(memberById(asignado));
+  const rows=[];
+  for(let i=0;i<veces;i++){
+    const cuando=shiftDate(start, recurrencia, i).toISOString();
+    if(taskCreateMode==='hermano'){
+      rows.push({
+        titulo,asignada_a:state.currentUserId,para_quien:String(asignado),
+        es_transferencia:true,aceptada_receptor:false,transferencia_aprobada:false,
+        puntos,estado:'pendiente_transferencia',recurrencia,fecha_limite:cuando,
+        puntos_penalizacion_dia:penalizacion,creada_por:state.currentUserId
+      });
+    }else{
+      const estado=(recurrencia==='once'&&!asignadaEsPadre)?'borrador':'pendiente';
+      rows.push({
+        titulo,asignada_a:asignado,puntos,estado,recurrencia,fecha_limite:cuando,
+        puntos_penalizacion_dia:penalizacion,creada_por:state.currentUserId
+      });
+    }
+  }
+  const {error}=await supabase.from('familia_tareas').insert(rows);
+  if(error) return showToast('Error: '+error.message);
+  if(saveTpl) await supabase.from('familia_plantillas_tareas').insert({titulo,puntos,recurrencia,icono:taskCreateMode==='padres'?'padre':'hijo',creado_por:state.currentUserId});
+  showToast(veces>1?('Quedaron '+veces+' tareas programadas'):(rows[0].estado==='borrador'?'Tarea creada. Actívala cuando esté bien.':'Tarea creada'));
   closeModal('modal-tarea');
   loadAll();
 }
-/* Abre modal de evidencia para marcar tarea como hecha */
-function openEvidence(id){pendingTaskId=id;document.getElementById('evComment').value='';document.getElementById('evPhoto').value='';openModal('modal-evidencia')}
-/* Envía evidencia y marca tarea como esperando aprobación */
-async function submitEvidence(){
-  const comment=document.getElementById('evComment').value.trim();
-  await supabase.from('familia_tareas').update({estado:'esperando',comentario_completado:comment}).eq('id',pendingTaskId);
-  showToast('Enviado para aprobación');
-  closeModal('modal-evidencia');
-  loadAll();
+function applyPlantilla(){
+  const id=document.getElementById('taskPlantilla').value;
+  if(!id) return;
+  const p=state.plantillas.find(x=>String(x.id)===String(id))||PARENT_BUILTINS.find(x=>String(x.id)===String(id));
+  if(!p) return;
+  document.getElementById('taskTitle').value=p.titulo||'';
+  document.getElementById('taskPoints').value=p.puntos||10;
+  if(p.recurrencia) document.getElementById('taskRecurrence').value=p.recurrencia;
+  updateDue();
 }
-/* Abre modal de aprobación */
-function openApproval(id){pendingApprovalId=id;document.getElementById('approvalComment').value='';openModal('modal-aprobacion')}
-/* Confirma aprobación y suma puntos */
-async function confirmApproval(){
-  const t=state.tasks.find(x=>x.id===pendingApprovalId);
-  if(!t)return;
-  const comment=document.getElementById('approvalComment').value.trim();
-  await supabase.from('familia_tareas').update({estado:'completada',comentario_aprobacion:comment}).eq('id',pendingApprovalId);
-  await supabase.from('familia_miembros').update({puntos:(state.members.find(m=>m.id===t.asignada_a)?.puntos||0)+t.puntos}).eq('id',t.asignada_a);
-  await supabase.from('familia_historial').insert({miembro_id:t.asignada_a,texto:`Aprobada: ${t.titulo} (+${t.puntos} pts)`});
-  showToast('Aprobada');
-  closeModal('modal-aprobacion');
+async function activateTask(id){
+  const {error}=await supabase.from('familia_tareas').update({estado:'pendiente'}).eq('id',id);
+  if(error) return showToast(error.message);
+  showToast('Tarea activada');
+  closeModal('modal-ficha');
   loadAll();
 }
 
-/* ========== PREMIOS ========== */
-/* Abre modal de nuevo premio */
+function openTaskCard(id){
+  const t=state.tasks.find(x=>x.id===id);
+  const u=currentUser();
+  if(!t||!u||isGoal(t)) return;
+  const admin=isAdmin(u);
+  const parentTask=taskAudience(t)==='parent';
+  document.getElementById('fichaTitle').textContent=t.titulo||'Tarea';
+  const days=lateDays(t);
+  document.getElementById('fichaStatus').innerHTML=`<span class="${pillClass(t)}">${esc(statusLabel(t))}</span>`+(days?` <span class="pill danger">Atraso ${days} d · ya se resta del saldo</span>`:'');
+  document.getElementById('fichaNombre').value=t.titulo||'';
+  document.getElementById('fichaPuntos').value=t.puntos||0;
+  document.getElementById('fichaAsignada').innerHTML=parentTask?memberOptions(t.asignada_a,{onlyParents:true,excludeSelf:true}):memberOptions(t.asignada_a,{onlyKids:true});
+  document.getElementById('fichaRec').value=t.recurrencia||'once';
+  document.getElementById('fichaDue').value=toLocalInput(t.fecha_limite);
+  document.getElementById('fichaPen').value=t.puntos_penalizacion_dia||0;
+  const canEdit=admin&&!parentTask;
+  ['fichaNombre','fichaPuntos','fichaAsignada','fichaRec','fichaDue','fichaPen'].forEach(fid=>{
+    document.getElementById(fid).disabled=!canEdit;
+  });
+  const ev=document.getElementById('fichaEvidence');
+  const hasEv=!!(t.comentario_completado||t.foto_url);
+  ev.style.display=hasEv?'':'none';
+  document.getElementById('fichaComment').textContent=t.comentario_completado||'';
+  const img=document.getElementById('fichaPhoto');
+  if(t.foto_url){img.src=t.foto_url;img.style.display='';}else{img.style.display='none';img.removeAttribute('src');}
+  const spouseTurn=parentTask&&t.estado==='esperando_aprobacion'&&admin&&u.id!==t.asignada_a;
+  const kidTurn=admin&&!parentTask&&t.estado==='esperando_aprobacion';
+  const box=document.getElementById('fichaApprovalBox');
+  box.style.display=(spouseTurn||kidTurn)?'':'none';
+  document.getElementById('fichaApprovalComment').value='';
+  const acts=[];
+  if(canEdit) acts.push(`<button class="btn" onclick="saveTaskFicha(${t.id})">Guardar cambios</button>`);
+  if(canEdit&&t.estado==='borrador') acts.push(`<button class="btn success" onclick="activateTask(${t.id})">Activar tarea</button>`);
+  if(t.estado==='pendiente'&&t.asignada_a===u.id) acts.push(`<button class="btn success" onclick="openEvidence(${t.id})">Ya la hice</button>`);
+  if(t.estado==='pendiente'&&isKid(u)&&t.asignada_a===u.id&&!t.es_transferencia) acts.push(`<button class="btn secondary" onclick="openTransfer(${t.id})">Pasar a un hermano</button>`);
+  if(t.estado==='pendiente_transferencia'&&Number(t.para_quien)===u.id){
+    acts.push(`<button class="btn" onclick="acceptTransfer(${t.id})">Aceptar tarea</button>`);
+    acts.push(`<button class="btn secondary" onclick="rejectTransfer(${t.id})">No la acepto</button>`);
+  }
+  if(t.estado==='transferencia_por_aprobar'&&admin){
+    acts.push(`<button class="btn" onclick="approveTransfer(${t.id})">Aprobar traspaso</button>`);
+    acts.push(`<button class="btn secondary" onclick="rejectTransfer(${t.id})">Rechazar traspaso</button>`);
+  }
+  if(spouseTurn){
+    const did=memberById(t.asignada_a);
+    acts.push(`<button class="btn success" onclick="confirmApproval(${t.id})">Aprobar a ${esc(did?.nombre||'tu '+spouseLabel(u))}</button>`);
+    acts.push(`<button class="btn secondary" onclick="returnTask(${t.id})">Pedir que la rehaga</button>`);
+  }
+  if(kidTurn){
+    acts.push(`<button class="btn success" onclick="confirmApproval(${t.id})">Aprobar y sumar puntos</button>`);
+    acts.push(`<button class="btn secondary" onclick="returnTask(${t.id})">Devolver para rehacer</button>`);
+  }
+  if(parentTask&&t.estado==='esperando_aprobacion'&&u.id===t.asignada_a){
+    const s=otherParent(u.id);
+    acts.push(`<p style="font-size:.85rem;color:var(--muted)">Esperando la aprobación de ${esc(s?.nombre||('tu '+spouseLabel(u)))}.</p>`);
+  }
+  document.getElementById('fichaActions').innerHTML=acts.join('');
+  openModal('modal-ficha');
+}
+async function saveTaskFicha(id){
+  const t=state.tasks.find(x=>x.id===id);
+  if(t&&taskAudience(t)==='parent') return showToast('Las tareas entre padres no se editan aquí');
+  const titulo=document.getElementById('fichaNombre').value.trim();
+  if(!titulo) return showToast('Escribe un título');
+  const asignada=+document.getElementById('fichaAsignada').value;
+  const dest=memberById(asignada);
+  if(!dest||isAdmin(dest)) return showToast('Una tarea de hijos no se puede pasar a un padre');
+  const payload={
+    titulo,
+    puntos:+document.getElementById('fichaPuntos').value||0,
+    asignada_a:asignada,
+    recurrencia:document.getElementById('fichaRec').value,
+    fecha_limite:fromLocalInput(document.getElementById('fichaDue').value),
+    puntos_penalizacion_dia:+document.getElementById('fichaPen').value||0
+  };
+  const {error}=await supabase.from('familia_tareas').update(payload).eq('id',id);
+  if(error) return showToast(error.message);
+  showToast('Tarea actualizada');
+  closeModal('modal-ficha');
+  loadAll();
+}
+function openEvidence(id){
+  pendingTaskId=id;
+  const t=state.tasks.find(x=>x.id===id);
+  const u=currentUser();
+  const hint=document.getElementById('evidenceHint');
+  if(t&&taskAudience(t)==='parent'){
+    const s=otherParent(u?.id);
+    hint.textContent='Pasa a aprobación de '+(s?s.nombre:('tu '+spouseLabel(u)))+'.';
+  }else{
+    hint.textContent='Queda pendiente de aprobación de papá o mamá.';
+  }
+  document.getElementById('evComment').value='';
+  document.getElementById('evPhoto').value='';
+  closeModal('modal-ficha');
+  openModal('modal-evidencia');
+}
+function fileToDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const max=720;
+      let w=img.width,h=img.height;
+      if(w>max){h=Math.round(h*max/w);w=max;}
+      const c=document.createElement('canvas');
+      c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg',0.62));
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('foto'));};
+    img.src=url;
+  });
+}
+async function submitEvidence(){
+  if(!pendingTaskId) return;
+  const comment=document.getElementById('evComment').value.trim();
+  const file=document.getElementById('evPhoto').files[0];
+  const payload={estado:'esperando_aprobacion',comentario_completado:comment||null};
+  if(file){
+    try{payload.foto_url=await fileToDataUrl(file);}catch(e){return showToast('No se pudo leer la foto');}
+  }
+  const {error}=await supabase.from('familia_tareas').update(payload).eq('id',pendingTaskId);
+  if(error) return showToast(error.message);
+  const t=state.tasks.find(x=>x.id===pendingTaskId);
+  const u=currentUser();
+  showToast(t&&taskAudience(t)==='parent'?('Quedó para '+(otherParent(u?.id)?.nombre||'tu esposo/a')):'Quedó pendiente de aprobación');
+  closeModal('modal-evidencia');
+  pendingTaskId=null;
+  loadAll();
+}
+async function confirmApproval(id){
+  const t=state.tasks.find(x=>x.id===id);
+  const u=currentUser();
+  if(!t||!u) return;
+  if(taskAudience(t)==='parent'&&u.id===t.asignada_a) return showToast('La aprueba tu esposo o esposa, no tú');
+  const comment=document.getElementById('fichaApprovalComment').value.trim();
+  const pts=Number(t.puntos)||0;
+  const who=memberById(t.asignada_a);
+  const creator=memberById(t.creada_por);
+  const siblingPay=creator&&isKid(creator)&&who&&creator.id!==who.id;
+  const {error}=await supabase.from('familia_tareas').update({estado:'completada',comentario_aprobacion:comment||null}).eq('id',id);
+  if(error) return showToast(error.message);
+  if(siblingPay){
+    await supabase.from('familia_miembros').update({puntos:(Number(creator.puntos)||0)-pts}).eq('id',creator.id);
+    await supabase.from('familia_miembros').update({puntos:(Number(who.puntos)||0)+pts}).eq('id',who.id);
+    await supabase.from('familia_historial').insert([
+      {miembro_id:creator.id,texto:`Pasó ${pts} pts a ${who.nombre} por: ${t.titulo}`},
+      {miembro_id:who.id,texto:`Recibió ${pts} pts de ${creator.nombre} por: ${t.titulo}${comment?' · '+comment:''}`}
+    ]);
+  }else if(who){
+    await supabase.from('familia_miembros').update({puntos:(Number(who.puntos)||0)+pts}).eq('id',who.id);
+    const whoWord=taskAudience(t)==='parent'?'Aprobada entre padres: ':'Aprobada: ';
+    await supabase.from('familia_historial').insert({miembro_id:who.id,texto:`${whoWord}${t.titulo} (+${pts} pts)${comment?' · '+comment:''}`});
+  }
+  showToast('Aprobada');
+  closeModal('modal-ficha');
+  loadAll();
+}
+async function returnTask(id){
+  const t=state.tasks.find(x=>x.id===id);
+  const comment=document.getElementById('fichaApprovalComment').value.trim();
+  const {error}=await supabase.from('familia_tareas').update({estado:'pendiente',comentario_aprobacion:comment||null}).eq('id',id);
+  if(error) return showToast(error.message);
+  await supabase.from('familia_historial').insert({miembro_id:t?.asignada_a,texto:`Devuelta: ${t?.titulo||'tarea'}${comment?' · '+comment:''}`});
+  showToast('Devuelta para rehacer');
+  closeModal('modal-ficha');
+  loadAll();
+}
+
+function openTransfer(id){
+  pendingTransferId=id;
+  const u=currentUser();
+  const siblings=state.members.filter(m=>isKid(m)&&m.id!==u.id);
+  if(!siblings.length) return showToast('No hay hermanos');
+  document.getElementById('transferTo').innerHTML=siblings.map(m=>`<option value="${m.id}">${m.emoji||''} ${esc(m.nombre)}</option>`).join('');
+  closeModal('modal-ficha');
+  openModal('modal-transferir');
+}
+async function confirmTransfer(){
+  if(!pendingTransferId) return;
+  const toId=+document.getElementById('transferTo').value;
+  if(!toId) return showToast('Selecciona un hermano');
+  const {error}=await supabase.from('familia_tareas').update({
+    para_quien:String(toId),es_transferencia:true,aceptada_receptor:false,transferencia_aprobada:false,estado:'pendiente_transferencia'
+  }).eq('id',pendingTransferId);
+  if(error) return showToast(error.message);
+  showToast('Enviada. Si no la acepta, sigue siendo tuya.');
+  closeModal('modal-transferir');
+  pendingTransferId=null;
+  loadAll();
+}
+async function acceptTransfer(id){
+  const {error}=await supabase.from('familia_tareas').update({aceptada_receptor:true,estado:'transferencia_por_aprobar'}).eq('id',id);
+  if(error) return showToast(error.message);
+  showToast('Aceptada. Falta que papá o mamá la aprueben.');
+  closeModal('modal-ficha');
+  loadAll();
+}
+async function approveTransfer(id){
+  const t=state.tasks.find(x=>x.id===id);
+  if(!t) return;
+  const toId=Number(t.para_quien);
+  if(!toId) return showToast('No hay hermano destino');
+  const {error}=await supabase.from('familia_tareas').update({
+    asignada_a:toId,para_quien:null,transferencia_aprobada:true,es_transferencia:true,estado:'pendiente'
+  }).eq('id',id);
+  if(error) return showToast(error.message);
+  const dest=memberById(toId);
+  await supabase.from('familia_historial').insert({miembro_id:toId,texto:`Traspaso aprobado: ${t.titulo} ahora es de ${dest?.nombre||'hermano'}`});
+  showToast('Traspaso aprobado');
+  closeModal('modal-ficha');
+  loadAll();
+}
+async function rejectTransfer(id){
+  const t=state.tasks.find(x=>x.id===id);
+  const {error}=await supabase.from('familia_tareas').update({
+    para_quien:null,es_transferencia:false,aceptada_receptor:false,transferencia_aprobada:false,estado:'pendiente'
+  }).eq('id',id);
+  if(error) return showToast(error.message);
+  showToast('La tarea se queda con '+((memberById(t?.asignada_a)?.nombre)||'quien la tenía'));
+  closeModal('modal-ficha');
+  loadAll();
+}
+
+function openPenalty(){
+  document.getElementById('penaltyMember').innerHTML=state.members.filter(isKid).map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('');
+  document.getElementById('penaltyPoints').value=5;
+  document.getElementById('penaltyReason').value='';
+  openModal('modal-penalizacion');
+}
+async function applyPenalty(){
+  const mid=+document.getElementById('penaltyMember').value;
+  const pts=+document.getElementById('penaltyPoints').value||0;
+  const motivo=document.getElementById('penaltyReason').value.trim();
+  if(!mid||pts<=0||!motivo) return showToast('Completa hijo, puntos y motivo');
+  const m=memberById(mid);
+  const {error}=await supabase.from('familia_miembros').update({puntos:(Number(m?.puntos)||0)-pts}).eq('id',mid);
+  if(error) return showToast(error.message);
+  await supabase.from('familia_historial').insert({miembro_id:mid,texto:`Penalización: ${motivo} (-${pts} pts)`});
+  showToast('Penalización aplicada');
+  closeModal('modal-penalizacion');
+  loadAll();
+}
+
 function openNewReward(){
+  editingRewardId=null;
+  document.getElementById('rewardModalTitle').textContent='Nuevo premio';
   document.getElementById('rewardName').value='';
   document.getElementById('rewardCost').value='50';
   document.getElementById('rewardStock').value='-1';
+  document.getElementById('rewardActive').checked=true;
+  document.getElementById('rewardEmoji').value='🎁';
+  document.getElementById('rewardFalta').textContent='';
+  ['rewardName','rewardCost','rewardStock','rewardActive'].forEach(id=>document.getElementById(id).disabled=false);
   fillEmojiGrid('rewardEmojiGrid','rewardEmoji');
+  document.getElementById('rewardActions').innerHTML='<button class="btn" onclick="saveReward()">Crear</button>';
   openModal('modal-premio');
 }
-/* Crea un premio */
-async function createReward(){
+function openReward(id){
+  const r=state.rewards.find(x=>x.id===id);
+  const u=currentUser();
+  if(!r||!u) return;
+  editingRewardId=id;
+  const admin=isAdmin(u);
+  document.getElementById('rewardModalTitle').textContent=r.nombre||'Premio';
+  document.getElementById('rewardName').value=r.nombre||'';
+  document.getElementById('rewardCost').value=r.costo||0;
+  document.getElementById('rewardStock').value=r.stock??-1;
+  document.getElementById('rewardActive').checked=r.activo!==false;
+  document.getElementById('rewardEmoji').value=r.icono||'🎁';
+  ['rewardName','rewardCost','rewardStock','rewardActive'].forEach(fid=>document.getElementById(fid).disabled=!admin);
+  fillEmojiGrid('rewardEmojiGrid','rewardEmoji');
+  const falta=Math.max(0,(r.costo||0)-(u.puntos||0));
+  document.getElementById('rewardFalta').innerHTML=falta>0?`<strong style="color:#ef4444">Faltan ${falta} pts</strong>`:'<strong style="color:#10b981">Tienes puntos suficientes</strong>';
+  const acts=[];
+  if(admin) acts.push('<button class="btn" onclick="saveReward()">Guardar cambios</button>');
+  if((u.puntos||0)>=(r.costo||0)&&r.activo!==false&&r.stock!==0) acts.push(`<button class="btn success" onclick="redeemReward(${r.id})">Canjear</button>`);
+  document.getElementById('rewardActions').innerHTML=acts.join('');
+  openModal('modal-premio');
+}
+async function saveReward(){
   const nombre=document.getElementById('rewardName').value.trim();
-  if(!nombre)return showToast('Escribe un nombre');
-  const costo=+document.getElementById('rewardCost').value||50;
-  const stock=+document.getElementById('rewardStock').value;
-  const icono=document.getElementById('rewardEmoji').value||'🎁';
-  const {error}=await supabase.from('familia_premios').insert({nombre,costo,stock,icono,creado_por:state.currentUserId,activo:true});
-  if(error)return showToast('Error: '+error.message);
-  showToast('Premio creado');
+  if(!nombre) return showToast('Escribe un nombre');
+  const payload={
+    nombre,
+    costo:+document.getElementById('rewardCost').value||0,
+    stock:+document.getElementById('rewardStock').value,
+    icono:document.getElementById('rewardEmoji').value||'🎁',
+    activo:document.getElementById('rewardActive').checked
+  };
+  let error;
+  if(editingRewardId){
+    ({error}=await supabase.from('familia_premios').update(payload).eq('id',editingRewardId));
+  }else{
+    ({error}=await supabase.from('familia_premios').insert({...payload,creado_por:state.currentUserId}));
+  }
+  if(error) return showToast(error.message);
+  showToast(editingRewardId?'Premio actualizado':'Premio creado');
   closeModal('modal-premio');
   loadAll();
 }
-/* Canjea un premio */
 async function redeemReward(id){
-  const r=state.rewards.find(x=>x.id===id);
   const u=currentUser();
-  if(!r||u.puntos<r.costo)return showToast('Puntos insuficientes');
-  await supabase.from('familia_miembros').update({puntos:u.puntos-r.costo}).eq('id',u.id);
-  if(r.stock>0)await supabase.from('familia_premios').update({stock:r.stock-1}).eq('id',id);
+  const r=state.rewards.find(x=>x.id===id);
+  if(!r||(u.puntos||0)<r.costo) return showToast('Puntos insuficientes');
+  if(r.stock===0) return showToast('Sin stock');
+  const {error}=await supabase.from('familia_miembros').update({puntos:u.puntos-r.costo}).eq('id',u.id);
+  if(error) return showToast(error.message);
+  if(r.stock>0) await supabase.from('familia_premios').update({stock:r.stock-1}).eq('id',r.id);
   await supabase.from('familia_historial').insert({miembro_id:u.id,texto:`Canjeó: ${r.nombre} (-${r.costo} pts)`});
   showToast('Canjeado');
+  closeModal('modal-premio');
   loadAll();
 }
+function openRewardHistory(){
+  const u=currentUser();
+  const canjes=(isAdmin(u)?state.history:state.history.filter(h=>h.miembro_id===u.id)).filter(h=>/canje/i.test(h.texto||''));
+  document.getElementById('rewardHistoryModal').innerHTML=canjes.length?canjes.map(h=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">${esc(h.texto)}</div>`).join(''):'<div class="empty">Sin canjes</div>';
+  openModal('modal-historial-premios');
+}
 
-/* ========== PERFIL ========== */
-/* Abre modal de editar perfil */
 function openProfile(){
   const u=currentUser();
   document.getElementById('profName').value=u.nombre||'';
   document.getElementById('profFrase').value=u.frase||'';
-  document.getElementById('profEmoji').value=u.emoji||'';
-  document.getElementById('profColor').value=u.color||'#6366f1';
   document.getElementById('profBirth').value=u.fecha_nacimiento||'';
   document.getElementById('profPin').value='';
   document.getElementById('profPin2').value='';
+  document.getElementById('profEmoji').value=u.emoji||'👤';
+  document.getElementById('profColor').value=u.color||'#6366f1';
   fillEmojiGrid('profileEmojiGrid','profEmoji');
+  fillFigureGrid();
   fillColorGrid('profileColorGrid','profColor');
+  const fg=document.getElementById('familyNameGroup');
+  fg.style.display=isAdmin(u)?'':'none';
+  document.getElementById('profFamilyName').value=(state.config.nombre_familia||'').replace(/^familia\s*/i,'').trim();
   openModal('modal-perfil');
 }
-/* Guarda cambios de perfil */
 async function saveProfile(){
   const u=currentUser();
   const nombre=document.getElementById('profName').value.trim();
@@ -509,261 +1171,149 @@ async function saveProfile(){
   const emoji=document.getElementById('profEmoji').value;
   const color=document.getElementById('profColor').value;
   const birth=document.getElementById('profBirth').value||null;
-  const pin=document.getElementById('profPin').value;
-  const pin2=document.getElementById('profPin2').value;
-  const update={nombre,frase,emoji,color,fecha_nacimiento:birth};
-  if(pin){
-    if(pin!==pin2)return showToast('Los PIN no coinciden');
-    update.pin=pin;
+  const pin=document.getElementById('profPin').value.trim();
+  const pin2=document.getElementById('profPin2').value.trim();
+  if(pin&&pin!==pin2) return showToast('Los PIN no coinciden');
+  const upd={nombre,frase,emoji,color,fecha_nacimiento:birth};
+  if(pin) upd.pin=pin;
+  const {error}=await supabase.from('familia_miembros').update(upd).eq('id',u.id);
+  if(error) return showToast(error.message);
+  if(isAdmin(u)){
+    const extra=document.getElementById('profFamilyName').value.trim().replace(/^familia\s*/i,'');
+    const full=extra?('Familia '+extra):'Familia';
+    await supabase.from('familia_config').update({nombre_familia:full,actualizado_en:new Date().toISOString()}).eq('id',state.config.id||1);
   }
-  await supabase.from('familia_miembros').update(update).eq('id',u.id);
-  showToast('Perfil guardado');
+  showToast('Perfil actualizado');
   closeModal('modal-perfil');
   loadAll();
 }
 
-/* ========== LOGIN ========== */
-/* Intenta login con PIN */
-async function doLogin(){
-  const id=+document.getElementById('loginMember').value;
-  const pin=document.getElementById('loginPin').value;
-  const m=state.members.find(x=>x.id===id);
-  if(!m)return showToast('Selecciona un miembro');
-  if((m.pin||'oooo')!==pin)return showToast('PIN incorrecto');
-  state.currentUserId=id;
-  localStorage.setItem('familia_current',id);
-  document.getElementById('loginScreen').style.display='none';
-  document.getElementById('mainApp').style.display='';
-  render();
-}
-/* Cambio rápido de usuario para pruebas */
-function quickSwitch(){
-  const id=+document.getElementById('loginMember').value;
-  state.currentUserId=id;
-  localStorage.setItem('familia_current',id);
-  document.getElementById('loginScreen').style.display='none';
-  document.getElementById('mainApp').style.display='';
-  render();
-  showToast('Cambio rápido');
-}
-
-/* ========== UTILIDADES ========== */
-/* Llena grilla de emojis */
-function fillEmojiGrid(gridId,inputId){
-  const grid=document.getElementById(gridId);
-  grid.innerHTML=EMOJIS.map(e=>`<button type="button" class="emoji-btn" onclick="selectEmoji('${e}','${inputId}',this)">${e}</button>`).join('');
-}
-/* Selecciona un emoji */
-function selectEmoji(e,inputId,btn){
-  document.getElementById(inputId).value=e;
-  btn.parentElement.querySelectorAll('.emoji-btn').forEach(b=>b.classList.remove('selected'));
-  btn.classList.add('selected');
-}
-/* Llena grilla de colores */
-const COLORS=['#6366f1','#10b981','#ef4444','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16'];
-function fillColorGrid(gridId,inputId){
-  const grid=document.getElementById(gridId);
-  grid.innerHTML=COLORS.map(c=>`<button type="button" class="color-btn" style="background:${c}" onclick="selectColor('${c}','${inputId}',this)"></button>`).join('');
-}
-/* Selecciona un color */
-function selectColor(c,inputId,btn){
-  document.getElementById(inputId).value=c;
-  btn.parentElement.querySelectorAll('.color-btn').forEach(b=>b.classList.remove('selected'));
-  btn.classList.add('selected');
-}
-
-/* ========== TRANSFERENCIA ========== */
-let pendingTransferId=null;
-function openTransfer(id){
-  pendingTransferId=id;
-  const u=currentUser();
-  const others=state.members.filter(m=>isKid(m)&&m.id!==u.id);
-  document.getElementById('transferTo').innerHTML=others.map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
-  openModal('modal-transferir');
-}
-async function confirmTransfer(){
-  const to=+document.getElementById('transferTo').value;
-  await supabase.from('familia_tareas').update({asignada_a:to,es_transferencia:true,aceptada_receptor:false}).eq('id',pendingTransferId);
-  showToast('Tarea transferida');
-  closeModal('modal-transferir');
-  loadAll();
-}
-
-/* ========== CONSECUENCIA ========== */
-async function adjustPoints(){
-  const mid=+document.getElementById('adjustMember').value;
-  const pts=+document.getElementById('adjustPoints').value||0;
-  const reason=document.getElementById('adjustReason').value.trim()||'Consecuencia';
-  const m=state.members.find(x=>x.id===mid);
-  if(!m)return;
-  await supabase.from('familia_miembros').update({puntos:Math.max(0,(m.puntos||0)-pts)}).eq('id',mid);
-  await supabase.from('familia_historial').insert({miembro_id:mid,texto:`Consecuencia: ${reason} (-${pts} pts)`});
-  showToast('Aplicado');
-  closeModal('modal-puntos');
-  loadAll();
-}
-
-/* ========== RESET ========== */
 async function confirmResetAll(){
-  if(!confirm('Esto borrará puntos, historial y tareas actuales. ¿Continuar?'))return;
-  await supabase.from('familia_miembros').update({puntos:0}).neq('id',0);
-  await supabase.from('familia_historial').delete().neq('id',0);
+  if(!confirm('Esto borra puntos, historial y tareas actuales. ¿Continuar?')) return;
   await supabase.from('familia_tareas').delete().neq('id',0);
+  await supabase.from('familia_historial').delete().neq('id',0);
+  await supabase.from('familia_miembros').update({puntos:0,puntos_historicos:0}).neq('id',0);
   showToast('Reseteado');
   loadAll();
 }
 async function resetOneKidPin(){
-  const mid=+document.getElementById('resetPinMember').value;
-  await supabase.from('familia_miembros').update({pin:'oooo'}).eq('id',mid);
+  const id=+document.getElementById('resetPinMember').value;
+  if(!id) return;
+  await supabase.from('familia_miembros').update({pin:'oooo'}).eq('id',id);
   showToast('PIN reseteado a oooo');
 }
-
-/* ========== HISTORIAL PREMIOS ========== */
-function openRewardHistory(){
+function renderGoals(){
   const u=currentUser();
-  const items=isAdmin(u)?state.history:state.history.filter(h=>h.miembro_id===u.id&&/canje/i.test(h.texto));
-  document.getElementById('rewardHistoryModal').innerHTML=items.map(h=>`<div style="padding:6px 0;border-bottom:1px solid #eee">${h.texto}</div>`).join('')||'<div class="empty">Sin canjes</div>';
-  openModal('modal-historial-premios');
+  const el=document.getElementById('goalList');
+  if(!el||!u) return;
+  const goals=state.tasks.filter(t=>isGoal(t)&&(t.asignada_a===u.id||isAdmin(u))&&t.estado!=='completada');
+  el.innerHTML=goals.length?goals.map(g=>{
+    const who=memberById(g.asignada_a);
+    const have=who?.puntos||0;
+    const pct=Math.max(0,Math.min(100,Math.round(have/Math.max(1,g.puntos)*100)));
+    return `<div class="goal-item"><strong>${esc(g.titulo)}</strong>${isAdmin(u)&&g.asignada_a!==u.id?' · '+esc(who?.nombre||''):''}<br><small>${have} / ${g.puntos} pts · ${pct}%</small></div>`;
+  }).join(''):'<div class="empty">Sin metas todavía</div>';
 }
-
-/* ========== CATÁLOGOS ========== */
-async function loadTaskCatalog(){
-  const catalog=[
-    {titulo:'Hacer la cama',puntos:5,recurrencia:'daily'},
-    {titulo:'Ordenar el cuarto',puntos:10,recurrencia:'daily'},
-    {titulo:'Lavar los platos',puntos:8,recurrencia:'daily'},
-    {titulo:'Sacar la basura',puntos:5,recurrencia:'daily'},
-    {titulo:'Hacer la tarea escolar',puntos:15,recurrencia:'daily'},
-    {titulo:'Barrer la casa',puntos:12,recurrencia:'weekly'},
-    {titulo:'Cortar el césped',puntos:30,recurrencia:'weekly'},
-    {titulo:'Limpiar el baño',puntos:20,recurrencia:'weekly'}
-  ];
-  for(const c of catalog){
-    await supabase.from('familia_plantillas_tareas').insert(c).catch(()=>{});
-  }
-  showToast('Catálogo cargado');
+async function createGoal(){
+  const titulo=document.getElementById('goalTitle').value.trim();
+  const puntos=+document.getElementById('goalPoints').value||0;
+  if(!titulo||puntos<=0) return showToast('Escribe la meta y los puntos');
+  const {error}=await supabase.from('familia_tareas').insert({
+    titulo,puntos,descripcion:'META',asignada_a:state.currentUserId,creada_por:state.currentUserId,
+    estado:'pendiente',recurrencia:'once'
+  });
+  if(error) return showToast(error.message);
+  document.getElementById('goalTitle').value='';
+  showToast('Meta guardada');
   loadAll();
 }
-async function loadRewardCatalog(){
-  const catalog=[
-    {nombre:'30 min de pantalla extra',costo:30,icono:'📱'},
-    {nombre:'Elegir la cena',costo:40,icono:'🍝'},
-    {nombre:'Salida al parque',costo:80,icono:'🌳'},
-    {nombre:'Helado',costo:25,icono:'🍦'},
-    {nombre:'Día sin hacer la cama',costo:50,icono:'😴'},
-    {nombre:'Película familiar',costo:60,icono:'🎬'}
+function renderBadges(){
+  const u=currentUser();
+  const el=document.getElementById('badgeList');
+  if(!el||!u) return;
+  const mine=state.history.filter(h=>h.miembro_id===u.id);
+  const done=mine.filter(h=>/^Aprobada/.test(h.texto||'')).length;
+  const canjes=mine.filter(h=>/canje/i.test(h.texto||'')).length;
+  const items=[
+    ['Primera tarea',done>=1],
+    ['5 tareas',done>=5],
+    ['10 tareas',done>=10],
+    ['50 puntos',(u.puntos||0)>=50],
+    ['100 puntos',(u.puntos||0)>=100],
+    ['Primer canje',canjes>=1]
   ];
-  for(const c of catalog){
-    await supabase.from('familia_premios').insert({...c,activo:true,stock:-1,creado_por:state.currentUserId}).catch(()=>{});
-  }
-  showToast('Catálogo de premios cargado');
-  loadAll();
+  el.innerHTML=items.map(([name,on])=>`<div class="badge-item${on?'':' off'}">${on?'🏅':'🔒'} ${esc(name)}</div>`).join('');
 }
-
-/* ========== CAMBIAR USUARIO ========== */
 function openSwitchUser(){
-  const list=document.getElementById('userSelectList');
-  list.innerHTML=state.members.map(m=>`<div class="member-item" onclick="switchTo(${m.id})" style="cursor:pointer">${m.emoji||''} ${m.nombre}</div>`).join('');
+  document.getElementById('userSelectList').innerHTML=state.members.map(m=>`<div class="member-item" onclick="switchTo(${m.id})" style="cursor:pointer">${face(m)} ${esc(m.nombre)}</div>`).join('');
   openModal('modal-usuario');
 }
-/* Cambia temporalmente al usuario seleccionado */
 function switchTo(id){
+  if(!originalAdminId&&isAdmin(currentUser())) originalAdminId=state.currentUserId;
   state.currentUserId=id;
   closeModal('modal-usuario');
   render();
-  showToast('Viendo como '+state.members.find(m=>m.id===id)?.nombre);
+  showToast('Viendo como '+(memberById(id)?.nombre||''));
+}
+function backToDad(){
+  if(!originalAdminId) return;
+  state.currentUserId=originalAdminId;
+  originalAdminId=null;
+  render();
+  showToast('Volviste a tu usuario');
 }
 
-/* ========== CHAT ========== */
-/* Envía un mensaje al chat familiar */
 async function sendMessage(){
   const txt=document.getElementById('chatInput').value.trim();
-  if(!txt)return;
-  const to=document.getElementById('chatTo')?.value||null;
-  await supabase.from('familia_mensajes').insert({de_id:state.currentUserId,para_id:to?+to:null,texto:txt});
+  if(!txt) return;
+  const to=document.getElementById('chatTo').value;
+  const {error}=await supabase.from('familia_mensajes').insert({
+    de_id:state.currentUserId,
+    para_id:to?+to:null,
+    texto:txt
+  });
+  if(error) return showToast(error.message);
   document.getElementById('chatInput').value='';
-  showToast('Enviado');
   loadAll();
 }
 
-/* ========== INICIO ========== */
-/* Inicializa Supabase y restaura sesión */
+function doLogin(){
+  const id=+document.getElementById('loginMember').value;
+  const pin=document.getElementById('loginPin').value;
+  const m=state.members.find(x=>x.id===id);
+  if(!m) return showToast('Selecciona un miembro');
+  if((m.pin||'oooo')!==pin) return showToast('PIN incorrecto');
+  enterAs(id);
+}
+function enterAs(id){
+  state.currentUserId=id;
+  originalAdminId=null;
+  localStorage.setItem('familia_current',id);
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('mainApp').style.display='flex';
+  render();
+}
+
 async function init(){
+  if(!window.supabase){
+    document.getElementById('loginScreen').insertAdjacentHTML('beforeend','<p style="color:#ef4444;margin-top:12px">No cargó la conexión. Recarga la página.</p>');
+    return;
+  }
   supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
   await loadAll();
   const sel=document.getElementById('loginMember');
-  sel.innerHTML=state.members.map(m=>`<option value="${m.id}">${m.emoji||''} ${m.nombre}</option>`).join('');
+  sel.innerHTML=state.members.map(m=>`<option value="${m.id}">${face(m)} ${esc(m.nombre)}</option>`).join('');
   const saved=+localStorage.getItem('familia_current');
-  if(saved&&state.members.find(m=>m.id===saved)){
-    state.currentUserId=saved;
-    document.getElementById('loginScreen').style.display='none';
-    document.getElementById('mainApp').style.display='';
-    render();
-  }
+  if(saved&&state.members.find(m=>m.id===saved)) enterAs(saved);
+  supabase.channel('familia-live')
+    .on('postgres_changes',{event:'*',schema:'public',table:'familia_tareas'},scheduleReload)
+    .on('postgres_changes',{event:'*',schema:'public',table:'familia_miembros'},scheduleReload)
+    .on('postgres_changes',{event:'*',schema:'public',table:'familia_premios'},scheduleReload)
+    .on('postgres_changes',{event:'*',schema:'public',table:'familia_mensajes'},scheduleReload)
+    .on('postgres_changes',{event:'*',schema:'public',table:'familia_config'},scheduleReload)
+    .subscribe();
 }
 init();
-
-/* ========== MEJORAS ========== */
-let originalAdminId = null;
-
-function backToDad(){
-  if(originalAdminId){
-    state.currentUserId = originalAdminId;
-    originalAdminId = null;
-    render();
-    showToast('Vuelves a ser papá');
-  }
-}
-
-function fillChatTo(){
-  const sel = document.getElementById('chatTo');
-  if(!sel) return;
-  sel.innerHTML = '<option value="">Grupo familiar</option>' +
-    state.members.filter(m=>m.id!==state.currentUserId)
-      .map(m=>`<option value="${m.id}">${m.emoji||''} ${m.nombre}</option>`).join('');
-}
-
-function editReward(id){
-  const r = state.rewards.find(x=>x.id===id);
-  if(!r) return;
-  const nuevo = prompt('Nuevo nombre del premio:', r.nombre);
-  if(nuevo && nuevo.trim()){
-    supabase.from('familia_premios').update({nombre:nuevo.trim()}).eq('id',id)
-      .then(()=>{ showToast('Premio actualizado'); loadAll(); });
-  }
-}
-
-function editTask(id){
-  const t = state.tasks.find(x=>x.id===id);
-  if(!t) return;
-  const nuevo = prompt('Nuevo título de la tarea:', t.titulo);
-  if(nuevo && nuevo.trim()){
-    supabase.from('familia_tareas').update({titulo:nuevo.trim()}).eq('id',id)
-      .then(()=>{ showToast('Tarea actualizada'); loadAll(); });
-  }
-}
-
-// Remember original admin when switching
-const _origSwitchTo = switchTo;
-switchTo = function(id){
-  if(!originalAdminId && isAdmin(currentUser())) originalAdminId = state.currentUserId;
-  state.currentUserId = id;
-  closeModal('modal-usuario');
-  render();
-  const back = document.getElementById('backToDadCard');
-  if(back) back.style.display = originalAdminId ? '' : 'none';
-  showToast('Viendo como '+(state.members.find(m=>m.id===id)?.nombre||''));
-};
-
-// Call fillChatTo after render
-const _origRender = render;
-render = function(){
-  _origRender();
-  fillChatTo();
-  const back = document.getElementById('backToDadCard');
-  if(back) back.style.display = originalAdminId ? '' : 'none';
-};
-
 </script>
 </body>
 </html>
