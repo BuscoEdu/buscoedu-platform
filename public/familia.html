@@ -145,6 +145,14 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
 </div></div>
 
 <div class="modal" id="modal-historial-premios"><div class="modal-content"><h3>Historial de canjes</h3><div id="rewardHistoryModal" class="scroll-list"></div><button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-historial-premios')">Cerrar</button></div></div>
+<div class="modal" id="modal-ficha-premio"><div class="modal-content"><h3>Ficha de premio</h3>
+  <div class="form-group"><label>Nombre</label><input id="fichaPremioNombre"></div>
+  <div class="form-group"><label>Puntos</label><input type="number" id="fichaPremioCosto"></div>
+  <div class="form-group"><label>Icono</label><input id="fichaPremioIcono" maxlength="4"></div>
+  <div class="form-group"><label>Activo</label><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="fichaPremioActivo"> <span id="fichaPremioActivoLabel">On</span></label></div>
+  <button class="btn" style="width:100%" onclick="saveFichaPremio()">Guardar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-ficha-premio')">Cerrar</button>
+</div></div>
 <div class="modal" id="modal-ficha-tarea"><div class="modal-content"><h3>Ficha de tarea</h3><div id="fichaContent"></div><button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-ficha-tarea')">Cerrar</button></div></div>
 <div class="modal" id="modal-usuario"><div class="modal-content"><h3>Cambiar usuario</h3><div id="userSelectList"></div></div></div>
 <div class="toast" id="toast"></div>
@@ -154,6 +162,7 @@ const SUPABASE_URL = 'https://khnrnnoxyzuulagemfbh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtobnJubm94eXp1dWxhZ2VtZmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MzM1NTMsImV4cCI6MjA5ODEwOTU1M30.uN8Vm9H-Na92r6UPOsP39F6pGwU6M_K6C4HJ5Tq-2Ts';
 let supabase, state = { currentUserId: null, members: [], tasks: [], rewards: [], requests: [], history: [], config: {}, plantillas: [], mensajes: [] };
 let pendingEvidenceTaskId = null;
+let editingPremioId = null;
 function isAdmin(m){ return m && (m.es_admin || /padre|madre|papá|mamá/i.test(m.rol||'')); }
 function isKid(m){ return m && !isAdmin(m); }
 function currentUser(){ return state.members.find(m=>m.id===state.currentUserId); }
@@ -208,7 +217,7 @@ function render(){
   }).join(''):'<div class="empty">🎉 Sin tareas pendientes</div>';
 
   const vRew=state.rewards.filter(r=>r.activo!==false&&(admin||r.tipo==='hijo'));
-  document.getElementById('rewardList').innerHTML=vRew.map(r=>`<div class="reward-item"><div style="font-size:1.5rem">${r.icono||'🎁'}</div><div style="flex:1"><strong>${r.nombre}</strong><br><small>${r.costo} pts${r.activo===false?' · inactivo':''}</small></div>${u.puntos>=r.costo&&r.activo!==false?`<button class="btn small success" onclick="requestReward(${r.id})">Solicitar</button>`:`<small>Faltan ${r.costo-u.puntos}</small>`}${admin?`<button class="btn small secondary" onclick="toggleReward(${r.id},${r.activo!==false})">${r.activo!==false?'Desactivar':'Activar'}</button>`:''}</div>`).join('')||'<div class="empty">Sin premios</div>';
+  document.getElementById('rewardList').innerHTML=vRew.map(r=>`<div class="reward-item" onclick="openFichaPremio(${r.id})" style="cursor:pointer"><div style="font-size:1.5rem">${r.icono||'🎁'}</div><div style="flex:1"><strong>${r.nombre}</strong><br><small>${r.costo} pts${r.activo===false?' · inactivo':''}</small></div>${u.puntos>=r.costo&&r.activo!==false?`<button class="btn small success" onclick="event.stopPropagation();requestReward(${r.id})">Solicitar</button>`:`<small>Faltan ${r.costo-u.puntos}</small>`}</div>`).join('')||'<div class="empty">Sin premios</div>';
 
   const pendReq=state.requests.filter(req=>req.estado==='pendiente');
   document.getElementById('badgeRewards').style.display=(admin&&pendReq.length>0)?'':'none';
@@ -235,6 +244,32 @@ function render(){
   loadChat();
 }
 function openFicha(id){ const t=state.tasks.find(x=>x.id===id); if(!t) return; const a=getMember(t.asignada_a); const c=getMember(t.creada_por); document.getElementById('fichaContent').innerHTML=`<p><strong>${t.titulo}</strong></p><p>Asignada a: ${a?.nombre||'?'}</p><p>Creada por: ${c?.nombre||'?'}</p><p>Puntos: ${t.puntos}</p><p>Recurrencia: ${t.recurrencia||'una vez'}</p><p>Estado: ${t.estado}</p><p>Fecha límite: ${t.fecha_limite?new Date(t.fecha_limite).toLocaleString():'sin fecha'}</p><p>Penalización/día: ${t.puntos_penalizacion_dia||0}</p>`; openModal('modal-ficha-tarea'); }
+function openFichaPremio(id){
+  if(!isAdmin(currentUser())) return;
+  const r = state.rewards.find(x=>x.id===id);
+  if(!r) return;
+  editingPremioId = id;
+  document.getElementById('fichaPremioNombre').value = r.nombre||'';
+  document.getElementById('fichaPremioCosto').value = r.costo||0;
+  document.getElementById('fichaPremioIcono').value = r.icono||'🎁';
+  document.getElementById('fichaPremioActivo').checked = r.activo!==false;
+  document.getElementById('fichaPremioActivoLabel').textContent = r.activo!==false?'On':'Off';
+  openModal('modal-ficha-premio');
+}
+async function saveFichaPremio(){
+  if(!editingPremioId) return;
+  const updates = {
+    nombre: document.getElementById('fichaPremioNombre').value.trim(),
+    costo: +document.getElementById('fichaPremioCosto').value||0,
+    icono: document.getElementById('fichaPremioIcono').value.trim()||'🎁',
+    activo: document.getElementById('fichaPremioActivo').checked
+  };
+  const {error} = await supabase.from('familia_premios').update(updates).eq('id', editingPremioId);
+  if(error) return showToast(error.message);
+  closeModal('modal-ficha-premio');
+  showToast('Premio actualizado');
+  loadAll();
+}
 function openRewardHistory(){ const rewHist=state.history.filter(h=>h.texto&&h.texto.includes('canjeó')).slice(0,20); document.getElementById('rewardHistoryModal').innerHTML=rewHist.map(h=>`<div style="padding:6px 0;border-bottom:1px solid #f1f5f9">${h.texto}</div>`).join('')||'Sin canjes'; openModal('modal-historial-premios'); }
 async function doLogin(){ const id=+document.getElementById('loginMember').value; const pin=document.getElementById('loginPin').value.trim()||'oooo'; const m=state.members.find(x=>x.id===id); if(!m||(m.pin||'oooo')!==pin) return showToast('PIN incorrecto'); state.currentUserId=id; localStorage.setItem('familia_current',id); document.getElementById('loginScreen').style.display='none'; document.getElementById('mainApp').style.display=''; render(); }
 function openSwitchUser(){ document.getElementById('userSelectList').innerHTML=state.members.map(m=>`<div class="member-item" style="cursor:pointer" onclick="selectUser(${m.id})"><div style="font-size:1.5rem">${m.emoji||'👤'}</div><div><strong>${m.nombre}</strong></div></div>`).join(''); openModal('modal-usuario'); }
@@ -247,7 +282,6 @@ function startComplete(id){ pendingEvidenceTaskId=id; document.getElementById('e
 async function submitEvidence(){ const id=pendingEvidenceTaskId; const comment=document.getElementById('evComment').value.trim(); const {error}=await supabase.from('familia_tareas').update({estado:'esperando_aprobacion',comentario_completado:comment}).eq('id',id); if(error) return showToast(error.message); closeModal('modal-evidencia'); showToast('Enviada'); loadAll(); }
 async function approveTask(id){ const task=state.tasks.find(t=>t.id===id); if(!task) return; const member=getMember(task.asignada_a); await supabase.from('familia_tareas').update({estado:'completada'}).eq('id',id); await supabase.from('familia_miembros').update({puntos:member.puntos+task.puntos}).eq('id',task.asignada_a); await supabase.from('familia_historial').insert({miembro_id:task.asignada_a,texto:member.nombre+' recibió +'+task.puntos+' pts por "'+task.titulo+'"'}); if(task.recurrencia&&task.recurrencia!=='once'){ await supabase.from('familia_tareas').insert({titulo:task.titulo,asignada_a:task.asignada_a,creada_por:task.creada_por,puntos:task.puntos,recurrencia:task.recurrencia,estado:'pendiente'}); } showToast('Aprobado'); loadAll(); }
 async function createReward(){ const u=currentUser(); if(!isAdmin(u)) return; const nombre=document.getElementById('rewardName').value.trim(); const costo=+document.getElementById('rewardCost').value||50; const tipo=document.getElementById('rewardFor').value; const stock=+document.getElementById('rewardStock').value; if(!nombre) return; const {error}=await supabase.from('familia_premios').insert({nombre,costo,creado_por:u.id,tipo,stock,activo:true}); if(error) return showToast(error.message); closeModal('modal-premio'); showToast('Creado'); loadAll(); }
-async function toggleReward(id, current){ await supabase.from('familia_premios').update({activo:!current}).eq('id',id); showToast(current?'Desactivado':'Activado'); loadAll(); }
 async function requestReward(id){ const r=state.rewards.find(x=>x.id===id); const u=currentUser(); if(r&&r.tipo==='padre'&&isAdmin(u)&&r.creado_por===u.id) return showToast('No puedes reclamar un premio que tú creaste'); const {error}=await supabase.from('familia_solicitudes_premios').insert({premio_id:id,miembro_id:state.currentUserId,estado:'pendiente'}); if(error) return showToast(error.message); showToast('Solicitado'); loadAll(); }
 async function approveRequest(id){ const req=state.requests.find(x=>x.id===id); const r=state.rewards.find(x=>x.id===req.premio_id); const u=currentUser(); if(r&&r.tipo==='padre'&&req.miembro_id===u.id) return showToast('No puedes aprobar tu propia solicitud'); const m=getMember(req.miembro_id); if(m.puntos<r.costo) return showToast('Puntos insuficientes'); await supabase.from('familia_miembros').update({puntos:m.puntos-r.costo}).eq('id',m.id); await supabase.from('familia_solicitudes_premios').update({estado:'aprobada'}).eq('id',id); if(r.stock>0) await supabase.from('familia_premios').update({stock:r.stock-1}).eq('id',r.id); await supabase.from('familia_historial').insert({miembro_id:m.id,texto:m.nombre+' canjeó "'+r.nombre+'"'}); showToast('Aprobado'); loadAll(); }
 function openAdjust(){ if(!isAdmin(currentUser())) return; openModal('modal-puntos'); }
