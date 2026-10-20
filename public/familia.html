@@ -59,11 +59,20 @@ const SUPABASE_URL = 'https://khnrnnoxyzuulagemfbh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtobnJubm94eXp1dWxhZ2VtZmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MzM1NTMsImV4cCI6MjA5ODEwOTU1M30.uN8Vm9H-Na92r6UPOsP39F6pGwU6M_K6C4HJ5Tq-2Ts';
 
 let supabase;
-try {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-} catch(e) {
-  document.getElementById('currentName').textContent = 'Error de conexión';
-  document.getElementById('currentRole').textContent = e.message;
+function initSupabase() {
+  if (!window.supabase) {
+    document.getElementById('currentName').textContent = 'Error';
+    document.getElementById('currentRole').textContent = 'No cargó la librería de Supabase';
+    return false;
+  }
+  try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    return true;
+  } catch(e) {
+    document.getElementById('currentName').textContent = 'Error de conexión';
+    document.getElementById('currentRole').textContent = e.message;
+    return false;
+  }
 }
 
 let state = { currentUserId: 1, members: [], tasks: [], rewards: [], requests: [], history: [] };
@@ -241,7 +250,7 @@ function selectUser(id) {
 }
 
 state.currentUserId = +localStorage.getItem('familia_current') || 1;
-if (supabase) loadAll();
+if (initSupabase()) loadAll(); else document.getElementById("taskList").innerHTML = "<div class=\"error\">No se pudo iniciar Supabase</div>";
 </script>
 </body>
 </html>
