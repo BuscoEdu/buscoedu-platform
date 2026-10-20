@@ -325,6 +325,7 @@ async function resetAll(){
   await supabase.from('familia_miembros').update({puntos:0, puntos_historicos:0});
   showToast('Todo reseteado. Empezando desde cero.');
   loadAll();
+}
 async function init(){ supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY); await loadAll(); document.getElementById('loginMember').innerHTML=state.members.map(m=>`<option value="${m.id}">${m.emoji||''} ${m.nombre}</option>`).join(''); const saved=+localStorage.getItem('familia_current'); if(saved&&state.members.find(m=>m.id===saved)){ state.currentUserId=saved; document.getElementById('loginScreen').style.display='none'; document.getElementById('mainApp').style.display=''; render(); } }
 init();
 </script>
