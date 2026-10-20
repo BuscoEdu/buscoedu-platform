@@ -1,1 +1,769 @@
-PLACEHOLDER_WILL_REPLACE
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>FamiliaTareas</title>
+<!-- Librería de Supabase para conectar con la base de datos -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
+<style>
+/* Estilos generales y variables de color */
+:root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+/* Contenedor principal de la app (máximo 480px para móvil) */
+.app{max-width:480px;margin:0 auto;min-height:100vh;padding-bottom:90px}
+/* Cabecera con gradiente */
+header{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:20px 16px;border-radius:0 0 24px 24px}
+.header-top{display:flex;justify-content:space-between;align-items:center}
+.points-badge{background:rgba(255,255,255,.2);padding:8px 14px;border-radius:999px;font-weight:700}
+.current-user{margin-top:12px;display:flex;align-items:center;gap:12px}
+.avatar{width:48px;height:48px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.6rem}
+/* Barra de navegación inferior fija */
+nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 0 calc(12px + env(safe-area-inset-bottom));z-index:100}
+.nav-btn{background:none;border:none;font-size:.65rem;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:4px 6px;border-radius:12px;position:relative;min-width:52px}
+.nav-btn.active{color:var(--primary);background:#eef2ff}
+.badge{position:absolute;top:0;right:2px;background:#ef4444;color:#fff;font-size:.55rem;min-width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700}
+/* Secciones de contenido (solo una visible a la vez) */
+.section{display:none;padding:16px}
+.section.active{display:block}
+.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;border:1px solid var(--border)}
+/* Botones */
+.btn{background:var(--primary);color:#fff;border:none;padding:12px 16px;border-radius:10px;font-weight:600;cursor:pointer;font-size:1rem}
+.btn.small{padding:6px 12px;font-size:.8rem}
+.btn.success{background:var(--success)}
+.btn.danger{background:var(--danger)}
+.btn.secondary{background:#e2e8f0;color:var(--text)}
+/* Items de listas (tareas, premios, miembros) */
+.task-item,.reward-item,.member-item{display:flex;align-items:center;gap:12px;padding:12px;background:#f8fafc;border-radius:12px;margin-bottom:8px;border-left:4px solid #6366f1}
+.reward-item{border-left-color:#10b981}
+/* Formularios */
+.form-group{margin-bottom:12px}
+.form-group label{display:block;font-size:.85rem;margin-bottom:4px;color:var(--muted)}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:16px}
+/* Modales (ventanas emergentes desde abajo) */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}
+.modal.show{display:flex}
+.modal-content{background:#fff;width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:20px;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+/* Mensaje toast (notificación temporal) */
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:12px;z-index:300;opacity:0;transition:opacity .3s;font-size:.9rem}
+.toast.show{opacity:1}
+/* Pantalla de login */
+.login-screen{position:fixed;inset:0;background:#fff;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.empty{text-align:center;padding:32px;color:var(--muted)}
+/* Selector de emojis */
+.emoji-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.emoji-btn{width:40px;height:40px;border:2px solid var(--border);border-radius:10px;background:#fff;font-size:1.3rem;cursor:pointer}
+.emoji-btn.selected{border-color:var(--primary);background:#eef2ff}
+/* Mensajes de chat */
+.chat-msg{padding:8px 12px;border-radius:12px;margin:4px 0;max-width:80%;word-break:break-word}
+.chat-msg.me{background:#6366f1;color:#fff;margin-left:auto}
+.chat-msg.other{background:#e2e8f0}
+.scroll-list{max-height:300px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.color-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.color-btn{width:36px;height:36px;border:3px solid transparent;border-radius:50%;cursor:pointer}
+.color-btn.selected{border-color:#1e293b}
+
+</style>
+</head>
+<body>
+<!-- ========== PANTALLA DE LOGIN ========== -->
+<div class="login-screen" id="loginScreen">
+  <h2 style="margin-bottom:16px">🏠 Entrar</h2>
+  <div class="form-group" style="width:100%;max-width:320px"><label>Soy</label><select id="loginMember"></select></div>
+  <div class="form-group" style="width:100%;max-width:320px"><label>PIN</label><input id="loginPin" type="password" placeholder="oooo" maxlength="8" inputmode="numeric"></div>
+  <button class="btn" style="width:100%;max-width:320px" onclick="doLogin()">Entrar</button>
+  <p style="margin-top:12px;color:var(--muted);font-size:.85rem">PIN por defecto: oooo</p>
+  <!-- Botón de cambio rápido para pruebas -->
+  <button class="btn secondary" style="margin-top:16px;width:100%;max-width:320px" onclick="quickSwitch()">Cambiar usuario (prueba)</button>
+</div>
+
+<!-- ========== APP PRINCIPAL ========== -->
+<div class="app" id="mainApp" style="display:none">
+  <!-- Cabecera: nombre familia + puntos del usuario actual -->
+  <header>
+    <div class="header-top"><div id="familyTitle">🏠 Familia</div><div class="points-badge" id="headerPoints">⭐ 0</div></div>
+    <div class="current-user"><div class="avatar" id="currentAvatar">👨</div><div><h2 id="currentName">...</h2><p id="currentRole"></p><small id="currentFrase"></small></div></div>
+  </header>
+
+  <!-- Sección TAREAS -->
+  <div class="section active" id="section-tareas">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>📋 Tareas</h3><div><button class="btn small secondary" id="btnLoadTasks" onclick="loadTaskCatalog()" style="display:none">Cargar catálogo</button> <button class="btn small" id="btnNewTask" onclick="openNewTask()" style="display:none">+ Nueva</button></div></div>
+    <div id="taskList" class="scroll-list"></div>
+  </div>
+
+  <!-- Sección PREMIOS -->
+  <div class="section" id="section-premios">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>🎁 Premios</h3><div><button class="btn small secondary" id="btnLoadRewards" onclick="loadRewardCatalog()" style="display:none">Cargar catálogo</button> <button class="btn small" id="btnNewReward" onclick="openNewReward()" style="display:none">+ Nuevo</button></div></div>
+    <div id="rewardList" class="scroll-list"></div>
+    <button class="btn secondary" style="width:100%;margin-top:12px" onclick="openRewardHistory()">Ver historial de canjes</button>
+  </div>
+
+  <!-- Sección RANKING -->
+  <div class="section" id="section-ranking"><h3>🏆 Ranking (hijos)</h3><div id="rankingList"></div></div>
+
+  <!-- Sección CHAT -->
+  <div class="section" id="section-chat">
+    <h3 style="margin-bottom:12px">💬 Chat</h3>
+    <div id="chatMessages" style="height:280px;overflow-y:auto;background:#fff;border-radius:12px;padding:8px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:8px"><select id="chatTo" style="flex:1"><option value="">Grupo familiar</option></select><input id="chatInput" placeholder="Mensaje..." style="flex:2"><button class="btn small" onclick="sendMessage()">Enviar</button></div>
+  </div>
+
+  <!-- Sección YO (perfil y admin) -->
+  <div class="section" id="section-yo">
+    <div class="card"><h3>Mi perfil</h3><button class="btn secondary" style="width:100%;margin-top:8px" onclick="openProfile()">Editar perfil</button></div>
+    <!-- Botón ver como otro (solo papá) -->
+    <div class="card" id="switchUserCard" style="display:none"><button class="btn secondary" style="width:100%" onclick="openSwitchUser()">Ver como otro</button></div>
+    <div class="card" id="backToDadCard" style="display:none"><button class="btn" style="width:100%" onclick="backToDad()">Volver a papá</button></div>
+    <!-- Resetear todo (solo papá) -->
+    <div class="card" id="adminResetAll" style="display:none">
+      <strong>Resetear todo (solo papá)</strong>
+      <p style="font-size:.8rem;color:var(--muted);margin:8px 0">Borra puntos, historial y tareas actuales. Premios y plantillas se mantienen.</p>
+      <button class="btn danger" style="width:100%" onclick="confirmResetAll()">Resetear todo</button>
+    </div>
+    <!-- Resetear PIN de un hijo (admin) -->
+    <div class="card" id="adminPinReset" style="display:none">
+      <strong>Resetear PIN de un hijo</strong>
+      <div class="form-group" style="margin-top:8px"><select id="resetPinMember"></select></div>
+      <button class="btn small danger" onclick="resetOneKidPin()">Resetear a oooo</button>
+    </div>
+    <div class="card"><h4>Historial</h4><div id="historyList" class="scroll-list"></div></div>
+    <button class="btn danger" style="width:100%;margin-top:12px" onclick="logout()">Salir</button>
+  </div>
+
+  <!-- Navegación inferior -->
+  <nav>
+    <button class="nav-btn active" onclick="showSection('tareas')">📋<br>Tareas<span id="badgeTasks" class="badge" style="display:none">0</span></button>
+    <button class="nav-btn" onclick="showSection('premios')">🎁<br>Premios<span id="badgeRewards" class="badge" style="display:none">0</span></button>
+    <button class="nav-btn" onclick="showSection('ranking')">🏆<br>Ranking</button>
+    <button class="nav-btn" onclick="showSection('chat')">💬<br>Chat</button>
+    <button class="nav-btn" onclick="showSection('yo')">👤<br>Yo</button>
+  </nav>
+</div>
+<div id="toast" class="toast"></div>
+
+<!-- ========== MODAL: NUEVA TAREA ========== -->
+<div class="modal" id="modal-tarea"><div class="modal-content"><h3>Nueva tarea</h3>
+  <div class="form-group"><label>Asignar a</label><select id="taskAssignTo"></select></div>
+  <div class="form-group"><label>Plantilla</label><select id="taskPlantilla" onchange="applyPlantilla()"><option value="">-- personalizada --</option></select></div>
+  <div class="form-group"><label>Título</label><input id="taskTitle"></div>
+  <div class="form-group"><label>Puntos</label><input type="number" id="taskPoints" value="10"></div>
+  <div class="form-group"><label>Recurrencia</label><select id="taskRecurrence" onchange="updateDue()"><option value="once">Una vez</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
+  <div class="form-group"><label>Fecha límite</label><input type="datetime-local" id="taskDue"></div>
+  <div class="form-group"><label>Penalización pts/día</label><input type="number" id="taskPenalty" value="2"></div>
+  <div class="form-group"><label><input type="checkbox" id="taskSaveTemplate"> Guardar como plantilla</label></div>
+  <button class="btn" style="width:100%" onclick="createTask()">Crear</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-tarea')">Cerrar</button>
+</div></div>
+
+<!-- ========== MODAL: NUEVO PREMIO ========== -->
+<div class="modal" id="modal-premio"><div class="modal-content"><h3>Nuevo premio</h3>
+  <div class="form-group"><label>Nombre</label><input id="rewardName"></div>
+  <div class="form-group"><label>Costo</label><input type="number" id="rewardCost" value="50"></div>
+  <div class="form-group"><label>Stock (-1 ilimitado)</label><input type="number" id="rewardStock" value="-1"></div>
+  <div class="form-group"><label>Icono</label><div class="emoji-grid" id="rewardEmojiGrid"></div><input type="hidden" id="rewardEmoji" value="🎁"></div>
+  <button class="btn" style="width:100%" onclick="createReward()">Crear</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-premio')">Cerrar</button>
+</div></div>
+
+<!-- ========== MODAL: EVIDENCIA DE TAREA ========== -->
+<div class="modal" id="modal-evidencia"><div class="modal-content"><h3>Evidencia</h3>
+  <div class="form-group"><label>Comentario (opcional)</label><textarea id="evComment" rows="2"></textarea></div>
+  <div class="form-group"><label>Foto (opcional)</label><input type="file" id="evPhoto" accept="image/*" capture="environment"></div>
+  <button class="btn" style="width:100%" onclick="submitEvidence()">Enviar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-evidencia')">Cancelar</button>
+</div></div>
+
+<!-- ========== MODAL: EDITAR PERFIL ========== -->
+<div class="modal" id="modal-perfil"><div class="modal-content"><h3>Editar perfil</h3>
+  <div class="form-group"><label>Nombre</label><input id="profName"></div>
+  <div class="form-group"><label>Frase</label><input id="profFrase"></div>
+  <div class="form-group"><label>Emoji</label><div class="emoji-grid" id="profileEmojiGrid"></div><input type="hidden" id="profEmoji"></div>
+  <div class="form-group"><label>Color</label><div class="color-grid" id="profileColorGrid"></div><input type="hidden" id="profColor" value="#6366f1"></div>
+  <div class="form-group"><label>Fecha nacimiento</label><input type="date" id="profBirth"></div>
+  <div class="form-group"><label>Nuevo PIN</label><input id="profPin" type="password" maxlength="8" inputmode="numeric"></div>
+  <div class="form-group"><label>Confirmar PIN</label><input id="profPin2" type="password" maxlength="8" inputmode="numeric"></div>
+  <button class="btn" style="width:100%" onclick="saveProfile()">Guardar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-perfil')">Cerrar</button>
+</div></div>
+
+<!-- ========== MODAL: CONSECUENCIA (ajuste negativo) ========== -->
+<div class="modal" id="modal-puntos"><div class="modal-content"><h3>Consecuencia</h3>
+  <div class="form-group"><label>Miembro</label><select id="adjustMember"></select></div>
+  <div class="form-group"><label>Puntos a restar</label><input type="number" id="adjustPoints" value="5" min="1"></div>
+  <div class="form-group"><label>Motivo</label><input id="adjustReason"></div>
+  <button class="btn" style="width:100%" onclick="adjustPoints()">Aplicar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-puntos')">Cerrar</button>
+</div></div>
+
+<!-- ========== MODAL: APROBAR CON COMENTARIO ========== -->
+<div class="modal" id="modal-aprobacion"><div class="modal-content"><h3>Aprobar tarea</h3>
+  <div class="form-group"><label>Comentario (opcional)</label><textarea id="approvalComment" rows="3"></textarea></div>
+  <button class="btn" style="width:100%" onclick="confirmApproval()">Confirmar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-aprobacion')">Cancelar</button>
+</div></div>
+
+<!-- ========== MODAL: HISTORIAL DE CANJES ========== -->
+<div class="modal" id="modal-historial-premios"><div class="modal-content"><h3>Historial de canjes</h3><div id="rewardHistoryModal" class="scroll-list"></div><button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-historial-premios')">Cerrar</button></div></div>
+
+
+<!-- ========== MODAL: TRANSFERIR TAREA ========== -->
+<div class="modal" id="modal-transferir"><div class="modal-content"><h3>Pasar tarea a hermano</h3>
+  <p style="font-size:.85rem;color:var(--muted);margin-bottom:12px">La tarea se mueve. No genera puntos nuevos. El hermano debe aceptarla y los padres aprobarán al final.</p>
+  <div class="form-group"><label>Pasar a</label><select id="transferTo"></select></div>
+  <button class="btn" style="width:100%" onclick="confirmTransfer()">Transferir</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-transferir')">Cancelar</button>
+</div></div>
+<!-- ========== MODAL: CAMBIAR USUARIO ========== -->
+<div class="modal" id="modal-usuario"><div class="modal-content"><h3>Ver como otro</h3><div id="userSelectList"></div><button class="btn secondary" style="width:100%;margin-top:12px" onclick="closeModal('modal-usuario')">Cancelar</button></div></div>
+
+<script>
+/* ========== CONFIGURACIÓN SUPABASE ========== */
+const SUPABASE_URL='https://khnrnnoxyzuulagemfbh.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtobnJubm94eXp1dWxhZ2VtZmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MzM1NTMsImV4cCI6MjA5ODEwOTU1M30.uN8Vm9H-Na92r6UPOsP39F6pGwU6M_K6C4HJ5Tq-2Ts';
+
+/* Lista de emojis disponibles para perfil y premios */
+const EMOJIS=['😎','❤️','👦','👧','👩‍🦰','👨','👩','🧑','😀','🙂','🤩','🥳','💪','⭐','🎯','🏆','🎁','🏠','📚','⚽','🎮','🍦','🎬','🚲'];
+
+/* Estado global de la app */
+let supabase;
+let state={currentUserId:null,members:[],tasks:[],rewards:[],history:[],config:{},plantillas:[],mensajes:[],requests:[]};
+let pendingTaskId=null;
+let pendingApprovalId=null;
+
+/* ========== FUNCIONES AUXILIARES ========== */
+/* Verifica si un miembro es administrador (padre/madre) */
+function isAdmin(m){return m&&(m.es_admin||/padre|madre|papá|mamá/i.test(m.rol||''))}
+/* Verifica si es hijo */
+function isKid(m){return m&&!isAdmin(m)}
+/* Devuelve el usuario actualmente logueado */
+function currentUser(){return state.members.find(m=>m.id===state.currentUserId)}
+/* Muestra un mensaje toast temporal */
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+/* Cambia de sección en la navegación */
+function showSection(n){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('section-'+n).classList.add('active');document.querySelector(`.nav-btn[onclick*="${n}"]`).classList.add('active');}
+/* Abre un modal */
+function openModal(id){document.getElementById(id).classList.add('show')}
+/* Cierra un modal */
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+/* Cierra sesión */
+function logout(){localStorage.removeItem('familia_current');location.reload()}
+
+/* ========== CARGA DE DATOS ========== */
+/* Carga todos los datos desde Supabase */
+async function loadAll(){
+  const [m,t,r,h,c,p,msg]=await Promise.all([
+    supabase.from('familia_miembros').select('*').order('id'),
+    supabase.from('familia_tareas').select('*').order('creado_en',{ascending:false}),
+    supabase.from('familia_premios').select('*').order('costo'),
+    supabase.from('familia_historial').select('*').order('creado_en',{ascending:false}).limit(50),
+    supabase.from('familia_config').select('*').limit(1),
+    supabase.from('familia_plantillas_tareas').select('*'),
+    supabase.from('familia_mensajes').select('*').order('creado_en',{ascending:false}).limit(40)
+  ]);
+  state.members=m.data||[];
+  state.tasks=t.data||[];
+  state.rewards=r.data||[];
+  state.history=h.data||[];
+  state.config=(c.data&&c.data[0])||{};
+  state.plantillas=p.data||[];
+  state.mensajes=(msg.data||[]).reverse();
+  render();
+}
+
+/* ========== RENDERIZADO ========== */
+/* Renderiza toda la interfaz según el usuario actual */
+function render(){
+  const u=currentUser();
+  if(!u)return;
+  document.getElementById('familyTitle').textContent='🏠 '+(state.config.nombre_familia||'Familia');
+  document.getElementById('headerPoints').textContent='⭐ '+(u.puntos||0);
+  document.getElementById('currentAvatar').textContent=u.emoji||'👤';
+  document.getElementById('currentName').textContent=u.nombre;
+  document.getElementById('currentRole').textContent=u.rol||'';
+  document.getElementById('currentFrase').textContent=u.frase||'';
+  // Mostrar/ocultar botones de admin
+  const isAd=isAdmin(u);
+  ['btnNewTask','btnNewReward','btnLoadTasks','btnLoadRewards','switchUserCard','adminResetAll','adminPinReset'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=isAd?'':'none';
+  });
+  renderTasks();
+  renderRewards();
+  renderRanking();
+  renderHistory();
+  renderChat();
+  fillSelects();
+}
+
+/* Renderiza la lista de tareas */
+function renderTasks(){
+  const list=document.getElementById('taskList');
+  const u=currentUser();
+  const tasks=state.tasks.filter(t=>{
+    if(isAdmin(u))return true;
+    return t.asignada_a===u.id||t.creada_por===u.id;
+  });
+  if(!tasks.length){list.innerHTML='<div class="empty">No hay tareas</div>';return}
+  list.innerHTML=tasks.map(t=>{
+    const asignado=state.members.find(m=>m.id===t.asignada_a);
+    const status=t.estado==='completada'?'✅':t.estado==='esperando'?'⏳':'';
+    const actions=[];
+    if(t.estado==='pendiente'&&t.asignada_a===u.id)actions.push(`<button class="btn small" onclick="openEvidence(${t.id})">Hecha</button>`);
+    if(t.estado==='esperando'&&isAdmin(u))actions.push(`<button class="btn small success" onclick="openApproval(${t.id})">Aprobar</button>`);
+    if(t.estado==='pendiente'&&isKid(u)&&t.asignada_a===u.id)actions.push(`<button class="btn small secondary" onclick="openTransfer(${t.id})">Pasar</button>`);
+    if(isAdmin(u))actions.push(`<button class="btn small secondary" onclick="editTask(${t.id})">Editar</button>`);
+    return `<div class="task-item"><div style="flex:1"><strong>${t.titulo}</strong><br><small>${asignado?.nombre||'?'} · ${t.puntos} pts ${status}</small></div><div style="display:flex;gap:6px">${actions.join('')}</div></div>`;
+  }).join('');
+}
+
+/* Renderiza la lista de premios */
+function renderRewards(){
+  const list=document.getElementById('rewardList');
+  const u=currentUser();
+  if(!state.rewards.length){list.innerHTML='<div class="empty">No hay premios</div>';return}
+  list.innerHTML=state.rewards.filter(r=>r.activo!==false).map(r=>{
+  const falta=Math.max(0,(r.costo||0)-(u.puntos||0));
+  const canjear=u.puntos>=(r.costo||0)?`<button class="btn small" onclick="redeemReward(${r.id})">Canjear</button>`:'';
+  const faltatxt=falta>0?`<br><small style="color:#ef4444">Faltan ${falta} pts</small>`:'';
+  const edit=isAdmin(u)?`<button class="btn small secondary" onclick="editReward(${r.id})">Editar</button>`:'';
+  return `<div class="reward-item"><div style="flex:1">${r.icono||'🎁'} <strong>${r.nombre}</strong><br><small>${r.costo} pts${r.stock>=0?' · stock:'+r.stock:''}</small>${faltatxt}</div><div style="display:flex;gap:6px">${canjear}${edit}</div></div>`;
+}).join('');
+}
+
+/* Ranking solo de hijos ordenados por puntos */
+function renderRanking(){
+  const kids=state.members.filter(isKid).sort((a,b)=>(b.puntos||0)-(a.puntos||0));
+  document.getElementById('rankingList').innerHTML=kids.map((k,i)=>`<div class="member-item"><div style="font-size:1.2rem">${i+1}</div><div style="flex:1">${k.emoji||''} ${k.nombre}</div><div>⭐ ${k.puntos||0}</div></div>`).join('');
+}
+
+/* Historial del usuario actual (o todo si es admin) */
+function renderHistory(){
+  const u=currentUser();
+  const items=isAdmin(u)?state.history:state.history.filter(h=>h.miembro_id===u.id);
+  document.getElementById('historyList').innerHTML=items.slice(0,20).map(h=>`<div style="font-size:.85rem;padding:4px 0;border-bottom:1px solid #eee">${h.texto}</div>`).join('')||'<div class="empty">Sin historial</div>';
+}
+
+/* Renderiza mensajes de chat */
+function renderChat(){
+  const box=document.getElementById('chatMessages');
+  if(!box)return;
+  box.innerHTML=state.mensajes.map(m=>{
+    const me=m.de_id===state.currentUserId;
+    const from=state.members.find(x=>x.id===m.de_id);
+    return `<div class="chat-msg ${me?'me':'other'}">${me?'':(from?.nombre||'')+': '}${m.texto}</div>`;
+  }).join('');
+  box.scrollTop=box.scrollHeight;
+}
+
+/* Llena los selects dinámicos (miembros, plantillas, etc.) */
+function fillSelects(){
+  const members=state.members;
+  const kids=members.filter(isKid);
+  const admins=members.filter(isAdmin);
+  // Asignar tarea
+  const ta=document.getElementById('taskAssignTo');
+  if(ta)ta.innerHTML=kids.map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
+  // Plantillas
+  const tp=document.getElementById('taskPlantilla');
+  if(tp)tp.innerHTML='<option value="">-- personalizada --</option>'+state.plantillas.map(p=>`<option value="${p.id}">${p.titulo}</option>`).join('');
+  // Reset PIN
+  const rp=document.getElementById('resetPinMember');
+  if(rp)rp.innerHTML=kids.map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
+  // Ajuste de puntos
+  const am=document.getElementById('adjustMember');
+  if(am)am.innerHTML=kids.map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
+}
+
+/* ========== TAREAS ========== */
+/* Abre modal de nueva tarea */
+function openNewTask(){
+  document.getElementById('taskTitle').value='';
+  document.getElementById('taskPoints').value='10';
+  document.getElementById('taskPenalty').value='2';
+  document.getElementById('taskSaveTemplate').checked=false;
+  updateDue();
+  openModal('modal-tarea');
+}
+/* Calcula fecha límite según recurrencia */
+function updateDue(){
+  const rec=document.getElementById('taskRecurrence').value;
+  const now=new Date();
+  let d=new Date(now);
+  if(rec==='daily')d.setDate(d.getDate()+1);
+  else if(rec==='weekly')d.setDate(d.getDate()+7);
+  else if(rec==='monthly')d.setMonth(d.getMonth()+1);
+  else if(rec==='quarterly')d.setMonth(d.getMonth()+3);
+  else d.setDate(d.getDate()+1);
+  d.setHours(20,0,0,0);
+  document.getElementById('taskDue').value=d.toISOString().slice(0,16);
+}
+/* Aplica datos de una plantilla al formulario */
+function applyPlantilla(){
+  const id=+document.getElementById('taskPlantilla').value;
+  const p=state.plantillas.find(x=>x.id===id);
+  if(!p)return;
+  document.getElementById('taskTitle').value=p.titulo||'';
+  document.getElementById('taskPoints').value=p.puntos||10;
+  document.getElementById('taskRecurrence').value=p.recurrencia||'once';
+  updateDue();
+}
+/* Crea una nueva tarea */
+async function createTask(){
+  const titulo=document.getElementById('taskTitle').value.trim();
+  if(!titulo)return showToast('Escribe un título');
+  const asignado=+document.getElementById('taskAssignTo').value;
+  const puntos=+document.getElementById('taskPoints').value||10;
+  const recurrencia=document.getElementById('taskRecurrence').value;
+  const fecha=document.getElementById('taskDue').value||null;
+  const penalizacion=+document.getElementById('taskPenalty').value||0;
+  const saveTpl=document.getElementById('taskSaveTemplate').checked;
+  const {error}=await supabase.from('familia_tareas').insert({titulo,asignada_a:asignado,puntos,estado:'pendiente',recurrencia,fecha_limite:fecha,puntos_penalizacion_dia:penalizacion,creada_por:state.currentUserId});
+  if(error)return showToast('Error: '+error.message);
+  if(saveTpl)await supabase.from('familia_plantillas_tareas').insert({titulo,puntos,recurrencia}).catch(()=>{});
+  showToast('Tarea creada');
+  closeModal('modal-tarea');
+  loadAll();
+}
+/* Abre modal de evidencia para marcar tarea como hecha */
+function openEvidence(id){pendingTaskId=id;document.getElementById('evComment').value='';document.getElementById('evPhoto').value='';openModal('modal-evidencia')}
+/* Envía evidencia y marca tarea como esperando aprobación */
+async function submitEvidence(){
+  const comment=document.getElementById('evComment').value.trim();
+  await supabase.from('familia_tareas').update({estado:'esperando',comentario_completado:comment}).eq('id',pendingTaskId);
+  showToast('Enviado para aprobación');
+  closeModal('modal-evidencia');
+  loadAll();
+}
+/* Abre modal de aprobación */
+function openApproval(id){pendingApprovalId=id;document.getElementById('approvalComment').value='';openModal('modal-aprobacion')}
+/* Confirma aprobación y suma puntos */
+async function confirmApproval(){
+  const t=state.tasks.find(x=>x.id===pendingApprovalId);
+  if(!t)return;
+  const comment=document.getElementById('approvalComment').value.trim();
+  await supabase.from('familia_tareas').update({estado:'completada',comentario_aprobacion:comment}).eq('id',pendingApprovalId);
+  await supabase.from('familia_miembros').update({puntos:(state.members.find(m=>m.id===t.asignada_a)?.puntos||0)+t.puntos}).eq('id',t.asignada_a);
+  await supabase.from('familia_historial').insert({miembro_id:t.asignada_a,texto:`Aprobada: ${t.titulo} (+${t.puntos} pts)`});
+  showToast('Aprobada');
+  closeModal('modal-aprobacion');
+  loadAll();
+}
+
+/* ========== PREMIOS ========== */
+/* Abre modal de nuevo premio */
+function openNewReward(){
+  document.getElementById('rewardName').value='';
+  document.getElementById('rewardCost').value='50';
+  document.getElementById('rewardStock').value='-1';
+  fillEmojiGrid('rewardEmojiGrid','rewardEmoji');
+  openModal('modal-premio');
+}
+/* Crea un premio */
+async function createReward(){
+  const nombre=document.getElementById('rewardName').value.trim();
+  if(!nombre)return showToast('Escribe un nombre');
+  const costo=+document.getElementById('rewardCost').value||50;
+  const stock=+document.getElementById('rewardStock').value;
+  const icono=document.getElementById('rewardEmoji').value||'🎁';
+  const {error}=await supabase.from('familia_premios').insert({nombre,costo,stock,icono,creado_por:state.currentUserId,activo:true});
+  if(error)return showToast('Error: '+error.message);
+  showToast('Premio creado');
+  closeModal('modal-premio');
+  loadAll();
+}
+/* Canjea un premio */
+async function redeemReward(id){
+  const r=state.rewards.find(x=>x.id===id);
+  const u=currentUser();
+  if(!r||u.puntos<r.costo)return showToast('Puntos insuficientes');
+  await supabase.from('familia_miembros').update({puntos:u.puntos-r.costo}).eq('id',u.id);
+  if(r.stock>0)await supabase.from('familia_premios').update({stock:r.stock-1}).eq('id',id);
+  await supabase.from('familia_historial').insert({miembro_id:u.id,texto:`Canjeó: ${r.nombre} (-${r.costo} pts)`});
+  showToast('Canjeado');
+  loadAll();
+}
+
+/* ========== PERFIL ========== */
+/* Abre modal de editar perfil */
+function openProfile(){
+  const u=currentUser();
+  document.getElementById('profName').value=u.nombre||'';
+  document.getElementById('profFrase').value=u.frase||'';
+  document.getElementById('profEmoji').value=u.emoji||'';
+  document.getElementById('profColor').value=u.color||'#6366f1';
+  document.getElementById('profBirth').value=u.fecha_nacimiento||'';
+  document.getElementById('profPin').value='';
+  document.getElementById('profPin2').value='';
+  fillEmojiGrid('profileEmojiGrid','profEmoji');
+  fillColorGrid('profileColorGrid','profColor');
+  openModal('modal-perfil');
+}
+/* Guarda cambios de perfil */
+async function saveProfile(){
+  const u=currentUser();
+  const nombre=document.getElementById('profName').value.trim();
+  const frase=document.getElementById('profFrase').value.trim();
+  const emoji=document.getElementById('profEmoji').value;
+  const color=document.getElementById('profColor').value;
+  const birth=document.getElementById('profBirth').value||null;
+  const pin=document.getElementById('profPin').value;
+  const pin2=document.getElementById('profPin2').value;
+  const update={nombre,frase,emoji,color,fecha_nacimiento:birth};
+  if(pin){
+    if(pin!==pin2)return showToast('Los PIN no coinciden');
+    update.pin=pin;
+  }
+  await supabase.from('familia_miembros').update(update).eq('id',u.id);
+  showToast('Perfil guardado');
+  closeModal('modal-perfil');
+  loadAll();
+}
+
+/* ========== LOGIN ========== */
+/* Intenta login con PIN */
+async function doLogin(){
+  const id=+document.getElementById('loginMember').value;
+  const pin=document.getElementById('loginPin').value;
+  const m=state.members.find(x=>x.id===id);
+  if(!m)return showToast('Selecciona un miembro');
+  if((m.pin||'oooo')!==pin)return showToast('PIN incorrecto');
+  state.currentUserId=id;
+  localStorage.setItem('familia_current',id);
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('mainApp').style.display='';
+  render();
+}
+/* Cambio rápido de usuario para pruebas */
+function quickSwitch(){
+  const id=+document.getElementById('loginMember').value;
+  state.currentUserId=id;
+  localStorage.setItem('familia_current',id);
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('mainApp').style.display='';
+  render();
+  showToast('Cambio rápido');
+}
+
+/* ========== UTILIDADES ========== */
+/* Llena grilla de emojis */
+function fillEmojiGrid(gridId,inputId){
+  const grid=document.getElementById(gridId);
+  grid.innerHTML=EMOJIS.map(e=>`<button type="button" class="emoji-btn" onclick="selectEmoji('${e}','${inputId}',this)">${e}</button>`).join('');
+}
+/* Selecciona un emoji */
+function selectEmoji(e,inputId,btn){
+  document.getElementById(inputId).value=e;
+  btn.parentElement.querySelectorAll('.emoji-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+/* Llena grilla de colores */
+const COLORS=['#6366f1','#10b981','#ef4444','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16'];
+function fillColorGrid(gridId,inputId){
+  const grid=document.getElementById(gridId);
+  grid.innerHTML=COLORS.map(c=>`<button type="button" class="color-btn" style="background:${c}" onclick="selectColor('${c}','${inputId}',this)"></button>`).join('');
+}
+/* Selecciona un color */
+function selectColor(c,inputId,btn){
+  document.getElementById(inputId).value=c;
+  btn.parentElement.querySelectorAll('.color-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+/* ========== TRANSFERENCIA ========== */
+let pendingTransferId=null;
+function openTransfer(id){
+  pendingTransferId=id;
+  const u=currentUser();
+  const others=state.members.filter(m=>isKid(m)&&m.id!==u.id);
+  document.getElementById('transferTo').innerHTML=others.map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
+  openModal('modal-transferir');
+}
+async function confirmTransfer(){
+  const to=+document.getElementById('transferTo').value;
+  await supabase.from('familia_tareas').update({asignada_a:to,es_transferencia:true,aceptada_receptor:false}).eq('id',pendingTransferId);
+  showToast('Tarea transferida');
+  closeModal('modal-transferir');
+  loadAll();
+}
+
+/* ========== CONSECUENCIA ========== */
+async function adjustPoints(){
+  const mid=+document.getElementById('adjustMember').value;
+  const pts=+document.getElementById('adjustPoints').value||0;
+  const reason=document.getElementById('adjustReason').value.trim()||'Consecuencia';
+  const m=state.members.find(x=>x.id===mid);
+  if(!m)return;
+  await supabase.from('familia_miembros').update({puntos:Math.max(0,(m.puntos||0)-pts)}).eq('id',mid);
+  await supabase.from('familia_historial').insert({miembro_id:mid,texto:`Consecuencia: ${reason} (-${pts} pts)`});
+  showToast('Aplicado');
+  closeModal('modal-puntos');
+  loadAll();
+}
+
+/* ========== RESET ========== */
+async function confirmResetAll(){
+  if(!confirm('Esto borrará puntos, historial y tareas actuales. ¿Continuar?'))return;
+  await supabase.from('familia_miembros').update({puntos:0}).neq('id',0);
+  await supabase.from('familia_historial').delete().neq('id',0);
+  await supabase.from('familia_tareas').delete().neq('id',0);
+  showToast('Reseteado');
+  loadAll();
+}
+async function resetOneKidPin(){
+  const mid=+document.getElementById('resetPinMember').value;
+  await supabase.from('familia_miembros').update({pin:'oooo'}).eq('id',mid);
+  showToast('PIN reseteado a oooo');
+}
+
+/* ========== HISTORIAL PREMIOS ========== */
+function openRewardHistory(){
+  const u=currentUser();
+  const items=isAdmin(u)?state.history:state.history.filter(h=>h.miembro_id===u.id&&/canje/i.test(h.texto));
+  document.getElementById('rewardHistoryModal').innerHTML=items.map(h=>`<div style="padding:6px 0;border-bottom:1px solid #eee">${h.texto}</div>`).join('')||'<div class="empty">Sin canjes</div>';
+  openModal('modal-historial-premios');
+}
+
+/* ========== CATÁLOGOS ========== */
+async function loadTaskCatalog(){
+  const catalog=[
+    {titulo:'Hacer la cama',puntos:5,recurrencia:'daily'},
+    {titulo:'Ordenar el cuarto',puntos:10,recurrencia:'daily'},
+    {titulo:'Lavar los platos',puntos:8,recurrencia:'daily'},
+    {titulo:'Sacar la basura',puntos:5,recurrencia:'daily'},
+    {titulo:'Hacer la tarea escolar',puntos:15,recurrencia:'daily'},
+    {titulo:'Barrer la casa',puntos:12,recurrencia:'weekly'},
+    {titulo:'Cortar el césped',puntos:30,recurrencia:'weekly'},
+    {titulo:'Limpiar el baño',puntos:20,recurrencia:'weekly'}
+  ];
+  for(const c of catalog){
+    await supabase.from('familia_plantillas_tareas').insert(c).catch(()=>{});
+  }
+  showToast('Catálogo cargado');
+  loadAll();
+}
+async function loadRewardCatalog(){
+  const catalog=[
+    {nombre:'30 min de pantalla extra',costo:30,icono:'📱'},
+    {nombre:'Elegir la cena',costo:40,icono:'🍝'},
+    {nombre:'Salida al parque',costo:80,icono:'🌳'},
+    {nombre:'Helado',costo:25,icono:'🍦'},
+    {nombre:'Día sin hacer la cama',costo:50,icono:'😴'},
+    {nombre:'Película familiar',costo:60,icono:'🎬'}
+  ];
+  for(const c of catalog){
+    await supabase.from('familia_premios').insert({...c,activo:true,stock:-1,creado_por:state.currentUserId}).catch(()=>{});
+  }
+  showToast('Catálogo de premios cargado');
+  loadAll();
+}
+
+/* ========== CAMBIAR USUARIO ========== */
+function openSwitchUser(){
+  const list=document.getElementById('userSelectList');
+  list.innerHTML=state.members.map(m=>`<div class="member-item" onclick="switchTo(${m.id})" style="cursor:pointer">${m.emoji||''} ${m.nombre}</div>`).join('');
+  openModal('modal-usuario');
+}
+/* Cambia temporalmente al usuario seleccionado */
+function switchTo(id){
+  state.currentUserId=id;
+  closeModal('modal-usuario');
+  render();
+  showToast('Viendo como '+state.members.find(m=>m.id===id)?.nombre);
+}
+
+/* ========== CHAT ========== */
+/* Envía un mensaje al chat familiar */
+async function sendMessage(){
+  const txt=document.getElementById('chatInput').value.trim();
+  if(!txt)return;
+  const to=document.getElementById('chatTo')?.value||null;
+  await supabase.from('familia_mensajes').insert({de_id:state.currentUserId,para_id:to?+to:null,texto:txt});
+  document.getElementById('chatInput').value='';
+  showToast('Enviado');
+  loadAll();
+}
+
+/* ========== INICIO ========== */
+/* Inicializa Supabase y restaura sesión */
+async function init(){
+  supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  await loadAll();
+  const sel=document.getElementById('loginMember');
+  sel.innerHTML=state.members.map(m=>`<option value="${m.id}">${m.emoji||''} ${m.nombre}</option>`).join('');
+  const saved=+localStorage.getItem('familia_current');
+  if(saved&&state.members.find(m=>m.id===saved)){
+    state.currentUserId=saved;
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('mainApp').style.display='';
+    render();
+  }
+}
+init();
+
+/* ========== MEJORAS ========== */
+let originalAdminId = null;
+
+function backToDad(){
+  if(originalAdminId){
+    state.currentUserId = originalAdminId;
+    originalAdminId = null;
+    render();
+    showToast('Vuelves a ser papá');
+  }
+}
+
+function fillChatTo(){
+  const sel = document.getElementById('chatTo');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">Grupo familiar</option>' +
+    state.members.filter(m=>m.id!==state.currentUserId)
+      .map(m=>`<option value="${m.id}">${m.emoji||''} ${m.nombre}</option>`).join('');
+}
+
+function editReward(id){
+  const r = state.rewards.find(x=>x.id===id);
+  if(!r) return;
+  const nuevo = prompt('Nuevo nombre del premio:', r.nombre);
+  if(nuevo && nuevo.trim()){
+    supabase.from('familia_premios').update({nombre:nuevo.trim()}).eq('id',id)
+      .then(()=>{ showToast('Premio actualizado'); loadAll(); });
+  }
+}
+
+function editTask(id){
+  const t = state.tasks.find(x=>x.id===id);
+  if(!t) return;
+  const nuevo = prompt('Nuevo título de la tarea:', t.titulo);
+  if(nuevo && nuevo.trim()){
+    supabase.from('familia_tareas').update({titulo:nuevo.trim()}).eq('id',id)
+      .then(()=>{ showToast('Tarea actualizada'); loadAll(); });
+  }
+}
+
+// Remember original admin when switching
+const _origSwitchTo = switchTo;
+switchTo = function(id){
+  if(!originalAdminId && isAdmin(currentUser())) originalAdminId = state.currentUserId;
+  state.currentUserId = id;
+  closeModal('modal-usuario');
+  render();
+  const back = document.getElementById('backToDadCard');
+  if(back) back.style.display = originalAdminId ? '' : 'none';
+  showToast('Viendo como '+(state.members.find(m=>m.id===id)?.nombre||''));
+};
+
+// Call fillChatTo after render
+const _origRender = render;
+render = function(){
+  _origRender();
+  fillChatTo();
+  const back = document.getElementById('backToDadCard');
+  if(back) back.style.display = originalAdminId ? '' : 'none';
+};
+
+</script>
+</body>
+</html>
