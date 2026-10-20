@@ -3,8 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FamiliaTareas — Economía Familiar</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>FamiliaTareas</title>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var nameEl = document.getElementById('currentName');
+  if (nameEl) nameEl.textContent = 'JS OK · iniciando...';
+});
+</script>
 <style>
 :root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -29,7 +34,7 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
 .modal.show{display:flex}.modal-content{background:#fff;width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:20px;max-height:85vh;overflow-y:auto}
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:12px;z-index:300;opacity:0;transition:opacity .3s}.toast.show{opacity:1}
 .empty{text-align:center;padding:32px;color:var(--muted)}
-.error{color:#ef4444;padding:16px;text-align:center}
+.error{color:#ef4444;padding:16px;text-align:center;background:#fef2f2;border-radius:12px;margin:12px}
 </style>
 </head>
 <body>
@@ -38,7 +43,10 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
     <div class="header-top"><div>🏠 Familia</div><div class="points-badge" id="headerPoints">⭐ 0</div></div>
     <div class="current-user"><div class="avatar" id="currentAvatar">👨</div><div><h2 id="currentName">Cargando...</h2><p id="currentRole"></p></div></div>
   </header>
-  <div class="section active" id="section-tareas"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>📋 Tareas</h3><button class="btn small" onclick="openModal('modal-tarea')">+ Nueva</button></div><div id="taskList"></div></div>
+  <div class="section active" id="section-tareas">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>📋 Tareas</h3><button class="btn small" onclick="openModal('modal-tarea')">+ Nueva</button></div>
+    <div id="taskList"><div class="empty">Esperando datos...</div></div>
+  </div>
   <div class="section" id="section-premios"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>🎁 Premios</h3><button class="btn small" onclick="openModal('modal-premio')">+ Nuevo</button></div><div id="rewardList"></div><h4 style="margin:16px 0 8px">Solicitudes</h4><div id="rewardRequests"></div></div>
   <div class="section" id="section-familia"><h3 style="margin-bottom:12px">🏆 Ranking</h3><div id="leaderboard"></div><button class="btn" style="width:100%;margin-top:16px" onclick="switchUser()">Cambiar de usuario</button></div>
   <div class="section" id="section-yo"><div class="card">Mis puntos <span id="myPointsBadge">0</span><br><button class="btn small secondary" style="margin-top:8px" onclick="openModal('modal-puntos')">+/- Ajustar</button></div><div class="card">Historial<div id="history"></div></div></div>
@@ -59,56 +67,60 @@ const SUPABASE_URL = 'https://khnrnnoxyzuulagemfbh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtobnJubm94eXp1dWxhZ2VtZmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MzM1NTMsImV4cCI6MjA5ODEwOTU1M30.uN8Vm9H-Na92r6UPOsP39F6pGwU6M_K6C4HJ5Tq-2Ts';
 
 let supabase;
-function initSupabase() {
-  if (!window.supabase) {
-    document.getElementById('currentName').textContent = 'Error';
-    document.getElementById('currentRole').textContent = 'No cargó la librería de Supabase';
-    return false;
-  }
+let state = { currentUserId: 1, members: [], tasks: [], rewards: [], requests: [], history: [] };
+
+function setStatus(title, sub) {
+  const n = document.getElementById('currentName');
+  const r = document.getElementById('currentRole');
+  if (n) n.textContent = title;
+  if (r) r.textContent = sub || '';
+}
+
+function loadSupabaseLib() {
+  return new Promise((resolve, reject) => {
+    if (window.supabase) return resolve();
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('No se pudo cargar la librería de Supabase (CDN bloqueado o sin red)'));
+    document.head.appendChild(s);
+  });
+}
+
+async function start() {
+  setStatus('JS OK', 'Cargando librería...');
   try {
+    await loadSupabaseLib();
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    return true;
-  } catch(e) {
-    document.getElementById('currentName').textContent = 'Error de conexión';
-    document.getElementById('currentRole').textContent = e.message;
-    return false;
+    setStatus('Conectado', 'Cargando familia...');
+    await loadAll();
+  } catch (e) {
+    console.error(e);
+    setStatus('Error', e.message);
+    document.getElementById('taskList').innerHTML = '<div class="error">' + e.message + '</div>';
   }
 }
 
-let state = { currentUserId: 1, members: [], tasks: [], rewards: [], requests: [], history: [] };
-
 async function loadAll() {
-  try {
-    document.getElementById('currentName').textContent = 'Cargando datos...';
-    const [m, t, p, r, h] = await Promise.all([
-      supabase.from('familia_miembros').select('*').order('id'),
-      supabase.from('familia_tareas').select('*').order('creado_en', { ascending: false }),
-      supabase.from('familia_premios').select('*'),
-      supabase.from('familia_solicitudes_premios').select('*').eq('estado', 'pendiente'),
-      supabase.from('familia_historial').select('*').order('creado_en', { ascending: false }).limit(15)
-    ]);
-
-    if (m.error) throw new Error('Miembros: ' + m.error.message);
-    if (t.error) throw new Error('Tareas: ' + t.error.message);
-
-    state.members = m.data || [];
-    state.tasks = t.data || [];
-    state.rewards = p.data || [];
-    state.requests = r.data || [];
-    state.history = h.data || [];
-
-    if (state.members.length === 0) {
-      document.getElementById('currentName').textContent = 'Sin miembros';
-      document.getElementById('currentRole').textContent = 'No hay datos en la base';
-      return;
-    }
-    render();
-  } catch (err) {
-    console.error(err);
-    document.getElementById('currentName').textContent = 'Error';
-    document.getElementById('currentRole').textContent = err.message || 'No se pudo cargar';
-    document.getElementById('taskList').innerHTML = '<div class="error">Error: ' + (err.message || 'desconocido') + '</div>';
+  const [m, t, p, r, h] = await Promise.all([
+    supabase.from('familia_miembros').select('*').order('id'),
+    supabase.from('familia_tareas').select('*').order('creado_en', { ascending: false }),
+    supabase.from('familia_premios').select('*'),
+    supabase.from('familia_solicitudes_premios').select('*').eq('estado', 'pendiente'),
+    supabase.from('familia_historial').select('*').order('creado_en', { ascending: false }).limit(15)
+  ]);
+  if (m.error) throw new Error('Miembros: ' + m.error.message);
+  if (t.error) throw new Error('Tareas: ' + t.error.message);
+  state.members = m.data || [];
+  state.tasks = t.data || [];
+  state.rewards = p.data || [];
+  state.requests = r.data || [];
+  state.history = h.data || [];
+  if (!state.members.length) {
+    setStatus('Sin datos', 'La tabla familia_miembros está vacía');
+    return;
   }
+  render();
 }
 
 function showToast(msg) {
@@ -174,28 +186,25 @@ async function createTask() {
   showToast('Tarea creada');
   loadAll();
 }
-
 async function completeTask(id) {
   const { error } = await supabase.from('familia_tareas').update({ estado: 'esperando_aprobacion' }).eq('id', id);
   if (error) return showToast('Error: ' + error.message);
   showToast('Enviada');
   loadAll();
 }
-
 async function approveTask(id) {
   const task = state.tasks.find(t => t.id === id);
   if (!task) return;
   const member = getMember(task.asignada_a);
   await supabase.from('familia_tareas').update({ estado: 'completada' }).eq('id', id);
   await supabase.from('familia_miembros').update({ puntos: member.puntos + task.puntos }).eq('id', task.asignada_a);
-  await supabase.from('familia_historial').insert({ miembro_id: task.asignada_a, texto: `${member.nombre} recibió +${task.puntos} pts por "${task.titulo}"` });
+  await supabase.from('familia_historial').insert({ miembro_id: task.asignada_a, texto: member.nombre + ' recibió +' + task.puntos + ' pts por "' + task.titulo + '"' });
   if (task.recurrencia !== 'once') {
     await supabase.from('familia_tareas').insert({ titulo: task.titulo, asignada_a: task.asignada_a, creada_por: task.creada_por, puntos: task.puntos, recurrencia: task.recurrencia, estado: 'pendiente' });
   }
   showToast('Aprobado!');
   loadAll();
 }
-
 async function createReward() {
   const nombre = document.getElementById('rewardName').value.trim();
   const costo = +document.getElementById('rewardCost').value || 50;
@@ -206,14 +215,12 @@ async function createReward() {
   showToast('Premio creado');
   loadAll();
 }
-
 async function requestReward(id) {
   const { error } = await supabase.from('familia_solicitudes_premios').insert({ premio_id: id, miembro_id: state.currentUserId, estado: 'pendiente' });
   if (error) return showToast('Error: ' + error.message);
   showToast('Solicitud enviada');
   loadAll();
 }
-
 async function approveRequest(id) {
   const req = state.requests.find(x => x.id === id);
   const m = getMember(req.miembro_id);
@@ -221,23 +228,21 @@ async function approveRequest(id) {
   if (m.puntos < r.costo) return showToast('Puntos insuficientes');
   await supabase.from('familia_miembros').update({ puntos: m.puntos - r.costo }).eq('id', m.id);
   await supabase.from('familia_solicitudes_premios').update({ estado: 'aprobada' }).eq('id', id);
-  await supabase.from('familia_historial').insert({ miembro_id: m.id, texto: `${m.nombre} canjeó "${r.nombre}"` });
+  await supabase.from('familia_historial').insert({ miembro_id: m.id, texto: m.nombre + ' canjeó "' + r.nombre + '"' });
   showToast('Aprobado');
   loadAll();
 }
-
 async function adjustPoints() {
   const mid = +document.getElementById('adjustMember').value;
   const pts = +document.getElementById('adjustPoints').value;
   const reason = document.getElementById('adjustReason').value;
   const m = getMember(mid);
   await supabase.from('familia_miembros').update({ puntos: m.puntos + pts }).eq('id', mid);
-  await supabase.from('familia_historial').insert({ miembro_id: mid, texto: `${currentUser().nombre} ajustó ${pts>0?'+':''}${pts} pts a ${m.nombre}: ${reason}` });
+  await supabase.from('familia_historial').insert({ miembro_id: mid, texto: currentUser().nombre + ' ajustó ' + (pts>0?'+':'') + pts + ' pts a ' + m.nombre + ': ' + reason });
   closeModal('modal-puntos');
   showToast('Ajustado');
   loadAll();
 }
-
 function switchUser() {
   document.getElementById('userSelectList').innerHTML = state.members.map(m => `<div class="member-item" style="cursor:pointer" onclick="selectUser(${m.id})"><div style="font-size:1.5rem">${m.emoji||'👤'}</div><div><strong>${m.nombre}</strong><br><small>${m.rol} · ${m.puntos} pts</small></div></div>`).join('');
   openModal('modal-usuario');
@@ -250,7 +255,7 @@ function selectUser(id) {
 }
 
 state.currentUserId = +localStorage.getItem('familia_current') || 1;
-if (initSupabase()) loadAll(); else document.getElementById("taskList").innerHTML = "<div class=\"error\">No se pudo iniciar Supabase</div>";
+start();
 </script>
 </body>
 </html>
