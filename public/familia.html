@@ -91,6 +91,7 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
 
 <div class="modal" id="modal-tarea"><div class="modal-content"><h3>Nueva tarea</h3>
   <div class="form-group"><label>Asignar a (primero)</label><select id="taskAssignTo"></select></div>
+  <div class="form-group"><label>Plantilla (opcional)</label><select id="taskPlantilla" onchange="applyPlantilla()"><option value="">-- personalizada --</option></select></div>
   <div class="form-group"><label>Título</label><input id="taskTitle"></div>
   <div class="form-group"><label>Puntos</label><input type="number" id="taskPoints" value="10"></div>
   <div class="form-group"><label>Recurrencia</label><select id="taskRecurrence" onchange="updateDueFromRecurrence()"><option value="once">Una vez</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
@@ -147,7 +148,7 @@ const EMOJIS = ['👨','👩','👦','👧','🧒','👴','👵','🧑','😀','
 const COLORS = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16'];
 const PRIZE_ICONS = ['🎁','🏆','🎮','📱','🍦','🎬','📚','⚽','🎨','💰','🚗','🏠','🎵','🍔','🎂'];
 
-let supabase, state = { currentUserId: null, members: [], tasks: [], rewards: [], requests: [], history: [], config: {} };
+let supabase, state = { currentUserId: null, members: [], tasks: [], rewards: [], requests: [], history: [], config: {}, plantillas: [] };
 let pendingEvidenceTaskId = null;
 let selectedRewardIcon = '🎁';
 let selectedEmoji = '👤';
@@ -176,13 +177,14 @@ function updateDueFromRecurrence(){
 }
 
 async function loadAll(){
-  const [m,t,p,r,h,c] = await Promise.all([
+  const [m,t,p,r,h,c,pl] = await Promise.all([
     supabase.from('familia_miembros').select('*').order('id'),
     supabase.from('familia_tareas').select('*').order('creado_en',{ascending:false}),
     supabase.from('familia_premios').select('*'),
     supabase.from('familia_solicitudes_premios').select('*').eq('estado','pendiente'),
     supabase.from('familia_historial').select('*').order('creado_en',{ascending:false}).limit(15),
-    supabase.from('familia_config').select('*').eq('id',1).single()
+    supabase.from('familia_config').select('*').eq('id',1).single(),
+    supabase.from('familia_plantillas_tareas').select('*')
   ]);
   state.members = m.data||[];
   state.tasks = t.data||[];
@@ -190,6 +192,7 @@ async function loadAll(){
   state.requests = r.data||[];
   state.history = h.data||[];
   state.config = c.data||{nombre_familia:'Familia'};
+  state.plantillas = pl.data||[];
   render();
 }
 
@@ -229,7 +232,6 @@ function render(){
     return `<div class="task-item"><div style="font-size:1.5rem">${t.icono||a?.emoji||'📋'}</div><div style="flex:1"><strong>${t.titulo}</strong><br><small>A ${a?.nombre||'?'} · +${t.puntos} pts · ${status}${t.fecha_limite?' · vence '+new Date(t.fecha_limite).toLocaleDateString():''}</small></div><div>${canComplete?`<button class="btn small success" onclick="startComplete(${t.id})">Hecho</button>`:''}${canApprove?`<button class="btn small success" onclick="approveTask(${t.id})">Aprobar</button>`:''}</div></div>`;
   }).join('') : '<div class="empty">🎉 No hay tareas pendientes</div>';
 
-  const myType = admin ? null : 'hijo';
   const visibleRewards = state.rewards.filter(r => r.activo !== false && (admin || r.tipo === 'hijo'));
   document.getElementById('rewardList').innerHTML = visibleRewards.map(r => `<div class="reward-item"><div style="font-size:1.5rem">${r.icono||'🎁'}</div><div style="flex:1"><strong>${r.nombre}</strong><br><small>${r.costo} pts${r.stock>0?' · stock '+r.stock:''}</small></div>${u.puntos>=r.costo?`<button class="btn small success" onclick="requestReward(${r.id})">Solicitar</button>`:`<small>Faltan ${r.costo-u.puntos}</small>`}</div>`).join('') || '<div class="empty">Sin premios</div>';
 
@@ -274,7 +276,16 @@ function openSwitchUser(){
 }
 function selectUser(id){ state.currentUserId=id; localStorage.setItem('familia_current',id); closeModal('modal-usuario'); render(); }
 
-function openNewTask(){ if(!isAdmin(currentUser())) return; updateDueFromRecurrence(); openModal('modal-tarea'); }
+function openNewTask(){ if(!isAdmin(currentUser())) return; 
+  const sel = document.getElementById('taskPlantilla');
+  sel.innerHTML = '<option value="">-- personalizada --</option>' + state.plantillas.map(p=>`<option value="${p.id}">${p.icono||''} ${p.titulo} (${p.puntos} pts)</option>`).join('');
+  updateDueFromRecurrence(); openModal('modal-tarea'); }
+function applyPlantilla(){
+  const id = +document.getElementById('taskPlantilla').value;
+  if(!id) return;
+  const p = state.plantillas.find(x=>x.id===id);
+  if(p){ document.getElementById('taskTitle').value=p.titulo; document.getElementById('taskPoints').value=p.puntos; document.getElementById('taskRecurrence').value=p.recurrencia||'once'; updateDueFromRecurrence(); }
+}
 function openNewReward(){
   if(!isAdmin(currentUser())) return;
   const grid = document.getElementById('rewardIcons');
