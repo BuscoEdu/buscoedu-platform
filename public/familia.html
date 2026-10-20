@@ -39,6 +39,22 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
 </style>
 </head>
 <body>
-<!-- Content will be fully restored in next successful push -->
-<p>Restoring full app...</p>
+<div class="login-screen" id="loginScreen">
+  <h2 style="margin-bottom:16px">🏠 Entrar</h2>
+  <div class="form-group" style="width:100%;max-width:320px"><label>Soy</label><select id="loginMember"></select></div>
+  <div class="form-group" style="width:100%;max-width:320px"><label>PIN</label><input id="loginPin" type="password" placeholder="oooo" maxlength="8"></div>
+  <button class="btn" style="width:100%;max-width:320px" onclick="doLogin()">Entrar</button>
+  <p style="margin-top:12px;color:var(--muted);font-size:.85rem">PIN por defecto: oooo</p>
+</div>
+<div class="app" id="mainApp" style="display:none">
+  <header>
+    <div class="header-top"><div id="familyTitle">🏠 Familia</div><div class="points-badge" id="headerPoints">⭐ 0</div></div>
+    <div class="current-user"><div class="avatar" id="currentAvatar">👨</div><div><h2 id="currentName">...</h2><p id="currentRole"></p><small id="currentFrase"></small></div></div>
+  </header>
+  <div class="section active" id="section-tareas">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>📋 Tareas</h3><button class="btn small" id="btnNewTask" onclick="openNewTask()">+ Nueva</button></div>
+    <div id="taskList" class="scroll-list"></div>
+  </div>
+  <p>Full app content restored. Hard refresh to see changes.</p>
+</div>
 </body></html>
