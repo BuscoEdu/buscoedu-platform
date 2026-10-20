@@ -7,7 +7,69 @@
 <meta name="mobile-web-app-capable" content="yes">
 <title>FamiliaTareas</title>
 <!-- Librería de Supabase para conectar con la base de datos -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js">
+/* ========== FIXES Y MEJORAS ========== */
+let originalAdminId = null;
+
+function backToDad(){
+  if(originalAdminId){
+    state.currentUserId = originalAdminId;
+    originalAdminId = null;
+    render();
+    showToast('Vuelves a ser papá');
+  }
+}
+
+// Override switchTo to remember original
+const _origSwitch = switchTo;
+function switchTo(id){
+  if(!originalAdminId && isAdmin(currentUser())) originalAdminId = state.currentUserId;
+  state.currentUserId = id;
+  closeModal('modal-usuario');
+  render();
+  document.getElementById('backToDadCard').style.display = originalAdminId ? '' : 'none';
+  showToast('Viendo como '+state.members.find(m=>m.id===id)?.nombre);
+}
+
+// Fill chat recipient selector
+function fillChatTo(){
+  const sel = document.getElementById('chatTo');
+  if(!sel) return;
+  const opts = '<option value="">Grupo familiar</option>' +
+    state.members.filter(m=>m.id!==state.currentUserId).map(m=>`<option value="${m.id}">${m.emoji||''} ${m.nombre}</option>`).join('');
+  sel.innerHTML = opts;
+}
+
+// Edit reward stub
+function editReward(id){
+  const r = state.rewards.find(x=>x.id===id);
+  if(!r) return;
+  const nuevo = prompt('Nuevo nombre:', r.nombre);
+  if(nuevo){
+    supabase.from('familia_premios').update({nombre:nuevo}).eq('id',id).then(()=>loadAll());
+  }
+}
+
+// Edit task stub
+function editTask(id){
+  const t = state.tasks.find(x=>x.id===id);
+  if(!t) return;
+  const nuevo = prompt('Nuevo título:', t.titulo);
+  if(nuevo){
+    supabase.from('familia_tareas').update({titulo:nuevo}).eq('id',id).then(()=>loadAll());
+  }
+}
+
+// Call fillChatTo on render
+const _origRender = render;
+function render(){
+  _origRender();
+  fillChatTo();
+  const back = document.getElementById('backToDadCard');
+  if(back) back.style.display = originalAdminId ? '' : 'none';
+}
+
+</script>
 <style>
 /* Estilos generales y variables de color */
 :root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
@@ -108,14 +170,14 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
   <div class="section" id="section-chat">
     <h3 style="margin-bottom:12px">💬 Chat</h3>
     <div id="chatMessages" style="height:280px;overflow-y:auto;background:#fff;border-radius:12px;padding:8px;margin-bottom:8px"></div>
-    <div style="display:flex;gap:8px"><input id="chatInput" placeholder="Mensaje..." style="flex:1"><button class="btn small" onclick="sendMessage()">Enviar</button></div>
+    <div style="display:flex;gap:8px;margin-bottom:8px"><select id="chatTo" style="flex:1"><option value="">Grupo familiar</option></select><input id="chatInput" placeholder="Mensaje..." style="flex:2"><button class="btn small" onclick="sendMessage()">Enviar</button></div>
   </div>
 
   <!-- Sección YO (perfil y admin) -->
   <div class="section" id="section-yo">
     <div class="card"><h3>Mi perfil</h3><button class="btn secondary" style="width:100%;margin-top:8px" onclick="openProfile()">Editar perfil</button></div>
     <!-- Botón ver como otro (solo papá) -->
-    <div class="card" id="switchUserCard" style="display:none"><button class="btn secondary" style="width:100%" onclick="openSwitchUser()">Ver como otro</button></div>
+    <div class="card" id="switchUserCard" style="display:none"><button class="btn secondary" style="width:100%" onclick="openSwitchUser()">Ver como otro</button></div><div class="card" id="backToDadCard" style="display:none"><button class="btn" style="width:100%" onclick="backToDad()">Volver a papá</button></div>
     <!-- Resetear todo (solo papá) -->
     <div class="card" id="adminResetAll" style="display:none">
       <strong>Resetear todo (solo papá)</strong>
@@ -216,7 +278,7 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-transferir')">Cancelar</button>
 </div></div>
 <!-- ========== MODAL: CAMBIAR USUARIO ========== -->
-<div class="modal" id="modal-usuario"><div class="modal-content"><h3>Ver como otro</h3><div id="userSelectList"></div></div></div>
+<div class="modal" id="modal-usuario"><div class="modal-content"><h3>Ver como otro</h3><div id="userSelectList"></div><button class="btn secondary" style="width:100%;margin-top:12px" onclick="closeModal('modal-usuario')">Cancelar</button></div></div>
 
 <script>
 /* ========== CONFIGURACIÓN SUPABASE ========== */
@@ -269,7 +331,7 @@ async function loadAll(){
     supabase.from('familia_premios').select('*'),
     supabase.from('familia_historial').select('*').order('creado_en',{ascending:false}).limit(30),
     supabase.from('familia_config').select('*').eq('id',1).single(),
-    supabase.from('familia_plantillas_tareas').select('*'),
+    supabase.from('familia_plantillas_tareas_tareas').select('*'),
     supabase.from('familia_mensajes').select('*').order('creado_en',{ascending:false}).limit(50),
     supabase.from('familia_solicitudes_premios').select('*')
   ]);
@@ -343,7 +405,13 @@ function renderRewards(){
   const list=document.getElementById('rewardList');
   const u=currentUser();
   if(!state.rewards.length){list.innerHTML='<div class="empty">No hay premios</div>';return}
-  list.innerHTML=state.rewards.filter(r=>r.activo!==false).map(r=>`<div class="reward-item"><div style="flex:1">${r.icono||'🎁'} <strong>${r.nombre}</strong><br><small>${r.costo} pts${r.stock>=0?' · stock:'+r.stock:''}</small></div>${u.puntos>=r.costo?`<button class="btn small" onclick="redeemReward(${r.id})">Canjear</button>`:''}</div>`).join('');
+  list.innerHTML=state.rewards.filter(r=>r.activo!==false).map(r=>{
+  const falta=Math.max(0,(r.costo||0)-(u.puntos||0));
+  const canjear=u.puntos>=r.costo?`<button class="btn small" onclick="redeemReward(${r.id})">Canjear</button>`:'';
+  const faltatxt=falta>0?`<br><small style="color:#ef4444">Faltan ${falta} pts</small>`:'';
+  const edit=isAdmin(u)?`<button class="btn small secondary" onclick="editReward(${r.id})">Editar</button>`:'';
+  return `<div class="reward-item"><div style="flex:1">${r.icono||'🎁'} <strong>${r.nombre}</strong><br><small>${r.costo} pts${r.stock>=0?' · stock:'+r.stock:''}</small>${faltatxt}</div><div style="display:flex;gap:6px">${canjear}${edit}</div></div>`;
+}).join('');
 }
 
 /* Ranking solo de hijos ordenados por puntos */
@@ -421,9 +489,9 @@ async function createTask(){
   const fecha=document.getElementById('taskDue').value||null;
   const penalizacion=+document.getElementById('taskPenalty').value||0;
   const saveTpl=document.getElementById('taskSaveTemplate').checked;
-  const {error}=await supabase.from('familia_tareas').insert({titulo,asignado_a:asignado,puntos,estado:'borrador',recurrencia,fecha_limite:fecha,penalizacion_dia:penalizacion,creado_por:state.currentUserId});
+  const {error}=await supabase.from('familia_tareas').insert({titulo,asignada_a:asignado,puntos,estado:'pendiente',recurrencia,fecha_limite:fecha,puntos_penalizacion_dia:penalizacion,creada_por:state.currentUserId});
   if(error)return showToast('Error: '+error.message);
-  if(saveTpl)await supabase.from('familia_plantillas_tareas').insert({titulo,puntos,recurrencia}).catch(()=>{});
+  if(saveTpl)await supabase.from('familia_plantillas_tareas_tareas').insert({titulo,puntos,recurrencia}).catch(()=>{});
   showToast('Tarea creada');
   closeModal('modal-tarea');
   loadAll();
@@ -591,7 +659,7 @@ function switchTo(id){
 async function sendMessage(){
   const txt=document.getElementById('chatInput').value.trim();
   if(!txt)return;
-  await supabase.from('familia_mensajes').insert({de:state.currentUserId,mensaje:txt}).catch(()=>{});
+  await supabase.from('familia_mensajes').insert({de_id:state.currentUserId,para_id:null,texto:txt}).catch(()=>{});
   document.getElementById('chatInput').value='';
   showToast('Enviado');
   loadAll();
@@ -642,7 +710,7 @@ const REWARD_CATALOG=[
 async function loadTaskCatalog(){
   if(!confirm('¿Cargar catálogo de tareas típicas como plantillas?'))return;
   for(const t of TASK_CATALOG){
-    await supabase.from('familia_plantillas_tareas').insert(t).catch(()=>{});
+    await supabase.from('familia_plantillas_tareas_tareas').insert(t).catch(()=>{});
   }
   showToast('Catálogo de tareas cargado');
   loadAll();
@@ -744,6 +812,68 @@ async function init(){
   }
 }
 init();
+
+/* ========== FIXES Y MEJORAS ========== */
+let originalAdminId = null;
+
+function backToDad(){
+  if(originalAdminId){
+    state.currentUserId = originalAdminId;
+    originalAdminId = null;
+    render();
+    showToast('Vuelves a ser papá');
+  }
+}
+
+// Override switchTo to remember original
+const _origSwitch = switchTo;
+function switchTo(id){
+  if(!originalAdminId && isAdmin(currentUser())) originalAdminId = state.currentUserId;
+  state.currentUserId = id;
+  closeModal('modal-usuario');
+  render();
+  document.getElementById('backToDadCard').style.display = originalAdminId ? '' : 'none';
+  showToast('Viendo como '+state.members.find(m=>m.id===id)?.nombre);
+}
+
+// Fill chat recipient selector
+function fillChatTo(){
+  const sel = document.getElementById('chatTo');
+  if(!sel) return;
+  const opts = '<option value="">Grupo familiar</option>' +
+    state.members.filter(m=>m.id!==state.currentUserId).map(m=>`<option value="${m.id}">${m.emoji||''} ${m.nombre}</option>`).join('');
+  sel.innerHTML = opts;
+}
+
+// Edit reward stub
+function editReward(id){
+  const r = state.rewards.find(x=>x.id===id);
+  if(!r) return;
+  const nuevo = prompt('Nuevo nombre:', r.nombre);
+  if(nuevo){
+    supabase.from('familia_premios').update({nombre:nuevo}).eq('id',id).then(()=>loadAll());
+  }
+}
+
+// Edit task stub
+function editTask(id){
+  const t = state.tasks.find(x=>x.id===id);
+  if(!t) return;
+  const nuevo = prompt('Nuevo título:', t.titulo);
+  if(nuevo){
+    supabase.from('familia_tareas').update({titulo:nuevo}).eq('id',id).then(()=>loadAll());
+  }
+}
+
+// Call fillChatTo on render
+const _origRender = render;
+function render(){
+  _origRender();
+  fillChatTo();
+  const back = document.getElementById('backToDadCard');
+  if(back) back.style.display = originalAdminId ? '' : 'none';
+}
+
 </script>
 </body>
 </html>
