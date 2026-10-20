@@ -1,1 +1,223 @@
-<!DOCTYPE html><html lang=es><head><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><title>FamiliaTareas</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script><style>:root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}.app{max-width:480px;margin:0 auto;min-height:100vh;padding-bottom:80px}header{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:20px 16px;border-radius:0 0 24px 24px}.header-top{display:flex;justify-content:space-between;align-items:center}.points-badge{background:rgba(255,255,255,.2);padding:8px 14px;border-radius:999px;font-weight:700}.current-user{margin-top:12px;display:flex;align-items:center;gap:12px}.avatar{width:48px;height:48px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.6rem}nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 0 12px;z-index:100;overflow-x:auto}.nav-btn{background:none;border:none;font-size:.7rem;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:4px 8px;border-radius:12px;position:relative;min-width:60px}.nav-btn.active{color:var(--primary);background:#eef2ff}.section{display:none;padding:16px}.section.active{display:block}.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;border:1px solid var(--border)}.btn{background:var(--primary);color:#fff;border:none;padding:10px 16px;border-radius:10px;font-weight:600;cursor:pointer}.btn.small{padding:6px 12px;font-size:.8rem}.btn.success{background:var(--success)}.btn.danger{background:var(--danger)}.btn.secondary{background:#e2e8f0;color:var(--text)}.member-item,.task-item,.reward-item{display:flex;align-items:center;gap:12px;padding:12px;background:#f8fafc;border-radius:12px;margin-bottom:8px;border-left:4px solid #6366f1}.form-group{margin-bottom:12px}.form-group label{display:block;font-size:.85rem;margin-bottom:4px;color:var(--muted)}.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px}.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}.modal.show{display:flex}.modal-content{background:#fff;width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:20px;max-height:85vh;overflow-y:auto}.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:12px;z-index:300;opacity:0;transition:opacity .3s}.toast.show{opacity:1}.login-screen{position:fixed;inset:0;background:#fff;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}</style></head><body><div class=login-screen id=loginScreen><h2 style=margin-bottom:16px>🏠 Entrar</h2><div class=form-group style=width:100%;max-width:320px><label>Soy</label><select id=loginMember></select></div><div class=form-group style=width:100%;max-width:320px><label>PIN</label><input id=loginPin type=password placeholder=oooo maxlength=8></div><button class=btn style=width:100%;max-width:320px onclick=doLogin()>Entrar</button><p style=margin-top:12px;color:var(--muted);font-size:.85rem>PIN por defecto: oooo</p></div><div class=app id=mainApp style=display:none><header><div class=header-top><div id=familyTitle>🏠 Familia</div><div class=points-badge id=headerPoints>⭐ 0</div></div><div class=current-user><div class=avatar id=currentAvatar>👨</div><div><h2 id=currentName>...</h2><p id=currentRole></p></div></div></header><div class="section active" id=section-tareas><h3>📋 Tareas</h3><div id=taskList></div></div><nav><button class="nav-btn active" onclick=showSection('tareas')>📋<br>Tareas</button><button class=nav-btn onclick=showSection('premios')>🎁<br>Premios</button><button class=nav-btn onclick=showSection('ranking')>🏆<br>Ranking</button><button class=nav-btn onclick=showSection('yo')>👤<br>Yo</button></nav></div><div id=toast class=toast></div><script>const SUPABASE_URL='https://khnrnnoxyzuulagemfbh.supabase.co';const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtobnJubm94eXp1dWxhZ2VtZmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MzM1NTMsImV4cCI6MjA5ODEwOTU1M30.uN8Vm9H-Na92r6UPOsP39F6pGwU6M_K6C4HJ5Tq-2Ts';let supabase,state={members:[],tasks:[],rewards:[],historial:[],mensajes:[],currentUserId:null};function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}function currentUser(){return state.members.find(m=>m.id===state.currentUserId)}function isAdmin(u){return u&&/padre|mamá|papa|madre/i.test(u.rol||'')}async function loadAll(){const {data:m}=await supabase.from('familia_miembros').select('*');state.members=m||[];const {data:t}=await supabase.from('familia_tareas').select('*');state.tasks=t||[];const {data:r}=await supabase.from('familia_premios').select('*');state.rewards=r||[];render()}function render(){const u=currentUser();if(!u)return;document.getElementById('currentName').textContent=u.nombre;document.getElementById('currentRole').textContent=u.rol;document.getElementById('headerPoints').textContent='⭐ '+(u.puntos||0);const tasks=state.tasks.filter(t=>t.asignada_a===u.id||isAdmin(u));document.getElementById('taskList').innerHTML=tasks.map(t=>`<div class=task-item>${t.titulo} (${t.puntos} pts) <button class="btn small" onclick=startComplete(${t.id})>Hecho</button></div>`).join('')||'<p>Sin tareas</p>'}function showSection(id){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById('section-'+id).classList.add('active')}async function doLogin(){const id=+document.getElementById('loginMember').value;const pin=document.getElementById('loginPin').value;const m=state.members.find(x=>x.id===id);if(!m|| (m.pin&&m.pin!==pin)) return showToast('PIN incorrecto');state.currentUserId=id;localStorage.setItem('familia_current',id);document.getElementById('loginScreen').style.display='none';document.getElementById('mainApp').style.display='';render()}function startComplete(id){if(confirm('Marcar como hecha? (foto opcional)')){supabase.from('familia_tareas').update({estado:'esperando_aprobacion'}).eq('id',id);showToast('Enviada');loadAll()}}function confirmResetAll(){if(!confirm('¿Borrar todo el historial y puntos?'))return;if(!confirm('Confirmación final: ¿empezar desde cero?'))return;resetAll()}async function resetAll(){const u=currentUser();if(!u||!/padre|papá/i.test(u.rol||''))return showToast('Solo papá');await supabase.from('familia_tareas').delete().neq('id',0);await supabase.from('familia_historial').delete().neq('id',0);await supabase.from('familia_miembros').update({puntos:0});showToast('Reseteado');loadAll()}async function init(){supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);await loadAll();document.getElementById('loginMember').innerHTML=state.members.map(m=>`<option value="${m.id}">${m.emoji||''} ${m.nombre}</option>`).join('');const saved=+localStorage.getItem('familia_current');if(saved&&state.members.find(m=>m.id===saved)){state.currentUserId=saved;document.getElementById('loginScreen').style.display='none';document.getElementById('mainApp').style.display='';render()}}init();</script></body></html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FamiliaTareas</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
+<style>
+:root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text)}
+.app{max-width:480px;margin:0 auto;min-height:100vh;padding-bottom:80px}
+header{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:20px 16px;border-radius:0 0 24px 24px}
+.header-top{display:flex;justify-content:space-between;align-items:center}
+.points-badge{background:rgba(255,255,255,.2);padding:8px 14px;border-radius:999px;font-weight:700}
+.current-user{margin-top:12px;display:flex;align-items:center;gap:12px}
+.avatar{width:48px;height:48px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.6rem}
+nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 0 12px;z-index:100}
+.nav-btn{background:none;border:none;font-size:.7rem;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:4px 8px;border-radius:12px;min-width:60px}
+.nav-btn.active{color:var(--primary);background:#eef2ff}
+.section{display:none;padding:16px}.section.active{display:block}
+.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;border:1px solid var(--border)}
+.btn{background:var(--primary);color:#fff;border:none;padding:10px 16px;border-radius:10px;font-weight:600;cursor:pointer}
+.btn.small{padding:6px 12px;font-size:.8rem}.btn.success{background:var(--success)}.btn.danger{background:var(--danger)}.btn.secondary{background:#e2e8f0;color:var(--text)}
+.task-item,.reward-item{display:flex;align-items:center;gap:12px;padding:12px;background:#f8fafc;border-radius:12px;margin-bottom:8px;border-left:4px solid #6366f1}
+.reward-item{border-left-color:#10b981}
+.form-group{margin-bottom:12px}.form-group label{display:block;font-size:.85rem;margin-bottom:4px;color:var(--muted)}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}
+.modal.show{display:flex}.modal-content{background:#fff;width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:20px;max-height:85vh;overflow-y:auto}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:12px;z-index:300;opacity:0;transition:opacity .3s}.toast.show{opacity:1}
+.login-screen{position:fixed;inset:0;background:#fff;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.empty{text-align:center;padding:32px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="login-screen" id="loginScreen">
+  <h2 style="margin-bottom:16px">🏠 Entrar</h2>
+  <div class="form-group" style="width:100%;max-width:320px"><label>Soy</label><select id="loginMember"></select></div>
+  <div class="form-group" style="width:100%;max-width:320px"><label>PIN</label><input id="loginPin" type="password" placeholder="oooo" maxlength="8"></div>
+  <button class="btn" style="width:100%;max-width:320px" onclick="doLogin()">Entrar</button>
+  <p style="margin-top:12px;color:var(--muted);font-size:.85rem">PIN por defecto: oooo</p>
+</div>
+<div class="app" id="mainApp" style="display:none">
+  <header>
+    <div class="header-top"><div id="familyTitle">🏠 Familia</div><div class="points-badge" id="headerPoints">⭐ 0</div></div>
+    <div class="current-user"><div class="avatar" id="currentAvatar">👨</div><div><h2 id="currentName">...</h2><p id="currentRole"></p><small id="currentFrase"></small></div></div>
+  </header>
+  <div class="section active" id="section-tareas">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>📋 Tareas</h3><button class="btn small" id="btnNewTask" onclick="openNewTask()" style="display:none">+ Nueva</button></div>
+    <div id="taskList"></div>
+  </div>
+  <div class="section" id="section-premios">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>🎁 Premios</h3><button class="btn small" id="btnNewReward" onclick="openNewReward()" style="display:none">+ Nuevo</button></div>
+    <div id="rewardList"></div>
+  </div>
+  <div class="section" id="section-ranking">
+    <h3>🏆 Ranking (hijos)</h3>
+    <div id="rankingList"></div>
+  </div>
+  <div class="section" id="section-yo">
+    <div class="card">
+      <h3>Mi perfil</h3>
+      <button class="btn secondary" style="width:100%;margin-top:8px" onclick="openProfile()">Editar perfil</button>
+    </div>
+    <div class="card" id="adminResetAll" style="display:none">
+      <strong>Resetear todo (solo papá)</strong>
+      <p style="font-size:.8rem;color:var(--muted);margin:8px 0">Borra puntos, historial y tareas actuales. Los premios se mantienen.</p>
+      <button class="btn danger" style="width:100%" onclick="confirmResetAll()">Resetear todo</button>
+    </div>
+  </div>
+  <nav>
+    <button class="nav-btn active" data-section="tareas" onclick="showSection('tareas')">📋<br>Tareas</button>
+    <button class="nav-btn" data-section="premios" onclick="showSection('premios')">🎁<br>Premios</button>
+    <button class="nav-btn" data-section="ranking" onclick="showSection('ranking')">🏆<br>Ranking</button>
+    <button class="nav-btn" data-section="yo" onclick="showSection('yo')">👤<br>Yo</button>
+  </nav>
+</div>
+<div id="toast" class="toast"></div>
+<div class="modal" id="modal-tarea"><div class="modal-content">
+  <h3>Nueva tarea</h3>
+  <div class="form-group"><label>Título</label><input id="taskTitle"></div>
+  <div class="form-group"><label>Asignar a</label><select id="taskAssignTo"></select></div>
+  <div class="form-group"><label>Puntos</label><input id="taskPoints" type="number" value="10"></div>
+  <button class="btn" onclick="createTask()">Crear</button>
+  <button class="btn secondary" onclick="closeModal('modal-tarea')">Cancelar</button>
+</div></div>
+<div class="modal" id="modal-evidencia"><div class="modal-content">
+  <h3>Marcar como hecha</h3>
+  <div class="form-group"><label>Comentario (opcional)</label><textarea id="evComment" rows="2"></textarea></div>
+  <div class="form-group"><label>Foto (opcional)</label><input id="evPhoto" type="file" accept="image/*"></div>
+  <button class="btn success" onclick="submitEvidence()">Enviar</button>
+  <button class="btn secondary" onclick="closeModal('modal-evidencia')">Cancelar</button>
+</div></div>
+<div class="modal" id="modal-perfil"><div class="modal-content">
+  <h3>Editar perfil</h3>
+  <div class="form-group"><label>Nombre</label><input id="profName"></div>
+  <div class="form-group"><label>Frase célebre</label><input id="profFrase"></div>
+  <div class="form-group"><label>Nuevo PIN (dejar vacío para no cambiar)</label><input id="profPin" type="password"></div>
+  <div class="form-group"><label>Confirmar PIN</label><input id="profPin2" type="password"></div>
+  <button class="btn" onclick="saveProfile()">Guardar</button>
+  <button class="btn secondary" onclick="closeModal('modal-perfil')">Cancelar</button>
+</div></div>
+<script>
+const SUPABASE_URL='https://khnrnnoxyzuulagemfbh.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtobnJubm94eXp1dWxhZ2VtZmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MzM1NTMsImV4cCI6MjA5ODEwOTU1M30.uN8Vm9H-Na92r6UPOsP39F6pGwU6M_K6C4HJ5Tq-2Ts';
+let supabase, state={members:[],tasks:[],rewards:[],currentUserId:null}, pendingEvidenceTaskId=null;
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+function currentUser(){return state.members.find(m=>m.id===state.currentUserId)}
+function isAdmin(u){return u&&/padre|mamá|papa|madre/i.test(u.rol||'')}
+function getMember(id){return state.members.find(m=>m.id===id)}
+async function loadAll(){
+  const {data:m}=await supabase.from('familia_miembros').select('*'); state.members=m||[];
+  const {data:t}=await supabase.from('familia_tareas').select('*'); state.tasks=t||[];
+  const {data:r}=await supabase.from('familia_premios').select('*'); state.rewards=r||[];
+  render();
+}
+function render(){
+  const u=currentUser(); if(!u) return;
+  document.getElementById('currentName').textContent=u.nombre;
+  document.getElementById('currentRole').textContent=u.rol;
+  document.getElementById('currentFrase').textContent=u.frase||'';
+  document.getElementById('headerPoints').textContent='⭐ '+(u.puntos||0);
+  const admin=isAdmin(u);
+  document.getElementById('btnNewTask').style.display=admin?'':'none';
+  document.getElementById('btnNewReward').style.display=admin?'':'none';
+  document.getElementById('adminResetAll').style.display=(/padre|papá/i.test(u.rol||''))?'':'none';
+  const tasks=state.tasks.filter(t=>t.asignada_a===u.id||admin);
+  document.getElementById('taskList').innerHTML=tasks.map(t=>`<div class="task-item">${t.titulo} (${t.puntos} pts) <button class="btn small" onclick="startComplete(${t.id})">Hecho</button></div>`).join('')||'<p class="empty">Sin tareas</p>';
+  document.getElementById('rewardList').innerHTML=state.rewards.map(r=>`<div class="reward-item">${r.titulo||r.nombre} (${r.puntos||r.costo} pts)</div>`).join('')||'<p class="empty">Sin premios</p>';
+  const kids=state.members.filter(m=>!isAdmin(m)).sort((a,b)=>(b.puntos||0)-(a.puntos||0));
+  document.getElementById('rankingList').innerHTML=kids.map((m,i)=>`<div class="task-item">${i+1}. ${m.emoji||''} ${m.nombre} — ⭐ ${m.puntos||0}</div>`).join('')||'<p class="empty">Sin ranking</p>';
+}
+function showSection(id){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('section-'+id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.section===id));
+}
+function openModal(id){document.getElementById(id).classList.add('show')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+function openNewTask(){
+  if(!isAdmin(currentUser())) return;
+  document.getElementById('taskAssignTo').innerHTML=state.members.filter(m=>!isAdmin(m)).map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
+  openModal('modal-tarea');
+}
+async function createTask(){
+  const u=currentUser(); if(!isAdmin(u)) return;
+  const titulo=document.getElementById('taskTitle').value.trim();
+  const asignada_a=+document.getElementById('taskAssignTo').value;
+  const puntos=+document.getElementById('taskPoints').value||10;
+  if(!titulo||!asignada_a) return showToast('Completa los campos');
+  const {error}=await supabase.from('familia_tareas').insert({titulo,asignada_a,creada_por:u.id,puntos,estado:'pendiente'});
+  if(error) return showToast(error.message);
+  document.getElementById('taskTitle').value='';
+  closeModal('modal-tarea'); showToast('Tarea creada'); loadAll();
+}
+function startComplete(id){pendingEvidenceTaskId=id; document.getElementById('evComment').value=''; document.getElementById('evPhoto').value=''; openModal('modal-evidencia')}
+async function submitEvidence(){
+  const id=pendingEvidenceTaskId;
+  const comment=document.getElementById('evComment').value.trim();
+  const {error}=await supabase.from('familia_tareas').update({estado:'esperando_aprobacion',comentario_completado:comment}).eq('id',id);
+  if(error) return showToast(error.message);
+  closeModal('modal-evidencia'); showToast('Enviada'); loadAll();
+}
+function openProfile(){
+  const u=currentUser();
+  document.getElementById('profName').value=u.nombre||'';
+  document.getElementById('profFrase').value=u.frase||'';
+  document.getElementById('profPin').value='';
+  document.getElementById('profPin2').value='';
+  openModal('modal-perfil');
+}
+async function saveProfile(){
+  const u=currentUser();
+  const np=document.getElementById('profPin').value.trim();
+  const np2=document.getElementById('profPin2').value.trim();
+  if(np && np!==np2) return showToast('Los PIN no coinciden');
+  const updates={nombre:document.getElementById('profName').value.trim(),frase:document.getElementById('profFrase').value.trim()};
+  if(np) updates.pin=np;
+  const {error}=await supabase.from('familia_miembros').update(updates).eq('id',u.id);
+  if(error) return showToast(error.message);
+  closeModal('modal-perfil'); showToast('Actualizado'); loadAll();
+}
+function confirmResetAll(){
+  if(!confirm('¿Estás seguro de que quieres borrar TODO el historial, puntos y tareas actuales?\\nLos premios se mantienen.\\nEsta acción no se puede deshacer.')) return;
+  if(!confirm('Última confirmación: ¿borrar todo y empezar desde cero?')) return;
+  resetAll();
+}
+async function resetAll(){
+  const u=currentUser();
+  if(!u || !/padre|papá/i.test(u.rol||'')) return showToast('Solo papá puede resetear');
+  await supabase.from('familia_tareas').delete().neq('id',0);
+  await supabase.from('familia_historial').delete().neq('id',0);
+  await supabase.from('familia_miembros').update({puntos:0});
+  showToast('Todo reseteado'); loadAll();
+}
+async function doLogin(){
+  const id=+document.getElementById('loginMember').value;
+  const pin=document.getElementById('loginPin').value;
+  const m=state.members.find(x=>x.id===id);
+  if(!m || (m.pin && m.pin!==pin)) return showToast('PIN incorrecto');
+  state.currentUserId=id;
+  localStorage.setItem('familia_current',id);
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('mainApp').style.display='';
+  render();
+}
+async function init(){
+  supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  await loadAll();
+  document.getElementById('loginMember').innerHTML=state.members.map(m=>`<option value="${m.id}">${m.emoji||''} ${m.nombre}</option>`).join('');
+  const saved=+localStorage.getItem('familia_current');
+  if(saved && state.members.find(m=>m.id===saved)){
+    state.currentUserId=saved;
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('mainApp').style.display='';
+    render();
+  }
+}
+init();
+</script>
+</body>
+</html>
