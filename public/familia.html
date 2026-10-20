@@ -34,6 +34,7 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
 .emoji-grid{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
 .emoji-opt,.color-opt{width:40px;height:40px;border-radius:10px;border:2px solid transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.4rem}
 .emoji-opt.selected,.color-opt.selected{border-color:var(--primary)}
+.scroll-list{max-height:220px;overflow-y:auto}
 </style>
 </head>
 <body>
@@ -53,19 +54,21 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
 
   <div class="section active" id="section-tareas">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>📋 Tareas</h3><button class="btn small" id="btnNewTask" onclick="openNewTask()">+ Nueva</button></div>
-    <div id="taskList"></div>
+    <div id="taskList" class="scroll-list"></div>
   </div>
 
   <div class="section" id="section-premios">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>🎁 Premios</h3><button class="btn small" id="btnNewReward" onclick="openNewReward()">+ Nuevo</button></div>
-    <div id="rewardList"></div>
+    <div id="rewardList" class="scroll-list"></div>
     <h4 style="margin:16px 0 8px">Solicitudes</h4>
-    <div id="rewardRequests"></div>
+    <div id="rewardRequests" class="scroll-list"></div>
   </div>
 
   <div class="section" id="section-familia">
     <h3 style="margin-bottom:12px">🏆 Ranking (hijos)</h3>
     <div id="leaderboard"></div>
+    <h4 style="margin:16px 0 8px">Actividad reciente</h4>
+    <div id="activityList" class="scroll-list"></div>
     <button class="btn secondary" style="width:100%;margin-top:16px" onclick="openSwitchUser()">Cambiar de usuario (pruebas)</button>
   </div>
 
@@ -74,7 +77,8 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
       <button class="btn small secondary" id="btnAdjust" style="margin-top:8px" onclick="openAdjust()">Ajustar consecuencia</button>
     </div>
     <div class="card">Mi perfil<button class="btn small" style="float:right" onclick="openProfile()">Editar</button><div id="profileInfo"></div></div>
-    <div class="card">Historial<div id="history"></div></div>
+    <div class="card" id="adminPinReset" style="display:none">Resetear PIN hijos<button class="btn small danger" onclick="resetKidPins()">Reset a oooo</button></div>
+    <div class="card">Historial<div id="history" class="scroll-list"></div></div>
   </div>
 
   <nav>
@@ -86,10 +90,10 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
 </div>
 
 <div class="modal" id="modal-tarea"><div class="modal-content"><h3>Nueva tarea</h3>
+  <div class="form-group"><label>Asignar a (primero)</label><select id="taskAssignTo"></select></div>
   <div class="form-group"><label>Título</label><input id="taskTitle"></div>
-  <div class="form-group"><label>Asignar a</label><select id="taskAssignTo"></select></div>
   <div class="form-group"><label>Puntos</label><input type="number" id="taskPoints" value="10"></div>
-  <div class="form-group"><label>Recurrencia</label><select id="taskRecurrence"><option value="once">Una vez</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
+  <div class="form-group"><label>Recurrencia</label><select id="taskRecurrence" onchange="updateDueFromRecurrence()"><option value="once">Una vez</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
   <div class="form-group"><label>Fecha límite</label><input type="datetime-local" id="taskDue"></div>
   <div class="form-group"><label>Penalización pts/día</label><input type="number" id="taskPenalty" value="2"></div>
   <button class="btn" style="width:100%" onclick="createTask()">Crear</button>
@@ -97,8 +101,10 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
 </div></div>
 
 <div class="modal" id="modal-premio"><div class="modal-content"><h3>Nuevo premio</h3>
+  <div class="form-group"><label>Para quién</label><select id="rewardFor"><option value="hijo">Hijos</option><option value="padre">Padres</option></select></div>
   <div class="form-group"><label>Nombre</label><input id="rewardName"></div>
   <div class="form-group"><label>Costo (pts)</label><input type="number" id="rewardCost" value="50"></div>
+  <div class="form-group"><label>Stock (-1 ilimitado)</label><input type="number" id="rewardStock" value="-1"></div>
   <div class="form-group"><label>Icono</label><div class="emoji-grid" id="rewardIcons"></div></div>
   <button class="btn" style="width:100%" onclick="createReward()">Crear</button>
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-premio')">Cerrar</button>
@@ -114,6 +120,7 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-w
 <div class="modal" id="modal-perfil"><div class="modal-content"><h3>Editar perfil</h3>
   <div class="form-group"><label>Nombre</label><input id="profName"></div>
   <div class="form-group"><label>Frase célebre</label><input id="profFrase"></div>
+  <div class="form-group"><label>Fecha nacimiento</label><input type="date" id="profBirth"></div>
   <div class="form-group"><label>Emoji</label><div class="emoji-grid" id="profEmojis"></div></div>
   <div class="form-group"><label>Color</label><div class="emoji-grid" id="profColors"></div></div>
   <div class="form-group"><label>Nuevo PIN</label><input id="profPin" type="password" maxlength="8" placeholder="dejar vacío para no cambiar"></div>
@@ -150,10 +157,23 @@ function isAdmin(m){ return m && (m.es_admin || /padre|madre|papá|mamá/i.test(
 function isKid(m){ return m && !isAdmin(m); }
 function currentUser(){ return state.members.find(m=>m.id===state.currentUserId); }
 function getMember(id){ return state.members.find(m=>m.id===id); }
+function calcAge(birth){ if(!birth) return null; const d=new Date(birth); const t=new Date(); return t.getFullYear()-d.getFullYear()-((t.getMonth()<d.getMonth()||(t.getMonth()===d.getMonth()&&t.getDate()<d.getDate()))?1:0); }
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
 function showSection(name){ document.querySelectorAll('.section').forEach(s=>s.classList.remove('active')); document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); document.getElementById('section-'+name).classList.add('active'); event?.currentTarget?.classList.add('active'); }
 function openModal(id){ document.getElementById(id).classList.add('show'); }
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+
+function updateDueFromRecurrence(){
+  const rec = document.getElementById('taskRecurrence').value;
+  const due = document.getElementById('taskDue');
+  const now = new Date();
+  if(rec==='daily') now.setDate(now.getDate()+1);
+  else if(rec==='weekly') now.setDate(now.getDate()+7);
+  else if(rec==='monthly') now.setMonth(now.getMonth()+1);
+  else if(rec==='quarterly') now.setMonth(now.getMonth()+3);
+  else now.setDate(now.getDate()+1);
+  due.value = now.toISOString().slice(0,16);
+}
 
 async function loadAll(){
   const [m,t,p,r,h,c] = await Promise.all([
@@ -161,7 +181,7 @@ async function loadAll(){
     supabase.from('familia_tareas').select('*').order('creado_en',{ascending:false}),
     supabase.from('familia_premios').select('*'),
     supabase.from('familia_solicitudes_premios').select('*').eq('estado','pendiente'),
-    supabase.from('familia_historial').select('*').order('creado_en',{ascending:false}).limit(20),
+    supabase.from('familia_historial').select('*').order('creado_en',{ascending:false}).limit(15),
     supabase.from('familia_config').select('*').eq('id',1).single()
   ]);
   state.members = m.data||[];
@@ -181,15 +201,18 @@ function render(){
   document.getElementById('currentAvatar').textContent = u.emoji||'👤';
   document.getElementById('currentAvatar').style.background = u.color||'#fff';
   document.getElementById('currentName').textContent = u.nombre;
-  document.getElementById('currentRole').textContent = u.rol + (u.edad?' · '+u.edad+' años':'') + (admin?' · Admin':'');
+  const age = calcAge(u.fecha_nacimiento) || u.edad;
+  document.getElementById('currentRole').textContent = u.rol + (age?' · '+age+' años':'') + (admin?' · Admin':'');
   document.getElementById('currentFrase').textContent = u.frase||'';
   document.getElementById('headerPoints').textContent = '⭐ ' + u.puntos;
   document.getElementById('myPointsBadge').textContent = u.puntos + ' pts';
   document.getElementById('btnNewTask').style.display = admin ? '' : 'none';
   document.getElementById('btnNewReward').style.display = admin ? '' : 'none';
   document.getElementById('btnAdjust').style.display = admin ? '' : 'none';
+  document.getElementById('adminPinReset').style.display = admin ? '' : 'none';
 
-  let visibleTasks = state.tasks.filter(t => !['completada','rechazada'].includes(t.estado));
+  let visibleTasks = state.tasks.filter(t => !['completada','rechazada'].includes(t.estado))
+    .sort((a,b)=>(a.fecha_limite||'9999')>(b.fecha_limite||'9999')?1:-1);
   if(!admin){
     visibleTasks = visibleTasks.filter(t => {
       const creator = getMember(t.creada_por);
@@ -201,11 +224,14 @@ function render(){
   document.getElementById('taskList').innerHTML = visibleTasks.length ? visibleTasks.map(t => {
     const a = getMember(t.asignada_a);
     const canComplete = t.asignada_a === state.currentUserId && t.estado === 'pendiente';
-    const canApprove = admin && t.estado === 'esperando_aprobacion';
-    return `<div class="task-item"><div style="font-size:1.5rem">${t.icono||a?.emoji||'📋'}</div><div style="flex:1"><strong>${t.titulo}</strong><br><small>A ${a?.nombre||'?'} · +${t.puntos} pts · ${t.estado}${t.fecha_limite?' · vence '+new Date(t.fecha_limite).toLocaleDateString():''}</small></div><div>${canComplete?`<button class="btn small success" onclick="startComplete(${t.id})">Hecho</button>`:''}${canApprove?`<button class="btn small success" onclick="approveTask(${t.id})">Aprobar</button>`:''}</div></div>`;
+    const canApprove = (admin || (isAdmin(getMember(t.creada_por)) && isAdmin(getMember(t.asignada_a)) && t.asignada_a === u.id)) && t.estado === 'esperando_aprobacion';
+    const status = t.estado==='esperando_aprobacion' ? '<b>esperando aprobación</b>' : t.estado;
+    return `<div class="task-item"><div style="font-size:1.5rem">${t.icono||a?.emoji||'📋'}</div><div style="flex:1"><strong>${t.titulo}</strong><br><small>A ${a?.nombre||'?'} · +${t.puntos} pts · ${status}${t.fecha_limite?' · vence '+new Date(t.fecha_limite).toLocaleDateString():''}</small></div><div>${canComplete?`<button class="btn small success" onclick="startComplete(${t.id})">Hecho</button>`:''}${canApprove?`<button class="btn small success" onclick="approveTask(${t.id})">Aprobar</button>`:''}</div></div>`;
   }).join('') : '<div class="empty">🎉 No hay tareas pendientes</div>';
 
-  document.getElementById('rewardList').innerHTML = state.rewards.map(r => `<div class="reward-item"><div style="font-size:1.5rem">${r.icono||'🎁'}</div><div style="flex:1"><strong>${r.nombre}</strong><br><small>${r.costo} pts</small></div>${u.puntos>=r.costo?`<button class="btn small success" onclick="requestReward(${r.id})">Solicitar</button>`:`<small>Faltan ${r.costo-u.puntos}</small>`}</div>`).join('') || '<div class="empty">Sin premios</div>';
+  const myType = admin ? null : 'hijo';
+  const visibleRewards = state.rewards.filter(r => r.activo !== false && (admin || r.tipo === 'hijo'));
+  document.getElementById('rewardList').innerHTML = visibleRewards.map(r => `<div class="reward-item"><div style="font-size:1.5rem">${r.icono||'🎁'}</div><div style="flex:1"><strong>${r.nombre}</strong><br><small>${r.costo} pts${r.stock>0?' · stock '+r.stock:''}</small></div>${u.puntos>=r.costo?`<button class="btn small success" onclick="requestReward(${r.id})">Solicitar</button>`:`<small>Faltan ${r.costo-u.puntos}</small>`}</div>`).join('') || '<div class="empty">Sin premios</div>';
 
   document.getElementById('rewardRequests').innerHTML = (admin ? state.requests : state.requests.filter(req=>req.miembro_id===u.id)).map(req => {
     const rw = state.rewards.find(x=>x.id===req.premio_id);
@@ -216,9 +242,12 @@ function render(){
   const kids = state.members.filter(isKid).sort((a,b)=>b.puntos-a.puntos);
   document.getElementById('leaderboard').innerHTML = kids.map((m,i)=>`<div class="member-item"><div>${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div><div style="font-size:1.5rem">${m.emoji||'👤'}</div><div style="flex:1"><strong>${m.nombre}</strong><br><small>${m.rol}</small></div><strong>${m.puntos} pts</strong></div>`).join('') || '<div class="empty">Sin hijos</div>';
 
+  const acts = state.history.filter(h=>isKid(getMember(h.miembro_id))).slice(0,12);
+  document.getElementById('activityList').innerHTML = acts.map(h=>`<div style="padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:.9rem">${h.texto}</div>`).join('') || 'Sin actividad reciente';
+
   let hist = state.history;
   if(!admin) hist = hist.filter(h => h.miembro_id === u.id);
-  document.getElementById('history').innerHTML = hist.slice(0,10).map(h=>`<div style="padding:6px 0;border-bottom:1px solid #f1f5f9">${h.texto}</div>`).join('') || 'Sin actividad';
+  document.getElementById('history').innerHTML = hist.slice(0,12).map(h=>`<div style="padding:6px 0;border-bottom:1px solid #f1f5f9">${h.texto}</div>`).join('') || 'Sin actividad';
 
   document.getElementById('profileInfo').innerHTML = `<p>${u.frase||'Sin frase'}</p><p>PIN: ${u.pin||'oooo'}</p>`;
 
@@ -245,7 +274,7 @@ function openSwitchUser(){
 }
 function selectUser(id){ state.currentUserId=id; localStorage.setItem('familia_current',id); closeModal('modal-usuario'); render(); }
 
-function openNewTask(){ if(!isAdmin(currentUser())) return; openModal('modal-tarea'); }
+function openNewTask(){ if(!isAdmin(currentUser())) return; updateDueFromRecurrence(); openModal('modal-tarea'); }
 function openNewReward(){
   if(!isAdmin(currentUser())) return;
   const grid = document.getElementById('rewardIcons');
@@ -266,7 +295,12 @@ async function createTask(){
   if(!titulo || !asignada_a) return showToast('Completa los campos');
   const {error} = await supabase.from('familia_tareas').insert({titulo, asignada_a, creada_por: u.id, puntos, recurrencia, fecha_limite, puntos_penalizacion_dia, estado:'pendiente'});
   if(error) return showToast('Error: '+error.message);
-  closeModal('modal-tarea'); showToast('Tarea creada'); loadAll();
+  document.getElementById('taskTitle').value='';
+  document.getElementById('taskPoints').value='10';
+  document.getElementById('taskDue').value='';
+  closeModal('modal-tarea');
+  showToast('Tarea creada');
+  loadAll();
 }
 
 function startComplete(id){ pendingEvidenceTaskId=id; document.getElementById('evComment').value=''; document.getElementById('evPhoto').value=''; openModal('modal-evidencia'); }
@@ -296,8 +330,10 @@ async function createReward(){
   if(!isAdmin(u)) return showToast('Solo administradores');
   const nombre = document.getElementById('rewardName').value.trim();
   const costo = +document.getElementById('rewardCost').value || 50;
+  const tipo = document.getElementById('rewardFor').value;
+  const stock = +document.getElementById('rewardStock').value;
   if(!nombre) return;
-  const {error} = await supabase.from('familia_premios').insert({nombre, costo, icono: selectedRewardIcon, creado_por: u.id});
+  const {error} = await supabase.from('familia_premios').insert({nombre, costo, icono: selectedRewardIcon, creado_por: u.id, tipo, stock, activo:true});
   if(error) return showToast('Error: '+error.message);
   closeModal('modal-premio'); showToast('Premio creado'); loadAll();
 }
@@ -313,6 +349,7 @@ async function approveRequest(id){
   if(m.puntos < r.costo) return showToast('Puntos insuficientes');
   await supabase.from('familia_miembros').update({puntos: m.puntos - r.costo}).eq('id', m.id);
   await supabase.from('familia_solicitudes_premios').update({estado:'aprobada'}).eq('id',id);
+  if(r.stock > 0) await supabase.from('familia_premios').update({stock: r.stock-1}).eq('id', r.id);
   await supabase.from('familia_historial').insert({miembro_id: m.id, texto: m.nombre+' canjeó "'+r.nombre+'"'});
   showToast('Aprobado'); loadAll();
 }
@@ -330,10 +367,19 @@ async function adjustPoints(){
   closeModal('modal-puntos'); showToast('Consecuencia aplicada'); loadAll();
 }
 
+async function resetKidPins(){
+  if(!confirm('Resetear PIN de todos los hijos a oooo?')) return;
+  const kids = state.members.filter(isKid);
+  for(const k of kids){ await supabase.from('familia_miembros').update({pin:'oooo'}).eq('id',k.id); }
+  showToast('PINs reseteados');
+  loadAll();
+}
+
 function openProfile(){
   const u = currentUser();
   document.getElementById('profName').value = u.nombre||'';
   document.getElementById('profFrase').value = u.frase||'';
+  document.getElementById('profBirth').value = u.fecha_nacimiento||'';
   document.getElementById('profPin').value = '';
   selectedEmoji = u.emoji||'👤';
   selectedColor = u.color||'#6366f1';
@@ -345,7 +391,7 @@ function selEmoji(el,e){ selectedEmoji=e; document.querySelectorAll('#profEmojis
 function selColor(el,c){ selectedColor=c; document.querySelectorAll('#profColors .color-opt').forEach(x=>x.classList.remove('selected')); el.classList.add('selected'); }
 async function saveProfile(){
   const u = currentUser();
-  const updates = { nombre: document.getElementById('profName').value.trim(), frase: document.getElementById('profFrase').value.trim(), emoji: selectedEmoji, color: selectedColor };
+  const updates = { nombre: document.getElementById('profName').value.trim(), frase: document.getElementById('profFrase').value.trim(), emoji: selectedEmoji, color: selectedColor, fecha_nacimiento: document.getElementById('profBirth').value||null };
   const newPin = document.getElementById('profPin').value.trim();
   if(newPin) updates.pin = newPin;
   const {error} = await supabase.from('familia_miembros').update(updates).eq('id', u.id);
