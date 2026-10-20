@@ -132,12 +132,15 @@ function render(){
   document.getElementById('rankingList').innerHTML=kids.map((m,i)=>`<div class="task-item">${i+1}. ${m.emoji||''} ${m.nombre} — ⭐ ${m.puntos||0}</div>`).join('')||'<p class="empty">Sin ranking</p>';
 }
 function showSection(id){
+  console.log('showSection', id);
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  document.getElementById('section-'+id).classList.add('active');
+  const el=document.getElementById('section-'+id);
+  if(el) el.classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.section===id));
 }
 function openModal(id){document.getElementById(id).classList.add('show')}
 function closeModal(id){document.getElementById(id).classList.remove('show')}
+function openNewReward(){ showToast('Crear premio: pronto disponible'); }
 function openNewTask(){
   if(!isAdmin(currentUser())) return;
   document.getElementById('taskAssignTo').innerHTML=state.members.filter(m=>!isAdmin(m)).map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
