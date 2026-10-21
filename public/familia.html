@@ -38,6 +38,10 @@ nav{position:relative;width:100%;background:#fff;border-top:1px solid var(--bord
 .goal-item,.badge-item{padding:8px 0;border-bottom:1px solid var(--border);font-size:.9rem}
 .badge-item.off{opacity:.4}
 .task-item{cursor:pointer}
+.task-item.late{border-left-color:#ef4444;background:#fef2f2}
+.task-item.early{border-left-color:#3b82f6;background:#eff6ff}
+.task-item.ready{border-left-color:#10b981;background:#ecfdf5}
+button:disabled{opacity:.45;cursor:not-allowed}
 .reward-item{cursor:pointer}
 .form-group{margin-bottom:12px}
 .form-group label{display:block;font-size:.85rem;margin-bottom:4px;color:var(--muted)}
@@ -130,21 +134,14 @@ h3{margin-bottom:12px}
 
   <div class="section" id="section-yo">
     <div class="card"><h3>👤 Mi perfil</h3><button class="btn secondary" style="width:100%;margin-top:8px" onclick="openProfile()">Editar perfil</button></div>
-    <div class="card"><h3>🎯 Metas</h3>
-      <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px">Es un objetivo personal. No suma ni resta puntos. Solo compara lo que te queda hoy con el número que te pusiste.</p>
-      <div id="goalList"></div>
-      <div class="form-group" style="margin-top:8px"><input id="goalTitle" placeholder="Ej. Llegar al cine"></div>
-      <div class="form-group"><input type="number" id="goalPoints" value="100" min="1" placeholder="Puntos objetivo"></div>
-      <button class="btn small" onclick="createGoal()">Guardar meta</button>
+    <div class="card" id="adminNewMember" style="display:none">
+      <strong>Nuevo integrante</strong>
+      <p style="font-size:.8rem;color:var(--muted);margin:8px 0">Hijo, o padre/tutor. El rol es cómo se ve. Las tareas, los premios y lo que puede hacer salen de ese tipo.</p>
+      <button class="btn" style="width:100%" onclick="openNewMember()">Crear integrante</button>
     </div>
     <div class="card"><h3>🏅 Logros</h3><div id="badgeList"></div></div>
     <div class="card" id="switchUserCard" style="display:none"><button class="btn secondary" style="width:100%" onclick="openSwitchUser()">Ver como otro</button></div>
     <div class="card" id="backToDadCard" style="display:none"><button class="btn" style="width:100%" onclick="backToDad()">Volver a mi usuario</button></div>
-    <div class="card" id="adminResetAll" style="display:none">
-      <strong>Resetear todo (solo papá)</strong>
-      <p style="font-size:.8rem;color:var(--muted);margin:8px 0">Borra puntos, historial y tareas actuales. Premios y plantillas se mantienen.</p>
-      <button class="btn danger" style="width:100%" onclick="confirmResetAll()">Resetear todo</button>
-    </div>
     <div class="card" id="adminPinReset" style="display:none">
       <strong>Resetear PIN de un hijo</strong>
       <div class="form-group" style="margin-top:8px"><select id="resetPinMember"></select></div>
@@ -152,6 +149,11 @@ h3{margin-bottom:12px}
     </div>
     <div class="card"><h4 style="margin-bottom:8px">Historial</h4><div id="historyList"></div></div>
     <button class="btn danger" style="width:100%;margin-top:12px" onclick="logout()">Salir</button>
+    <div class="card" id="adminResetAll" style="display:none;margin-top:12px">
+      <strong>Resetear todo (solo papá)</strong>
+      <p style="font-size:.8rem;color:var(--muted);margin:8px 0">Borra puntos, historial y tareas actuales. Premios y plantillas se mantienen.</p>
+      <button class="btn danger" style="width:100%" onclick="confirmResetAll()">Resetear todo</button>
+    </div>
   </div>
 
   <nav>
@@ -181,14 +183,25 @@ h3{margin-bottom:12px}
 
 <div class="modal" id="modal-premio"><div class="modal-content">
   <h3 id="rewardModalTitle">Premio</h3>
-  <div class="form-group"><label>Nombre</label><input id="rewardName"></div>
-  <div class="form-group"><label>Costo en puntos</label><input type="number" id="rewardCost" value="50"></div>
-  <div class="form-group"><label>Stock (-1 ilimitado)</label><input type="number" id="rewardStock" value="-1"></div>
-  <div class="form-group"><label><input type="checkbox" id="rewardActive" checked> Activo</label></div>
-  <div class="form-group"><label>Icono</label><div class="emoji-grid" id="rewardEmojiGrid"></div><input type="hidden" id="rewardEmoji" value="🎁"></div>
+  <div class="form-group reward-edit"><label>Nombre</label><input id="rewardName"></div>
+  <div class="form-group reward-edit"><label>Costo en puntos</label><input type="number" id="rewardCost" value="50"></div>
+  <div class="form-group reward-edit"><label>Stock (-1 ilimitado)</label><input type="number" id="rewardStock" value="-1"></div>
+  <div class="form-group reward-edit"><label><input type="checkbox" id="rewardActive" checked> Activo</label></div>
+  <div class="form-group reward-edit"><label>Icono</label><div class="emoji-grid" id="rewardEmojiGrid"></div><input type="hidden" id="rewardEmoji" value="🎁"></div>
   <div id="rewardFalta" style="margin-bottom:12px"></div>
   <div class="actions" id="rewardActions"></div>
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-premio')">Cerrar</button>
+</div></div>
+
+<div class="modal" id="modal-miembro"><div class="modal-content">
+  <h3>Nuevo integrante</h3>
+  <div class="form-group"><label>Nombre</label><input id="newMemberName"></div>
+  <div class="form-group"><label>Tipo</label><select id="newMemberType" onchange="syncMemberRoles()"><option value="hijo">Hijo</option><option value="adulto">Padre / tutor</option></select></div>
+  <div class="form-group"><label>Rol</label><select id="newMemberRole"></select></div>
+  <div class="form-group"><label>Fecha de nacimiento (opcional)</label><input type="date" id="newMemberBirth"></div>
+  <p id="newMemberProfile" style="font-size:.85rem;color:var(--muted);margin-bottom:12px"></p>
+  <button class="btn" style="width:100%" onclick="createMember()">Guardar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-miembro')">Cerrar</button>
 </div></div>
 
 <div class="modal" id="modal-evidencia"><div class="modal-content"><h3>Ya la hice</h3>
@@ -273,6 +286,7 @@ let originalAdminId=null;
 let taskCreateMode='familia';
 let loadLock=false;
 let reloadTimer=null;
+let reloadQueued=false;
 
 const FIGURES=[
   '<svg viewBox="0 0 64 64"><circle cx="32" cy="22" r="12" fill="#fff"/><path d="M12 58c3-16 10-20 20-20s17 4 20 20" fill="#fff"/></svg>',
@@ -283,8 +297,20 @@ const FIGURES=[
   '<svg viewBox="0 0 64 64"><circle cx="32" cy="22" r="12" fill="#fff"/><path d="M22 30c2 6 6 8 10 8s8-2 10-8" fill="#fff"/><path d="M14 58c3-16 10-20 18-20s15 4 18 20" fill="#fff"/></svg>'
 ];
 
-function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));}
-function isAdmin(m){return !!(m&&(m.es_admin||/padre|madre|papá|mamá/i.test(m.rol||'')));}
+function esc(s){
+  return String(s??'').replace(/[&<>"']/g,function(c){
+    if(c==='&') return '&'+'amp;';
+    if(c==='<') return '&'+'lt;';
+    if(c==='>') return '&'+'gt;';
+    if(c==='"') return '&'+'quot;';
+    return '&'+'#39;';
+  });
+}
+function isAdmin(m){
+  if(!m) return false;
+  if(m.es_admin===true) return true;
+  return /padre|madre|papá|mamá|abuel|t[ií][oa]|tutor/i.test(m.rol||'');
+}
 function isKid(m){return !!(m&&!isAdmin(m));}
 function currentUser(){return state.members.find(m=>m.id===state.currentUserId);}
 function memberById(id){return state.members.find(m=>m.id===Number(id));}
@@ -347,10 +373,7 @@ function statusLabel(t){
   const estado=t&&t.estado?t.estado:t;
   if(t&&t.estado&&taskAudience(t)==='parent'&&t.estado==='esperando_aprobacion'){
     const u=currentUser();
-    if(u&&u.id===t.asignada_a){
-      const s=otherParent(u.id);
-      return 'Pendiente de '+(s?s.nombre:'tu '+spouseLabel(u));
-    }
+    if(u&&u.id===t.asignada_a) return 'Pendiente de aprobación de otro adulto';
     return 'Pendiente de tu aprobación';
   }
   return ({
@@ -380,6 +403,25 @@ function netPoints(t){
 function taskAudience(t){
   const m=memberById(t.asignada_a);
   return m&&isAdmin(m)?'parent':'kid';
+}
+function taskTiming(t){
+  if(!t||!t.fecha_limite||t.estado==='completada'||t.estado==='borrador') return 'none';
+  const due=new Date(t.fecha_limite);
+  if(isNaN(due)) return 'none';
+  if(Date.now()>due.getTime()) return 'late';
+  const start=new Date(due);
+  start.setHours(0,0,0,0);
+  return Date.now()<start.getTime()?'early':'ready';
+}
+function timingText(t){
+  const k=taskTiming(t);
+  if(k==='late') return 'Vencida';
+  if(k==='early') return 'Todavía no es el día. Se podrá marcar cuando llegue ese día.';
+  if(k==='ready') return 'Ya puedes hacerla';
+  return '';
+}
+function canMarkDone(t,u){
+  return !!(t&&u&&t.estado==='pendiente'&&t.asignada_a===u.id&&taskTiming(t)!=='early');
 }
 function byDue(a,b){
   const da=a.fecha_limite?new Date(a.fecha_limite).getTime():Infinity;
@@ -459,8 +501,9 @@ function memberOptions(selected, opts){
   return `<optgroup label="Hijos">${kids.map(opt).join('')}</optgroup><optgroup label="Padres">${parents.map(opt).join('')}</optgroup>`;
 }
 
-async function loadAll(){
-  if(loadLock) return;
+async function loadAll(opts){
+  const penalize=!!(opts&&opts.penalize);
+  if(loadLock){ reloadQueued=true; return; }
   loadLock=true;
   try{
     const [m,t,p,h,c,pl,msg]=await Promise.all([
@@ -481,15 +524,18 @@ async function loadAll(){
     state.plantillas=pl.data||[];
     state.mensajes=msg.data||[];
     if(t.error) showToast('Tareas: '+t.error.message);
-    await applyLateness();
+    if(penalize){
+      try{ await applyLateness(); }catch(e){}
+    }
     render();
   }finally{
     loadLock=false;
+    if(reloadQueued){ reloadQueued=false; loadAll(); }
   }
 }
 function scheduleReload(){
   clearTimeout(reloadTimer);
-  reloadTimer=setTimeout(()=>{ if(!loadLock) loadAll(); },800);
+  reloadTimer=setTimeout(()=>loadAll(),800);
 }
 async function applyLateness(){
   const overdue=state.tasks.filter(t=>!isGoal(t)&&['pendiente','esperando_aprobacion'].includes(t.estado)&&Number(t.puntos_penalizacion_dia)>0&&lateDays(t)>0&&t.asignada_a);
@@ -517,6 +563,7 @@ async function applyLateness(){
 }
 
 function render(){
+  fillLoginMembers();
   const u=currentUser();
   if(!u) return;
   const admin=isAdmin(u);
@@ -533,19 +580,22 @@ function render(){
   document.getElementById('btnNewReward').style.display=admin?'':'none';
   document.getElementById('btnPenalty').style.display=admin?'':'none';
   document.getElementById('adminResetAll').style.display=/padre|papá/i.test(u.rol||'')?'':'none';
+  document.getElementById('adminNewMember').style.display=admin?'':'none';
   document.getElementById('adminPinReset').style.display=admin?'':'none';
   document.getElementById('switchUserCard').style.display=admin?'':'none';
   document.getElementById('backToDadCard').style.display=originalAdminId?'':'none';
   document.getElementById('kidsTasksTitle').textContent=admin?'Tareas de los hijos':'Mis tareas';
   document.getElementById('parentTasksWrap').style.display=admin?'':'none';
   if(admin){
-    document.getElementById('resetPinMember').innerHTML=state.members.filter(isKid).map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('');
+    const sel=document.getElementById('resetPinMember');
+    const prev=sel.value;
+    sel.innerHTML='<option value="" selected>Elige un hijo</option>'+state.members.filter(isKid).map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('');
+    if(prev&&[].some.call(sel.options,o=>o.value===prev)) sel.value=prev;
   }
   renderTasks();
   renderRewards();
   renderRanking();
   renderHistory();
-  renderGoals();
   renderBadges();
   fillChatTo();
   renderChat();
@@ -565,10 +615,13 @@ function taskCard(t){
   const days=lateDays(t);
   const late=days>0?` · atrasada ${days} d`:'';
   const extra=t.estado==='pendiente_transferencia'&&target?` · para ${esc(target.nombre)}`:'';
-  return `<div class="task-item" onclick="openTaskCard(${t.id})">
+  const timing=taskTiming(t);
+  const note=timingText(t);
+  return `<div class="task-item${timing==='none'?'':' '+timing}" onclick="openTaskCard(${t.id})">
     <div style="flex:1">
       <strong>${esc(t.titulo||'Tarea')}</strong><br>
       <small>${esc(who?.nombre||'Sin asignar')} · ${t.puntos||0} pts${late}${extra}</small><br>
+      ${note?`<small>${esc(note)}</small><br>`:''}
       <span class="${pillClass(t)}">${esc(statusLabel(t))}${t.fecha_limite?' · '+esc(fmtDate(t.fecha_limite)):''}</span>
     </div>
   </div>`;
@@ -601,7 +654,9 @@ function renderRewards(){
     const ai=a.activo===false?1:0;
     const bi=b.activo===false?1:0;
     if(ai!==bi) return ai-bi;
-    return (a.costo||0)-(b.costo||0);
+    const cost=(b.costo||0)-(a.costo||0);
+    if(cost) return cost;
+    return String(a.nombre||'').localeCompare(String(b.nombre||''),'es');
   });
   if(!rows.length){list.innerHTML='<div class="empty">No hay premios</div>';return;}
   list.innerHTML=rows.map(r=>{
@@ -857,7 +912,8 @@ function openTaskCard(id){
   const acts=[];
   if(canEdit) acts.push(`<button class="btn" onclick="saveTaskFicha(${t.id})">Guardar cambios</button>`);
   if(canEdit&&t.estado==='borrador') acts.push(`<button class="btn success" onclick="activateTask(${t.id})">Activar tarea</button>`);
-  if(t.estado==='pendiente'&&t.asignada_a===u.id) acts.push(`<button class="btn success" onclick="openEvidence(${t.id})">Ya la hice</button>`);
+  if(canMarkDone(t,u)) acts.push(`<button class="btn success" onclick="openEvidence(${t.id})">Ya la hice</button>`);
+  if(t.estado==='pendiente'&&t.asignada_a===u.id&&taskTiming(t)==='early') acts.push('<p style="font-size:.85rem;color:var(--muted)">Todavía no es el día. Se podrá marcar cuando llegue la fecha.</p>');
   if(t.estado==='pendiente'&&isKid(u)&&t.asignada_a===u.id&&!t.es_transferencia) acts.push(`<button class="btn secondary" onclick="openTransfer(${t.id})">Pasar a un hermano</button>`);
   if(t.estado==='pendiente_transferencia'&&Number(t.para_quien)===u.id){
     acts.push(`<button class="btn" onclick="acceptTransfer(${t.id})">Aceptar tarea</button>`);
@@ -877,8 +933,7 @@ function openTaskCard(id){
     acts.push(`<button class="btn secondary" onclick="returnTask(${t.id})">Devolver para rehacer</button>`);
   }
   if(parentTask&&t.estado==='esperando_aprobacion'&&u.id===t.asignada_a){
-    const s=otherParent(u.id);
-    acts.push(`<p style="font-size:.85rem;color:var(--muted)">Esperando la aprobación de ${esc(s?.nombre||('tu '+spouseLabel(u)))}.</p>`);
+    acts.push(`<p style="font-size:.85rem;color:var(--muted)">Esperando la aprobación de otro adulto.</p>`);
   }
   document.getElementById('fichaActions').innerHTML=acts.join('');
   openModal('modal-ficha');
@@ -909,10 +964,10 @@ function openEvidence(id){
   pendingTaskId=id;
   const t=state.tasks.find(x=>x.id===id);
   const u=currentUser();
+  if(t&&u&&taskTiming(t)==='early') return showToast('Todavía no es el día');
   const hint=document.getElementById('evidenceHint');
   if(t&&taskAudience(t)==='parent'){
-    const s=otherParent(u?.id);
-    hint.textContent='Pasa a aprobación de '+(s?s.nombre:('tu '+spouseLabel(u)))+'.';
+    hint.textContent='Pasa a aprobación de otro adulto.';
   }else{
     hint.textContent='Queda pendiente de aprobación de papá o mamá.';
   }
@@ -1081,30 +1136,56 @@ function openNewReward(){
   document.getElementById('rewardFalta').textContent='';
   ['rewardName','rewardCost','rewardStock','rewardActive'].forEach(id=>document.getElementById(id).disabled=false);
   fillEmojiGrid('rewardEmojiGrid','rewardEmoji');
+  setRewardEditor(true);
   document.getElementById('rewardActions').innerHTML='<button class="btn" onclick="saveReward()">Crear</button>';
   openModal('modal-premio');
+}
+function setRewardEditor(show){
+  document.querySelectorAll('#modal-premio .reward-edit').forEach(el=>{ el.style.display=show?'':'none'; });
 }
 function openReward(id){
   const r=state.rewards.find(x=>x.id===id);
   const u=currentUser();
   if(!r||!u) return;
+  if(!isAdmin(u)) return openKidReward(r,u);
   editingRewardId=id;
-  const admin=isAdmin(u);
   document.getElementById('rewardModalTitle').textContent=r.nombre||'Premio';
   document.getElementById('rewardName').value=r.nombre||'';
   document.getElementById('rewardCost').value=r.costo||0;
   document.getElementById('rewardStock').value=r.stock??-1;
   document.getElementById('rewardActive').checked=r.activo!==false;
   document.getElementById('rewardEmoji').value=r.icono||'🎁';
-  ['rewardName','rewardCost','rewardStock','rewardActive'].forEach(fid=>document.getElementById(fid).disabled=!admin);
+  ['rewardName','rewardCost','rewardStock','rewardActive'].forEach(fid=>document.getElementById(fid).disabled=false);
   fillEmojiGrid('rewardEmojiGrid','rewardEmoji');
+  setRewardEditor(true);
   const falta=Math.max(0,(r.costo||0)-(u.puntos||0));
   document.getElementById('rewardFalta').innerHTML=falta>0?`<strong style="color:#ef4444">Faltan ${falta} pts</strong>`:'<strong style="color:#10b981">Tienes puntos suficientes</strong>';
-  const acts=[];
-  if(admin) acts.push('<button class="btn" onclick="saveReward()">Guardar cambios</button>');
+  const acts=['<button class="btn" onclick="saveReward()">Guardar cambios</button>'];
   if((u.puntos||0)>=(r.costo||0)&&r.activo!==false&&r.stock!==0) acts.push(`<button class="btn success" onclick="redeemReward(${r.id})">Canjear</button>`);
   document.getElementById('rewardActions').innerHTML=acts.join('');
   openModal('modal-premio');
+}
+function openKidReward(r,u){
+  editingRewardId=r.id;
+  setRewardEditor(false);
+  document.getElementById('rewardModalTitle').textContent=r.nombre||'Premio';
+  const costo=r.costo||0;
+  const tiene=u.puntos||0;
+  const puede=r.activo!==false&&r.stock!==0&&tiene>=costo;
+  const porque=r.activo===false?'Este premio no está disponible':r.stock===0?'Ya no queda':('Te faltan '+(costo-tiene)+' pts');
+  document.getElementById('rewardFalta').innerHTML='<p>'+(r.icono||'🎁')+' <strong>'+esc(r.nombre)+'</strong><br>Cuesta <strong>'+costo+' pts</strong>. Tú tienes <strong>'+tiene+' pts</strong>.</p>'+(puede?'':'<p>'+esc(porque)+'</p>');
+  document.getElementById('rewardActions').innerHTML='<button class="btn success" id="btnReclamar"'+(puede?'':' disabled')+'>Reclamar premio</button>';
+  const btn=document.getElementById('btnReclamar');
+  if(puede) btn.onclick=()=>askRedeem(r);
+  openModal('modal-premio');
+}
+function askRedeem(r){
+  const u=currentUser();
+  const queda=(u.puntos||0)-(r.costo||0);
+  document.getElementById('rewardActions').innerHTML=
+    '<p>¿Seguro que quieres reclamar <strong>'+esc(r.nombre)+'</strong>? Una vez lo reclames, se te descontarán <strong>'+r.costo+' puntos</strong> de tu total. Te quedarían '+queda+' pts.</p>'+
+    '<button class="btn success" onclick="redeemReward('+r.id+')">Sí, reclamar</button>'+
+    '<button class="btn secondary" onclick="openReward('+r.id+')">Cancelar</button>';
 }
 async function saveReward(){
   const nombre=document.getElementById('rewardName').value.trim();
@@ -1130,7 +1211,7 @@ async function saveReward(){
 async function redeemReward(id){
   const u=currentUser();
   const r=state.rewards.find(x=>x.id===id);
-  if(!r||(u.puntos||0)<r.costo) return showToast('Puntos insuficientes');
+  if(!r||r.activo===false||(u.puntos||0)<(r.costo||0)) return showToast('Puntos insuficientes');
   if(r.stock===0) return showToast('Sin stock');
   const {error}=await supabase.from('familia_miembros').update({puntos:u.puntos-r.costo}).eq('id',u.id);
   if(error) return showToast(error.message);
@@ -1198,7 +1279,7 @@ async function confirmResetAll(){
 }
 async function resetOneKidPin(){
   const id=+document.getElementById('resetPinMember').value;
-  if(!id) return;
+  if(!id) return showToast('Elige un hijo');
   await supabase.from('familia_miembros').update({pin:'oooo'}).eq('id',id);
   showToast('PIN reseteado a oooo');
 }
@@ -1294,15 +1375,57 @@ function enterAs(id){
   render();
 }
 
+function fillLoginMembers(){
+  const sel=document.getElementById('loginMember');
+  if(!sel) return;
+  const prev=sel.value;
+  sel.innerHTML=state.members.map(m=>`<option value="${m.id}">${face(m)} ${esc(m.nombre)}</option>`).join('');
+  if(prev&&[].some.call(sel.options,o=>o.value===prev)) sel.value=prev;
+}
+const MEMBER_ROLES={
+  hijo:['Hijo','Hija'],
+  adulto:['Padre','Madre','Abuelo','Abuela','Tío','Tía','Tutor','Tutora']
+};
+function syncMemberRoles(){
+  const tipo=document.getElementById('newMemberType').value;
+  const sel=document.getElementById('newMemberRole');
+  const roles=MEMBER_ROLES[tipo]||MEMBER_ROLES.hijo;
+  sel.innerHTML=roles.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join('');
+  document.getElementById('newMemberProfile').textContent=tipo==='adulto'
+    ? 'Perfil de padre/tutor: crea tareas y premios, aprueba y ve todo. No entra al ranking. Las tareas entre adultos no las ven los hijos. Entra con PIN oooo.'
+    : 'Perfil de hijo: recibe tareas, puede marcarlas y pasarlas a un hermano, y reclama premios. Entra al ranking. No administra. Entra con PIN oooo.';
+}
+function openNewMember(){
+  document.getElementById('newMemberName').value='';
+  document.getElementById('newMemberBirth').value='';
+  document.getElementById('newMemberType').value='hijo';
+  syncMemberRoles();
+  openModal('modal-miembro');
+}
+async function createMember(){
+  const u=currentUser();
+  if(!isAdmin(u)) return showToast('Solo un adulto puede crear integrantes');
+  const nombre=document.getElementById('newMemberName').value.trim();
+  const tipo=document.getElementById('newMemberType').value;
+  const rol=document.getElementById('newMemberRole').value;
+  const birth=document.getElementById('newMemberBirth').value||null;
+  if(!nombre||!rol) return showToast('Escribe el nombre y el rol');
+  const {error}=await supabase.from('familia_miembros').insert({
+    nombre,rol,es_admin:tipo==='adulto',pin:'oooo',puntos:0,puntos_historicos:0,fecha_nacimiento:birth,emoji:'👤',color:'#6366f1'
+  });
+  if(error) return showToast(error.message);
+  showToast(nombre+' ya puede entrar con el PIN oooo');
+  closeModal('modal-miembro');
+  loadAll();
+}
+
 async function init(){
   if(!window.supabase){
     document.getElementById('loginScreen').insertAdjacentHTML('beforeend','<p style="color:#ef4444;margin-top:12px">No cargó la conexión. Recarga la página.</p>');
     return;
   }
   supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-  await loadAll();
-  const sel=document.getElementById('loginMember');
-  sel.innerHTML=state.members.map(m=>`<option value="${m.id}">${face(m)} ${esc(m.nombre)}</option>`).join('');
+  await loadAll({penalize:true});
   const saved=+localStorage.getItem('familia_current');
   if(saved&&state.members.find(m=>m.id===saved)) enterAs(saved);
   supabase.channel('familia-live')
@@ -1310,8 +1433,10 @@ async function init(){
     .on('postgres_changes',{event:'*',schema:'public',table:'familia_miembros'},scheduleReload)
     .on('postgres_changes',{event:'*',schema:'public',table:'familia_premios'},scheduleReload)
     .on('postgres_changes',{event:'*',schema:'public',table:'familia_mensajes'},scheduleReload)
+    .on('postgres_changes',{event:'*',schema:'public',table:'familia_historial'},scheduleReload)
     .on('postgres_changes',{event:'*',schema:'public',table:'familia_config'},scheduleReload)
     .subscribe();
+  setInterval(()=>{ if(state.currentUserId) scheduleReload(); },15000);
 }
 init();
 </script>
