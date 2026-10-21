@@ -67,6 +67,8 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .pill{display:inline-block;font-size:.72rem;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#4338ca;margin-top:4px}
 .pill.warn{background:#fef3c7;color:#92400e}
 .pill.danger{background:#fee2e2;color:#991b1b}
+.who-tag{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px;background:#e0e7ff;color:#3730a3;margin:0 6px 4px 0}
+.bell-btn{position:relative;background:transparent;border:none;color:#fff;font-size:1.35rem;line-height:1;cursor:pointer;padding:4px 8px}
 .section-label{margin:8px 0;font-size:.85rem;color:var(--muted);font-weight:600}
 .actions{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .photo-preview{width:100%;border-radius:12px;margin-top:8px;max-height:240px;object-fit:cover}
@@ -84,15 +86,24 @@ h3{margin-bottom:12px}
 
 <div class="app" id="mainApp" style="display:none">
   <header>
-    <div class="header-top"><div id="familyTitle">Familia</div><div class="points-badge" id="headerPoints">0 pts</div></div>
+    <div class="header-top">
+      <div id="familyTitle">Familia</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button type="button" class="bell-btn" id="btnBell" onclick="openNotifs()" aria-label="Notificaciones">🔔<span id="bellCount" class="badge" style="display:none">0</span></button>
+        <div class="points-badge" id="headerPoints">0 pts</div>
+      </div>
+    </div>
     <div class="current-user"><div class="avatar" id="currentAvatar">👤</div><div><h2 id="currentName">...</h2><p id="currentRole"></p><small id="currentFrase"></small></div></div>
   </header>
 
   <div class="section active" id="section-tareas">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px">
       <h3 style="margin:0">📋 Tareas</h3>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-        <button class="btn small danger" id="btnPenalty" onclick="openPenalty()" style="display:none">Penalización</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:stretch">
+          <button class="btn small danger" id="btnPenalty" onclick="openPenalty()" style="display:none">Penalización</button>
+          <button class="btn small secondary" id="btnTaskView" onclick="toggleTaskView()" style="display:none">PADRES</button>
+        </div>
         <button class="btn small secondary" id="btnSiblingTask" onclick="openSiblingTask()" style="display:none">Para un hermano</button>
         <button class="btn small" id="btnNewTask" onclick="openNewTask('hijo')" style="display:none">Para un hijo</button>
         <button class="btn small secondary" id="btnParentTask" onclick="openNewTask('padres')" style="display:none">Entre padres</button>
@@ -260,6 +271,12 @@ h3{margin-bottom:12px}
   <button class="btn secondary" style="width:100%;margin-top:12px" onclick="closeModal('modal-balance')">Cerrar</button>
 </div></div>
 <div class="modal" id="modal-usuario"><div class="modal-content"><h3>Ver como otro</h3><div id="userSelectList"></div><button class="btn secondary" style="width:100%;margin-top:12px" onclick="closeModal('modal-usuario')">Cancelar</button></div></div>
+<div class="modal" id="modal-notifs"><div class="modal-content">
+  <h3>Notificaciones</h3>
+  <p style="font-size:.8rem;color:var(--muted);margin:-4px 0 12px">Solo lo que te toca a ti. Sigue aquí hasta que se resuelva.</p>
+  <div id="notifList"></div>
+  <button class="btn secondary" style="width:100%;margin-top:12px" onclick="closeModal('modal-notifs')">Cerrar</button>
+</div></div>
 
 <div class="modal" id="modal-ficha"><div class="modal-content">
   <h3 id="fichaTitle">Tarea</h3>
@@ -287,7 +304,7 @@ const EMOJIS=['😎','❤️','👦','👧','👩‍🦰','👨','👩','🧑','
 const COLORS=['#6366f1','#10b981','#ef4444','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16'];
 
 let supabase;
-let state={currentUserId:null,members:[],tasks:[],rewards:[],history:[],config:{},plantillas:[],mensajes:[]};
+let state={currentUserId:null,members:[],tasks:[],rewards:[],history:[],config:{},plantillas:[],mensajes:[],solicitudes:[],notifs:[]};
 let pendingTaskId=null;
 let pendingTransferId=null;
 let editingRewardId=null;
@@ -295,6 +312,7 @@ let originalAdminId=null;
 let taskCreateMode='familia';
 let rewardEditMode=false;
 let rewardSortDesc=true;
+let taskView='hijos';
 let pendingShare=null;
 let loadLock=false;
 let reloadTimer=null;
@@ -518,14 +536,16 @@ async function loadAll(opts){
   if(loadLock){ reloadQueued=true; return; }
   loadLock=true;
   try{
-    const [m,t,p,h,c,pl,msg]=await Promise.all([
+    const [m,t,p,h,c,pl,msg,sol,nt]=await Promise.all([
       supabase.from('familia_miembros').select('*').order('id'),
       supabase.from('familia_tareas').select('*').order('creado_en',{ascending:false}),
       supabase.from('familia_premios').select('*').order('costo'),
       supabase.from('familia_historial').select('*').order('creado_en',{ascending:false}).limit(1000),
       supabase.from('familia_config').select('*').eq('id',1).maybeSingle(),
       supabase.from('familia_plantillas_tareas').select('*'),
-      supabase.from('familia_mensajes').select('*').order('creado_en',{ascending:false}).limit(200)
+      supabase.from('familia_mensajes').select('*').order('creado_en',{ascending:false}).limit(200),
+      supabase.from('familia_solicitudes_premios').select('*').order('creado_en',{ascending:false}),
+      supabase.from('familia_notificaciones').select('*').eq('leida',false).order('creado_en',{ascending:false}).limit(80)
     ]);
     if(m.error) return showToast('No se pudieron cargar los miembros');
     state.members=m.data||[];
@@ -535,6 +555,10 @@ async function loadAll(opts){
     state.config=c.data||{id:1,nombre_familia:'Familia'};
     state.plantillas=pl.data||[];
     state.mensajes=msg.data||[];
+    state.solicitudes=sol.error?[]:(sol.data||[]);
+    state.notifs=nt.error?[]:(nt.data||[]);
+    if(sol.error&&!state._solWarned){state._solWarned=true;showToast('Solicitudes: '+sol.error.message);}
+    if(nt.error&&!state._ntWarned){state._ntWarned=true;showToast('Avisos: '+nt.error.message);}
     if(t.error) showToast('Tareas: '+t.error.message);
     if(penalize){
       try{ await applyLateness(); }catch(e){}
@@ -601,8 +625,13 @@ function render(){
   document.getElementById('adminPinReset').style.display=admin?'':'none';
   document.getElementById('switchUserCard').style.display=admin?'':'none';
   document.getElementById('backToDadCard').style.display=originalAdminId?'':'none';
-  document.getElementById('kidsTasksTitle').textContent=admin?'HIJOS':'Mis tareas';
-  document.getElementById('parentTasksWrap').style.display=admin?'':'none';
+  const viewBtn=document.getElementById('btnTaskView');
+  if(viewBtn){
+    viewBtn.style.display=admin?'':'none';
+    viewBtn.textContent=taskView==='hijos'?'PADRES':'HIJOS';
+  }
+  document.getElementById('kidsTasksTitle').textContent=admin?(taskView==='hijos'?'HIJOS':'PADRES'):'Mis tareas';
+  document.getElementById('parentTasksWrap').style.display='none';
   if(admin){
     const sel=document.getElementById('resetPinMember');
     const prev=sel.value;
@@ -618,11 +647,17 @@ function render(){
   const badge=document.getElementById('badgeTasks');
   badge.style.display=mine.length?'':'none';
   badge.textContent=mine.length;
-  const visibleRewards=state.rewards.filter(r=>admin||(r.tipo||'hijo')!=='padre');
+  const visibleRewards=state.rewards.filter(r=>(r.tipo||'hijo')===(admin?'padre':'hijo'));
   const afford=visibleRewards.filter(r=>r.activo!==false&&(u.puntos||0)>=(r.costo||0)&&(r.stock!==0)).length;
   const rb=document.getElementById('badgeRewards');
   rb.style.display=afford?'':'none';
   rb.textContent=afford;
+  const notes=myNotifs();
+  const bell=document.getElementById('bellCount');
+  if(bell){
+    bell.style.display=notes.length?'':'none';
+    bell.textContent=notes.length>9?'9+':String(notes.length);
+  }
 }
 
 function taskCard(t){
@@ -630,13 +665,15 @@ function taskCard(t){
   const target=memberById(t.para_quien);
   const days=lateDays(t);
   const late=days>0?` · atrasada ${days} d`:'';
-  const extra=t.estado==='pendiente_transferencia'&&target?` · para ${esc(target.nombre)}`:'';
+  const passing=t.estado==='pendiente_transferencia'||t.estado==='transferencia_por_aprobar';
+  const targetTag=passing&&target?`<span class="who-tag">para ${esc(target.nombre)}</span>`:'';
   const timing=taskTiming(t);
   const note=timingText(t);
   return `<div class="task-item${timing==='none'?'':' '+timing}" onclick="openTaskCard(${t.id})">
     <div style="flex:1">
       <strong>${esc(t.titulo||'Tarea')}</strong><br>
-      <small>${esc(who?.nombre||'Sin asignar')} · ${t.puntos||0} pts${late}${extra}</small><br>
+      <span class="who-tag">${esc(who?.nombre||'Sin asignar')}</span>${targetTag}<br>
+      <small>${t.puntos||0} pts${late}</small><br>
       ${note?`<small>${esc(note)}</small><br>`:''}
       <span class="${pillClass(t)}">${esc(statusLabel(t))}${t.fecha_limite?' · '+esc(fmtDate(t.fecha_limite)):''}</span>
     </div>
@@ -653,10 +690,11 @@ function renderTasks(){
   const list=document.getElementById('taskList');
   const parentList=document.getElementById('parentTaskList');
   if(isAdmin(u)){
-    const kids=open.filter(t=>taskAudience(t)==='kid');
-    const parents=open.filter(t=>taskAudience(t)==='parent');
-    list.innerHTML=kids.map(taskCard).join('')||'<div class="empty">No hay tareas pendientes de los hijos</div>';
-    if(parentList) parentList.innerHTML=parents.map(taskCard).join('')||'<div class="empty">No hay tareas entre padres</div>';
+    const want=taskView==='hijos'?'kid':'parent';
+    const rows=open.filter(t=>taskAudience(t)===want);
+    const empty=want==='kid'?'No hay tareas pendientes de los hijos':'No hay tareas entre padres';
+    list.innerHTML=rows.map(taskCard).join('')||`<div class="empty">${empty}</div>`;
+    if(parentList) parentList.innerHTML='';
   }else{
     const mine=open.filter(t=>visibleToKid(u,t));
     list.innerHTML=mine.map(taskCard).join('')||'<div class="empty">No tienes tareas pendientes</div>';
@@ -668,7 +706,7 @@ function renderRewards(){
   const u=currentUser();
   const admin=isAdmin(u);
   let rows=state.rewards.slice();
-  if(!admin) rows=rows.filter(r=>(r.tipo||'hijo')!=='padre');
+  if(!admin||!rewardEditMode) rows=rows.filter(r=>(r.tipo||'hijo')===(admin?'padre':'hijo'));
   rows.sort((a,b)=>{
     const ai=a.activo===false?1:0;
     const bi=b.activo===false?1:0;
@@ -693,6 +731,72 @@ function toggleRewardSort(){
 function toggleRewardEdit(){
   rewardEditMode=!rewardEditMode;
   render();
+}
+function toggleTaskView(){
+  taskView=taskView==='hijos'?'padres':'hijos';
+  render();
+}
+function myNotifs(){
+  const u=currentUser();
+  if(!u) return [];
+  const items=[];
+  const open=state.tasks.filter(t=>!isGoal(t)&&t.estado!=='completada'&&t.estado!=='borrador');
+  if(isAdmin(u)){
+    open.forEach(t=>{
+      if(taskAudience(t)==='parent'&&t.asignada_a===u.id&&t.estado==='pendiente')
+        items.push({key:'mine'+t.id,kind:'tarea',id:t.id,text:'Te cargaron: '+(t.titulo||'tarea')});
+      if(taskAudience(t)==='kid'&&t.estado==='esperando_aprobacion')
+        items.push({key:'val'+t.id,kind:'tarea',id:t.id,text:(memberById(t.asignada_a)?.nombre||'Un hijo')+' envió para validar: '+(t.titulo||'tarea')});
+      if(t.estado==='transferencia_por_aprobar')
+        items.push({key:'tr'+t.id,kind:'tarea',id:t.id,text:'Traspaso por aprobar: '+(t.titulo||'tarea')});
+    });
+    state.solicitudes.filter(s=>s.estado==='pendiente').forEach(s=>{
+      const kid=memberById(s.miembro_id);
+      const r=state.rewards.find(x=>x.id===s.premio_id);
+      if(!kid||isAdmin(kid)||!r||(r.tipo||'hijo')==='padre') return;
+      items.push({key:'s'+s.id,kind:'premio',id:s.id,text:kid.nombre+' pide aprobar: '+(r.nombre||'premio')+' ('+(r.costo||0)+' pts)'});
+    });
+  }else{
+    open.forEach(t=>{
+      if(taskAudience(t)==='parent') return;
+      if(t.estado==='pendiente'&&t.asignada_a===u.id){
+        const back=t.comentario_aprobacion?'Te la devolvieron: ':'Te cargaron: ';
+        items.push({key:'t'+t.id,kind:'tarea',id:t.id,text:back+(t.titulo||'tarea')});
+      }
+      if(t.estado==='pendiente_transferencia'&&Number(t.para_quien)===u.id)
+        items.push({key:'p'+t.id,kind:'tarea',id:t.id,text:(memberById(t.asignada_a)?.nombre||'Tu hermano')+' te pasa: '+(t.titulo||'tarea')});
+    });
+  }
+  (state.notifs||[]).filter(n=>n.para_id===u.id&&!n.leida).forEach(n=>{
+    items.push({key:'n'+n.id,kind:'aviso',id:n.id,text:n.texto||''});
+  });
+  return items;
+}
+function openNotifs(){
+  const u=currentUser();
+  const items=myNotifs();
+  const el=document.getElementById('notifList');
+  if(!items.length){
+    el.innerHTML='<div class="empty">Nada pendiente</div>';
+    openModal('modal-notifs');
+    return;
+  }
+  el.innerHTML=items.map(it=>{
+    if(it.kind==='premio'&&u&&isAdmin(u)){
+      return `<div class="task-item" style="cursor:default"><div style="flex:1"><strong>${esc(it.text)}</strong><div style="display:flex;gap:6px;margin-top:8px"><button class="btn small success" onclick="approvePrize(${it.id})">Aprobar</button><button class="btn small secondary" onclick="rejectPrize(${it.id})">Rechazar</button></div></div></div>`;
+    }
+    if(it.kind==='aviso'){
+      return `<div class="task-item" onclick="dismissNotif(${it.id})"><div style="flex:1">${esc(it.text)}<br><small>Toca para quitar</small></div></div>`;
+    }
+    return `<div class="task-item" onclick="closeModal('modal-notifs');openTaskCard(${it.id})"><div style="flex:1">${esc(it.text)}</div></div>`;
+  }).join('');
+  openModal('modal-notifs');
+}
+async function dismissNotif(id){
+  const {error}=await supabase.from('familia_notificaciones').update({leida:true}).eq('id',id).eq('para_id',state.currentUserId);
+  if(error) return showToast(error.message);
+  await loadAll();
+  if(document.getElementById('modal-notifs').classList.contains('show')) openNotifs();
 }
 function movementOf(h){
   const t=h.texto||'';
@@ -730,7 +834,7 @@ function renderRanking(){
     const age=ageOf(row.k);
     const icon=RANK_ICONS[i]||(i+1)+'.';
     return `<div class="member-item" style="align-items:flex-start">
-      <span style="font-size:1.4rem">${icon}</span><span>${face(row.k)}</span>
+      <span style="font-size:1.4rem">${icon}</span>
       <div style="flex:1">
         <strong>${esc(row.k.nombre)}</strong> ${age?`<small style="color:var(--muted)">${age} años</small>`:''}
         <div style="font-weight:700;margin-top:2px">${row.quedan}/${row.generado}</div>
@@ -1111,6 +1215,9 @@ async function confirmApproval(id){
     const whoWord=taskAudience(t)==='parent'?'Aprobada entre padres: ':'Aprobada: ';
     await supabase.from('familia_historial').insert({miembro_id:who.id,texto:`${whoWord}${t.titulo} (+${pts} pts)${comment?' · '+comment:''}`});
   }
+  if(who){
+    await supabase.from('familia_notificaciones').insert({para_id:who.id,tipo:'tarea',tarea_id:id,texto:'Aprobada: '+t.titulo+' (+'+pts+' pts)'});
+  }
   showToast('Aprobada');
   closeModal('modal-ficha');
   loadAll();
@@ -1204,7 +1311,7 @@ async function applyPenalty(){
 function openNewReward(){
   editingRewardId=null;
   document.getElementById('rewardModalTitle').textContent='Nuevo premio';
-  document.getElementById('rewardTipo').value='hijo';
+  document.getElementById('rewardTipo').value=(isAdmin(currentUser())&&!rewardEditMode)?'padre':'hijo';
   document.getElementById('rewardName').value='';
   document.getElementById('rewardCost').value='50';
   document.getElementById('rewardStock').value='-1';
@@ -1239,7 +1346,8 @@ function openReward(id){
   const falta=Math.max(0,(r.costo||0)-(u.puntos||0));
   document.getElementById('rewardFalta').innerHTML=falta>0?`<strong style="color:#ef4444">Faltan ${falta} pts</strong>`:'<strong style="color:#10b981">Tienes puntos suficientes</strong>';
   const acts=['<button class="btn" onclick="saveReward()">Guardar cambios</button>'];
-  if((u.puntos||0)>=(r.costo||0)&&r.activo!==false&&r.stock!==0) acts.push(`<button class="btn success" onclick="redeemReward(${r.id})">Canjear</button>`);
+  const claimMine=(r.tipo||'hijo')===(isAdmin(u)?'padre':'hijo');
+  if(isAdmin(u)&&claimMine&&(u.puntos||0)>=(r.costo||0)&&r.activo!==false&&r.stock!==0) acts.push(`<button class="btn success" onclick="redeemReward(${r.id})">Canjear</button>`);
   document.getElementById('rewardActions').innerHTML=acts.join('');
   openModal('modal-premio');
 }
@@ -1249,13 +1357,29 @@ function openKidReward(r,u){
   document.getElementById('rewardModalTitle').textContent=r.nombre||'Premio';
   const costo=r.costo||0;
   const tiene=u.puntos||0;
-  const puede=r.activo!==false&&r.stock!==0&&tiene>=costo;
-  const porque=r.activo===false?'Este premio no está disponible':r.stock===0?'Ya no queda':('Te faltan '+(costo-tiene)+' pts');
+  const parentPrize=(r.tipo||'hijo')==='padre';
+  if(isAdmin(u)!==parentPrize){
+    document.getElementById('rewardFalta').innerHTML='<p>Este premio no es para ti.</p>';
+    document.getElementById('rewardActions').innerHTML='';
+    openModal('modal-premio');
+    return;
+  }
+  const pending=!isAdmin(u)&&state.solicitudes.some(s=>s.estado==='pendiente'&&s.miembro_id===u.id&&s.premio_id===r.id);
+  const puede=r.activo!==false&&r.stock!==0&&tiene>=costo&&!pending;
+  const porque=pending?'Ya está esperando a un padre':r.activo===false?'Este premio no está disponible':r.stock===0?'Ya no queda':('Te faltan '+(costo-tiene)+' pts');
   document.getElementById('rewardFalta').innerHTML='<p>'+(r.icono||'🎁')+' <strong>'+esc(r.nombre)+'</strong><br>Cuesta <strong>'+costo+' pts</strong>. Tú tienes <strong>'+tiene+' pts</strong>.</p>'+(puede?'':'<p>'+esc(porque)+'</p>');
-  document.getElementById('rewardActions').innerHTML='<button class="btn success" id="btnReclamar"'+(puede?'':' disabled')+'>Reclamar premio</button>';
+  const label=isAdmin(u)?'Reclamar premio':'Pedir premio';
+  document.getElementById('rewardActions').innerHTML='<button class="btn success" id="btnReclamar"'+(puede?'':' disabled')+'>'+label+'</button>';
   const btn=document.getElementById('btnReclamar');
-  if(puede) btn.onclick=()=>askRedeem(r);
+  if(puede) btn.onclick=()=>isAdmin(u)?askRedeem(r):askPrize(r);
   openModal('modal-premio');
+}
+function askPrize(r){
+  const u=currentUser();
+  document.getElementById('rewardActions').innerHTML=
+    '<p>¿Pedir <strong>'+esc(r.nombre)+'</strong>? Un padre tiene que aprobarlo. Todavía no se restan los '+r.costo+' pts. Tienes '+(u.puntos||0)+' pts.</p>'+
+    '<button class="btn success" onclick="requestPrize('+r.id+')">Sí, pedir</button>'+
+    '<button class="btn secondary" onclick="openReward('+r.id+')">Cancelar</button>';
 }
 function askRedeem(r){
   const u=currentUser();
@@ -1287,10 +1411,64 @@ async function saveReward(){
   closeModal('modal-premio');
   loadAll();
 }
+async function requestPrize(id){
+  const u=currentUser();
+  const r=state.rewards.find(x=>x.id===id);
+  if(!u||!r||isAdmin(u)||(r.tipo||'hijo')==='padre') return showToast('Este premio no es para ti');
+  if(r.activo===false) return showToast('Este premio no está disponible');
+  if(r.stock===0) return showToast('Sin stock');
+  if((u.puntos||0)<(r.costo||0)) return showToast('Puntos insuficientes');
+  if(state.solicitudes.some(s=>s.estado==='pendiente'&&s.miembro_id===u.id&&s.premio_id===r.id)) return showToast('Ya está esperando a un padre');
+  const {error}=await supabase.from('familia_solicitudes_premios').insert({premio_id:r.id,miembro_id:u.id,estado:'pendiente'});
+  if(error) return showToast(error.message);
+  showToast('Quedó para que un padre lo apruebe');
+  closeModal('modal-premio');
+  loadAll();
+}
+async function approvePrize(solicitudId){
+  const u=currentUser();
+  if(!isAdmin(u)) return;
+  const s=state.solicitudes.find(x=>x.id===solicitudId);
+  if(!s||s.estado!=='pendiente') return showToast('Esa solicitud ya se resolvió');
+  const kid=memberById(s.miembro_id);
+  const r=state.rewards.find(x=>x.id===s.premio_id);
+  if(!kid||isAdmin(kid)||!r||(r.tipo||'hijo')==='padre') return showToast('No se puede aprobar este premio');
+  const costo=Number(r.costo)||0;
+  if((Number(kid.puntos)||0)<costo) return showToast(kid.nombre+' ya no tiene esos puntos');
+  if(r.activo===false||r.stock===0) return showToast('Ese premio ya no está disponible');
+  const {data,error}=await supabase.from('familia_solicitudes_premios').update({estado:'aprobado'}).eq('id',solicitudId).eq('estado','pendiente').select();
+  if(error) return showToast(error.message);
+  if(!data||!data.length) return showToast('Ya lo resolvió el otro padre');
+  const {error:e2}=await supabase.from('familia_miembros').update({puntos:(Number(kid.puntos)||0)-costo}).eq('id',kid.id);
+  if(e2){
+    await supabase.from('familia_solicitudes_premios').update({estado:'pendiente'}).eq('id',solicitudId);
+    return showToast(e2.message);
+  }
+  if(r.stock>0) await supabase.from('familia_premios').update({stock:r.stock-1}).eq('id',r.id);
+  await supabase.from('familia_historial').insert({miembro_id:kid.id,texto:'Canjeó: '+r.nombre+' (-'+costo+' pts)'});
+  await supabase.from('familia_notificaciones').insert({para_id:kid.id,tipo:'premio',solicitud_id:solicitudId,texto:'Aprobaron tu premio: '+r.nombre+' (-'+costo+' pts)'});
+  showToast('Premio aprobado');
+  await loadAll();
+  if(document.getElementById('modal-notifs').classList.contains('show')) openNotifs();
+}
+async function rejectPrize(solicitudId){
+  const u=currentUser();
+  if(!isAdmin(u)) return;
+  const s=state.solicitudes.find(x=>x.id===solicitudId);
+  const r=s?state.rewards.find(x=>x.id===s.premio_id):null;
+  const {data,error}=await supabase.from('familia_solicitudes_premios').update({estado:'rechazado'}).eq('id',solicitudId).eq('estado','pendiente').select();
+  if(error) return showToast(error.message);
+  if(!data||!data.length) return showToast('Esa solicitud ya se resolvió');
+  if(s) await supabase.from('familia_notificaciones').insert({para_id:s.miembro_id,tipo:'premio',solicitud_id:solicitudId,texto:'No aprobaron el premio: '+((r&&r.nombre)||'premio')});
+  showToast('Premio rechazado');
+  await loadAll();
+  if(document.getElementById('modal-notifs').classList.contains('show')) openNotifs();
+}
 async function redeemReward(id){
   const u=currentUser();
   const r=state.rewards.find(x=>x.id===id);
-  if(!r||r.activo===false||(u.puntos||0)<(r.costo||0)) return showToast('Puntos insuficientes');
+  if(!r||!u||!isAdmin(u)||(r.tipo||'hijo')!=='padre') return showToast('Este premio no es para ti');
+  if(r.activo===false||(u.puntos||0)<(r.costo||0)) return showToast('Puntos insuficientes');
   if(r.stock===0) return showToast('Sin stock');
   const {error}=await supabase.from('familia_miembros').update({puntos:u.puntos-r.costo}).eq('id',u.id);
   if(error) return showToast(error.message);
@@ -1582,6 +1760,8 @@ async function init(){
     .on('postgres_changes',{event:'*',schema:'public',table:'familia_mensajes'},scheduleReload)
     .on('postgres_changes',{event:'*',schema:'public',table:'familia_historial'},scheduleReload)
     .on('postgres_changes',{event:'*',schema:'public',table:'familia_config'},scheduleReload)
+    .on('postgres_changes',{event:'*',schema:'public',table:'familia_solicitudes_premios'},scheduleReload)
+    .on('postgres_changes',{event:'*',schema:'public',table:'familia_notificaciones'},scheduleReload)
     .subscribe();
   setInterval(()=>{ if(state.currentUserId) scheduleReload(); },15000);
 }
