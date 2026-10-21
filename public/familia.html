@@ -30,7 +30,9 @@ nav{position:relative;width:100%;background:#fff;border-top:1px solid var(--bord
 .btn.danger{background:var(--danger)}
 .btn.secondary{background:#e2e8f0;color:var(--text)}
 .task-item,.reward-item,.member-item{display:flex;align-items:center;gap:12px;padding:12px;background:#fff;border-radius:12px;margin-bottom:8px;border:1px solid var(--border);border-left:4px solid #6366f1}
-.reward-item.inactive{opacity:.5;filter:grayscale(1);border-left-color:#94a3b8;background:#f1f5f9}
+.reward-item.kid{background:#e0f2fe;border-left-color:#38bdf8}
+.reward-item.parent{background:#bfdbfe;border-left-color:#1d4ed8}
+.reward-item.inactive{opacity:.55}
 .nav-ico{font-size:1.15rem;line-height:1.15;display:block}
 .figure-btn{width:48px;height:48px;border:2px solid var(--border);border-radius:12px;background:#e2e8f0;cursor:pointer;padding:4px}
 .figure-btn.selected{border-color:var(--primary);background:#eef2ff}
@@ -101,15 +103,19 @@ h3{margin-bottom:12px}
       <div id="taskList"></div>
     </div>
     <div id="parentTasksWrap" style="display:none">
-      <div class="section-label">Tareas entre padres</div>
+      <div class="section-label">PADRES</div>
       <div id="parentTaskList"></div>
     </div>
   </div>
 
   <div class="section" id="section-premios">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px">
       <h3 style="margin:0">🎁 Premios</h3>
-      <button class="btn small" id="btnNewReward" onclick="openNewReward()" style="display:none">+ Nuevo</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn small secondary" id="btnSortRewards" onclick="toggleRewardSort()">⇅ Mayor</button>
+        <button class="btn small secondary" id="btnEditRewards" onclick="toggleRewardEdit()" style="display:none">Editar</button>
+        <button class="btn small" id="btnNewReward" onclick="openNewReward()" style="display:none">+ Nuevo</button>
+      </div>
     </div>
     <div id="rewardList"></div>
     <button class="btn secondary" style="width:100%;margin-top:12px" onclick="openRewardHistory()">Ver historial de canjes</button>
@@ -119,17 +125,6 @@ h3{margin-bottom:12px}
     <h3>🏆 Ranking (hijos)</h3>
     <p style="font-size:.8rem;color:var(--muted);margin:-4px 0 12px">63/80 es lo que le queda / lo que generó. Histórico muestra la tarea, el premio o la penalización.</p>
     <div id="rankingList"></div>
-  </div>
-
-  <div class="section" id="section-chat">
-    <h3>💬 Chat</h3>
-    <div id="chatMessages" style="height:320px;overflow-y:auto;background:#fff;border-radius:12px;padding:8px;margin-bottom:8px;border:1px solid var(--border)"></div>
-    <div style="display:flex;gap:8px">
-      <select id="chatTo" style="flex:1" onchange="renderChat()"><option value="">Grupo familiar</option></select>
-      <input id="chatInput" placeholder="Mensaje..." style="flex:1.4">
-      <button class="btn small" onclick="sendMessage()">Enviar</button>
-    </div>
-    <p style="font-size:.75rem;color:var(--muted);margin-top:6px">Elige Grupo o una persona. Solo ves esa conversación.</p>
   </div>
 
   <div class="section" id="section-yo">
@@ -160,7 +155,6 @@ h3{margin-bottom:12px}
     <button class="nav-btn active" onclick="showSection('tareas', this)"><span class="nav-ico">📋</span>Tareas<span id="badgeTasks" class="badge" style="display:none">0</span></button>
     <button class="nav-btn" onclick="showSection('premios', this)"><span class="nav-ico">🎁</span>Premios<span id="badgeRewards" class="badge" style="display:none">0</span></button>
     <button class="nav-btn" onclick="showSection('ranking', this)"><span class="nav-ico">🏆</span>Ranking</button>
-    <button class="nav-btn" onclick="showSection('chat', this)"><span class="nav-ico">💬</span>Chat</button>
     <button class="nav-btn" onclick="showSection('yo', this)"><span class="nav-ico">👤</span>Yo</button>
   </nav>
 </div>
@@ -177,12 +171,27 @@ h3{margin-bottom:12px}
   <div class="form-group"><label>Fecha límite de la primera</label><input type="datetime-local" id="taskDue"></div>
   <div class="form-group"><label>Resta por cada día de atraso</label><input type="number" id="taskPenalty" value="2"></div>
   <div class="form-group"><label><input type="checkbox" id="taskSaveTemplate"> Guardar como plantilla para reutilizar</label></div>
-  <button class="btn" style="width:100%" onclick="createTask()">Crear</button>
+  <button class="btn" style="width:100%" onclick="reviewTask()">Crear</button>
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-tarea')">Cerrar</button>
+</div></div>
+
+<div class="modal" id="modal-tarea-revisar"><div class="modal-content">
+  <h3>Revisa antes de guardar</h3>
+  <div id="reviewBody" style="font-size:.95rem;display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+  <button class="btn" style="width:100%" onclick="closeModal('modal-tarea-revisar');createTask()">Guardar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-tarea-revisar')">Volver</button>
+</div></div>
+
+<div class="modal" id="modal-whatsapp"><div class="modal-content">
+  <h3>¿Avisar por WhatsApp?</h3>
+  <p id="waText" style="font-size:.9rem;margin-bottom:12px;white-space:pre-wrap"></p>
+  <button class="btn success" style="width:100%" onclick="sendWhatsApp()">Sí, avisar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="skipWhatsApp()">Ahora no</button>
 </div></div>
 
 <div class="modal" id="modal-premio"><div class="modal-content">
   <h3 id="rewardModalTitle">Premio</h3>
+  <div class="form-group reward-edit"><label>Para</label><select id="rewardTipo"><option value="hijo">Hijos</option><option value="padre">Padres</option></select></div>
   <div class="form-group reward-edit"><label>Nombre</label><input id="rewardName"></div>
   <div class="form-group reward-edit"><label>Costo en puntos</label><input type="number" id="rewardCost" value="50"></div>
   <div class="form-group reward-edit"><label>Stock (-1 ilimitado)</label><input type="number" id="rewardStock" value="-1"></div>
@@ -284,6 +293,9 @@ let pendingTransferId=null;
 let editingRewardId=null;
 let originalAdminId=null;
 let taskCreateMode='familia';
+let rewardEditMode=false;
+let rewardSortDesc=true;
+let pendingShare=null;
 let loadLock=false;
 let reloadTimer=null;
 let reloadQueued=false;
@@ -578,13 +590,18 @@ function render(){
   document.getElementById('btnParentTask').style.display=admin?'':'none';
   document.getElementById('btnSiblingTask').style.display=isKid(u)?'':'none';
   document.getElementById('btnNewReward').style.display=admin?'':'none';
+  const editBtn=document.getElementById('btnEditRewards');
+  editBtn.style.display=admin?'':'none';
+  editBtn.textContent=rewardEditMode?'Mis premios':'Editar';
+  const sortBtn=document.getElementById('btnSortRewards');
+  if(sortBtn) sortBtn.textContent=rewardSortDesc?'⇅ Mayor':'⇅ Menor';
   document.getElementById('btnPenalty').style.display=admin?'':'none';
   document.getElementById('adminResetAll').style.display=/padre|papá/i.test(u.rol||'')?'':'none';
   document.getElementById('adminNewMember').style.display=admin?'':'none';
   document.getElementById('adminPinReset').style.display=admin?'':'none';
   document.getElementById('switchUserCard').style.display=admin?'':'none';
   document.getElementById('backToDadCard').style.display=originalAdminId?'':'none';
-  document.getElementById('kidsTasksTitle').textContent=admin?'Tareas de los hijos':'Mis tareas';
+  document.getElementById('kidsTasksTitle').textContent=admin?'HIJOS':'Mis tareas';
   document.getElementById('parentTasksWrap').style.display=admin?'':'none';
   if(admin){
     const sel=document.getElementById('resetPinMember');
@@ -597,13 +614,12 @@ function render(){
   renderRanking();
   renderHistory();
   renderBadges();
-  fillChatTo();
-  renderChat();
   const mine=state.tasks.filter(t=>!isGoal(t)&&t.estado!=='completada'&&(t.asignada_a===u.id||Number(t.para_quien)===u.id));
   const badge=document.getElementById('badgeTasks');
   badge.style.display=mine.length?'':'none';
   badge.textContent=mine.length;
-  const afford=state.rewards.filter(r=>r.activo!==false&&(u.puntos||0)>=(r.costo||0)&&(r.stock!==0)).length;
+  const visibleRewards=state.rewards.filter(r=>admin||(r.tipo||'hijo')!=='padre');
+  const afford=visibleRewards.filter(r=>r.activo!==false&&(u.puntos||0)>=(r.costo||0)&&(r.stock!==0)).length;
   const rb=document.getElementById('badgeRewards');
   rb.style.display=afford?'':'none';
   rb.textContent=afford;
@@ -650,11 +666,14 @@ function renderTasks(){
 function renderRewards(){
   const list=document.getElementById('rewardList');
   const u=currentUser();
-  const rows=state.rewards.slice().sort((a,b)=>{
+  const admin=isAdmin(u);
+  let rows=state.rewards.slice();
+  if(!admin) rows=rows.filter(r=>(r.tipo||'hijo')!=='padre');
+  rows.sort((a,b)=>{
     const ai=a.activo===false?1:0;
     const bi=b.activo===false?1:0;
     if(ai!==bi) return ai-bi;
-    const cost=(b.costo||0)-(a.costo||0);
+    const cost=rewardSortDesc?(b.costo||0)-(a.costo||0):(a.costo||0)-(b.costo||0);
     if(cost) return cost;
     return String(a.nombre||'').localeCompare(String(b.nombre||''),'es');
   });
@@ -663,8 +682,17 @@ function renderRewards(){
     const off=r.activo===false;
     const falta=Math.max(0,(r.costo||0)-(u.puntos||0));
     const faltaTxt=off?'<br><strong>Inactivo</strong>':(falta>0?`<br><small style="color:#ef4444">Faltan ${falta} pts</small>`:'<br><small style="color:#10b981">Ya puedes canjearlo</small>');
-    return `<div class="reward-item${off?' inactive':''}" onclick="openReward(${r.id})"><div style="flex:1">${r.icono||'🎁'} <strong>${esc(r.nombre)}</strong><br><small>${r.costo} pts${r.stock>=0?' · stock '+r.stock:''}</small>${faltaTxt}</div></div>`;
+    const tone=(r.tipo||'hijo')==='padre'?' parent':' kid';
+    return `<div class="reward-item${tone}${off?' inactive':''}" onclick="openReward(${r.id})"><div style="flex:1">${r.icono||'🎁'} <strong>${esc(r.nombre)}</strong><br><small>${r.costo} pts${r.stock>=0?' · stock '+r.stock:''}</small>${faltaTxt}</div></div>`;
   }).join('');
+}
+function toggleRewardSort(){
+  rewardSortDesc=!rewardSortDesc;
+  render();
+}
+function toggleRewardEdit(){
+  rewardEditMode=!rewardEditMode;
+  render();
 }
 function movementOf(h){
   const t=h.texto||'';
@@ -695,12 +723,14 @@ function renderRanking(){
     const generado=Math.max(led.generado,quedan);
     return {k,led,quedan,generado};
   }).sort((a,b)=>b.generado-a.generado||b.quedan-a.quedan);
+  const RANK_ICONS=['🥇','🥈','🥉','🍬','⭐','🎈','🍪','🍎','⚽','🎯'];
   document.getElementById('rankingList').innerHTML=kids.map((row,i)=>{
     const canjes=row.led.moves.filter(m=>m.tipo==='Premio');
     const canjeTxt=canjes.length?canjes.map(m=>esc(m.detalle)).join(', '):'Todavía no canjea';
     const age=ageOf(row.k);
+    const icon=RANK_ICONS[i]||(i+1)+'.';
     return `<div class="member-item" style="align-items:flex-start">
-      <span>${i+1}.</span><span>${face(row.k)}</span>
+      <span style="font-size:1.4rem">${icon}</span><span>${face(row.k)}</span>
       <div style="flex:1">
         <strong>${esc(row.k.nombre)}</strong> ${age?`<small style="color:var(--muted)">${age} años</small>`:''}
         <div style="font-weight:700;margin-top:2px">${row.quedan}/${row.generado}</div>
@@ -801,7 +831,7 @@ function prepareTaskForm(audiencia){
 function openNewTask(audiencia){
   taskCreateMode=audiencia==='padres'?'padres':'hijo';
   const padres=taskCreateMode==='padres';
-  document.getElementById('taskModalTitle').textContent=padres?'Tarea entre padres':'Tarea para un hijo';
+  document.getElementById('taskModalTitle').textContent=padres?'PADRES':'HIJOS';
   document.getElementById('taskAssignLabel').textContent=padres?'Para':'Hijo';
   document.getElementById('taskModalHint').textContent=padres
     ?'Esta tarea es solo entre ustedes. No se puede pasar a un hijo.'
@@ -819,14 +849,46 @@ function openSiblingTask(){
   prepareTaskForm('hijo');
   openModal('modal-tarea');
 }
-async function createTask(){
+const REC_LABEL={once:'Una sola vez',daily:'Diaria',weekly:'Semanal',monthly:'Mensual',quarterly:'Trimestral'};
+function taskFormError(){
   const titulo=document.getElementById('taskTitle').value.trim();
-  if(!titulo) return showToast('Escribe un título');
+  if(!titulo) return 'Escribe un título';
   const asignado=+document.getElementById('taskAssignTo').value;
-  if(!asignado) return showToast('Elige a quién');
-  if(taskCreateMode==='hijo'&&isAdmin(memberById(asignado))) return showToast('Una tarea de hijos no se asigna a un padre');
-  if(taskCreateMode==='padres'&&!isAdmin(memberById(asignado))) return showToast('Una tarea de padres no se asigna a un hijo');
-  if(taskCreateMode==='padres'&&asignado===state.currentUserId) return showToast('No puedes asignarte una tarea a ti mismo');
+  if(!asignado) return 'Elige a quién';
+  if(taskCreateMode==='hijo'&&isAdmin(memberById(asignado))) return 'Una tarea de hijos no se asigna a un padre';
+  if(taskCreateMode==='padres'&&!isAdmin(memberById(asignado))) return 'Una tarea de padres no se asigna a un hijo';
+  if(taskCreateMode==='padres'&&asignado===state.currentUserId) return 'No puedes asignarte una tarea a ti mismo';
+  if(taskCreateMode==='hermano'){
+    const dest=memberById(asignado);
+    if(!dest||!isKid(dest)||dest.id===state.currentUserId) return 'Elige un hermano';
+  }
+  if(!document.getElementById('taskDue').value) return 'Elige la fecha de la primera';
+  return '';
+}
+function reviewTask(){
+  const err=taskFormError();
+  if(err) return showToast(err);
+  const asignado=+document.getElementById('taskAssignTo').value;
+  const quien=memberById(asignado);
+  const rec=document.getElementById('taskRecurrence').value;
+  const veces=rec==='once'?1:Math.min(31,Math.max(1,+document.getElementById('taskCount').value||1));
+  const fecha=new Date(document.getElementById('taskDue').value);
+  const para=taskCreateMode==='padres'?'PADRES':(taskCreateMode==='hermano'?'Un hermano':'HIJOS');
+  document.getElementById('reviewBody').innerHTML=
+    '<p><strong>'+esc(para)+'</strong></p>'+
+    '<p>Para: '+esc(quien?.nombre||'')+'</p>'+
+    '<p>Tarea: '+esc(document.getElementById('taskTitle').value.trim())+'</p>'+
+    '<p>Puntos: '+(+document.getElementById('taskPoints').value||10)+'</p>'+
+    '<p>Repetición: '+esc(REC_LABEL[rec]||rec)+' · '+veces+(veces===1?' vez':' veces')+'</p>'+
+    '<p>Primera fecha: '+esc(fecha.toLocaleString('es'))+'</p>'+
+    '<p>Resta por día de atraso: '+(+document.getElementById('taskPenalty').value||0)+' pts</p>';
+  openModal('modal-tarea-revisar');
+}
+async function createTask(){
+  const err=taskFormError();
+  if(err) return showToast(err);
+  const titulo=document.getElementById('taskTitle').value.trim();
+  const asignado=+document.getElementById('taskAssignTo').value;
   const puntos=+document.getElementById('taskPoints').value||10;
   const recurrencia=document.getElementById('taskRecurrence').value;
   const fechaBase=document.getElementById('taskDue').value;
@@ -935,8 +997,20 @@ function openTaskCard(id){
   if(parentTask&&t.estado==='esperando_aprobacion'&&u.id===t.asignada_a){
     acts.push(`<p style="font-size:.85rem;color:var(--muted)">Esperando la aprobación de otro adulto.</p>`);
   }
+  if(admin&&t.estado!=='completada') acts.push(`<button class="btn danger" onclick="deleteTask(${t.id})">Eliminar tarea</button>`);
   document.getElementById('fichaActions').innerHTML=acts.join('');
   openModal('modal-ficha');
+}
+async function deleteTask(id){
+  const t=state.tasks.find(x=>x.id===id);
+  if(!t||!isAdmin(currentUser())) return;
+  if(t.estado==='completada') return showToast('Una tarea ya completada no se elimina');
+  if(!confirm('¿Eliminar «'+t.titulo+'»? No se puede deshacer.')) return;
+  const {error}=await supabase.from('familia_tareas').delete().eq('id',id);
+  if(error) return showToast(error.message);
+  showToast('Tarea eliminada');
+  closeModal('modal-ficha');
+  loadAll();
 }
 async function saveTaskFicha(id){
   const t=state.tasks.find(x=>x.id===id);
@@ -1008,8 +1082,10 @@ async function submitEvidence(){
   const u=currentUser();
   showToast(t&&taskAudience(t)==='parent'?('Quedó para '+(otherParent(u?.id)?.nombre||'tu esposo/a')):'Quedó pendiente de aprobación');
   closeModal('modal-evidencia');
+  const share=t?shareTaskText(t):'';
   pendingTaskId=null;
   loadAll();
+  if(share) askWhatsApp(share);
 }
 async function confirmApproval(id){
   const t=state.tasks.find(x=>x.id===id);
@@ -1128,6 +1204,7 @@ async function applyPenalty(){
 function openNewReward(){
   editingRewardId=null;
   document.getElementById('rewardModalTitle').textContent='Nuevo premio';
+  document.getElementById('rewardTipo').value='hijo';
   document.getElementById('rewardName').value='';
   document.getElementById('rewardCost').value='50';
   document.getElementById('rewardStock').value='-1';
@@ -1147,9 +1224,10 @@ function openReward(id){
   const r=state.rewards.find(x=>x.id===id);
   const u=currentUser();
   if(!r||!u) return;
-  if(!isAdmin(u)) return openKidReward(r,u);
+  if(!(isAdmin(u)&&rewardEditMode)) return openKidReward(r,u);
   editingRewardId=id;
   document.getElementById('rewardModalTitle').textContent=r.nombre||'Premio';
+  document.getElementById('rewardTipo').value=(r.tipo||'hijo')==='padre'?'padre':'hijo';
   document.getElementById('rewardName').value=r.nombre||'';
   document.getElementById('rewardCost').value=r.costo||0;
   document.getElementById('rewardStock').value=r.stock??-1;
@@ -1195,6 +1273,7 @@ async function saveReward(){
     costo:+document.getElementById('rewardCost').value||0,
     stock:+document.getElementById('rewardStock').value,
     icono:document.getElementById('rewardEmoji').value||'🎁',
+    tipo:document.getElementById('rewardTipo').value==='padre'?'padre':'hijo',
     activo:document.getElementById('rewardActive').checked
   };
   let error;
@@ -1217,9 +1296,11 @@ async function redeemReward(id){
   if(error) return showToast(error.message);
   if(r.stock>0) await supabase.from('familia_premios').update({stock:r.stock-1}).eq('id',r.id);
   await supabase.from('familia_historial').insert({miembro_id:u.id,texto:`Canjeó: ${r.nombre} (-${r.costo} pts)`});
+  const queda=(u.puntos||0)-r.costo;
   showToast('Canjeado');
   closeModal('modal-premio');
   loadAll();
+  askWhatsApp(shareRewardText(r, queda));
 }
 function openRewardHistory(){
   const u=currentUser();
@@ -1358,6 +1439,71 @@ async function sendMessage(){
   loadAll();
 }
 
+function appUrl(params){
+  const u=new URL(location.href);
+  u.hash='';
+  u.search='';
+  Object.keys(params).forEach(k=>u.searchParams.set(k,params[k]));
+  return u.toString();
+}
+function shareTaskText(t){
+  const u=currentUser();
+  const link=appUrl({tarea:t.id});
+  const name=t.titulo||'la tarea';
+  if(taskAudience(t)==='parent'){
+    const other=otherParent(u&&u.id);
+    return 'Ya hice «'+name+'». '+(other?other.nombre+', ¿la apruebas? ':'¿La apruebas? ')+link;
+  }
+  if(t.es_transferencia){
+    return 'Ya hice «'+name+'». No son puntos nuevos: salen de quien me la pasó. ¿La aprueban? '+link;
+  }
+  return 'Ya hice «'+name+'». Si está bien, los puntos son míos. ¿La aprueban? '+link;
+}
+function shareRewardText(r,queda){
+  return 'Canjeé «'+(r.nombre||'un premio')+'» por '+(r.costo||0)+' pts. Me quedan '+queda+'. '+appUrl({premio:r.id});
+}
+function askWhatsApp(text){
+  pendingShare=text;
+  document.getElementById('waText').textContent=text;
+  openModal('modal-whatsapp');
+}
+function sendWhatsApp(){
+  if(!pendingShare) return;
+  const url='https://wa.me/?text='+encodeURIComponent(pendingShare);
+  pendingShare=null;
+  closeModal('modal-whatsapp');
+  window.open(url,'_blank','noopener');
+}
+function skipWhatsApp(){
+  pendingShare=null;
+  closeModal('modal-whatsapp');
+}
+function consumeDeepLink(){
+  const q=new URLSearchParams(location.search);
+  const tarea=q.get('tarea');
+  const premio=q.get('premio');
+  if(!tarea&&!premio) return;
+  const clean=new URL(location.href);
+  clean.searchParams.delete('tarea');
+  clean.searchParams.delete('premio');
+  history.replaceState({},'',clean.pathname+(clean.search||'')+clean.hash);
+  const u=currentUser();
+  if(tarea){
+    showSection('tareas', document.querySelector('.nav-btn'));
+    const t=state.tasks.find(x=>String(x.id)===String(tarea));
+    if(!t) return showToast('Esa tarea ya no está');
+    if(!isAdmin(u)&&taskAudience(t)==='parent') return showToast('Esa tarea es entre padres');
+    if(!isAdmin(u)&&t.asignada_a!==u.id&&Number(t.para_quien)!==u.id) return showToast('Esa tarea no es tuya');
+    openTaskCard(t.id);
+    return;
+  }
+  showSection('premios', document.querySelectorAll('.nav-btn')[1]);
+  const r=state.rewards.find(x=>String(x.id)===String(premio));
+  if(!r) return showToast('Ese premio ya no está');
+  if(!isAdmin(u)&&(r.tipo||'hijo')==='padre') return showToast('Ese premio es de los padres');
+  openReward(r.id);
+}
+
 function doLogin(){
   const id=+document.getElementById('loginMember').value;
   const pin=document.getElementById('loginPin').value;
@@ -1373,6 +1519,7 @@ function enterAs(id){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('mainApp').style.display='flex';
   render();
+  consumeDeepLink();
 }
 
 function fillLoginMembers(){
