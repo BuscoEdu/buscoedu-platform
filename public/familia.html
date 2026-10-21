@@ -78,7 +78,7 @@ h3{margin-bottom:12px}
 <body>
 <div class="login-screen" id="loginScreen">
   <h2 style="margin-bottom:16px">Entrar</h2>
-  <div class="form-group" style="width:100%;max-width:320px"><label>Soy</label><select id="loginMember"></select></div>
+  <div class="form-group" style="width:100%;max-width:320px"><label>Soy</label><select id="loginMember"><option value="">Cargando...</option></select></div>
   <div class="form-group" style="width:100%;max-width:320px"><label>PIN</label><input id="loginPin" type="password" placeholder="oooo" maxlength="8" inputmode="numeric"></div>
   <button class="btn" style="width:100%;max-width:320px" onclick="doLogin()">Entrar</button>
   <p style="margin-top:12px;color:var(--muted);font-size:.85rem">PIN por defecto: oooo</p>
@@ -536,7 +536,7 @@ async function loadAll(opts){
   if(loadLock){ reloadQueued=true; return; }
   loadLock=true;
   try{
-    const [m,t,p,h,c,pl,msg,sol,nt]=await Promise.all([
+    let [m,t,p,h,c,pl,msg,sol,nt]=await Promise.all([
       supabase.from('familia_miembros').select('*').order('id'),
       supabase.from('familia_tareas').select('*').order('creado_en',{ascending:false}),
       supabase.from('familia_premios').select('*').order('costo'),
@@ -547,8 +547,20 @@ async function loadAll(opts){
       supabase.from('familia_solicitudes_premios').select('*').order('creado_en',{ascending:false}),
       supabase.from('familia_notificaciones').select('*').eq('leida',false).order('creado_en',{ascending:false}).limit(80)
     ]);
-    if(m.error) return showToast('No se pudieron cargar los miembros');
-    state.members=m.data||[];
+    if(m.error){
+      await new Promise(r=>setTimeout(r,700));
+      const retry=await supabase.from('familia_miembros').select('*').order('id');
+      if(!retry.error) m=retry;
+    }
+    if(m.error){
+      if(!state.members.length&&!state._membersWarned){
+        state._membersWarned=true;
+        showToast('No se pudieron cargar los miembros: '+(m.error.message||'sin detalle'));
+      }
+    }else{
+      state.members=m.data||[];
+      state._membersWarned=false;
+    }
     state.tasks=t.data||[];
     state.rewards=p.data||[];
     state.history=h.data||[];
