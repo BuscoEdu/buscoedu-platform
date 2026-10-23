@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>FamiliaTareas</title>
-<!-- familia-v33 -->
+<!-- familia-v34 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <style>
 :root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
@@ -261,6 +261,24 @@ h3{margin-bottom:12px}
   <div id="rewardFalta" style="margin-bottom:12px"></div>
   <div class="actions" id="rewardActions"></div>
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-premio')">Cerrar</button>
+</div></div>
+
+<div class="modal" id="modal-elemento"><div class="modal-content">
+  <h3>Tarea</h3>
+  <p style="font-size:.8rem;color:var(--muted);margin-bottom:12px">Esta es la definición. Cambiarla no modifica las que ya están asignadas.</p>
+  <input type="hidden" id="elemId">
+  <div class="form-group"><label>Para</label><select id="elemAudiencia" onchange="syncElemTipo()"><option value="hijo">Hijos</option><option value="padre">Padres</option></select></div>
+  <div class="form-group"><label>Nombre</label><input id="elemNombre"></div>
+  <div class="form-group"><label>Tipo</label><select id="elemTipo" onchange="syncElemTipo()"><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Inmediata</option></select></div>
+  <div class="form-group" id="elemRecWrap"><label>Cada cuánto</label><select id="elemRec"><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
+  <div class="form-group"><label>Ícono</label><div class="emoji-grid" id="elemIconGrid"></div><input type="hidden" id="elemIcon" value="📋"></div>
+  <div class="form-group"><label>Puntos</label><input type="number" id="elemPuntos" value="10"></div>
+  <div class="form-group"><label>Máximo que se puede perder</label><input type="number" id="elemMaxNeg" min="0" value="10"></div>
+  <div class="form-group"><label>Resta por minuto después del límite</label><input type="number" id="elemPerMin" min="0" step="0.1" value="0"></div>
+  <div class="form-group"><label>Ventana para hacerla (horas)</label><input type="number" id="elemWindow" min="1" max="336" value="24"></div>
+  <button class="btn" style="width:100%" onclick="savePlantilla()">Guardar</button>
+  <button class="btn danger" style="width:100%;margin-top:8px" onclick="deletePlantilla()">Eliminar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-elemento')">Cerrar</button>
 </div></div>
 
 <div class="modal" id="modal-miembro"><div class="modal-content">
@@ -523,6 +541,14 @@ function netPoints(t){
 function taskAudience(t){
   const m=memberById(t.asignada_a);
   return m&&isAdmin(m)?'parent':'kid';
+}
+function plantillaAudiencia(p){
+  if(!p) return 'hijo';
+  if(p.audiencia==='padre'||p.audiencia==='hijo') return p.audiencia;
+  return p.icono==='padre'?'padre':'hijo';
+}
+function plantillaIcon(p){
+  return p&&p.icono&&p.icono!=='hijo'&&p.icono!=='padre'?p.icono:'📋';
 }
 function windowStartMs(t){
   if(!t) return 0;
@@ -845,7 +871,7 @@ function render(){
     viewBtn.style.display=admin?'':'none';
     viewBtn.textContent=taskView==='hijos'?'PADRES':'HIJOS';
   }
-  document.getElementById('kidsTasksTitle').textContent=admin?(taskEditMode?'Todas las tareas':(taskView==='hijos'?'HIJOS':'PADRES')):'Mis tareas';
+  document.getElementById('kidsTasksTitle').textContent=admin?(taskEditMode?'Definiciones':(taskView==='hijos'?'HIJOS':'PADRES')):'Mis tareas';
   const filters=document.getElementById('taskFilters');
   if(filters) filters.style.display=(admin&&taskEditMode)?'none':'';
   document.getElementById('parentTasksWrap').style.display='none';
@@ -955,12 +981,8 @@ function renderTasks(){
   const list=document.getElementById('taskList');
   const parentList=document.getElementById('parentTaskList');
   if(isAdmin(u)&&taskEditMode){
-    const rows=state.tasks.filter(t=>!isGoal(t)&&t.tipo!=='mesada').sort((a,b)=>{
-      const n=String(a.titulo||'').localeCompare(String(b.titulo||''),'es');
-      if(n) return n;
-      return byDue(a,b);
-    });
-    list.innerHTML=rows.map(taskCard).join('')||'<div class="empty">No hay tareas</div>';
+    const rows=state.plantillas.slice().sort((a,b)=>String(a.titulo||'').localeCompare(String(b.titulo||''),'es')||(a.id-b.id));
+    list.innerHTML=rows.map(plantillaCard).join('')||'<div class="empty">No hay definiciones. Al crear una tarea, guárdala para que aparezca aquí.</div>';
     if(parentList) parentList.innerHTML='';
     return;
   }
@@ -1016,6 +1038,75 @@ function toggleTaskEdit(){
   if(!requireAdmin()) return;
   taskEditMode=!taskEditMode;
   render();
+}
+function plantillaCard(p){
+  const aud=plantillaAudiencia(p)==='padre'?'Padres':'Hijos';
+  const tipo=p.tipo==='inmediata'?'Inmediata':(p.tipo==='deber'?'Deber':'Tarea');
+  const rec=p.tipo==='deber'&&p.recurrencia&&p.recurrencia!=='once'?(REC_LABEL[p.recurrencia]||p.recurrencia):'';
+  return `<div class="reward-item${aud==='Padres'?' parent':' kid'}" onclick="openPlantilla(${p.id})"><div style="flex:1">${plantillaIcon(p)} <strong>${esc(p.titulo||'Tarea')}</strong><br><small>${aud} · ${tipo}${rec?' · '+esc(rec):''} · ${Number(p.puntos)||0} pts</small></div></div>`;
+}
+function syncElemTipo(){
+  const aud=document.getElementById('elemAudiencia').value;
+  const tipo=document.getElementById('elemTipo');
+  const inmediata=[].find.call(tipo.options,o=>o.value==='inmediata');
+  if(inmediata) inmediata.disabled=aud==='padre';
+  if(aud==='padre'&&tipo.value==='inmediata') tipo.value='tarea';
+  document.getElementById('elemRecWrap').style.display=tipo.value==='deber'?'':'none';
+}
+function openPlantilla(id){
+  if(!requireAdmin()) return;
+  const p=state.plantillas.find(x=>x.id===id);
+  if(!p) return;
+  document.getElementById('elemId').value=p.id;
+  document.getElementById('elemNombre').value=p.titulo||'';
+  document.getElementById('elemAudiencia').value=plantillaAudiencia(p);
+  const tipo=p.tipo==='inmediata'?'inmediata':(p.tipo==='deber'?'deber':'tarea');
+  document.getElementById('elemTipo').value=tipo;
+  document.getElementById('elemRec').value=['daily','weekly','monthly','quarterly'].includes(p.recurrencia)?p.recurrencia:'daily';
+  document.getElementById('elemPuntos').value=p.puntos||0;
+  document.getElementById('elemMaxNeg').value=p.max_negativo!=null?p.max_negativo:10;
+  document.getElementById('elemPerMin').value=p.resta_por_minuto||0;
+  document.getElementById('elemWindow').value=p.ventana_horas||24;
+  document.getElementById('elemIcon').value=plantillaIcon(p);
+  fillEmojiGrid('elemIconGrid','elemIcon');
+  syncElemTipo();
+  openModal('modal-elemento');
+}
+async function savePlantilla(){
+  if(!requireAdmin()) return;
+  const id=+document.getElementById('elemId').value;
+  const titulo=document.getElementById('elemNombre').value.trim();
+  if(!titulo) return showToast('Escribe el nombre');
+  const audiencia=document.getElementById('elemAudiencia').value==='padre'?'padre':'hijo';
+  let tipo=document.getElementById('elemTipo').value;
+  if(audiencia==='padre'&&tipo==='inmediata') tipo='tarea';
+  const rec=tipo==='deber'?(document.getElementById('elemRec').value||'daily'):'once';
+  const row={
+    titulo,
+    audiencia,
+    tipo,
+    recurrencia:rec,
+    icono:document.getElementById('elemIcon').value||'📋',
+    puntos:+document.getElementById('elemPuntos').value||0,
+    max_negativo:Math.max(0,+document.getElementById('elemMaxNeg').value||0),
+    resta_por_minuto:Math.max(0,+document.getElementById('elemPerMin').value||0),
+    ventana_horas:Math.max(1,+document.getElementById('elemWindow').value||24)
+  };
+  const {error}=await supabase.from('familia_plantillas_tareas').update(row).eq('id',id);
+  if(error) return showToast(error.message);
+  showToast('Tarea actualizada');
+  closeModal('modal-elemento');
+  loadAll();
+}
+async function deletePlantilla(){
+  if(!requireAdmin()) return;
+  const id=+document.getElementById('elemId').value;
+  if(!confirm('¿Eliminar esta tarea del catálogo? Las que ya están asignadas siguen igual.')) return;
+  const {error}=await supabase.from('familia_plantillas_tareas').delete().eq('id',id);
+  if(error) return showToast(error.message);
+  showToast('Eliminada del catálogo');
+  closeModal('modal-elemento');
+  loadAll();
 }
 function toggleTaskView(){
   taskView=taskView==='hijos'?'padres':'hijos';
@@ -1330,7 +1421,7 @@ const BASE_REWARDS=[
   {nombre:'Día sin oficio de casa',costo:120,icono:'🏠'}
 ];
 function prepareTaskForm(audiencia){
-  const saved=state.plantillas.filter(p=>audiencia==='padres'?p.icono==='padre':p.icono!=='padre');
+  const saved=state.plantillas.filter(p=>plantillaAudiencia(p)===(audiencia==='padres'?'padre':'hijo'));
   const builtins=audiencia==='padres'?PARENT_BUILTINS:KID_BUILTINS;
   const list=builtins.concat(saved);
   const tipo=document.getElementById('taskTipo');
@@ -1572,7 +1663,21 @@ async function createTask(){
   if(!rows.length) return showToast('Esas fechas quedan a menos de 12 horas de la misma tarea');
   const {error}=await supabase.from('familia_tareas').insert(rows);
   if(error) return showToast('Error: '+error.message);
-  if(saveTpl) await supabase.from('familia_plantillas_tareas').insert({titulo,puntos,recurrencia,icono:taskCreateMode==='padres'?'padre':'hijo',creado_por:state.currentUserId});
+  if(saveTpl && taskCreateMode!=='hermano'){
+    const audiencia=taskCreateMode==='padres'?'padre':'hijo';
+    const exists=state.plantillas.some(p=>plantillaAudiencia(p)===audiencia && String(p.titulo||'').trim().toLowerCase()===titulo.toLowerCase());
+    if(!exists){
+      await supabase.from('familia_plantillas_tareas').insert({
+        titulo,puntos,recurrencia,icono,audiencia,
+        tipo:inmediata?'inmediata':tipo,
+        ventana_horas:ventana,
+        puntos_penalizacion_dia:0,
+        max_negativo:maxNeg,
+        resta_por_minuto:perMin,
+        creado_por:state.currentUserId
+      });
+    }
+  }
   if(taskCreateMode==='hijo'&&!validateMode&&!inmediata){
     const dest=memberById(asignado);
     const notes=state.members.filter(isAdmin).map(k=>({para_id:k.id,tipo:'tarea',texto:'Por activar: '+titulo+(dest?' para '+dest.nombre:'')}));
@@ -1665,6 +1770,14 @@ function applyPlantilla(){
   if(!p) return;
   document.getElementById('taskTitle').value=p.titulo||'';
   document.getElementById('taskPoints').value=p.puntos??10;
+  const icon=document.getElementById('taskIcon');
+  if(icon){icon.value=plantillaIcon(p); fillEmojiGrid('taskIconGrid','taskIcon');}
+  const maxNeg=document.getElementById('taskMaxNeg');
+  if(maxNeg&&p.max_negativo!=null) maxNeg.value=p.max_negativo;
+  const perMin=document.getElementById('taskPerMin');
+  if(perMin&&p.resta_por_minuto!=null) perMin.value=p.resta_por_minuto;
+  const win=document.getElementById('taskWindow');
+  if(win&&p.ventana_horas) win.value=p.ventana_horas;
   const rec=p.recurrencia||'once';
   const tipoEl=document.getElementById('taskTipo');
   const recurrent=document.getElementById('taskRecurrent');
