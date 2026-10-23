@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>FamiliaTareas</title>
-<!-- familia-v39 -->
+<!-- familia-v40 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <style>
 :root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
@@ -3112,6 +3112,7 @@ function wireCloses(){
       const m=box.closest('.modal');
       if(!m) return;
       if(m.id==='modal-notifs'){closeNotifs();return;}
+      if(m.id==='modal-ficha'){closeFicha();return;}
       m.classList.remove('show');
     };
     box.prepend(b);
