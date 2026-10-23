@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>FamiliaTareas</title>
-<!-- familia-v34 -->
+<!-- familia-v35 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <style>
 :root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
@@ -134,6 +134,11 @@ h3{margin-bottom:12px}
         <select id="filterUser" onchange="taskUserFilter=this.value;renderTasks()"></select>
         <select id="filterNombre" onchange="taskNameFilter=this.value;renderTasks()"><option value="">Nombre</option></select>
         <button class="btn small secondary" id="btnValidate" onclick="openValidate()" style="display:none">Validar hecha</button>
+      </div>
+      <div class="filter-row" id="defFilters" style="display:none">
+        <select id="defFilterTipo" onchange="defTypeFilter=this.value;renderTasks()"><option value="">Tipo</option><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Inmediata</option></select>
+        <select id="defFilterPara" onchange="defAudienceFilter=this.value;renderTasks()"><option value="">Para</option><option value="hijo">Hijos</option><option value="padre">Padres</option></select>
+        <select id="defFilterNombre" onchange="defNameFilter=this.value;renderTasks()"><option value="">Nombre</option></select>
       </div>
       <div id="taskList"></div>
     </div>
@@ -405,6 +410,9 @@ let originalAdminId=null;
 let taskCreateMode='familia';
 let rewardEditMode=false;
 let taskEditMode=false;
+let defTypeFilter='';
+let defAudienceFilter='';
+let defNameFilter='';
 let rewardSortDesc=true;
 let taskView='hijos';
 let pendingShare=null;
@@ -858,6 +866,14 @@ function render(){
     if([].some.call(fn.options,o=>o.value===prev)) fn.value=prev;
     else taskNameFilter='';
   }
+  const dfn=document.getElementById('defFilterNombre');
+  if(dfn){
+    const titles=[...new Set(state.plantillas.map(p=>String(p.titulo||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+    const prev=defNameFilter;
+    dfn.innerHTML='<option value="">Nombre</option>'+titles.map(t=>`<option value="${String(t).replace(/"/g,'"')}">${esc(t)}</option>`).join('');
+    if([].some.call(dfn.options,o=>o.value===prev)) dfn.value=prev;
+    else defNameFilter='';
+  }
   document.getElementById('adminResetAll').style.display=/padre|papá/i.test(u.rol||'')?'':'none';
   document.getElementById('adminNewMember').style.display=admin?'':'none';
   document.getElementById('adminPinReset').style.display=admin?'':'none';
@@ -873,7 +889,9 @@ function render(){
   }
   document.getElementById('kidsTasksTitle').textContent=admin?(taskEditMode?'Definiciones':(taskView==='hijos'?'HIJOS':'PADRES')):'Mis tareas';
   const filters=document.getElementById('taskFilters');
+  const defFilters=document.getElementById('defFilters');
   if(filters) filters.style.display=(admin&&taskEditMode)?'none':'';
+  if(defFilters) defFilters.style.display=(admin&&taskEditMode)?'':'none';
   document.getElementById('parentTasksWrap').style.display='none';
   if(admin){
     const sel=document.getElementById('resetPinMember');
@@ -981,7 +999,7 @@ function renderTasks(){
   const list=document.getElementById('taskList');
   const parentList=document.getElementById('parentTaskList');
   if(isAdmin(u)&&taskEditMode){
-    const rows=state.plantillas.slice().sort((a,b)=>String(a.titulo||'').localeCompare(String(b.titulo||''),'es')||(a.id-b.id));
+    const rows=state.plantillas.filter(passDefFilter).sort((a,b)=>String(a.titulo||'').localeCompare(String(b.titulo||''),'es')||(a.id-b.id));
     list.innerHTML=rows.map(plantillaCard).join('')||'<div class="empty">No hay definiciones. Al crear una tarea, guárdala para que aparezca aquí.</div>';
     if(parentList) parentList.innerHTML='';
     return;
@@ -1107,6 +1125,13 @@ async function deletePlantilla(){
   showToast('Eliminada del catálogo');
   closeModal('modal-elemento');
   loadAll();
+}
+function passDefFilter(p){
+  const tipo=p.tipo==='inmediata'?'inmediata':(p.tipo==='deber'?'deber':'tarea');
+  if(defTypeFilter&&tipo!==defTypeFilter) return false;
+  if(defAudienceFilter&&plantillaAudiencia(p)!==defAudienceFilter) return false;
+  if(defNameFilter&&String(p.titulo||'').trim()!==defNameFilter) return false;
+  return true;
 }
 function toggleTaskView(){
   taskView=taskView==='hijos'?'padres':'hijos';
