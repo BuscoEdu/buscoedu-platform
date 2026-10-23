@@ -79,6 +79,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .task-actions{display:grid;grid-template-columns:132px 132px;gap:6px;justify-content:end;margin-left:auto;flex:none}
 .task-actions .btn{width:132px;height:36px;padding:0 8px;font-size:.75rem;line-height:1.1;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center}
 .task-actions .btn:only-child{grid-column:2}
+.task-actions select{width:132px;height:36px;border-radius:12px;border:1px solid var(--border);font-size:.75rem;padding:0 6px;background:#fff}
 .modal-content{position:relative}
 .modal-x{position:absolute;top:8px;right:12px;border:none;background:transparent;font-size:1.5rem;line-height:1;cursor:pointer;color:#64748b;z-index:2}
 .filter-row select{padding:6px 8px;border:1px solid var(--border);border-radius:999px;font-size:.75rem;background:#fff}
@@ -118,6 +119,14 @@ h3{margin-bottom:12px}
         <button class="btn small danger" id="btnPenalty" onclick="openPenalty()" style="display:none">Penalización</button>
         <button class="btn small" id="btnNewTask" onclick="openNewTask('hijo')" style="display:none">Para un hijo</button>
         <button class="btn small secondary" id="btnTaskView" onclick="toggleTaskView()" style="display:none">PADRES</button>
+        <select id="parentMenu" onchange="parentMenuAction(this)" style="display:none" aria-label="Acciones de padres">
+          <option value="">Acciones</option>
+          <option value="hijo">Para un hijo</option>
+          <option value="padres">Entre padres</option>
+          <option value="deberes">Deberes</option>
+          <option value="penalizacion">Penalización</option>
+          <option value="mesada">Mesada</option>
+        </select>
         <button class="btn small secondary" id="btnParentTask" onclick="openNewTask('padres')" style="display:none">Entre padres</button>
         <button class="btn small secondary" id="btnSiblingTask" onclick="openSiblingTask()" style="display:none">Para un hermano</button>
         <button class="btn small" id="btnSolicitar" onclick="openSolicitar()" style="display:none">Solicitar</button>
@@ -337,7 +346,7 @@ h3{margin-bottom:12px}
 <div class="modal" id="modal-usuario"><div class="modal-content"><h3>Ver como otro</h3><div id="userSelectList"></div><button class="btn secondary" style="width:100%;margin-top:12px" onclick="closeModal('modal-usuario')">Cancelar</button></div></div>
 <div class="modal" id="modal-notifs"><div class="modal-content">
   <h3>Notificaciones</h3>
-  <p style="font-size:.8rem;color:var(--muted);margin:-4px 0 12px">Solo lo que te toca a ti. Sigue aquí hasta que se resuelva.</p>
+  <p style="font-size:.8rem;color:var(--muted);margin:-4px 0 12px">Lo pendiente sigue hasta que se resuelva. Un aviso se quita solo cuando lo tocas.</p>
   <div id="notifList"></div>
   <button class="btn secondary" style="width:100%;margin-top:12px" onclick="closeModal('modal-notifs')">Cerrar</button>
 </div></div>
@@ -345,12 +354,15 @@ h3{margin-bottom:12px}
 <div class="modal" id="modal-ficha"><div class="modal-content">
   <h3 id="fichaTitle">Tarea</h3>
   <div id="fichaStatus" style="margin-bottom:12px"></div>
+  <div id="fichaFields">
   <div class="form-group"><label>Título</label><input id="fichaNombre"></div>
   <div class="form-group"><label>Puntos</label><input type="number" id="fichaPuntos"></div>
   <div class="form-group"><label>Asignada a</label><select id="fichaAsignada"></select></div>
   <div class="form-group"><label>Recurrencia</label><select id="fichaRec"><option value="once">Una vez</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
   <div class="form-group"><label>Fecha límite</label><input type="datetime-local" id="fichaDue"></div>
   <div class="form-group"><label>Resta por cada día de atraso</label><input type="number" id="fichaPen"></div>
+  </div>
+  <div id="fichaRead" style="display:none"></div>
   <div id="fichaEvidence" style="display:none">
     <div class="section-label">Evidencia</div>
     <p id="fichaComment" style="font-size:.9rem"></p>
@@ -375,8 +387,6 @@ let taskFilter='todas';
 let taskTypeFilter='';
 let taskUserFilter='';
 let taskNameFilter='';
-let bellSeen=new Set();
-try{bellSeen=new Set(JSON.parse(sessionStorage.getItem('familia_bell')||'[]'));}catch(e){}
 let validateMode=false;
 let editingRewardId=null;
 let originalAdminId=null;
@@ -413,6 +423,11 @@ function isAdmin(m){
   return /padre|madre|papá|mamá|abuel|t[ií][oa]|tutor/i.test(m.rol||'');
 }
 function isKid(m){return !!(m&&!isAdmin(m));}
+function requireAdmin(){
+  if(isAdmin(currentUser())) return true;
+  showToast('Solo papá o mamá pueden hacer eso');
+  return false;
+}
 function currentUser(){return state.members.find(m=>m.id===state.currentUserId);}
 function memberById(id){return state.members.find(m=>m.id===Number(id));}
 function isGoal(t){return t&&t.descripcion==='META';}
@@ -686,7 +701,7 @@ async function loadAll(opts){
       supabase.from('familia_plantillas_tareas').select('*'),
       supabase.from('familia_mensajes').select('*').order('creado_en',{ascending:false}).limit(200),
       supabase.from('familia_solicitudes_premios').select('*').order('creado_en',{ascending:false}),
-      supabase.from('familia_notificaciones').select('*').eq('leida',false).order('creado_en',{ascending:false}).limit(80),
+      supabase.from('familia_notificaciones').select('*').order('leida',{ascending:true}).order('creado_en',{ascending:false}).limit(80),
       supabase.from('familia_deberes').select('*').order('id')
     ]);
     if(m.error){
@@ -762,7 +777,7 @@ async function applyLateness(){
       const texto=`Atraso tarea ${t.id} día ${d}: ${t.titulo} (-${rate} pts)`;
       if(have.has(texto)) continue;
       have.add(texto);
-      rows.push({miembro_id:who.id,texto});
+      rows.push({miembro_id:who.id,texto,tarea_id:t.id});
     }
     if(!rows.length) continue;
     who.puntos=(Number(who.puntos)||0)-rows.length*rate;
@@ -830,6 +845,10 @@ function render(){
   }
   document.getElementById('kidsTasksTitle').textContent=admin?(taskView==='hijos'?'HIJOS':'PADRES'):'Mis tareas';
   document.getElementById('parentTasksWrap').style.display='none';
+  const parentMode=admin&&taskView==='padres';
+  const menu=document.getElementById('parentMenu');
+  if(menu) menu.style.display=parentMode?'':'none';
+  if(parentMode) ['btnPenalty','btnNewTask','btnParentTask','btnMesada','btnDeberes'].forEach(id=>{const el=document.getElementById(id); if(el) el.style.display='none';});
   if(admin){
     const sel=document.getElementById('resetPinMember');
     const prev=sel.value;
@@ -856,13 +875,14 @@ function render(){
     bell.style.display=notes.length?'':'none';
     bell.textContent=notes.length>9?'9+':String(notes.length);
   }
+  if(document.getElementById('modal-notifs')?.classList.contains('show')) paintNotifs();
 }
 function reminderCount(u){
   if(!u) return 0;
   if(isAdmin(u)) return state.tasks.filter(t=>!isGoal(t)&&['esperando_aprobacion','no_terminada','transferencia_por_aprobar'].includes(t.estado)&&!t.puntos_sumados).length;
   return state.tasks.filter(t=>!isGoal(t)&&t.estado==='pendiente'&&(t.asignada_a===u.id||t.conjunto_con===u.id)&&taskTiming(t)==='ready').length;
 }
-function unseenNotifs(){return myNotifs().filter(i=>!bellSeen.has(i.key));}
+function unseenNotifs(){return myNotifs().filter(i=>!i.seen);}
 function tipoLabel(t){
   if(!t||!t.tipo||t.tipo==='tarea') return '';
   if(t.tipo==='deber') return 'Deber';
@@ -974,6 +994,17 @@ function toggleTaskView(){
   taskView=taskView==='hijos'?'padres':'hijos';
   render();
 }
+function parentMenuAction(sel){
+  const v=sel.value;
+  sel.value='';
+  if(!v) return;
+  if(!requireAdmin()) return;
+  if(v==='hijo') openNewTask('hijo');
+  else if(v==='padres') openNewTask('padres');
+  else if(v==='deberes') openDeberes();
+  else if(v==='penalizacion') openPenalty();
+  else if(v==='mesada') openMesada();
+}
 function myNotifs(){
   const u=currentUser();
   if(!u) return [];
@@ -1007,52 +1038,79 @@ function myNotifs(){
         items.push({key:'p'+t.id,kind:'tarea',id:t.id,text:(memberById(t.asignada_a)?.nombre||'Tu hermano')+' te pasa: '+(t.titulo||'tarea')});
     });
   }
-  (state.notifs||[]).filter(n=>n.para_id===u.id&&!n.leida).forEach(n=>{
-    items.push({key:'n'+n.id,kind:'aviso',id:n.id,text:n.texto||''});
+  const mine=(state.notifs||[]).filter(n=>n.para_id===u.id);
+  mine.filter(n=>!n.leida).forEach(n=>{
+    items.push({key:'n'+n.id,kind:'aviso',id:n.id,text:n.texto||'',seen:false});
+  });
+  mine.filter(n=>n.leida).slice(0,8).forEach(n=>{
+    items.push({key:'n'+n.id,kind:'aviso',id:n.id,text:n.texto||'',seen:true});
   });
   return items;
 }
-function openNotifs(){
+function paintNotifs(){
   const u=currentUser();
-  myNotifs().forEach(i=>bellSeen.add(i.key));
-  try{sessionStorage.setItem('familia_bell',JSON.stringify([...bellSeen]));}catch(e){}
-  const bell=document.getElementById('bellCount');
-  if(bell) bell.style.display='none';
-  if(u) supabase.from('familia_notificaciones').update({leida:true}).eq('para_id',u.id).eq('leida',false).then(()=>{});
   const items=myNotifs();
   const el=document.getElementById('notifList');
+  if(!el) return;
   if(!items.length){
     el.innerHTML='<div class="empty">Nada pendiente</div>';
-    openModal('modal-notifs');
     return;
   }
   el.innerHTML=items.map(it=>{
     if(it.kind==='premio'&&u&&isAdmin(u)){
       return `<div class="task-item" style="cursor:default"><div style="flex:1"><strong>${esc(it.text)}</strong><div style="display:flex;gap:6px;margin-top:8px"><button class="btn small success" onclick="approvePrize(${it.id})">Aprobar</button><button class="btn small secondary" onclick="rejectPrize(${it.id})">Rechazar</button></div></div></div>`;
     }
+    if(it.kind==='aviso'&&it.seen){
+      return `<div class="task-item" style="cursor:default;opacity:.7"><div style="flex:1">${esc(it.text)}<br><small>Visto</small></div></div>`;
+    }
     if(it.kind==='aviso'){
       return `<div class="task-item" onclick="dismissNotif(${it.id})"><div style="flex:1">${esc(it.text)}<br><small>Toca para quitar</small></div></div>`;
     }
     return `<div class="task-item" onclick="closeModal('modal-notifs');openTaskCard(${it.id})"><div style="flex:1">${esc(it.text)}</div></div>`;
   }).join('');
+}
+function openNotifs(){
+  paintNotifs();
   openModal('modal-notifs');
 }
 async function dismissNotif(id){
   const {error}=await supabase.from('familia_notificaciones').update({leida:true}).eq('id',id).eq('para_id',state.currentUserId);
   if(error) return showToast(error.message);
   await loadAll();
-  if(document.getElementById('modal-notifs').classList.contains('show')) openNotifs();
 }
 function movementOf(h){
   const t=h.texto||'';
   const num=(re)=>{const m=t.match(re);return m?Number(m[1]):0;};
-  if(/^Mesada/.test(t)) return {tipo:'Mesada',pts:num(/\(\+?(\d+)\s*pts\)/),detalle:t,fecha:h.creado_en};
-  if(/^Aprobada/.test(t)) return {tipo:'Tarea',pts:num(/\(([+-]?\d+)\s*pts\)/),detalle:t.replace(/^Aprobada(?: entre padres)?:\s*/,'').replace(/\s*\([+-]?\d+\s*pts\).*$/,''),fecha:h.creado_en};
-  if(/^Recibió/.test(t)) return {tipo:'Tarea',pts:num(/Recibió\s+(\d+)/),detalle:t,fecha:h.creado_en};
-  if(/^Pasó/.test(t)) return {tipo:'Tarea',pts:-num(/Pasó\s+(\d+)/),detalle:t,fecha:h.creado_en};
-  if(/^Canjeó/i.test(t)) return {tipo:'Premio',pts:-num(/\(-(\d+)\s*pts\)/),detalle:t.replace(/^Canjeó:\s*/i,'').replace(/\s*\(-\d+\s*pts\).*$/,''),fecha:h.creado_en};
-  if(/^Penalización/.test(t)||/^Atraso/.test(t)) return {tipo:'Penalización',pts:-num(/\(-(\d+)\s*pts\)/),detalle:t,fecha:h.creado_en};
-  return null;
+  let row=null;
+  if(/^Mesada/.test(t)) row={tipo:'Mesada',pts:num(/\(\+?(\d+)\s*pts\)/),detalle:t,fecha:h.creado_en};
+  else if(/^Aprobada/.test(t)) row={tipo:'Tarea',pts:num(/\(([+-]?\d+)\s*pts\)/),detalle:t.replace(/^Aprobada(?: entre padres)?:\s*/,'').replace(/\s*\([+-]?\d+\s*pts\).*$/,''),fecha:h.creado_en};
+  else if(/^Recibió/.test(t)) row={tipo:'Tarea',pts:num(/Recibió\s+(\d+)/),detalle:t,fecha:h.creado_en};
+  else if(/^Pasó/.test(t)) row={tipo:'Tarea',pts:-num(/Pasó\s+(\d+)/),detalle:t,fecha:h.creado_en};
+  else if(/^Canjeó/i.test(t)) row={tipo:'Premio',pts:-num(/\(-(\d+)\s*pts\)/),detalle:t.replace(/^Canjeó:\s*/i,'').replace(/\s*\(-\d+\s*pts\).*$/,''),fecha:h.creado_en};
+  else if(/^Penalización/.test(t)||/^Atraso/.test(t)) row={tipo:'Penalización',pts:-num(/\(-(\d+)\s*pts\)/),detalle:t,fecha:h.creado_en};
+  else if(/^Cumplida|^Se anuló|^Devuelta|^Traspaso/.test(t)) row={tipo:'Tarea',pts:num(/\(([+-]?\d+)\s*pts\)/),detalle:t,fecha:h.creado_en};
+  if(!row) return null;
+  row.tareaId=h.tarea_id||null;
+  return row;
+}
+function taskForMove(memberId,m){
+  if(!m) return null;
+  if(m.tareaId&&state.tasks.some(t=>t.id===Number(m.tareaId))) return Number(m.tareaId);
+  const text=m.detalle||'';
+  const atraso=text.match(/Atraso tarea (\d+)/);
+  if(atraso&&state.tasks.some(t=>t.id===+atraso[1])) return +atraso[1];
+  const isTask=m.tipo==='Tarea'||(m.tipo==='Penalización'&&/no terminada/.test(text));
+  if(!isTask) return null;
+  const hits=state.tasks.filter(t=>t.titulo&&text.includes(t.titulo)&&(t.asignada_a===memberId||t.conjunto_con===memberId||t.creada_por===memberId));
+  if(!hits.length) return null;
+  hits.sort((a,b)=>(b.titulo||'').length-(a.titulo||'').length);
+  const best=(hits[0].titulo||'').length;
+  const same=hits.filter(t=>(t.titulo||'').length===best);
+  if(m.fecha){
+    const when=new Date(m.fecha).getTime();
+    same.sort((a,b)=>Math.abs(new Date(a.creado_en||0)-when)-Math.abs(new Date(b.creado_en||0)-when));
+  }
+  return same[0].id;
 }
 function kidLedger(id){
   const moves=state.history.filter(h=>h.miembro_id===id).map(movementOf).filter(Boolean).sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
@@ -1101,7 +1159,10 @@ function openBalance(id){
   document.getElementById('balanceList').innerHTML=rows.length?rows.map(m=>{
     const when=m.fecha?new Date(m.fecha).toLocaleString('es-CO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
     const sign=m.pts>0?'+':'';
-    return `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem"><strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(m.detalle)}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span></div>`;
+    const tid=taskForMove(id,m);
+    const open=tid?` onclick="closeModal('modal-balance');openTaskCard(${tid})" style="padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem;cursor:pointer"`:` style="padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem"`;
+    const hint=tid?'<br><small>Toca para abrir la tarea</small>':'';
+    return `<div${open}><strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(m.detalle)}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
   }).join(''):'<div class="empty">Sin movimientos</div>';
   openModal('modal-balance');
 }
@@ -1237,6 +1298,7 @@ function prepareTaskForm(audiencia){
   updateDue();
 }
 function openNewTask(audiencia){
+  if(!requireAdmin()) return;
   validateMode=false;
   ['taskTitle','taskPoints','taskRecurrence','taskCount','taskTipo'].forEach(id=>{const el=document.getElementById(id); if(el) el.disabled=false;});
   taskCreateMode=audiencia==='padres'?'padres':'hijo';
@@ -1485,7 +1547,9 @@ async function expireWindows(){
     const {error}=await supabase.from('familia_tareas').update({estado:'no_terminada'}).eq('id',t.id).eq('estado','pendiente');
     if(error) continue;
     t.estado='no_terminada';
-    const notes=state.members.filter(isAdmin).map(p=>({para_id:p.id,tipo:'tarea',tarea_id:t.id,texto:'No terminada: '+(t.titulo||'tarea')}));
+    const {data:existing}=await supabase.from('familia_notificaciones').select('para_id').eq('tarea_id',t.id).eq('tipo','tarea').eq('leida',false);
+    const have=new Set((existing||[]).map(n=>n.para_id));
+    const notes=state.members.filter(p=>isAdmin(p)&&!have.has(p.id)).map(p=>({para_id:p.id,tipo:'tarea',tarea_id:t.id,texto:'No terminada: '+(t.titulo||'tarea')}));
     if(notes.length) await supabase.from('familia_notificaciones').insert(notes);
   }
 }
@@ -1501,6 +1565,7 @@ function applyPlantilla(){
   syncTaskType();
 }
 async function activateTask(id){
+  if(!requireAdmin()) return;
   const t=state.tasks.find(x=>x.id===id);
   let q=supabase.from('familia_tareas').update({estado:'pendiente'}).eq('estado','borrador');
   q=t&&t.lote?q.eq('lote',t.lote):q.eq('id',id);
@@ -1511,6 +1576,7 @@ async function activateTask(id){
   loadAll();
 }
 async function discardDraft(id){
+  if(!requireAdmin()) return;
   const t=state.tasks.find(x=>x.id===id);
   if(!confirm('¿Descartar lo que sigue por activar de este grupo?')) return;
   let q=supabase.from('familia_tareas').delete().eq('estado','borrador');
@@ -1538,8 +1604,19 @@ function openTaskCard(id){
   document.getElementById('fichaDue').value=toLocalInput(t.fecha_limite);
   document.getElementById('fichaPen').value=t.puntos_penalizacion_dia||0;
   const canEdit=admin&&!(parentTask&&t.asignada_a===u.id)&&t.estado!=='completada';
+  const fields=document.getElementById('fichaFields');
+  const read=document.getElementById('fichaRead');
+  if(fields) fields.style.display=canEdit?'':'none';
+  if(read){
+    read.style.display=canEdit?'none':'';
+    if(!canEdit){
+      const whoName=memberById(t.asignada_a);
+      read.innerHTML=`<p style="margin:0 0 6px"><strong>${esc(t.titulo||'Tarea')}</strong></p><p style="color:var(--muted);font-size:.9rem">${esc(whoName?.nombre||'Sin asignar')} · ${Number(t.puntos)||0} pts</p>`;
+    }
+  }
   ['fichaNombre','fichaPuntos','fichaAsignada','fichaRec','fichaDue','fichaPen'].forEach(fid=>{
-    document.getElementById(fid).disabled=!canEdit;
+    const el=document.getElementById(fid);
+    if(el) el.disabled=!canEdit;
   });
   const ev=document.getElementById('fichaEvidence');
   const hasEv=!!(t.comentario_completado||t.foto_url);
@@ -1592,7 +1669,7 @@ function openTaskCard(id){
 async function deleteTask(id){
   const t=state.tasks.find(x=>x.id===id);
   const u=currentUser();
-  if(!t||!isAdmin(u)) return;
+  if(!t||!requireAdmin()) return;
   if(taskAudience(t)==='parent'&&t.asignada_a===u.id) return showToast('No puedes cambiar ni eliminar una tarea que te pusieron');
   const applied=t.puntos_aplicados!=null?Number(t.puntos_aplicados):(t.puntos_sumados&&awardsPoints(t)?Number(t.puntos)||0:0);
   if(t.estado==='completada'||t.puntos_sumados){
@@ -1602,7 +1679,7 @@ async function deleteTask(id){
       const m=memberById(mid);
       if(!m||!applied) continue;
       await supabase.from('familia_miembros').update({puntos:(Number(m.puntos)||0)-applied}).eq('id',mid);
-      await supabase.from('familia_historial').insert({miembro_id:mid,texto:'Se anuló: '+(t.titulo||'tarea')+' ('+(applied>0?'-':'')+applied+' pts)'});
+      await supabase.from('familia_historial').insert({miembro_id:mid,texto:'Se anuló: '+(t.titulo||'tarea')+' ('+(applied>0?'-':'')+applied+' pts)',tarea_id:t.id});
     }
   }else if(!confirm('¿Eliminar «'+t.titulo+'»?')) return;
   const {error}=await supabase.from('familia_tareas').delete().eq('id',id);
@@ -1612,6 +1689,7 @@ async function deleteTask(id){
   loadAll();
 }
 async function saveTaskFicha(id){
+  if(!requireAdmin()) return;
   const t=state.tasks.find(x=>x.id===id);
   if(t&&taskAudience(t)==='parent') return showToast('Las tareas entre padres no se editan aquí');
   const titulo=document.getElementById('fichaNombre').value.trim();
@@ -1701,7 +1779,7 @@ async function submitEvidence(){
 async function confirmApproval(id){
   const t=state.tasks.find(x=>x.id===id);
   const u=currentUser();
-  if(!t||!u) return;
+  if(!t||!u||!requireAdmin()) return;
   if(t.puntos_sumados) return showToast('Los puntos de esta tarea ya se sumaron');
   if(taskAudience(t)==='parent'&&u.id===t.asignada_a) return showToast('La aprueba tu esposo o esposa, no tú');
   const comment=document.getElementById('fichaApprovalComment').value.trim();
@@ -1719,23 +1797,23 @@ async function confirmApproval(id){
     await supabase.from('familia_miembros').update({puntos:(Number(creator.puntos)||0)-pts}).eq('id',creator.id);
     await supabase.from('familia_miembros').update({puntos:(Number(who.puntos)||0)+pts}).eq('id',who.id);
     await supabase.from('familia_historial').insert([
-      {miembro_id:creator.id,texto:`Pasó ${pts} pts a ${who.nombre} por: ${t.titulo}`},
-      {miembro_id:who.id,texto:`Recibió ${pts} pts de ${creator.nombre} por: ${t.titulo}${comment?' · '+comment:''}`}
+      {miembro_id:creator.id,texto:`Pasó ${pts} pts a ${who.nombre} por: ${t.titulo}`,tarea_id:t.id},
+      {miembro_id:who.id,texto:`Recibió ${pts} pts de ${creator.nombre} por: ${t.titulo}${comment?' · '+comment:''}`,tarea_id:t.id}
     ]);
   }else if(t.tipo==='mesada'&&who){
     await supabase.from('familia_miembros').update({puntos:(Number(who.puntos)||0)+pts}).eq('id',who.id);
-    await supabase.from('familia_historial').insert({miembro_id:who.id,texto:`Mesada: ${t.titulo} (+${pts} pts)${comment?' · '+comment:''}`});
+    await supabase.from('familia_historial').insert({miembro_id:who.id,texto:`Mesada: ${t.titulo} (+${pts} pts)${comment?' · '+comment:''}`,tarea_id:t.id});
   }else if(t.tipo==='conjunto'&&who){
     for(const m of [who,partner].filter(Boolean)){
       await supabase.from('familia_miembros').update({puntos:(Number(m.puntos)||0)+pts}).eq('id',m.id);
-      await supabase.from('familia_historial').insert({miembro_id:m.id,texto:`Aprobada: ${t.titulo} (+${pts} pts)${comment?' · '+comment:''}`});
+      await supabase.from('familia_historial').insert({miembro_id:m.id,texto:`Aprobada: ${t.titulo} (+${pts} pts)${comment?' · '+comment:''}`,tarea_id:t.id});
     }
   }else if(who&&pts>0){
     await supabase.from('familia_miembros').update({puntos:(Number(who.puntos)||0)+pts}).eq('id',who.id);
     const whoWord=taskAudience(t)==='parent'?'Aprobada entre padres: ':'Aprobada: ';
-    await supabase.from('familia_historial').insert({miembro_id:who.id,texto:`${whoWord}${t.titulo} (+${pts} pts)${comment?' · '+comment:''}`});
+    await supabase.from('familia_historial').insert({miembro_id:who.id,texto:`${whoWord}${t.titulo} (+${pts} pts)${comment?' · '+comment:''}`,tarea_id:t.id});
   }else if(who){
-    await supabase.from('familia_historial').insert({miembro_id:who.id,texto:`Cumplida: ${t.titulo}${comment?' · '+comment:''}`});
+    await supabase.from('familia_historial').insert({miembro_id:who.id,texto:`Cumplida: ${t.titulo}${comment?' · '+comment:''}`,tarea_id:t.id});
   }
   const kids=state.members.filter(isKid);
   if(taskAudience(t)!=='parent'&&kids.length){
@@ -1758,18 +1836,19 @@ async function confirmMiss(id){
     const m=memberById(mid);
     if(!m) continue;
     await supabase.from('familia_miembros').update({puntos:(Number(m.puntos)||0)-loss}).eq('id',mid);
-    await supabase.from('familia_historial').insert({miembro_id:mid,texto:`Penalización: no terminada ${t.titulo} (-${loss} pts)`});
+    await supabase.from('familia_historial').insert({miembro_id:mid,texto:`Penalización: no terminada ${t.titulo} (-${loss} pts)`,tarea_id:t.id});
   }
   showToast('Quedó la penalización');
   closeModal('modal-ficha');
   loadAll();
 }
 async function returnTask(id){
+  if(!requireAdmin()) return;
   const t=state.tasks.find(x=>x.id===id);
   const comment=document.getElementById('fichaApprovalComment').value.trim();
   const {error}=await supabase.from('familia_tareas').update({estado:'pendiente',comentario_aprobacion:comment||null}).eq('id',id);
   if(error) return showToast(error.message);
-  await supabase.from('familia_historial').insert({miembro_id:t?.asignada_a,texto:`Devuelta: ${t?.titulo||'tarea'}${comment?' · '+comment:''}`});
+  await supabase.from('familia_historial').insert({miembro_id:t?.asignada_a,texto:`Devuelta: ${t?.titulo||'tarea'}${comment?' · '+comment:''}`,tarea_id:id});
   showToast('Devuelta para rehacer');
   closeModal('modal-ficha');
   loadAll();
@@ -1805,6 +1884,7 @@ async function acceptTransfer(id){
   loadAll();
 }
 async function approveTransfer(id){
+  if(!requireAdmin()) return;
   const t=state.tasks.find(x=>x.id===id);
   if(!t) return;
   const toId=Number(t.para_quien);
@@ -1814,7 +1894,7 @@ async function approveTransfer(id){
   }).eq('id',id);
   if(error) return showToast(error.message);
   const dest=memberById(toId);
-  await supabase.from('familia_historial').insert({miembro_id:toId,texto:`Traspaso aprobado: ${t.titulo} ahora es de ${dest?.nombre||'hermano'}`});
+  await supabase.from('familia_historial').insert({miembro_id:toId,texto:`Traspaso aprobado: ${t.titulo} ahora es de ${dest?.nombre||'hermano'}`,tarea_id:t.id});
   showToast('Traspaso aprobado');
   closeModal('modal-ficha');
   loadAll();
@@ -1831,12 +1911,14 @@ async function rejectTransfer(id){
 }
 
 function openPenalty(){
+  if(!requireAdmin()) return;
   document.getElementById('penaltyMember').innerHTML=state.members.filter(isKid).map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('');
   document.getElementById('penaltyPoints').value=5;
   document.getElementById('penaltyReason').value='';
   openModal('modal-penalizacion');
 }
 async function applyPenalty(){
+  if(!requireAdmin()) return;
   const mid=+document.getElementById('penaltyMember').value;
   const pts=+document.getElementById('penaltyPoints').value||0;
   const motivo=document.getElementById('penaltyReason').value.trim();
@@ -2330,6 +2412,7 @@ async function solicitarTarea(i){
   openEvidence(data.id);
 }
 function openMesada(){
+  if(!requireAdmin()) return;
   const sel=document.getElementById('mesadaKid');
   sel.innerHTML='<option value="todos">Todos los hijos</option>'+state.members.filter(isKid).map(k=>`<option value="${k.id}">${esc(k.nombre)}</option>`).join('');
   const pend=state.tasks.filter(t=>t.tipo==='mesada'&&t.estado!=='completada');
@@ -2357,13 +2440,14 @@ async function cargarMesada(){
   loadAll();
 }
 async function cargarMesadaPendiente(id){
+  if(!requireAdmin()) return;
   const t=state.tasks.find(x=>x.id===id);
   const who=t&&memberById(t.asignada_a);
   if(!t||!who) return;
   const pts=Math.max(0,Number(t.puntos)||0);
   if(!t.puntos_sumados&&pts){
     await supabase.from('familia_miembros').update({puntos:(Number(who.puntos)||0)+pts}).eq('id',who.id);
-    await supabase.from('familia_historial').insert({miembro_id:who.id,texto:'Mesada: '+(t.titulo||'Mesada')+' (+'+pts+' pts)'});
+    await supabase.from('familia_historial').insert({miembro_id:who.id,texto:'Mesada: '+(t.titulo||'Mesada')+' (+'+pts+' pts)',tarea_id:t.id});
   }
   const {error}=await supabase.from('familia_tareas').update({estado:'completada',puntos_sumados:true,puntos_aplicados:pts}).eq('id',id);
   if(error) return showToast(error.message);
@@ -2376,6 +2460,7 @@ function syncDeberRec(){
   document.getElementById('deberVecesWrap').style.display=v==='varias'?'':'none';
 }
 function openDeberes(){
+  if(!requireAdmin()) return;
   renderDeberList();
   syncDeberRec();
   openModal('modal-deberes');
@@ -2390,12 +2475,14 @@ function renderDeberList(){
   }).join(''):'<div class="empty">Todavía no hay deberes</div>';
 }
 async function toggleDeber(id,on){
+  if(!requireAdmin()) return;
   const {error}=await supabase.from('familia_deberes').update({activo:!!on}).eq('id',id);
   if(error) return showToast(error.message);
   await loadAll();
   if(document.getElementById('modal-deberes').classList.contains('show')) renderDeberList();
 }
 async function saveDeber(){
+  if(!requireAdmin()) return;
   const titulo=document.getElementById('deberTitulo').value.trim();
   if(!titulo) return showToast('Escribe el deber');
   const rec=document.getElementById('deberRec').value;
@@ -2458,8 +2545,8 @@ function dutyRow(item,kidId,by,lote){
   };
 }
 async function repartirDeberes(){
+  if(!requireAdmin()) return;
   const u=currentUser();
-  if(!isAdmin(u)) return;
   const kids=state.members.filter(isKid);
   if(!kids.length) return showToast('No hay hijos');
   const activos=(state.deberes||[]).filter(d=>d.activo!==false);
