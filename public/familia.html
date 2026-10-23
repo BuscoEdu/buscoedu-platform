@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>FamiliaTareas</title>
-<!-- familia-v41 -->
+<!-- familia-v42 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <style>
 :root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
@@ -47,6 +47,8 @@ button:active:not(:disabled){transform:scale(.96);filter:brightness(.92)}
 .task-item.tone-deber{background:#ede9fe;border-left-color:#7c3aed}
 .task-item.tone-inmediata{background:#ffedd5;border-left-color:#ea580c}
 .task-item.tone-draft{background:#f3e8ff;border-left-color:#a855f7}
+.task-item.tone-ontime{background:#dcfce7;border-left-color:#16a34a}
+.task-item.tone-late{background:#fee2e2;border-left-color:#dc2626}
 .tipo-chip{display:inline-block;font-weight:700;font-size:.78rem;line-height:1.2;padding:3px 8px;border-radius:999px;margin-right:6px}
 .tipo-tarea{background:#dbeafe;color:#1e3a8a}
 .tipo-deber{background:#ede9fe;color:#5b21b6}
@@ -975,41 +977,39 @@ function tipoClass(t){
   return 'tipo-tarea';
 }
 function pointsLine(t){
+  const tipo=t&&t.tipo==='deber'?'Deber':'Tarea';
+  const gan=Number(t&&t.puntos)||0;
   const pen=Math.max(0, Number(t&&t.puntos_penalizacion_dia)||0);
-  return `<span><span class="tipo-chip ${tipoClass(t)}">${esc(tipoLabel(t))}</span>${livePoints(t)} pts</span><span class="tipo-pen">Penalización -${pen}</span>`;
+  return `${esc(tipo)} - ${gan} pts - <span class="tipo-pen">Penalización -${pen} pts</span>`;
 }
 function taskCard(t){
   const who=memberById(t.asignada_a);
   const target=memberById(t.para_quien);
   const creador=memberById(t.creada_por);
-  const days=lateDays(t);
-  const late=days>0?` · atrasada ${days} d`:'';
   const passing=t.estado==='pendiente_transferencia'||t.estado==='transferencia_por_aprobar';
   const targetTag=passing&&target?`<span class="who-tag">para ${esc(target.nombre)}</span>`:'';
-  const timing=taskTiming(t);
-  const note=timingText(t);
-  const tipo=tipoLabel(t);
   const audience=taskAudience(t)==='parent'?'De padre':'De hijo';
   const rec=(t.recurrencia&&t.recurrencia!=='once')?'Se repite':'Una vez';
   const tone=taskTone(t);
   const done=t.estado==='completada'?' done':'';
   const icon=t.icono?esc(t.icono)+' ':'';
+  const start=t.habilita_en?fmtDate(t.habilita_en):'';
+  const end=t.fecha_limite?fmtDate(t.fecha_limite):'';
   return `<div class="task-item ${tone}${done}" onclick="openTaskCard(${t.id})">
     <div style="flex:1">
       <strong>${icon}${esc(t.titulo||'Tarea')}</strong><br>
-      <span class="who-tag">${esc(audience)}</span><span class="tipo-chip ${tipoClass(t)}">${esc(tipo)}</span><span class="who-tag">${esc(rec)}</span><br>
+      <span class="who-tag">${esc(audience)}</span><span class="who-tag">${esc(rec)}</span><br>
       <span class="who-tag">${esc(who?.nombre||'Sin asignar')}</span>${creador?'<span style="font-weight:400;font-size:.85rem"> - por '+esc(creador.nombre)+'</span>':''}${targetTag}<br>
-      <small style="display:flex;justify-content:space-between;gap:8px">${pointsLine(t)}</small>${late?`<br><small>${esc(late.replace(/^ · /,''))}</small>`:''}<br>
-      ${note?`<small>${esc(note)}</small><br>`:''}
-      <span class="${pillClass(t)}">${esc(statusLabel(t))}${t.fecha_limite?' · '+esc(fmtWhen(t.fecha_limite)):''}</span>
+      <small>${pointsLine(t)}</small><br>
+      ${start?`<small>Inicio: ${esc(start)}</small><br>`:''}
+      ${end?`<small>Fin: ${esc(end)}</small>`:''}
     </div>
   </div>`;
 }
 function taskTone(t){
   if(t&&t.estado==='borrador') return 'tone-draft';
-  if(t&&(t.inmediata||t.tipo==='inmediata')) return 'tone-inmediata';
-  if(t&&t.tipo==='deber') return 'tone-deber';
-  return taskAudience(t)==='parent'?'tone-parent':'tone-kid';
+  if(taskTiming(t)==='late'||(t&&lateDays(t)>0)) return 'tone-late';
+  return 'tone-ontime';
 }
 function setTaskFilter(f){
   taskFilter=f;
@@ -1975,7 +1975,7 @@ function openTaskCard(id, fromBalance){
   const parentTask=taskAudience(t)==='parent';
   document.getElementById('fichaTitle').textContent=t.titulo||'Tarea';
   const days=lateDays(t);
-  document.getElementById('fichaStatus').innerHTML=`<span class="${pillClass(t)}">${esc(statusLabel(t))}</span><div style="display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:.9rem">${pointsLine(t)}</div>`;
+  document.getElementById('fichaStatus').innerHTML=`<div style="font-size:.95rem">${pointsLine(t)}</div><div style="margin-top:6px;font-size:.9rem">${t.habilita_en?'Inicio: '+esc(fmtDate(t.habilita_en))+'<br>':''}${t.fecha_limite?'Fin: '+esc(fmtDate(t.fecha_limite)):''}</div>`;
   document.getElementById('fichaNombre').value=t.titulo||'';
   document.getElementById('fichaPuntos').value=t.puntos||0;
   const fichaTipo=document.getElementById('fichaTipo');
@@ -2032,7 +2032,6 @@ function openTaskCard(id, fromBalance){
   if(canEdit&&t.estado==='borrador') acts.push(`<button class="btn success" onclick="activateTask(${t.id})">Activar tarea</button>`);
   if(canEdit&&t.estado==='borrador') acts.push(`<button class="btn secondary" onclick="discardDraft(${t.id})">Descartar</button>`);
   if(canMarkDone(t,u)) acts.push(`<button class="btn success" onclick="openEvidence(${t.id})">Ya la hice</button>`);
-  if(t.estado==='pendiente'&&t.asignada_a===u.id&&taskTiming(t)==='early') acts.push('<p style="font-size:.85rem;color:var(--muted)">Todavía no es la hora. Se podrá marcar cuando se abra la ventana.</p>');
   if(t.estado==='pendiente'&&t.asignada_a===u.id&&taskTiming(t)==='late') acts.push('<p style="font-size:.85rem;color:var(--muted)">Se pasó la ventana. Ya no se puede entregar.</p>');
   if(t.estado==='pendiente'&&isKid(u)&&t.asignada_a===u.id&&!t.es_transferencia&&taskTiming(t)==='ready') acts.push(`<button class="btn secondary" onclick="openTransfer(${t.id})">Pasar a un hermano</button>`);
   if(t.estado==='pendiente_transferencia'&&Number(t.para_quien)===u.id){
@@ -2138,7 +2137,7 @@ function openEvidence(id){
   pendingTaskId=id;
   const t=state.tasks.find(x=>x.id===id);
   const u=currentUser();
-  if(t&&u&&taskTiming(t)!=='ready') return showToast(taskTiming(t)==='early'?'Todavía no es la hora':'Se pasó la ventana');
+  if(t&&u&&taskTiming(t)!=='ready') return showToast(taskTiming(t)==='early'?'Todavía no se puede marcar':'Se pasó la ventana');
   const hint=document.getElementById('evidenceHint');
   if(t&&taskAudience(t)==='parent'){
     hint.textContent='Pasa a aprobación de otro adulto.';
