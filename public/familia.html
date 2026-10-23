@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>FamiliaTareas</title>
-<!-- familia-v35 -->
+<!-- familia-v36 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <style>
 :root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
@@ -164,7 +164,7 @@ h3{margin-bottom:12px}
 
   <div class="section" id="section-ranking">
     <h3>🏆 Ranking (hijos)</h3>
-    <p style="font-size:.8rem;color:var(--muted);margin:-4px 0 12px">63/80 es lo que le queda / lo que generó. Histórico muestra la tarea, el premio o la penalización.</p>
+    <p style="font-size:.8rem;color:var(--muted);margin:-4px 0 12px">63/80 es lo que le queda / lo que generó. Las tareas cerradas se ven y se eliminan en Histórico.</p>
     <div id="rankingList"></div>
   </div>
 
@@ -546,6 +546,9 @@ function netPoints(t){
   const days=lateDays(t);
   return (Number(t.puntos)||0)-days*(Number(t.puntos_penalizacion_dia)||0);
 }
+function isClosedTask(t){
+  return !!t&&(t.estado==='completada'||t.estado==='no_terminada');
+}
 function taskAudience(t){
   const m=memberById(t.asignada_a);
   return m&&isAdmin(m)?'parent':'kid';
@@ -859,7 +862,7 @@ function render(){
   }
   const fn=document.getElementById('filterNombre');
   if(fn){
-    const pool=state.tasks.filter(t=>t.tipo!=='mesada'&&!isGoal(t)&&t.titulo&&(admin||t.asignada_a===u.id||t.conjunto_con===u.id||Number(t.para_quien)===u.id));
+    const pool=state.tasks.filter(t=>t.tipo!=='mesada'&&!isGoal(t)&&!isClosedTask(t)&&t.titulo&&(admin||t.asignada_a===u.id||t.conjunto_con===u.id||Number(t.para_quien)===u.id));
     const titles=[...new Set(pool.map(t=>String(t.titulo).trim()))].sort((a,b)=>a.localeCompare(b,'es'));
     const prev=taskNameFilter;
     fn.innerHTML='<option value="">Nombre</option>'+titles.map(t=>`<option value="${String(t).replace(/"/g,'"')}">${esc(t)}</option>`).join('');
@@ -926,7 +929,7 @@ function render(){
 }
 function reminderCount(u){
   if(!u) return 0;
-  if(isAdmin(u)) return state.tasks.filter(t=>!isGoal(t)&&['esperando_aprobacion','no_terminada','transferencia_por_aprobar'].includes(t.estado)&&!t.puntos_sumados).length;
+  if(isAdmin(u)) return state.tasks.filter(t=>!isGoal(t)&&['esperando_aprobacion','transferencia_por_aprobar'].includes(t.estado)&&!t.puntos_sumados).length;
   return state.tasks.filter(t=>!isGoal(t)&&t.estado==='pendiente'&&(t.asignada_a===u.id||t.conjunto_con===u.id)&&taskTiming(t)==='ready').length;
 }
 function unseenNotifs(){return myNotifs().filter(i=>!i.seen);}
@@ -1004,7 +1007,7 @@ function renderTasks(){
     if(parentList) parentList.innerHTML='';
     return;
   }
-  const open=state.tasks.filter(t=>!isGoal(t)&&t.estado!=='completada'&&t.tipo!=='mesada').sort(byDue);
+  const open=state.tasks.filter(t=>!isGoal(t)&&!isClosedTask(t)&&t.tipo!=='mesada').sort(byDue);
   if(isAdmin(u)){
     const want=taskView==='hijos'?'kid':'parent';
     const rows=open.filter(t=>taskAudience(t)===want).filter(passTaskFilter);
@@ -1178,8 +1181,6 @@ function myNotifs(){
         items.push({key:'mine'+t.id,kind:'tarea',id:t.id,text:'Te cargaron: '+(t.titulo||'tarea')});
       if(taskAudience(t)==='kid'&&t.estado==='esperando_aprobacion')
         items.push({key:'val'+t.id,kind:'tarea',id:t.id,text:(memberById(t.asignada_a)?.nombre||'Un hijo')+' envió para validar: '+(t.titulo||'tarea')});
-      if(t.estado==='no_terminada'&&!t.puntos_sumados)
-        items.push({key:'miss'+t.id,kind:'tarea',id:t.id,text:'No terminada: '+(t.titulo||'tarea')+'. Confirma la penalización'});
       if(t.estado==='transferencia_por_aprobar')
         items.push({key:'tr'+t.id,kind:'tarea',id:t.id,text:'Traspaso por aprobar: '+(t.titulo||'tarea')});
     });
@@ -1333,14 +1334,20 @@ function openBalance(id){
   document.getElementById('balanceTitle').textContent='Histórico de '+k.nombre;
   document.getElementById('balanceSummary').textContent=`${quedan}/${generado} · generó ${generado} · canjeó ${led.canjeado} · penalización ${led.penalizado} · le quedan ${quedan}`;
   const rows=led.moves.slice().reverse();
-  document.getElementById('balanceList').innerHTML=rows.length?rows.map(m=>{
+  const linked=new Set(rows.map(m=>Number(m.tareaId)).filter(Boolean));
+  const closed=state.tasks.filter(t=>isClosedTask(t)&&!isGoal(t)&&t.tipo!=='mesada'&&(t.asignada_a===id||t.conjunto_con===id)&&!linked.has(t.id));
+  const closedHtml=closed.map(t=>{
+    const when=t.fecha_limite?new Date(t.fecha_limite).toLocaleString('es-CO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+    return `<div onclick="closeModal('modal-balance');openTaskCard(${t.id})" style="padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem;cursor:pointer"><strong>${esc(statusLabel(t))}</strong> · ${esc(when)}<br>${esc(t.titulo||'Tarea')}<br><small>Toca para ver${isAdmin(currentUser())?' o eliminar':''}</small></div>`;
+  }).join('');
+  document.getElementById('balanceList').innerHTML=(rows.length||closedHtml)?(rows.map(m=>{
     const when=m.fecha?new Date(m.fecha).toLocaleString('es-CO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
     const sign=m.pts>0?'+':'';
     const tid=taskForMove(id,m);
     const open=tid?` onclick="closeModal('modal-balance');openTaskCard(${tid})" style="padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem;cursor:pointer"`:` style="padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem"`;
-    const hint=tid?'<br><small>Toca para abrir la tarea</small>':'';
+    const hint=tid?'<br><small>Toca para ver'+(isAdmin(currentUser())&&state.tasks.some(t=>t.id===tid&&isClosedTask(t))?' o eliminar':'')+'</small>':'';
     return `<div${open}><strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(m.detalle)}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
-  }).join(''):'<div class="empty">Sin movimientos</div>';
+  }).join('')+closedHtml):'<div class="empty">Sin movimientos</div>';
   openModal('modal-balance');
 }
 function renderHistory(){
@@ -1864,7 +1871,8 @@ function openTaskCard(id){
   syncFichaTipo();
   document.getElementById('fichaDue').value=toLocalInput(t.fecha_limite);
   document.getElementById('fichaPen').value=t.puntos_penalizacion_dia||0;
-  const canEdit=admin&&!(parentTask&&t.asignada_a===u.id);
+  const closed=isClosedTask(t);
+  const canEdit=admin&&!closed&&!(parentTask&&t.asignada_a===u.id);
   const fields=document.getElementById('fichaFields');
   const read=document.getElementById('fichaRead');
   if(fields) fields.style.display=canEdit?'':'none';
@@ -1872,7 +1880,7 @@ function openTaskCard(id){
     read.style.display=canEdit?'none':'';
     if(!canEdit){
       const whoName=memberById(t.asignada_a);
-      read.innerHTML=`<p style="margin:0 0 6px"><strong>${esc(t.titulo||'Tarea')}</strong></p><p style="color:var(--muted);font-size:.9rem">${esc(whoName?.nombre||'Sin asignar')} · ${Number(t.puntos)||0} pts</p>`;
+      read.innerHTML=`<p style="margin:0 0 6px"><strong>${esc(t.titulo||'Tarea')}</strong></p><p style="color:var(--muted);font-size:.9rem">${esc(whoName?.nombre||'Sin asignar')} · ${esc(statusLabel(t))} · ${Number(t.puntos)||0} pts</p>`;
     }
   }
   ['fichaNombre','fichaPuntos','fichaAsignada','fichaRec','fichaDue','fichaPen','fichaTipo'].forEach(fid=>{
@@ -1921,8 +1929,8 @@ function openTaskCard(id){
   if(parentTask&&t.estado==='esperando_aprobacion'&&u.id===t.asignada_a){
     acts.push(`<p style="font-size:.85rem;color:var(--muted)">Esperando la aprobación de otro adulto.</p>`);
   }
-  if(admin&&t.estado!=='completada'&&!(parentTask&&t.asignada_a===u.id)) acts.push(`<button class="btn danger" onclick="deleteTask(${t.id})">Eliminar tarea</button>`);
-  if(admin&&t.estado==='completada') acts.push(`<button class="btn danger" onclick="deleteTask(${t.id})">Borrar y restar puntos</button>`);
+  if(admin&&!closed&&!(parentTask&&t.asignada_a===u.id)) acts.push(`<button class="btn danger" onclick="deleteTask(${t.id})">Eliminar tarea</button>`);
+  if(admin&&closed) acts.push(`<button class="btn danger" onclick="deleteTask(${t.id})">${t.estado==='completada'?'Eliminar del histórico':'Eliminar'}</button>`);
   if(admin&&t.estado==='no_terminada'&&!t.puntos_sumados) acts.push(`<button class="btn danger" onclick="confirmMiss(${t.id})">Confirmar no hecha</button>`);
   document.getElementById('fichaActions').innerHTML=acts.join('');
   openModal('modal-ficha');
