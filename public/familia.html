@@ -74,8 +74,9 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .photo-preview{width:100%;border-radius:12px;margin-top:8px;max-height:240px;object-fit:cover}
 .avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
 .filter-row{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
-.task-actions{display:grid;grid-template-columns:auto auto;gap:6px;justify-content:end;align-items:center}
-.task-actions .btn{white-space:nowrap}
+.task-actions{display:grid;grid-template-columns:132px 132px;gap:6px;justify-content:end;margin-left:auto;flex:none}
+.task-actions .btn{width:132px;height:36px;padding:0 8px;font-size:.75rem;line-height:1.1;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center}
+.task-actions .btn:only-child{grid-column:2}
 .modal-content{position:relative}
 .modal-x{position:absolute;top:8px;right:12px;border:none;background:transparent;font-size:1.5rem;line-height:1;cursor:pointer;color:#64748b;z-index:2}
 .filter-row select{padding:6px 8px;border:1px solid var(--border);border-radius:999px;font-size:.75rem;background:#fff}
@@ -109,7 +110,7 @@ h3{margin-bottom:12px}
   </header>
 
   <div class="section active" id="section-tareas">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:8px">
       <h3 style="margin:0">📋 Tareas</h3>
       <div class="task-actions">
         <button class="btn small danger" id="btnPenalty" onclick="openPenalty()" style="display:none">Penalización</button>
