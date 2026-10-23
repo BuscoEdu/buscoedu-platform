@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>FamiliaTareas</title>
-<!-- familia-v36 -->
+<!-- familia-v37 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <style>
 :root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
@@ -40,10 +40,10 @@ nav{position:relative;width:100%;background:#fff;border-top:1px solid var(--bord
 .figure-btn svg{width:100%;height:100%;display:block}
 .goal-item,.badge-item{padding:8px 0;border-bottom:1px solid var(--border);font-size:.9rem}
 .badge-item.off{opacity:.4}
+.task-item.tone-kid{background:#f0f9ff;border-left-color:#38bdf8}
+.task-item.tone-parent{background:#dbeafe;border-left-color:#1e40af}
+.task-item.tone-deber{background:#e0e7ff;border-left-color:#6366f1}
 .task-item.done{opacity:.72}
-.task-item.late{border-left-color:#ef4444;background:#fef2f2}
-.task-item.early{border-left-color:#3b82f6;background:#eff6ff}
-.task-item.ready{border-left-color:#10b981;background:#ecfdf5}
 .history-scroll{max-height:420px;overflow-y:auto;-webkit-overflow-scrolling:touch}
 button:disabled{opacity:.45;cursor:not-allowed}
 .reward-item{cursor:pointer}
@@ -75,11 +75,10 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .actions{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .photo-preview{width:100%;border-radius:12px;margin-top:8px;max-height:240px;object-fit:cover}
 .avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
-.filter-row{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
-.task-actions{display:grid;grid-template-columns:132px 132px;gap:6px;justify-content:end;margin-left:auto;flex:none}
-.task-actions .btn{width:132px;height:36px;padding:0 8px;font-size:.75rem;line-height:1.1;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center}
-.task-actions .btn:only-child{grid-column:2}
-.task-actions select{width:132px;height:36px;border-radius:12px;border:1px solid var(--border);font-size:.75rem;padding:0 6px;background:#fff}
+.filter-row{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px;align-items:center}
+.filter-row select{height:32px;border-radius:10px;border:1px solid var(--border);padding:0 8px;background:#fff;font-size:.8rem}
+.task-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto;align-items:center}
+.task-actions .btn{width:auto;height:auto;padding:6px 12px;font-size:.8rem;line-height:1.2;white-space:nowrap}
 .modal-content{position:relative}
 .modal-x{position:absolute;top:8px;right:12px;border:none;background:transparent;font-size:1.5rem;line-height:1;cursor:pointer;color:#64748b;z-index:2}
 .filter-row select{padding:6px 8px;border:1px solid var(--border);border-radius:999px;font-size:.75rem;background:#fff}
@@ -126,10 +125,12 @@ h3{margin-bottom:12px}
     <div id="kidsTasksWrap">
       <div class="section-label" id="kidsTasksTitle">Tareas de los hijos</div>
       <div class="filter-row" id="taskFilters">
-        <button type="button" class="chip on" data-f="todas" onclick="setTaskFilter('todas',this)">Todas</button>
-        <button type="button" class="chip" data-f="hoy" onclick="setTaskFilter('hoy',this)">Hoy</button>
-        <button type="button" class="chip" data-f="atrasadas" onclick="setTaskFilter('atrasadas',this)">Atrasadas</button>
-        <button type="button" class="chip" data-f="aprobar" onclick="setTaskFilter('aprobar',this)">Por revisar</button>
+        <select id="filterEstado" onchange="taskFilter=this.value;renderTasks()">
+          <option value="todas">Todas</option>
+          <option value="hoy">Hoy</option>
+          <option value="atrasadas">Atrasadas</option>
+          <option value="aprobar">Por revisar</option>
+        </select>
         <select id="filterTipo" onchange="taskTypeFilter=this.value;renderTasks()"><option value="">Tipo</option><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Inmediata</option></select>
         <select id="filterUser" onchange="taskUserFilter=this.value;renderTasks()"></select>
         <select id="filterNombre" onchange="taskNameFilter=this.value;renderTasks()"><option value="">Nombre</option></select>
@@ -375,6 +376,7 @@ h3{margin-bottom:12px}
   <div class="form-group"><label>Asignada a</label><select id="fichaAsignada"></select></div>
   <div class="form-group" id="fichaRecWrap"><label>Cada cuánto</label><select id="fichaRec"><option value="once">Una vez</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
   <div class="form-group"><label>Fecha límite</label><input type="datetime-local" id="fichaDue"></div>
+  <div class="form-group"><label>Ventana (horas)</label><input type="number" id="fichaVentana" min="1" max="336" value="24"></div>
   <div class="form-group"><label>Resta por cada día de atraso</label><input type="number" id="fichaPen"></div>
   </div>
   <div id="fichaRead" style="display:none"></div>
@@ -593,7 +595,7 @@ function canMarkDone(t,u){
   if(t.asignada_a!==u.id&&t.conjunto_con!==u.id) return false;
   if(t.conjunto_con&&t.asignada_a===u.id&&t.comentario_completado) return false;
   if(t.conjunto_con&&t.conjunto_con===u.id&&t.evidencia_2) return false;
-  return taskTiming(t)!=='early';
+  return taskTiming(t)==='ready';
 }
 function livePoints(t){
   const start=Number(t.puntos)||0;
@@ -774,6 +776,7 @@ async function loadAll(opts){
     state.solicitudes=sol.error?[]:(sol.data||[]);
     state.notifs=nt.error?[]:(nt.data||[]);
     state.deberes=db.error?state.deberes:(db.data||[]);
+    try{ await ensureBaseRewards(); }catch(e){}
     try{ await expireWindows(); }catch(e){}
     if(sol.error&&!state._solWarned){state._solWarned=true;showToast('Solicitudes: '+sol.error.message);}
     if(nt.error&&!state._ntWarned){state._ntWarned=true;showToast('Avisos: '+nt.error.message);}
@@ -955,22 +958,30 @@ function taskCard(t){
   const tipo=tipoLabel(t);
   const audience=taskAudience(t)==='parent'?'De padre':'De hijo';
   const rec=(t.recurrencia&&t.recurrencia!=='once')?'Se repite':'Una vez';
+  const waiting=t.estado==='esperando_aprobacion';
+  const ptsTxt=waiting?('Al aprobar: '+livePoints(t)+' pts'):(livePoints(t)+' pts');
+  const tone=taskTone(t);
   const done=t.estado==='completada'?' done':'';
   const icon=t.icono?esc(t.icono)+' ':'';
-  return `<div class="task-item${timing==='none'?'':' '+timing}${done}" onclick="openTaskCard(${t.id})">
+  return `<div class="task-item ${tone}${done}" onclick="openTaskCard(${t.id})">
     <div style="flex:1">
       <strong>${icon}${esc(t.titulo||'Tarea')}</strong><br>
       <span class="who-tag">${esc(audience)}</span><span class="who-tag">${esc(tipo)}</span><span class="who-tag">${esc(rec)}</span><br>
       <span class="who-tag">${esc(who?.nombre||'Sin asignar')}</span>${creador?'<span style="font-weight:400;font-size:.85rem"> - por '+esc(creador.nombre)+'</span>':''}${targetTag}<br>
-      <small>${livePoints(t)} pts${late}</small><br>
+      <small>${ptsTxt}${late}</small><br>
       ${note?`<small>${esc(note)}</small><br>`:''}
       <span class="${pillClass(t)}">${esc(statusLabel(t))}${t.fecha_limite?' · '+esc(fmtWhen(t.fecha_limite)):''}</span>
     </div>
   </div>`;
 }
-function setTaskFilter(f,btn){
+function taskTone(t){
+  if(t&&t.tipo==='deber') return 'tone-deber';
+  return taskAudience(t)==='parent'?'tone-parent':'tone-kid';
+}
+function setTaskFilter(f){
   taskFilter=f;
-  document.querySelectorAll('#taskFilters .chip').forEach(b=>b.classList.toggle('on',b===btn));
+  const sel=document.getElementById('filterEstado');
+  if(sel) sel.value=f;
   renderTasks();
 }
 function passTaskFilter(t){
@@ -1306,7 +1317,7 @@ function renderRanking(){
   const kids=state.members.filter(isKid).map(k=>{
     const led=kidLedger(k.id);
     const quedan=Number(k.puntos)||0;
-    const generado=Math.max(led.generado,quedan);
+    const generado=led.generado;
     return {k,led,quedan,generado};
   }).sort((a,b)=>b.generado-a.generado||b.quedan-a.quedan);
   const RANK_ICONS=['🥇','🥈','🥉','🍬','⭐','🎈','🍪','🍎','⚽','🎯'];
@@ -1330,7 +1341,7 @@ function openBalance(id){
   if(!k) return;
   const led=kidLedger(id);
   const quedan=Number(k.puntos)||0;
-  const generado=Math.max(led.generado,quedan);
+  const generado=led.generado;
   document.getElementById('balanceTitle').textContent='Histórico de '+k.nombre;
   document.getElementById('balanceSummary').textContent=`${quedan}/${generado} · generó ${generado} · canjeó ${led.canjeado} · penalización ${led.penalizado} · le quedan ${quedan}`;
   const rows=led.moves.slice().reverse();
@@ -1472,6 +1483,10 @@ function prepareTaskForm(audiencia){
   document.getElementById('taskCount').value='1';
   document.getElementById('taskPenalty').value=state.config.puntos_penalizacion_dia_default||2;
   document.getElementById('taskSaveTemplate').checked=false;
+  const plant=document.getElementById('taskPlantilla');
+  if(plant) plant.value='';
+  document.getElementById('taskTitle').value='';
+  document.getElementById('taskPoints').value='10';
   const asg=document.getElementById('taskAssignTo');
   if(asg&&asg.options.length) asg.selectedIndex=0;
   const partner=document.getElementById('taskPartner');
@@ -1744,6 +1759,19 @@ async function activateDueDrafts(){
     if(!error) t.estado='pendiente';
   }
 }
+async function ensureBaseRewards(){
+  if(state._rewardsReady) return;
+  state._rewardsReady=true;
+  const have=new Set((state.rewards||[]).map(r=>(r.nombre||'').trim().toLowerCase()));
+  const rows=BASE_REWARDS.filter(r=>!have.has(r.nombre.toLowerCase())).map(r=>({
+    nombre:r.nombre,costo:r.costo,icono:r.icono,tipo:'hijo',activo:true,stock:-1,creado_por:state.currentUserId||null
+  }));
+  if(!rows.length) return;
+  const {error}=await supabase.from('familia_premios').insert(rows);
+  if(error) return;
+  const {data}=await supabase.from('familia_premios').select('*').order('costo');
+  if(data) state.rewards=data;
+}
 async function seedBaseRewards(){
   const have=new Set(state.rewards.map(r=>(r.nombre||'').trim().toLowerCase()));
   const rows=BASE_REWARDS.filter(r=>!have.has(r.nombre.toLowerCase())).map(r=>({
@@ -1870,9 +1898,12 @@ function openTaskCard(id){
   document.getElementById('fichaRec').value=t.recurrencia||'once';
   syncFichaTipo();
   document.getElementById('fichaDue').value=toLocalInput(t.fecha_limite);
+  const fichaWin=document.getElementById('fichaVentana');
+  if(fichaWin) fichaWin.value=t.ventana_horas||24;
   document.getElementById('fichaPen').value=t.puntos_penalizacion_dia||0;
+  const scored=t.estado==='completada'||!!t.puntos_sumados;
   const closed=isClosedTask(t);
-  const canEdit=admin&&!closed&&!(parentTask&&t.asignada_a===u.id);
+  const canEdit=admin&&!scored&&!(parentTask&&t.asignada_a===u.id);
   const fields=document.getElementById('fichaFields');
   const read=document.getElementById('fichaRead');
   if(fields) fields.style.display=canEdit?'':'none';
@@ -1883,7 +1914,7 @@ function openTaskCard(id){
       read.innerHTML=`<p style="margin:0 0 6px"><strong>${esc(t.titulo||'Tarea')}</strong></p><p style="color:var(--muted);font-size:.9rem">${esc(whoName?.nombre||'Sin asignar')} · ${esc(statusLabel(t))} · ${Number(t.puntos)||0} pts</p>`;
     }
   }
-  ['fichaNombre','fichaPuntos','fichaAsignada','fichaRec','fichaDue','fichaPen','fichaTipo'].forEach(fid=>{
+  ['fichaNombre','fichaPuntos','fichaAsignada','fichaRec','fichaDue','fichaVentana','fichaPen','fichaTipo'].forEach(fid=>{
     const el=document.getElementById(fid);
     if(el) el.disabled=!canEdit;
   });
@@ -1907,8 +1938,9 @@ function openTaskCard(id){
   if(canEdit&&t.estado==='borrador') acts.push(`<button class="btn success" onclick="activateTask(${t.id})">Activar tarea</button>`);
   if(canEdit&&t.estado==='borrador') acts.push(`<button class="btn secondary" onclick="discardDraft(${t.id})">Descartar</button>`);
   if(canMarkDone(t,u)) acts.push(`<button class="btn success" onclick="openEvidence(${t.id})">Ya la hice</button>`);
-  if(t.estado==='pendiente'&&t.asignada_a===u.id&&taskTiming(t)==='early') acts.push('<p style="font-size:.85rem;color:var(--muted)">Todavía no es el día. Se podrá marcar cuando llegue la fecha.</p>');
-  if(t.estado==='pendiente'&&isKid(u)&&t.asignada_a===u.id&&!t.es_transferencia) acts.push(`<button class="btn secondary" onclick="openTransfer(${t.id})">Pasar a un hermano</button>`);
+  if(t.estado==='pendiente'&&t.asignada_a===u.id&&taskTiming(t)==='early') acts.push('<p style="font-size:.85rem;color:var(--muted)">Todavía no es la hora. Se podrá marcar cuando se abra la ventana.</p>');
+  if(t.estado==='pendiente'&&t.asignada_a===u.id&&taskTiming(t)==='late') acts.push('<p style="font-size:.85rem;color:var(--muted)">Se pasó la ventana. Ya no se puede entregar.</p>');
+  if(t.estado==='pendiente'&&isKid(u)&&t.asignada_a===u.id&&!t.es_transferencia&&taskTiming(t)==='ready') acts.push(`<button class="btn secondary" onclick="openTransfer(${t.id})">Pasar a un hermano</button>`);
   if(t.estado==='pendiente_transferencia'&&Number(t.para_quien)===u.id){
     acts.push(`<button class="btn" onclick="acceptTransfer(${t.id})">Aceptar tarea</button>`);
     acts.push(`<button class="btn secondary" onclick="rejectTransfer(${t.id})">No la acepto</button>`);
@@ -1973,6 +2005,10 @@ async function saveTaskFicha(id){
   const raw=document.getElementById('fichaTipo')?document.getElementById('fichaTipo').value:'tarea';
   const inmediata=!parentTask&&raw==='inmediata';
   const tipo=raw==='deber'?'deber':'tarea';
+  const ventana=Math.max(1,+document.getElementById('fichaVentana').value||t.ventana_horas||24);
+  const limite=fromLocalInput(document.getElementById('fichaDue').value);
+  const limiteMs=limite?new Date(limite).getTime():0;
+  const habilita=limiteMs?new Date(limiteMs-ventana*3600000).toISOString():null;
   const payload={
     titulo,
     puntos:+document.getElementById('fichaPuntos').value||0,
@@ -1980,12 +2016,16 @@ async function saveTaskFicha(id){
     tipo,
     inmediata,
     recurrencia:tipo==='deber'?document.getElementById('fichaRec').value:'once',
-    fecha_limite:fromLocalInput(document.getElementById('fichaDue').value),
+    fecha_limite:limite,
+    habilita_en:habilita,
+    ventana_horas:ventana,
     puntos_penalizacion_dia:+document.getElementById('fichaPen').value||0
   };
+  const reabrir=t.estado==='no_terminada'&&!t.puntos_sumados&&limiteMs>Date.now();
+  if(reabrir) payload.estado='pendiente';
   const {error}=await supabase.from('familia_tareas').update(payload).eq('id',id);
   if(error) return showToast(error.message);
-  showToast('Tarea actualizada');
+  showToast(reabrir?'Volvió a vigente':'Tarea actualizada');
   closeModal('modal-ficha');
   loadAll();
 }
@@ -2002,7 +2042,7 @@ function openEvidence(id){
   pendingTaskId=id;
   const t=state.tasks.find(x=>x.id===id);
   const u=currentUser();
-  if(t&&u&&taskTiming(t)==='early') return showToast('Todavía no es el día');
+  if(t&&u&&taskTiming(t)!=='ready') return showToast(taskTiming(t)==='early'?'Todavía no es la hora':'Se pasó la ventana');
   const hint=document.getElementById('evidenceHint');
   if(t&&taskAudience(t)==='parent'){
     hint.textContent='Pasa a aprobación de otro adulto.';
@@ -2676,6 +2716,7 @@ function openSolicitar(){
     seen.add(key);
     window._solicitar.push(p);
   });
+  window._solicitar.sort((a,b)=>String(a.titulo||'').localeCompare(String(b.titulo||''),'es'));
   document.getElementById('solicitarList').innerHTML=window._solicitar.length?window._solicitar.map((p,i)=>`<button class="btn secondary" style="width:100%;margin-bottom:8px" onclick="solicitarTarea(${i})">${esc(p.titulo)} · ${Number(p.puntos)||0} pts</button>`).join(''):'<div class="empty">No hay tareas para solicitar</div>';
   openModal('modal-solicitar');
 }
