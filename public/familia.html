@@ -150,13 +150,13 @@ h3{margin-bottom:12px}
           <option value="atrasadas">Atrasadas</option>
           <option value="aprobar">Por revisar</option>
         </select>
-        <select id="filterTipo" onchange="taskTypeFilter=this.value;renderTasks()"><option value="">Tipo</option><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Inmediata</option></select>
+        <select id="filterTipo" onchange="taskTypeFilter=this.value;renderTasks()"><option value="">Tipo</option><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Obligatoria</option></select>
         <select id="filterUser" onchange="taskUserFilter=this.value;renderTasks()"></select>
         <select id="filterNombre" onchange="taskNameFilter=this.value;renderTasks()"><option value="">Nombre</option></select>
         <button class="btn small secondary" id="btnValidate" onclick="openValidate()" style="display:none">Validar hecha</button>
       </div>
       <div class="filter-row" id="defFilters" style="display:none">
-        <select id="defFilterTipo" onchange="defTypeFilter=this.value;renderTasks()"><option value="">Tipo</option><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Inmediata</option></select>
+        <select id="defFilterTipo" onchange="defTypeFilter=this.value;renderTasks()"><option value="">Tipo</option><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Obligatoria</option></select>
         <select id="defFilterPara" onchange="defAudienceFilter=this.value;renderTasks()"><option value="">Para</option><option value="hijo">Hijos</option><option value="padre">Padres</option></select>
         <select id="defFilterNombre" onchange="defNameFilter=this.value;renderTasks()"><option value="">Nombre</option></select>
       </div>
@@ -239,7 +239,7 @@ h3{margin-bottom:12px}
     <button class="btn danger" id="btnApplyPenalty" style="width:100%" onclick="applyPenalty()">Aplicar</button>
   </div>
   <div id="nuevaTaskFields">
-  <div class="form-group" id="taskTipoWrap"><label>Tipo</label><select id="taskTipo" onchange="syncTaskType()"><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Inmediata</option></select><small id="taskTipoHelp" style="color:var(--muted)"></small></div>
+  <div class="form-group" id="taskTipoWrap"><label>Tipo</label><select id="taskTipo" onchange="syncTaskType()"><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Obligatoria</option></select><small id="taskTipoHelp" style="color:var(--muted)"></small></div>
   <div class="form-group" id="taskDeberModoWrap" style="display:none"><label>Deber</label><select id="taskDeberModo" onchange="syncTaskType()"><option value="entre">Entre hermanos</option><option value="individual" selected>Individual</option></select></div>
   <div class="form-group" id="taskRecurrenceWrap" style="display:none"><label>Periodicidad</label><select id="taskRecurrence" onchange="syncTaskType()"><option value="daily">Diario</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option></select></div>
   <div class="form-group" id="taskFreqWrap" style="display:none"><label>Frecuencia diaria</label><select id="taskFreq" onchange="paintDueHint()"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
@@ -299,7 +299,7 @@ h3{margin-bottom:12px}
   <input type="hidden" id="elemId">
   <div class="form-group"><label>Para</label><select id="elemAudiencia" onchange="syncElemTipo()"><option value="hijo">Hijos</option><option value="padre">Padres</option></select></div>
   <div class="form-group"><label>Nombre</label><input id="elemNombre"></div>
-  <div class="form-group"><label>Tipo</label><select id="elemTipo" onchange="syncElemTipo()"><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Inmediata</option></select></div>
+  <div class="form-group"><label>Tipo</label><select id="elemTipo" onchange="syncElemTipo()"><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Obligatoria</option></select></div>
   <div class="form-group" id="elemRecWrap"><label>Cada cuánto</label><select id="elemRec"><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
   <div class="form-group"><label>Ícono</label><div class="emoji-grid" id="elemIconGrid"></div><input type="hidden" id="elemIcon" value="📋"></div>
   <div class="form-group"><label>Puntos</label><input type="number" id="elemPuntos" value="10"></div>
@@ -395,7 +395,7 @@ h3{margin-bottom:12px}
   <div id="fichaStatus" style="margin-bottom:12px"></div>
   <div id="fichaFields">
   <div class="form-group"><label>Título</label><input id="fichaNombre"></div>
-  <div class="form-group"><label>Tipo</label><select id="fichaTipo" onchange="syncFichaTipo()"><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Inmediata</option></select></div>
+  <div class="form-group"><label>Tipo</label><select id="fichaTipo" onchange="syncFichaTipo()"><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Obligatoria</option></select></div>
   <div class="form-group"><label>Puntos</label><input type="number" id="fichaPuntos"></div>
   <div class="form-group"><label>Asignada a</label><select id="fichaAsignada"></select></div>
   <div class="form-group" id="fichaRecWrap"><label>Cada cuánto</label><select id="fichaRec"><option value="once">Una vez</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
@@ -637,7 +637,8 @@ function timingText(t){
   const k=taskTiming(t);
   if(k==='late') return 'Se pasó la ventana';
   if(k==='early') return 'Se habilita '+fmtDate(t.habilita_en);
-  if(k==='ready') return t&&t.inmediata?'Inmediata':'Ya puedes hacerla';
+  // v5 ítem 21: «Inmediata» se muestra como «Obligatoria»; en la BD sigue inmediata/'inmediata'.
+  if(k==='ready') return t&&t.inmediata?'Obligatoria':'Ya puedes hacerla';
   return '';
 }
 function canMarkDone(t,u){
@@ -1021,7 +1022,8 @@ function unseenNotifs(){
 }
 function tipoLabel(t){
   if(!t) return 'Tarea';
-  if(t.inmediata||t.tipo==='inmediata') return 'Inmediata';
+  // v5 ítem 21: etiqueta visible «Obligatoria» (valor interno 'inmediata' sin cambios).
+  if(t.inmediata||t.tipo==='inmediata') return 'Obligatoria';
   if(t.tipo==='deber') return 'Deber';
   if(t.tipo==='obligacion') return 'Obligación';
   if(t.tipo==='conjunto') return 'En conjunto';
@@ -1163,7 +1165,8 @@ function toggleTaskEdit(){
 }
 function plantillaCard(p){
   const aud=plantillaAudiencia(p)==='padre'?'Padres':'Hijos';
-  const tipo=p.tipo==='inmediata'?'Inmediata':(p.tipo==='deber'?'Deber':'Tarea');
+  // v5 ítem 21: etiqueta visible «Obligatoria».
+  const tipo=p.tipo==='inmediata'?'Obligatoria':(p.tipo==='deber'?'Deber':'Tarea');
   const rec=p.tipo==='deber'&&p.recurrencia&&p.recurrencia!=='once'?(REC_LABEL[p.recurrencia]||p.recurrencia):'';
   return `<div class="reward-item${aud==='Padres'?' parent':' kid'}" onclick="openPlantilla(${p.id})"><div style="flex:1">${plantillaIcon(p)} <strong>${esc(p.titulo||'Tarea')}</strong><br><small>${aud} · ${tipo}${rec?' · '+esc(rec):''} · ${Number(p.puntos)||0} pts</small></div></div>`;
 }
@@ -1617,13 +1620,13 @@ function openNewTask(audiencia){
   document.getElementById('taskAssignLabel').textContent=padres?'Para':'Hijo';
   document.getElementById('taskModalHint').textContent=padres
     ?'Esta tarea es solo entre ustedes. Los hijos no la ven.'
-    :'Elige si es tarea, deber o inmediata. Una que no es inmediata queda por activar.';
+    :'Elige si es tarea, deber u obligatoria. Una que no es obligatoria queda por activar.';
   document.getElementById('taskAssignTo').innerHTML=padres?memberOptions(null,{onlyParents:true,excludeSelf:true}):memberOptions(null,{onlyKids:true,allowEmpty:true});
   const tipo=document.getElementById('taskTipo');
   if(tipo){
     tipo.innerHTML=padres
       ?'<option value="tarea">Tarea</option><option value="deber">Deber</option>'
-      :'<option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Inmediata</option>';
+      :'<option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Obligatoria</option>';
     tipo.value='tarea';
     // v5 ítem 20: «Crear completo» de la v3/v4/v5 crea solo tareas; los deberes van por la sección Deberes.
     if(window._v5SoloTareas){const o=tipo.querySelector('option[value="deber"]'); if(o) o.remove();}
@@ -1786,7 +1789,8 @@ function syncTaskType(){
   // v5 ítem 20: Inmediata abre al crearla, no se elige hora.
   {const dw=document.getElementById('taskDueWrap'); if(dw) dw.style.display=inmediata?'none':'';}
   if(inmediata){
-    help.textContent='Se usa una sola vez. Abre en el momento de crearla y no queda como plantilla.';
+    // v5 ítem 21: texto de ayuda de «Obligatoria» (antes «Inmediata»); también aplica a la revisión y al bloqueo.
+    help.textContent='Hay que hacerla ya: bloquea la app mientras dura y, si no se hace, resta puntos.';
     const due=document.getElementById('taskDue');
     if(due) due.value=toLocalInput(new Date().toISOString());
   }else if(deber){
@@ -1819,7 +1823,7 @@ function reviewTask(){
     return '<p>'+(i+1)+'. '+esc(quien?.nombre||'Sin hijo')+' · abre '+esc(fmtWhen(b.abre.toISOString()))+' · cierra '+esc(fmtWhen(b.cierra.toISOString()))+'</p>';
   }).join('');
   document.getElementById('reviewBody').innerHTML=
-    '<p><strong>'+esc(inmediata?'Inmediata':(raw==='deber'?'Deber':'Tarea'))+'</strong></p>'+
+    '<p><strong>'+esc(inmediata?'Obligatoria':(raw==='deber'?'Deber':'Tarea'))+'</strong></p>'+
     '<p>'+esc(document.getElementById('taskTitle').value.trim())+'</p>'+
     '<p>Puntos: '+puntos+'</p>'+
     (raw==='deber'?'<p>'+(modo==='entre'?'Entre hermanos, orden distinto cada vez':'Individual')+' · '+esc(REC_LABEL[rec]||rec)+'</p>':'')+
@@ -1957,14 +1961,14 @@ function renderImmediateBlock(){
   const left=end?end-Date.now():0;
   el.classList.add('show');
   if(t.estado==='esperando_aprobacion'){
-    card.innerHTML='<h3>Tarea inmediata</h3><p>'+esc(t.titulo||'Tarea')+'</p><p style="margin-top:8px">Ya la enviaste. Sigue bloqueada hasta que la aprueben.</p>';
+    card.innerHTML='<h3>Tarea obligatoria</h3><p>'+esc(t.titulo||'Tarea')+'</p><p style="margin-top:8px">Ya la enviaste. Sigue bloqueada hasta que la aprueben.</p>';
     return;
   }
   if(t.estado==='aviso_vencida'||left<=0){
     card.innerHTML='<h3>Tarea vencida</h3><p>'+esc(t.titulo||'Tarea')+'</p><button class="btn" style="width:100%;margin-top:12px" onclick="acceptExpired('+t.id+')">Aceptar</button>';
     return;
   }
-  card.innerHTML='<h3>Tarea inmediata</h3><p>No puedes seguir hasta entregarla.</p><p style="margin-top:8px"><strong>'+esc(t.titulo||'Tarea')+'</strong></p><p style="font-size:2rem;font-weight:700;margin:8px 0">'+fmtLeft(left)+'</p><button class="btn" style="width:100%;margin-top:12px" onclick="openEvidence('+t.id+')">Ya la hice</button>';
+  card.innerHTML='<h3>Tarea obligatoria</h3><p>No puedes seguir hasta entregarla.</p><p style="margin-top:8px"><strong>'+esc(t.titulo||'Tarea')+'</strong></p><p style="font-size:2rem;font-weight:700;margin:8px 0">'+fmtLeft(left)+'</p><button class="btn" style="width:100%;margin-top:12px" onclick="openEvidence('+t.id+')">Ya la hice</button>';
 }
 function ackMiss(id){
   try{sessionStorage.setItem('ackMiss'+id,'1');}catch(e){}
@@ -2076,7 +2080,7 @@ function openTaskCard(id, fromBalance){
   if(fichaTipo){
     fichaTipo.innerHTML=parentTask
       ?'<option value="tarea">Tarea</option><option value="deber">Deber</option>'
-      :'<option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Inmediata</option>';
+      :'<option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Obligatoria</option>';
     fichaTipo.value=t.inmediata?'inmediata':(t.tipo==='deber'?'deber':'tarea');
   }
   document.getElementById('fichaAsignada').innerHTML=parentTask?memberOptions(t.asignada_a,{onlyParents:true,excludeSelf:true}):memberOptions(t.asignada_a,{onlyKids:true});
