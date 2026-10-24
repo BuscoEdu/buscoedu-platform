@@ -25,6 +25,11 @@ Errores: `error.message` listo para mostrar; `error.hint` = código estable (`b1
 - Compatibilidad: al escribir `fotos`, `foto_url = fotos[1]` (v1 y vistas actuales ven la primera). `foto_2` (conjunto) sin cambios.
 - Limpieza 24 h (cron familia_fotos_vencidas, 03:00 local) y el trigger de vencimiento cubren `fotos` y `fotos_anterior`.
 
+### B19 (v6b_23) · compañero de conjunto y Storage
+- Compañero: `fotos_2 text[]` (≤3) y `fotos_2_anterior text[]`; al escribir `fotos_2`, `foto_2 = fotos_2[1]`. Mismo vencimiento 24 h y limpieza.
+- Para fotos en Storage: guardar en `fotos`/`fotos_2` la URL de Storage (`…/storage/v1/object/{public|sign}/<bucket>/<ruta>`) o la ruta en `foto_path`/`foto_2_path` (bucket `familia-fotos`). A las 24 h la fila queda sin fotos y los objetos se encolan para borrado por la API de Storage (worker pendiente). Las data URL (hoy) se borran al anular la columna.
+- Error al pasar de 3: violación de CHECK (`familia_tareas_fotos_max3_chk` / `familia_tareas_fotos_2_max3_chk`) → validar en cliente («Máximo 3 fotos»).
+
 ## B20 · Tema
 - `familia_miembros.tema` text NULL ∈ {azul, verde, morado, naranja, rosa}; NULL/inválido → azul.
 - `familia_rpc_guardar_tema(p_actor_id int, p_tema text)` → `{ok, tema}`; error «tema inválido». No llamarla en «Ver como».
@@ -33,7 +38,7 @@ Errores: `error.message` listo para mostrar; `error.hint` = código estable (`b1
 - `familia_rpc_mesada_saldo` añade `proxima_liberacion_ts`; `familia_rpc_mesada_estado` añade `fecha_liberacion_ts` (timestamptz = 00:00 Madrid del día; el cron automático actúa en su primera pasada, ~00:05).
 
 ## Desviaciones respecto al contrato FE (y por qué)
-1. B19: columna `fotos text[]` (no tabla `familia_tarea_fotos`): más simple, una sola escritura atómica en el envío, la limpieza es un UPDATE; `foto_url` sigue siendo espejo. Por miembro del conjunto: `fotos` es del asignado; el compañero sigue con `foto_2` (1 foto) → pregunta abierta.
+1. B19: columnas `fotos text[]` / `fotos_2 text[]` (no tabla `familia_tarea_fotos`): una sola escritura atómica en el envío y la limpieza es un UPDATE; `foto_url` y `foto_2` siguen siendo espejo de la 1.ª foto.
 2. B18 RPC devuelve además `intervalo_min_min` (aditivo).
 3. B7: `proxima_liberacion`/`fecha_liberacion` siguen siendo date (compatibilidad); la hora va en campos nuevos `*_ts`.
 4. Nombres de tema propuestos por BD (azul, verde, morado, naranja, rosa); si Producto usa otros, se cambia el CHECK y el RPC.

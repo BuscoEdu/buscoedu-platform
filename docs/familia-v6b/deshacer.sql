@@ -35,3 +35,11 @@ COMMIT;
 -- ALTER TABLE public.familia_plantillas_tareas DROP CONSTRAINT IF EXISTS familia_plantillas_frecuencia_chk, DROP COLUMN IF EXISTS max_por_dia, DROP COLUMN IF EXISTS intervalo_min_min;
 -- ALTER TABLE public.familia_tareas DROP CONSTRAINT IF EXISTS familia_tareas_descripcion_len_chk, DROP COLUMN IF EXISTS plantilla_id;
 -- ALTER TABLE public.familia_plantillas_tareas DROP CONSTRAINT IF EXISTS familia_plantillas_descripcion_len_chk, DROP COLUMN IF EXISTS descripcion;
+
+-- ===== DESHACER v6b_23 (antes que el resto) =====
+-- DROP TRIGGER IF EXISTS familia_tareas_v6b_b19 ON public.familia_tareas;
+-- DO $$ DECLARE d text; BEGIN FOR d IN SELECT definicion FROM respaldos.familia_v6b_23_previo_fn LOOP EXECUTE d; END LOOP; END $$;
+-- CREATE TRIGGER familia_tareas_v6b_b19 BEFORE INSERT OR UPDATE OF fotos ON public.familia_tareas FOR EACH ROW EXECUTE FUNCTION public.familia_trg_v6b_fotos();
+-- DROP FUNCTION IF EXISTS public.familia_v6b_encolar_storage(integer[]); DROP FUNCTION IF EXISTS public.familia_v6b_storage_ref(text);
+-- Solo si la cola está vacía o ya procesada: DROP TABLE IF EXISTS public.familia_fotos_storage_borrar;
+-- Solo si no hubo uso: ALTER TABLE public.familia_tareas DROP CONSTRAINT IF EXISTS familia_tareas_fotos_2_max3_chk, DROP COLUMN IF EXISTS fotos_2, DROP COLUMN IF EXISTS fotos_2_anterior;
