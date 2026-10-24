@@ -153,7 +153,7 @@ h3{margin-bottom:12px}
         <select id="filterTipo" onchange="taskTypeFilter=this.value;renderTasks()"><option value="">Tipo</option><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Obligatoria</option></select>
         <select id="filterUser" onchange="taskUserFilter=this.value;renderTasks()"></select>
         <select id="filterNombre" onchange="taskNameFilter=this.value;renderTasks()"><option value="">Nombre</option></select>
-        <button class="btn small secondary" id="btnValidate" onclick="openValidate()" style="display:none">Validar hecha</button>
+        <button class="btn small secondary" id="btnValidate" onclick="openValidate()" style="display:none">Registrar ya hecha</button>
       </div>
       <div class="filter-row" id="defFilters" style="display:none">
         <select id="defFilterTipo" onchange="defTypeFilter=this.value;renderTasks()"><option value="">Tipo</option><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Obligatoria</option></select>
@@ -262,7 +262,8 @@ h3{margin-bottom:12px}
   <small id="taskCountHelp" style="color:var(--muted);display:block;margin-bottom:8px"></small>
   <button class="btn" id="btnCreateTask" style="width:100%" onclick="reviewTask()">Crear</button>
   </div>
-  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-tarea')">Cerrar</button>
+  <!-- Hotfix v5: al cerrar se apaga el modo «Validar hecha», para que no quede pegado a la siguiente creación. -->
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="validateMode=false;closeModal('modal-tarea')">Cerrar</button>
 </div></div>
 
 <div class="modal" id="modal-tarea-revisar"><div class="modal-content">
@@ -1638,6 +1639,7 @@ function openNewTask(audiencia){
 }
 function openSiblingTask(){
   taskCreateMode='hermano';
+  validateMode=false;   // Hotfix v5: «Para un hermano» nunca hereda el modo «Validar hecha»
   const wrap=document.getElementById('nuevaKindWrap');
   if(wrap) wrap.style.display='none';
   const pen=document.getElementById('nuevaPenalty');
@@ -1831,7 +1833,10 @@ function reviewTask(){
     (raw==='deber'?'<p>'+(modo==='entre'?'Entre hermanos, orden distinto cada vez':'Individual')+' · '+esc(REC_LABEL[rec]||rec)+'</p>':'')+
     '<p>Penalización por no hacerlo: '+(+document.getElementById('taskPenalty').value||0)+' pts</p>'+
     '<div style="max-height:220px;overflow:auto">'+(lineas||'<p>No hay fechas en lo que queda del mes.</p>')+'</div>'+
-    (inmediata?'<p>Empieza ahora. No se guarda como plantilla.</p>':'<p>No se activa sola. Después hay que pulsar Activar.</p>');
+    // Hotfix v5: en «Validar hecha» la tarea se guarda YA HECHA (esperando_aprobacion); antes este resumen decía
+    // «No se activa sola…» y el padre creía estar creando una tarea normal que el hijo debía marcar.
+    (validateMode?'<p><strong>Se registra como YA HECHA.</strong> Queda esperando tu aprobación y '+esc((memberById(assigned[0]&&assigned[0].asignada_a)||{}).nombre||'el hijo')+' no verá «Ya la hice». Para una tarea normal, cierra y usa «Nueva».</p>':
+    (inmediata?'<p>Empieza ahora. No se guarda como plantilla.</p>':'<p>No se activa sola. Después hay que pulsar Activar.</p>'));
   openModal('modal-tarea-revisar');
 }
 async function createTask(){
@@ -1909,7 +1914,8 @@ function openValidate(){
   if(wrap) wrap.style.display='none';
   openNewTask('hijo');
   validateMode=true;
-  document.getElementById('taskModalTitle').textContent='Validar hecha';
+  // Hotfix v5: título explícito; esta opción guarda la tarea como ya hecha (sin «Ya la hice» para el hijo).
+  document.getElementById('taskModalTitle').textContent='Registrar como ya hecha';
   document.getElementById('taskModalHint').textContent='Elige una plantilla. No se edita. Queda de una vez para que un padre la apruebe.';
   ['taskTitle','taskPoints','taskRecurrence','taskCount','taskTipo'].forEach(id=>{const el=document.getElementById(id); if(el) el.disabled=true;});
   openModal('modal-tarea');
