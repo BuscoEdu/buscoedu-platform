@@ -1213,6 +1213,8 @@ async function savePlantilla(){
     resta_por_minuto:Math.max(0,+document.getElementById('elemPerMin').value||0),
     ventana_horas:Math.max(1,+document.getElementById('elemWindow').value||24)
   };
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Guardar «'+titulo+'» en el catálogo?')) return;
   const {error}=await supabase.from('familia_plantillas_tareas').update(row).eq('id',id);
   if(error) return showToast(error.message);
   showToast('Tarea actualizada');
@@ -1931,6 +1933,8 @@ async function seedBaseRewards(){
     nombre:r.nombre,costo:r.costo,icono:r.icono,tipo:'hijo',activo:true,stock:-1,creado_por:state.currentUserId
   }));
   if(!rows.length) return showToast('La lista base ya está cargada');
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Cargar '+rows.length+' premio(s) de la lista base?')) return;
   const {error}=await supabase.from('familia_premios').insert(rows);
   if(error) return showToast(error.message);
   showToast('Premios base listos');
@@ -1999,6 +2003,8 @@ function applyPlantilla(){
 }
 async function activateTask(id){
   if(!requireAdmin()) return;
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  {const t=state.tasks.find(x=>x.id===id); if(!confirm('¿Activar «'+((t&&t.titulo)||'esta tarea')+'» para '+((memberById(t&&t.asignada_a)||{}).nombre||'este hijo')+'?')) return;}
   const {error}=await supabase.from('familia_tareas').update({estado:'pendiente'}).eq('id',id).eq('estado','borrador');
   if(error) return showToast(error.message);
   showToast('Tarea activada');
@@ -2207,6 +2213,8 @@ async function saveTaskFicha(id){
   };
   const reabrir=t.estado==='no_terminada'&&!t.puntos_sumados&&centroMs&&(centroMs+half)>Date.now();
   if(reabrir) payload.estado='pendiente';
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Guardar los cambios de «'+titulo+'» para '+dest.nombre+' ('+payload.puntos+' pts)?')) return;
   const {error}=await supabase.from('familia_tareas').update(payload).eq('id',id);
   if(error) return showToast(error.message);
   showToast(reabrir?'Volvió a vigente':'Tarea actualizada');
@@ -2279,6 +2287,8 @@ async function submitEvidence(){
     if(foto) payload.foto_url=foto;
   }
   if(!t||!t.marcada_en) payload.marcada_en=new Date().toISOString();
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Enviar «'+((t&&t.titulo)||'esta tarea')+'» para que papá o mamá la revisen?')) return;
   const {error}=await supabase.from('familia_tareas').update(payload).eq('id',pendingTaskId);
   if(error) return showToast(error.message);
   showToast(payload.estado==='esperando_aprobacion'?'Quedó pendiente de aprobación':'Falta la parte del otro');
@@ -2303,6 +2313,8 @@ async function confirmApproval(id){
   if(awardsPoints(t)&&!siblingPay) pts=Math.max(0,livePoints(t));
   if(siblingPay) pts=Number(t.puntos)||0;
   if(taskAudience(t)==='kid'){
+    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+    if(!confirm('¿Aprobar «'+t.titulo+'» de '+((who&&who.nombre)||'este integrante')+(pts?' (+'+pts+' pts)':'')+'?')) return;
     const ptsToStore=siblingPay?(Number(t.puntos)||0):(awardsPoints(t)?Math.max(0, Number(t.puntos)||0):0);
     /* F0 v3 (BE, 24-oct-2026): ya no se borran foto_url/foto_2 al aprobar/cerrar; la evidencia se conserva para el historial. */
     const {error}=await supabase.from('familia_tareas').update({
@@ -2354,6 +2366,8 @@ async function confirmMiss(id){
   const u=currentUser();
   if(!t||!u||!isAdmin(u)||t.puntos_sumados) return;
   const loss=penaltyAmount(t);
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Cerrar «'+t.titulo+'» de '+((memberById(t.asignada_a)||{}).nombre||'este hijo')+' como no hecha (−'+loss+' pts)?')) return;
   const {data,error}=await supabase.from('familia_tareas').update({estado:'completada',puntos_sumados:true,puntos_aplicados:-loss,cerrado_en:new Date().toISOString()}).eq('id',id).or('puntos_sumados.is.null,puntos_sumados.eq.false').select('id');
   if(error) return showToast(error.message);
   if(!data||!data.length) return showToast('Ya se había aplicado');
@@ -2374,6 +2388,8 @@ async function returnTask(id){
   const comment=document.getElementById('fichaApprovalComment').value.trim();
   /* F1 v3: al devolver, la evidencia actual se guarda en foto_anterior/foto_2_anterior (columnas BD F1)
      y luego se vacían foto_url/foto_2 para que el hijo reenvíe; así no se pierde la foto devuelta. */
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Devolver «'+((t&&t.titulo)||'esta tarea')+'» a '+((memberById(t&&t.asignada_a)||{}).nombre||'este hijo')+' para que la corrija?')) return;
   const {error}=await supabase.from('familia_tareas').update({estado:'pendiente',comentario_aprobacion:comment||null,
     foto_anterior:(t&&t.foto_url)||null,foto_2_anterior:(t&&t.foto_2)||null,foto_url:null,foto_2:null}).eq('id',id);
   if(error) return showToast(error.message);
@@ -2388,6 +2404,8 @@ async function rejectTask(id){
   if(!t) return;
   const comment=document.getElementById('fichaApprovalComment')?document.getElementById('fichaApprovalComment').value.trim():'';
   /* F0 v3 (FE, 24-oct-2026): se conserva foto_url/foto_2; antes se ponían en null y se perdía la evidencia. */
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Rechazar «'+t.titulo+'» de '+((memberById(t.asignada_a)||{}).nombre||'este hijo')+'? Se cierra con 0 pts.')) return;
   const {error}=await supabase.from('familia_tareas').update({
     estado:'aviso_rechazada',comentario_aprobacion:comment||null,puntos_aplicados:0,puntos_sumados:false
   }).eq('id',id);
@@ -2399,13 +2417,15 @@ async function rejectTask(id){
 }
 async function acceptExpired(id){
   const t=state.tasks.find(x=>x.id===id);
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Aceptar que «'+((t&&t.titulo)||'esta tarea')+'» se venció'+(t&&t.puntos_penalizacion_dia?' (−'+t.puntos_penalizacion_dia+' pts)':'')+'?')) return;
   if(t&&t.estado==='pendiente'){
     await supabase.from('familia_tareas').update({estado:'aviso_vencida'}).eq('id',id).eq('estado','pendiente');
     t.estado='aviso_vencida';
   }
-  return acceptChildNotice(id);
+  return acceptChildNotice(id,true);   // v5 ítem 17: ya se confirmó arriba, no se pregunta dos veces
 }
-async function acceptChildNotice(id){
+async function acceptChildNotice(id,yaConfirmado){
   const t=state.tasks.find(x=>x.id===id);
   const u=currentUser();
   if(!t||!u||!isKid(u)) return;
@@ -2416,6 +2436,8 @@ async function acceptChildNotice(id){
   let delta=0;
   if(aviso==='aviso_aprobada') delta=Math.max(0, Number(t.puntos_aplicados)||0);
   if(aviso==='aviso_vencida') delta=-(Math.max(0, Number(t.puntos_penalizacion_dia)||0));
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!yaConfirmado&&!confirm('¿Aceptar «'+t.titulo+'»'+(delta?' ('+(delta>0?'+':'')+delta+' pts)':'')+'?')) return;
   /* F0 v3 (FE, 24-oct-2026): se conserva foto_url/foto_2; antes se ponían en null y se perdía la evidencia. */
   const {data,error}=await supabase.from('familia_tareas').update({
     estado:'completada',puntos_sumados:true,puntos_aplicados:delta,cerrado_en:new Date().toISOString()
@@ -2466,6 +2488,8 @@ async function confirmTransfer(){
   if(!pendingTransferId) return;
   const toId=+document.getElementById('transferTo').value;
   if(!toId) return showToast('Selecciona un hermano');
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  {const t=state.tasks.find(x=>x.id===pendingTransferId); if(!confirm('¿Pasar «'+((t&&t.titulo)||'esta tarea')+'» a '+((memberById(toId)||{}).nombre||'tu hermano')+'?')) return;}
   const {error}=await supabase.from('familia_tareas').update({
     para_quien:String(toId),es_transferencia:true,aceptada_receptor:false,transferencia_aprobada:false,estado:'pendiente_transferencia'
   }).eq('id',pendingTransferId);
@@ -2476,6 +2500,8 @@ async function confirmTransfer(){
   loadAll();
 }
 async function acceptTransfer(id){
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  {const t=state.tasks.find(x=>x.id===id); if(!confirm('¿Aceptar «'+((t&&t.titulo)||'esta tarea')+'»'+(t&&t.puntos?' ('+t.puntos+' pts)':'')+'?')) return;}
   const {error}=await supabase.from('familia_tareas').update({aceptada_receptor:true,estado:'transferencia_por_aprobar'}).eq('id',id);
   if(error) return showToast(error.message);
   showToast('Aceptada. Falta que papá o mamá la aprueben.');
@@ -2488,6 +2514,8 @@ async function approveTransfer(id){
   if(!t) return;
   const toId=Number(t.para_quien);
   if(!toId) return showToast('No hay hermano destino');
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Aprobar el traspaso de «'+t.titulo+'» a '+((memberById(toId)||{}).nombre||'el hermano')+'?')) return;
   const {error}=await supabase.from('familia_tareas').update({
     asignada_a:toId,para_quien:null,transferencia_aprobada:true,es_transferencia:true,estado:'pendiente'
   }).eq('id',id);
@@ -2500,6 +2528,8 @@ async function approveTransfer(id){
 }
 async function rejectTransfer(id){
   const t=state.tasks.find(x=>x.id===id);
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Rechazar el traspaso de «'+((t&&t.titulo)||'esta tarea')+'»? Se queda con '+((memberById(t&&t.asignada_a)||{}).nombre||'quien la tenía')+'.')) return;
   const {error}=await supabase.from('familia_tareas').update({
     para_quien:null,es_transferencia:false,aceptada_receptor:false,transferencia_aprobada:false,estado:'pendiente'
   }).eq('id',id);
@@ -2522,6 +2552,8 @@ async function applyPenalty(){
   const motivo=document.getElementById('penaltyReason').value.trim();
   if(!mid||pts<=0||!motivo) return showToast('Completa hijo, puntos y motivo');
   const m=memberById(mid);
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Descontar '+pts+' pts a '+((m&&m.nombre)||'este hijo')+' por «'+motivo+'»?')) return;
   const {error}=await supabase.from('familia_miembros').update({puntos:(Number(m?.puntos)||0)-pts}).eq('id',mid);
   if(error) return showToast(error.message);
   // v5 ítem 14: la fila nace tipada (tipo 'descuento', pts negativos) para que ranking y saldo la clasifiquen bien.
@@ -2627,6 +2659,8 @@ async function saveReward(){
     activo:document.getElementById('rewardActive').checked
   };
   let error;
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Guardar el premio «'+nombre+'» por '+payload.costo+' pts?')) return;
   if(editingRewardId){
     ({error}=await supabase.from('familia_premios').update(payload).eq('id',editingRewardId));
   }else{
@@ -2645,6 +2679,8 @@ async function requestPrize(id){
   if(r.stock===0) return showToast('Sin stock');
   if((u.puntos||0)<(r.costo||0)) return showToast('Puntos insuficientes');
   if(state.solicitudes.some(s=>s.estado==='pendiente'&&s.miembro_id===u.id&&s.premio_id===r.id)) return showToast('Ya está esperando a un padre');
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Seguro que quieres pedir '+r.nombre+' por '+(Number(r.costo)||0)+' pts?')) return;
   const {error}=await supabase.from('familia_solicitudes_premios').insert({premio_id:r.id,miembro_id:u.id,estado:'pendiente'});
   if(error) return showToast(error.message);
   showToast('Quedó para que un padre lo apruebe');
@@ -2662,6 +2698,8 @@ async function approvePrize(solicitudId){
   const costo=Number(r.costo)||0;
   if((Number(kid.puntos)||0)<costo) return showToast(kid.nombre+' ya no tiene esos puntos');
   if(r.activo===false||r.stock===0) return showToast('Ese premio ya no está disponible');
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Aprobar «'+r.nombre+'» para '+kid.nombre+' (−'+costo+' pts)?')) return;
   const {data,error}=await supabase.from('familia_solicitudes_premios').update({estado:'aprobado'}).eq('id',solicitudId).eq('estado','pendiente').select();
   if(error) return showToast(error.message);
   if(!data||!data.length) return showToast('Ya lo resolvió el otro padre');
@@ -2682,6 +2720,8 @@ async function rejectPrize(solicitudId){
   if(!isAdmin(u)) return;
   const s=state.solicitudes.find(x=>x.id===solicitudId);
   const r=s?state.rewards.find(x=>x.id===s.premio_id):null;
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Rechazar «'+((r&&r.nombre)||'este premio')+'» de '+((memberById(s&&s.miembro_id)||{}).nombre||'este hijo')+'?')) return;
   const {data,error}=await supabase.from('familia_solicitudes_premios').update({estado:'rechazado'}).eq('id',solicitudId).eq('estado','pendiente').select();
   if(error) return showToast(error.message);
   if(!data||!data.length) return showToast('Esa solicitud ya se resolvió');
@@ -2696,6 +2736,8 @@ async function redeemReward(id){
   if(!r||!u||!isAdmin(u)||(r.tipo||'hijo')!=='padre') return showToast('Este premio no es para ti');
   if(r.activo===false||(u.puntos||0)<(r.costo||0)) return showToast('Puntos insuficientes');
   if(r.stock===0) return showToast('Sin stock');
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Canjear «'+r.nombre+'» por '+(r.costo||0)+' pts?')) return;
   const {error}=await supabase.from('familia_miembros').update({puntos:u.puntos-r.costo}).eq('id',u.id);
   if(error) return showToast(error.message);
   if(r.stock>0) await supabase.from('familia_premios').update({stock:r.stock-1}).eq('id',r.id);
@@ -2749,6 +2791,8 @@ async function saveProfile(){
   if(photoFile){
     try{ upd.foto_url=await fileToDataUrl(photoFile); }catch(e){ return showToast('No se pudo leer la foto'); }
   }
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Guardar los cambios de tu perfil?')) return;
   const {error}=await supabase.from('familia_miembros').update(upd).eq('id',u.id);
   if(error) return showToast(error.message);
   if(isAdmin(u)){
@@ -2772,6 +2816,8 @@ async function confirmResetAll(){
 async function resetOneKidPin(){
   const id=+document.getElementById('resetPinMember').value;
   if(!id) return showToast('Elige un hijo');
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Resetear el PIN de '+((memberById(id)||{}).nombre||'este hijo')+' a oooo?')) return;
   await supabase.from('familia_miembros').update({pin:'oooo'}).eq('id',id);
   showToast('PIN reseteado a oooo');
 }
@@ -2791,6 +2837,8 @@ async function createGoal(){
   const titulo=document.getElementById('goalTitle').value.trim();
   const puntos=+document.getElementById('goalPoints').value||0;
   if(!titulo||puntos<=0) return showToast('Escribe la meta y los puntos');
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Crear la meta «'+titulo+'» de '+puntos+' pts?')) return;
   const {error}=await supabase.from('familia_tareas').insert({
     titulo,puntos,descripcion:'META',asignada_a:state.currentUserId,creada_por:state.currentUserId,
     estado:'pendiente',recurrencia:'once'
@@ -2840,6 +2888,8 @@ async function sendMessage(){
   const txt=document.getElementById('chatInput').value.trim();
   if(!txt) return;
   const to=document.getElementById('chatTo').value;
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Enviar este mensaje a '+(to?((memberById(+to)||{}).nombre||'esta persona'):'toda la familia')+'?')) return;
   const {error}=await supabase.from('familia_mensajes').insert({
     de_id:state.currentUserId,
     para_id:to?+to:null,
@@ -2969,6 +3019,8 @@ async function createMember(){
   const rol=document.getElementById('newMemberRole').value;
   const birth=document.getElementById('newMemberBirth').value||null;
   if(!nombre||!rol) return showToast('Escribe el nombre y el rol');
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Crear a '+nombre+' ('+rol+') con PIN oooo?')) return;
   const {error}=await supabase.from('familia_miembros').insert({
     nombre,rol,es_admin:tipo==='adulto',pin:'oooo',puntos:0,puntos_historicos:0,fecha_nacimiento:birth,emoji:'👤',color:'#6366f1'
   });
@@ -3005,6 +3057,8 @@ async function solicitarTarea(i){
     creada_por:u.id,puntos_sumados:false,
     habilita_en:now.toISOString(),fecha_limite:limite.toISOString(),ventana_horas:2
   };
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Solicitar «'+p.titulo+'»'+(Number(p.puntos)?' por '+p.puntos+' pts':'')+'? Tendrás 2 h para hacerla.')) return;
   const {data,error}=await supabase.from('familia_tareas').insert(row).select('*').single();
   if(error) return showToast(error.message);
   state.tasks.unshift(data);
@@ -3034,6 +3088,8 @@ async function cargarMesada(){
   const sel=document.getElementById('mesadaKid').value;
   const kids=sel==='todos'?state.members.filter(isKid):[memberById(+sel)].filter(Boolean);
   if(!kids.length) return showToast('No hay hijos');
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Cargar mesada de '+pts+' pts a '+(sel==='todos'?'todos los hijos':kids[0].nombre)+'?')) return;
   for(const k of kids){
     const {error}=await supabase.from('familia_miembros').update({puntos:(Number(k.puntos)||0)+pts}).eq('id',k.id);
     if(error) return showToast(error.message);
@@ -3048,6 +3104,8 @@ async function cargarMesadaPendiente(id){
   const who=t&&memberById(t.asignada_a);
   if(!t||!who) return;
   const pts=Math.max(0,Number(t.puntos)||0);
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Cargar mesada de '+pts+' pts a '+who.nombre+'?')) return;
   if(!t.puntos_sumados&&pts){
     await supabase.from('familia_miembros').update({puntos:(Number(who.puntos)||0)+pts}).eq('id',who.id);
     await supabase.from('familia_historial').insert({miembro_id:who.id,texto:'Mesada: '+(t.titulo||'Mesada')+' (+'+pts+' pts)',tarea_id:t.id});
@@ -3078,6 +3136,8 @@ function renderDeberList(){
 }
 async function toggleDeber(id,on){
   if(!requireAdmin()) return;
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  {const d=(state.deberes||[]).find(x=>x.id===id); if(!confirm('¿'+(on?'Activar':'Desactivar')+' el deber «'+((d&&d.titulo)||'')+'»?')){if(document.getElementById('modal-deberes').classList.contains('show')) renderDeberList(); return;}}
   const {error}=await supabase.from('familia_deberes').update({activo:!!on}).eq('id',id);
   if(error) return showToast(error.message);
   await loadAll();
@@ -3097,6 +3157,8 @@ async function saveDeber(){
     veces_dia:veces,
     activo:true
   };
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Guardar el deber «'+titulo+'»?')) return;
   const {error}=await supabase.from('familia_deberes').insert(row);
   if(error) return showToast(error.message);
   document.getElementById('deberTitulo').value='';
@@ -3180,6 +3242,8 @@ async function repartirDeberes(){
     });
   });
   if(!rows.length) return showToast('Ese ciclo ya estaba repartido');
+  // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+  if(!confirm('¿Repartir '+rows.length+' deber(es) entre '+kids.length+' hijo(s)?')) return;
   const {error}=await supabase.from('familia_tareas').insert(rows);
   if(error) return showToast(error.message);
   showToast(rows.length+' deberes quedaron por activar');
@@ -3349,6 +3413,9 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 /* Hoja modal propia de la v3 (crear en 2 pasos, ficha de vencido). */
 .v3-sheet{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:flex-end;justify-content:center;z-index:2500}
 .v3-sheet.on{display:flex}
+/* v5 ítem 18: barra «Volver» fija arriba de cada hoja; botón de 44 px para tocar en 390/360 y en 1280. */
+.v5-volver{position:sticky;top:-18px;margin:-18px -18px 10px;padding:10px 14px;background:#fff;border-bottom:1px solid #e2e8f0;z-index:1}
+.v5-volver button{min-height:44px;padding:8px 14px;border:0;border-radius:10px;background:#eef2ff;color:#4338ca;font-size:.95rem;font-weight:600;cursor:pointer}
 .v3-sheet>div{background:#fff;width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:90vh;overflow-y:auto}
 .v3-sheet label{display:block;font-size:.8rem;color:#475569;margin:10px 0 4px}
 .v3-sheet input,.v3-sheet select{width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font-size:.95rem}
@@ -3805,6 +3872,8 @@ window.FamiliaV3=(function(){
   async function traspaso(acc,id){
     const args={p_tarea_id:id};
     if(acc==='pasar'){const sel=document.getElementById('v4Herm'); if(!sel||!sel.value) return showToast('Selecciona un hermano'); args.p_para_id=+sel.value;}
+    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+    {const t=state.tasks.find(x=>x.id===id), tt='«'+((t&&t.titulo)||'esta tarea')+'»'; const q={pasar:'¿Pasar '+tt+' a '+((memberById(args.p_para_id)||{}).nombre||'tu hermano')+'?',aceptar:'¿Aceptar '+tt+(t&&t.puntos?' ('+t.puntos+' pts)':'')+'?',rechazar:'¿Rechazar el traspaso de '+tt+'?',aprobar:'¿Aprobar el traspaso de '+tt+' a '+((memberById(t&&+t.para_quien)||{}).nombre||'el hermano')+'?'}[acc]; if(q&&!confirm(q)) return;}
     const d=await rpcIntento('t'+acc+id,'familia_rpc_traspaso_'+acc,args); if(!d) return;
     cerrarHoja(); if(!d.idempotente) showToast({pasar:'Se la pasaste; falta que acepte',aceptar:'Aceptada; falta que papá/mamá apruebe',rechazar:'Traspaso rechazado',aprobar:'Traspaso aprobado'}[acc]);
     loadAll();
@@ -3883,6 +3952,8 @@ window.FamiliaV3=(function(){
     const hijos=[...document.querySelectorAll('.v4lHijo:checked')].map(c=>+c.value);
     const tit=v('v4lTit').trim(); if(!tit) return showToast('Escribe el título'); if(!hijos.length) return showToast('Marca al menos un hijo');
     const ini=new Date(v('v4lIni')); if(isNaN(ini)) return showToast('Fecha inválida');
+    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+    if(!confirm('¿Crear la tarea repetitiva «'+tit+'» para '+hijos.length+' hijo(s) hasta fin de mes?')) return;
     const d=await rpcIntento('lote','familia_rpc_crear_lote',{p_titulo:tit,p_clase:v('v4lClase'),p_puntos:Math.max(0,n('v4lPts',0)),
       p_inicio:ini.toISOString(),p_recurrencia:v('v4lRec'),p_veces:Math.min(4,Math.max(1,n('v4lVeces',1))),p_ventana_min:Math.max(1,n('v4lVen',60)),
       p_penal:Math.max(0,n('v4lPen',0)),p_hijos:hijos,p_modo:v('v4lModo'),p_estado:v('v4lEst')});   // sin p_icono (default '📋') ni p_zona
@@ -3903,10 +3974,14 @@ window.FamiliaV3=(function(){
     // QA 6b: sin destinatario por defecto; hay que elegir un hijo (o «Todos los hijos» a propósito).
     const k=document.getElementById('v4mKid').value;
     if(!k) return showToast('Elige a quién va la mesada');
+    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+    if(!confirm('¿Cargar mesada de '+pts+' pts a '+(k==='todos'?'todos los hijos':((memberById(+k)||{}).nombre||'este hijo'))+'?')) return;
     const d=await rpcIntento('mesada','familia_rpc_mesada',{p_pts:pts,p_miembro_id:k==='todos'?null:+k}); if(!d) return;
     cerrarHoja(); if(!d.idempotente) showToast('Mesada cargada: +'+(d.pts||pts)+' pts a '+((d.miembros||[]).length||1)+' hijo(s)'); loadAll();
   }
   async function mesadaPendiente(id){
+    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+    {const t=state.tasks.find(x=>x.id===id); if(!confirm('¿Cargar mesada de '+((t&&Number(t.puntos))||0)+' pts a '+((memberById(t&&t.asignada_a)||{}).nombre||'este hijo')+'?')) return;}
     const d=await rpcIntento('mp'+id,'familia_rpc_mesada_pendiente',{p_tarea_id:id}); if(!d) return;
     if(!d.idempotente) showToast('Mesada cargada'); loadAll();
   }
@@ -3955,6 +4030,8 @@ window.FamiliaV3=(function(){
       const row={titulo:p.titulo,puntos:deber?0:(Number(p.puntos)||0),recurrencia:'once',icono:'🙋',asignada_a:u.id,
         tipo:deber?'deber':'tarea',clase:deber?'deber':'tarea',inmediata:false,estado:'pendiente',creada_por:u.id,puntos_sumados:false,
         habilita_en:now.toISOString(),fecha_limite:limite.toISOString(),ventana_horas:2,client_req_id:reqId(k)};
+      // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+      if(!confirm('¿Solicitar «'+p.titulo+'»'+(row.puntos?' por '+row.puntos+' pts':'')+'? Tendrás 2 h para hacerla.')) return;
       const {data,error}=await supabase.from('familia_tareas').insert(row).select(V3_COLS_TAREAS).single();
       if(error) return showToast('No se pudo: '+error.message);
       delete reqIds[k]; state.tasks.unshift(data); cerrarHoja(); pintar(); detalle(data.id);
@@ -4056,6 +4133,8 @@ window.FamiliaV3=(function(){
   // p_comentario = comentario_aprobacion (opcional, desde el detalle). Si la RPC falla, la ficha vuelve y sale el error.
   function aprobar(id,comentario){
     const t=state.tasks.find(x=>x.id===id); if(!t) return;
+    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+    if(!confirm('¿Aprobar «'+t.titulo+'» de '+((memberById(t.asignada_a)||{}).nombre||'este integrante')+(Number(t.puntos)?' (+'+t.puntos+' pts)':'')+'?')) return;
     ocultas.add(id); pintar(); cerrarHoja();
     avisoDeshacer('Aprobada: '+t.titulo,
       async()=>{const d=await rpc('familia_rpc_aprobar_tarea',{p_tarea_id:id,p_actor_id:state.currentUserId,p_comentario:comentario||null});
@@ -4083,6 +4162,8 @@ window.FamiliaV3=(function(){
   /* --- Hijo: «Entendido» en una tarea aprobada → familia_rpc_aceptar_aprobada (suma los puntos en BD). --- */
   async function aceptarAprobada(id){
     if(soloLectura()) return;
+    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+    {const t=state.tasks.find(x=>x.id===id); if(!confirm('¿Guardar «'+((t&&t.titulo)||'esta tarea')+'» en tu historial'+(t&&t.puntos_aplicados?' (+'+t.puntos_aplicados+' pts)':'')+'?')) return;}
     const k='a'+id; if(enCurso.has(k)) return; enCurso.add(k);
     const d=await rpc('familia_rpc_aceptar_aprobada',{p_tarea_id:id,p_actor_id:state.currentUserId});
     enCurso.delete(k); if(!d) return;
@@ -4130,6 +4211,8 @@ window.FamiliaV3=(function(){
   }
   // Padre: aprueba la solicitud del hijo → familia_rpc_canjear_premio (idempotente por estado).
   async function aprobarPremio(sid){
+    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+    {const s=(state.solicitudes||[]).find(x=>x.id===sid), r=s&&state.rewards.find(x=>x.id===s.premio_id); if(!confirm('¿Aprobar «'+((r&&r.nombre)||'este premio')+'» para '+((memberById(s&&s.miembro_id)||{}).nombre||'este hijo')+(r?' (−'+(Number(r.costo)||0)+' pts)':'')+'?')) return;}
     const k='s'+sid; if(enCurso.has(k)) return; enCurso.add(k); ocultas.add(k); pintar();
     const d=await rpc('familia_rpc_canjear_premio',{p_solicitud_id:sid,p_actor_id:state.currentUserId});
     enCurso.delete(k);
@@ -4203,6 +4286,8 @@ window.FamiliaV3=(function(){
       else if(t.conjunto_con&&u.id===t.asignada_a){payload.comentario_completado=comment||null; if(foto) payload.foto_url=foto; if(t.evidencia_2) payload.estado='esperando_aprobacion';}
       else{payload.estado='esperando_aprobacion'; payload.comentario_completado=comment||null; if(foto) payload.foto_url=foto;}
       if(!t.marcada_en) payload.marcada_en=new Date().toISOString();
+      // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+      if(!confirm('¿Enviar «'+t.titulo+'» para que papá o mamá la revisen?')) return;
       const {error}=await supabase.from('familia_tareas').update(payload).eq('id',id);
       if(error) return showToast('No se pudo: '+error.message);
       Object.assign(t,payload); delete t.foto_url; delete t.foto_2;   // en memoria la v3 no guarda fotos
@@ -4250,6 +4335,8 @@ window.FamiliaV3=(function(){
       <button class="v3-cta v3-full" onclick="FamiliaV3.entendido(${id})">Entendido, se me pasó</button>`);
   }
   async function entendido(id){
+    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+    {const t=state.tasks.find(x=>x.id===id); if(!confirm('¿Aceptar que «'+((t&&t.titulo)||'esta tarea')+'» se te pasó?')) return;}
     cerrarHoja();
     const r=await rpc('familia_rpc_aceptar_vencida',{p_tarea_id:id,p_actor_id:state.currentUserId});
     if(r){const t=state.tasks.find(x=>x.id===id); if(t) t.estado_vencida='por_decidir'; pintar(); scheduleReload();}
@@ -4286,6 +4373,8 @@ window.FamiliaV3=(function(){
       p_client_req_id:crear.req,   // mismo id en reintentos → la RPC devuelve la misma tarea
       p_puntos:d?0:num('v3cPts'),p_clase:crear.clase,p_tipo:d?'deber':'tarea',p_ventana_min:Math.max(1,num('v3cMin')||1),
       p_pierde_pts:d?num('v3cPierde'):null};
+    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+    if(!confirm('¿Crear '+(d?'el deber':'la tarea')+' «'+crear.titulo+'» para '+((memberById(Number(crear.asignada))||{}).nombre||'este hijo')+(d?'':' ('+(args.p_puntos||0)+' pts)')+'?')) return;
     if(enCurso.has('crear')) return; enCurso.add('crear');
     const id=await rpc('familia_rpc_crear_tarea',args); enCurso.delete('crear'); if(id==null) return;   // error: se conserva crear.req
     const who=(memberById(crear.asignada)||{}).nombre||'';
@@ -4298,7 +4387,9 @@ window.FamiliaV3=(function(){
   }
 
   /* --- Utilidades de hoja modal y navegación. --- */
-  function abrirHoja(html){document.getElementById('v3SheetBody').innerHTML=html;document.getElementById('v3Sheet').classList.add('on');}
+  // v5 ítem 18: toda hoja (Repetitiva, Mesada, PINs, Ver como, Resetear, Integrante, Premio, Perfil, Metas, Chat, Medallas,
+  // Crear, Solicitar…) abre con «← Volver» arriba; un toque cierra la hoja y deja la sección de origen (p. ej. Yo).
+  function abrirHoja(html){document.getElementById('v3SheetBody').innerHTML='<div class="v5-volver"><button type="button" onclick="FamiliaV3.cerrarHoja()">← Volver</button></div>'+html;document.getElementById('v3Sheet').classList.add('on');}
   function cerrarHoja(){document.getElementById('v3Sheet').classList.remove('on');}
   function ir(s){seccion=s;pintar();if(s==='yo')cargarHistorial().then(pintar);}
   function ranking(m){rkModo=m;pintar();}
@@ -4313,6 +4404,8 @@ window.FamiliaV3=(function(){
   async function guardarIntegrante(){
     const nombre=document.getElementById('v3mNom').value.trim(), tipo=document.getElementById('v3mTipo').value, rol=document.getElementById('v3mRol').value.trim()||(tipo==='adulto'?'Tutor':'Hijo');
     if(!nombre) return showToast('Escribe el nombre');
+    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+    if(!confirm('¿Crear a '+nombre+' ('+rol+') con PIN oooo?')) return;
     const {error}=await supabase.from('familia_miembros').insert({nombre,rol,es_admin:tipo==='adulto',pin:'oooo',puntos:0,puntos_historicos:0,emoji:'👤',color:'#6366f1'});
     if(error) return showToast('No se pudo: '+error.message);
     cerrarHoja(); showToast(nombre+' ya puede entrar con el PIN oooo'); loadAll();
@@ -4326,6 +4419,8 @@ window.FamiliaV3=(function(){
   async function guardarPremio(){
     const nombre=document.getElementById('v3pNom').value.trim(), costo=Math.max(1,parseInt(document.getElementById('v3pCosto').value,10)||0), tipo=document.getElementById('v3pTipo').value;
     if(!nombre) return showToast('Escribe un nombre');
+    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+    if(!confirm('¿Crear el premio «'+nombre+'» por '+costo+' pts para '+(tipo==='padre'?'padres':'hijos')+'?')) return;
     const {error}=await supabase.from('familia_premios').insert({nombre,costo,stock:-1,icono:'🎁',tipo,activo:true,creado_por:state.currentUserId});
     if(error) return showToast('No se pudo: '+error.message);
     cerrarHoja(); showToast('Premio creado'); loadAll();
@@ -4358,6 +4453,8 @@ window.FamiliaV3=(function(){
     const upd={nombre:document.getElementById('v3uNom').value.trim(),frase:document.getElementById('v3uFrase').value.trim()};
     const pin=document.getElementById('v3uPin').value.trim(); if(pin) upd.pin=pin;
     if(!upd.nombre) return showToast('Escribe tu nombre');
+    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
+    if(!confirm('¿Guardar los cambios de tu perfil?')) return;
     const {error}=await supabase.from('familia_miembros').update(upd).eq('id',state.currentUserId);
     if(error) return showToast('No se pudo: '+error.message);
     cerrarHoja(); showToast('Perfil actualizado'); loadAll();
