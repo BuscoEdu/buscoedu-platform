@@ -1017,7 +1017,8 @@ function render(){
 }
 function reminderCount(u){
   if(!u) return 0;
-  if(isAdmin(u)) return state.tasks.filter(t=>!isGoal(t)&&['esperando_aprobacion','transferencia_por_aprobar'].includes(t.estado)&&!t.puntos_sumados).length;
+  // v6 A5b: el padre también cuenta las solicitudes de tareas; el hijo solo cuenta 'pendiente' (no las solicitadas).
+  if(isAdmin(u)) return state.tasks.filter(t=>!isGoal(t)&&['esperando_aprobacion','transferencia_por_aprobar','solicitada'].includes(t.estado)&&!t.puntos_sumados).length;
   return state.tasks.filter(t=>!isGoal(t)&&((t.estado==='pendiente'&&(t.asignada_a===u.id||t.conjunto_con===u.id)&&taskTiming(t)==='ready')||(['aviso_aprobada','aviso_rechazada','aviso_vencida'].includes(t.estado)&&(t.asignada_a===u.id||t.conjunto_con===u.id)))).length;
 }
 function unseenNotifs(){
@@ -1116,7 +1117,8 @@ function renderTasks(){
     if(parentList) parentList.innerHTML='';
     return;
   }
-  const open=state.tasks.filter(t=>!isGoal(t)&&!isClosedTask(t)&&t.tipo!=='mesada').sort(byDue);
+  // v6 A5b: estado 'solicitada' (pedido del hijo sin aprobar): no es tarea abierta (no tiene ventana ni «Ya la hice»); se aprueba en Revisar.
+  const open=state.tasks.filter(t=>!isGoal(t)&&!isClosedTask(t)&&t.tipo!=='mesada'&&t.estado!=='solicitada').sort(byDue);
   if(isAdmin(u)){
     const want=taskView==='hijos'?'kid':'parent';
     const rows=open.filter(t=>taskAudience(t)===want).filter(passTaskFilter);
@@ -1295,6 +1297,9 @@ function myNotifs(){
         items.push({key:'mine'+t.id,kind:'tarea',id:t.id,text:'Te cargaron: '+(t.titulo||'tarea')});
       if(taskAudience(t)==='kid'&&t.estado==='esperando_aprobacion')
         items.push({key:'val'+t.id,kind:'tarea',id:t.id,text:(memberById(t.asignada_a)?.nombre||'Un hijo')+' envió para validar: '+(t.titulo||'tarea')});
+      // v6 A5b: estado 'solicitada' (pedido del hijo sin aprobar): aviso para el padre.
+      if(t.estado==='solicitada')
+        items.push({key:'sol'+t.id,kind:'tarea',id:t.id,text:(memberById(t.asignada_a)?.nombre||'Un hijo')+' pidió: '+(t.titulo||'tarea')});
       if(t.estado==='transferencia_por_aprobar')
         items.push({key:'tr'+t.id,kind:'tarea',id:t.id,text:'Traspaso por aprobar: '+(t.titulo||'tarea')});
     });
@@ -3683,6 +3688,9 @@ window.FamiliaV3=(function(){
     // v4: el hijo también ve las tareas que un hermano le pasa (pendiente_transferencia, para_quien = su id).
     if(!admin) lista=lista.filter(t=>t.asignada_a===u.id||t.conjunto_con===u.id||(t.estado==='pendiente_transferencia'&&String(t.para_quien)===String(u.id))).filter(t=>t.estado_vencida!=='por_decidir');
     else lista=lista.filter(t=>t.estado!=='aviso_aprobada');
+    // v6 A5b: estado 'solicitada' (pedido del hijo sin aprobar): fuera de Hoy/Vencidos/Más adelante y de sus contadores; el hijo las ve aparte en «Mis solicitudes».
+    const misSol=admin?[]:lista.filter(t=>t.estado==='solicitada');
+    lista=lista.filter(t=>t.estado!=='solicitada');
     lista.sort((a,b)=>(esDeber(b)-esDeber(a))||String(a.titulo).localeCompare(b.titulo));
     const hoy=lista.filter(t=>grupoFecha(t)==='hoy'), venc=lista.filter(t=>grupoFecha(t)==='vencido'), luego=lista.filter(t=>grupoFecha(t)==='luego');
     const fila=t=>{
@@ -3713,6 +3721,7 @@ window.FamiliaV3=(function(){
     // Vencidos: el hijo los ve aquí; el padre los decide en «Revisar».
     if(venc.length) h+=`<h2 style="margin-top:14px">Vencidos</h2>`+(admin?`<p class="v3-sub">${venc.length} en «Revisar».</p>`:venc.map(fila).join(''));
     if(luego.length) h+=`<details style="margin-top:12px"><summary class="v3-sub">Más adelante (${luego.length})</summary>${luego.map(fila).join('')}</details>`;
+    if(misSol.length) h+=`<h2 style="margin-top:14px">Mis solicitudes</h2>`+misSol.map(t=>ficha(t,'')).join('');
     document.getElementById('v3Hoy').innerHTML=h;
   }
 
@@ -4234,7 +4243,8 @@ window.FamiliaV3=(function(){
     document.body.classList.toggle('v4-ro',soloLectura());
     guardarZona(u);
     document.getElementById('v3Pts').textContent=(Number(u.puntos)||0)+' pts';
-    const n=porAprobar().length+solicitudesPendientes().length+vencidos().length+state.tasks.filter(t=>t.estado==='transferencia_por_aprobar').length;
+    // v6 A5b: estado 'solicitada' (pedido del hijo sin aprobar): cuenta en el aviso del padre (Revisar → Solicitudes de tareas).
+    const n=porAprobar().length+solicitudesPendientes().length+vencidos().length+state.tasks.filter(t=>t.estado==='solicitada').length+state.tasks.filter(t=>t.estado==='transferencia_por_aprobar').length;
     const ib=document.getElementById('v3InboxBtn');
     ib.style.display=admin?'':'none';
     ib.innerHTML=svg('bandeja')+(n?`<span class="v3-dot">${n}</span>`:'');
