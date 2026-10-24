@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>FamiliaTareas</title>
-<!-- familia-v42 -->
+<!-- familia-v43 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <style>
 :root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
@@ -49,6 +49,14 @@ button:active:not(:disabled){transform:scale(.96);filter:brightness(.92)}
 .task-item.tone-draft{background:#f3e8ff;border-left-color:#a855f7}
 .task-item.tone-ontime{background:#dcfce7;border-left-color:#16a34a}
 .task-item.tone-late{background:#fee2e2;border-left-color:#dc2626}
+.hist-ok{padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem;cursor:pointer}
+.hist-bad{background:#e5e7eb;color:#111827;border-left:4px solid #111827;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:.85rem;cursor:pointer}
+.hist-bad strong,.hist-bad small,.hist-bad span{color:#111827}
+#modal-ficha .modal-content.ficha-bad{background:#f3f4f6;color:#111827}
+#modal-ficha .modal-content.ficha-bad h3{color:#111827}
+.outcome{display:inline-block;font-weight:800;font-size:.95rem;padding:4px 10px;border-radius:999px}
+.outcome.completada{background:#dcfce7;color:#166534}
+.outcome.cerrada,.outcome.penalizacion{background:#111827;color:#fff}
 .tipo-chip{display:inline-block;font-weight:700;font-size:.78rem;line-height:1.2;padding:3px 8px;border-radius:999px;margin-right:6px}
 .tipo-tarea{background:#dbeafe;color:#1e3a8a}
 .tipo-deber{background:#ede9fe;color:#5b21b6}
@@ -536,6 +544,8 @@ function openTaskFromBalance(kidId,taskId){
   openTaskCard(taskId,true);
 }
 function closeFicha(){
+  const box=document.querySelector('#modal-ficha .modal-content');
+  if(box) box.classList.remove('ficha-bad');
   closeModal('modal-ficha');
   if(returnBalanceId){
     const id=returnBalanceId;
@@ -686,6 +696,36 @@ function fmtDate(iso){
   const d=new Date(iso);
   if(isNaN(d)) return '';
   return d.toLocaleString('es-CO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+function taskOutcome(t){
+  if(!t||!isClosedTask(t)) return {kind:'',label:''};
+  const applied=t.puntos_aplicados==null?null:Number(t.puntos_aplicados);
+  const hist=(state.history||[]).filter(h=>Number(h.tarea_id)===Number(t.id));
+  if(hist.some(h=>/^Penalizaci[oó]n/.test(h.texto||''))||(applied!=null&&applied<0)) return {kind:'penalizacion',label:'Penalización'};
+  const ok=hist.some(h=>/^(Aprobada|Cumplida|Recibi[oó])/.test(h.texto||''));
+  if(ok||t.comentario_completado||(applied!=null&&applied>0)||(t.estado==='completada'&&t.puntos_sumados&&(applied==null||applied>=0))) return {kind:'completada',label:'Completada'};
+  return {kind:'cerrada',label:'Cerrada'};
+}
+function closedAt(t){
+  if(!t) return null;
+  if(t.cerrado_en) return t.cerrado_en;
+  const hits=(state.history||[]).filter(h=>Number(h.tarea_id)===Number(t.id)&&/^(Penalizaci[oó]n|Aprobada|Cumplida|Recibi[oó]|Se anul)/.test(h.texto||''));
+  if(!hits.length) return null;
+  hits.sort((a,b)=>new Date(b.creado_en)-new Date(a.creado_en));
+  return hits[0].creado_en;
+}
+function windowBlock(t){
+  if(!t) return '';
+  const lines=[];
+  if(t.habilita_en) lines.push('Inicio: '+fmtDate(t.habilita_en));
+  if(t.fecha_limite) lines.push('Fin: '+fmtDate(t.fecha_limite));
+  const c=closedAt(t);
+  if(c) lines.push('Cierre: '+fmtDate(c));
+  return lines.map(esc).join('<br>');
+}
+function paintFichaTone(kind){
+  const box=document.querySelector('#modal-ficha .modal-content');
+  if(box) box.classList.toggle('ficha-bad',kind==='penalizacion'||kind==='cerrada');
 }
 function fmtWhen(iso){
   if(!iso) return '';
@@ -1389,15 +1429,22 @@ function openBalance(id){
   const linked=new Set(rows.map(m=>Number(m.tareaId)).filter(Boolean));
   const closed=state.tasks.filter(t=>isClosedTask(t)&&!isGoal(t)&&t.tipo!=='mesada'&&(t.asignada_a===id||t.conjunto_con===id)&&!linked.has(t.id));
   const closedHtml=closed.map(t=>{
-    const when=t.fecha_limite?new Date(t.fecha_limite).toLocaleString('es-CO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
-    return `<div onclick="openTaskFromBalance(${id},${t.id})" style="padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem;cursor:pointer"><strong>${esc(statusLabel(t))}</strong> · ${esc(when)}<br>${esc(t.titulo||'Tarea')}<br><small>Toca para ver${isAdmin(currentUser())?' o eliminar':''}</small></div>`;
+    const o=taskOutcome(t);
+    const bad=o.kind==='penalizacion'||o.kind==='cerrada';
+    return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${t.id})"><strong>${esc(o.label||statusLabel(t))}</strong><br>${esc(t.titulo||'Tarea')}<br><small>${windowBlock(t)}</small><br><small>Toca para ver${isAdmin(currentUser())?' o eliminar':''}</small></div>`;
   }).join('');
   document.getElementById('balanceList').innerHTML=(rows.length||closedHtml)?(rows.map(m=>{
-    const when=m.fecha?new Date(m.fecha).toLocaleString('es-CO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
     const sign=m.pts>0?'+':'';
     const tid=taskForMove(id,m);
-    const open=tid?` onclick="openTaskFromBalance(${id},${tid})" style="padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem;cursor:pointer"`:` style="padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem"`;
-    const hint=tid?'<br><small>Toca para ver'+(isAdmin(currentUser())&&state.tasks.some(t=>t.id===tid&&isClosedTask(t))?' o eliminar':'')+'</small>':'';
+    const task=tid?state.tasks.find(x=>x.id===tid):null;
+    const hint=tid?'<br><small>Toca para ver'+(isAdmin(currentUser())&&task&&isClosedTask(task)?' o eliminar':'')+'</small>':'';
+    if(task&&isClosedTask(task)){
+      const o=taskOutcome(task);
+      const bad=o.kind==='penalizacion'||o.kind==='cerrada';
+      return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${task.id})"><strong>${esc(o.label)}</strong><br>${esc(task.titulo||m.detalle)}<br><small>${windowBlock(task)}</small><br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
+    }
+    const when=m.fecha?new Date(m.fecha).toLocaleString('es-CO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+    const open=tid?` onclick="openTaskFromBalance(${id},${tid})" class="hist-ok"`:` class="hist-ok" style="cursor:default"`;
     return `<div${open}><strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(m.detalle)}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
   }).join('')+closedHtml):'<div class="empty">Sin movimientos</div>';
   openModal('modal-balance');
@@ -1946,6 +1993,7 @@ async function discardDraft(id){
 
 function openTaskCard(id, fromBalance){
   if(!fromBalance) returnBalanceId=null;
+  paintFichaTone('');
   const t=state.tasks.find(x=>x.id===id);
   const u=currentUser();
   if(!t||!u||isGoal(t)) return;
@@ -1974,8 +2022,13 @@ function openTaskCard(id, fromBalance){
   const admin=isAdmin(u);
   const parentTask=taskAudience(t)==='parent';
   document.getElementById('fichaTitle').textContent=t.titulo||'Tarea';
-  const days=lateDays(t);
-  document.getElementById('fichaStatus').innerHTML=`<div style="font-size:.95rem">${pointsLine(t)}</div><div style="margin-top:6px;font-size:.9rem">${t.habilita_en?'Inicio: '+esc(fmtDate(t.habilita_en))+'<br>':''}${t.fecha_limite?'Fin: '+esc(fmtDate(t.fecha_limite)):''}</div>`;
+  const outcome=taskOutcome(t);
+  paintFichaTone(outcome.kind);
+  if(isClosedTask(t)){
+    document.getElementById('fichaStatus').innerHTML=`<span class="outcome ${outcome.kind}">${esc(outcome.label)}</span><div style="margin-top:8px;font-size:.9rem">${windowBlock(t)}</div><div style="margin-top:8px;font-size:.95rem">${pointsLine(t)}</div>`;
+  }else{
+    document.getElementById('fichaStatus').innerHTML=`<div style="font-size:.95rem">${pointsLine(t)}</div><div style="margin-top:6px;font-size:.9rem">${windowBlock(t)}</div>`;
+  }
   document.getElementById('fichaNombre').value=t.titulo||'';
   document.getElementById('fichaPuntos').value=t.puntos||0;
   const fichaTipo=document.getElementById('fichaTipo');
@@ -2004,8 +2057,13 @@ function openTaskCard(id, fromBalance){
   if(read){
     read.style.display=canEdit?'none':'';
     if(!canEdit){
+      if(isClosedTask(t)){
+        read.innerHTML='';
+        read.style.display='none';
+      }else{
       const whoName=memberById(t.asignada_a);
-      read.innerHTML=`<p style="margin:0 0 6px"><strong>${esc(t.titulo||'Tarea')}</strong></p><p style="color:var(--muted);font-size:.9rem">${esc(whoName?.nombre||'Sin asignar')} · ${esc(statusLabel(t))}</p><p style="display:flex;justify-content:space-between;gap:8px;font-size:.9rem">${pointsLine(t)}</p>`;
+      read.innerHTML=`<p style="margin:0 0 6px"><strong>${esc(t.titulo||'Tarea')}</strong></p><p style="color:var(--muted);font-size:.9rem">${esc(whoName?.nombre||'Sin asignar')} · ${esc(statusLabel(t))}</p><p style="font-size:.9rem">${pointsLine(t)}</p><p style="font-size:.9rem">${windowBlock(t)}</p>`;
+      }
     }
   }
   ['fichaNombre','fichaPuntos','fichaAsignada','fichaRec','fichaDue','fichaVentana','fichaPen','fichaTipo'].forEach(fid=>{
@@ -2224,7 +2282,7 @@ async function confirmApproval(id){
     loadAll();
     return;
   }
-  const {data,error}=await supabase.from('familia_tareas').update({estado:'completada',comentario_aprobacion:comment||null,puntos_sumados:true,puntos_aplicados:siblingPay?0:pts,foto_url:null,foto_2:null}).eq('id',id).or('puntos_sumados.is.null,puntos_sumados.eq.false').select('id');
+  const {data,error}=await supabase.from('familia_tareas').update({estado:'completada',comentario_aprobacion:comment||null,puntos_sumados:true,puntos_aplicados:siblingPay?0:pts,cerrado_en:new Date().toISOString(),foto_url:null,foto_2:null}).eq('id',id).or('puntos_sumados.is.null,puntos_sumados.eq.false').select('id');
   if(error) return showToast(error.message);
   if(!data||!data.length) return showToast('Los puntos de esta tarea ya se sumaron');
   if(siblingPay&&who&&creator){
@@ -2262,7 +2320,7 @@ async function confirmMiss(id){
   const u=currentUser();
   if(!t||!u||!isAdmin(u)||t.puntos_sumados) return;
   const loss=penaltyAmount(t);
-  const {data,error}=await supabase.from('familia_tareas').update({estado:'completada',puntos_sumados:true,puntos_aplicados:-loss}).eq('id',id).or('puntos_sumados.is.null,puntos_sumados.eq.false').select('id');
+  const {data,error}=await supabase.from('familia_tareas').update({estado:'completada',puntos_sumados:true,puntos_aplicados:-loss,cerrado_en:new Date().toISOString()}).eq('id',id).or('puntos_sumados.is.null,puntos_sumados.eq.false').select('id');
   if(error) return showToast(error.message);
   if(!data||!data.length) return showToast('Ya se había aplicado');
   const ids=[t.asignada_a,t.conjunto_con].filter(Boolean);
@@ -2321,7 +2379,7 @@ async function acceptChildNotice(id){
   if(aviso==='aviso_aprobada') delta=Math.max(0, Number(t.puntos_aplicados)||0);
   if(aviso==='aviso_vencida') delta=-(Math.max(0, Number(t.puntos_penalizacion_dia)||0));
   const {data,error}=await supabase.from('familia_tareas').update({
-    estado:'completada',puntos_sumados:true,puntos_aplicados:delta,foto_url:null,foto_2:null
+    estado:'completada',puntos_sumados:true,puntos_aplicados:delta,cerrado_en:new Date().toISOString(),foto_url:null,foto_2:null
   }).eq('id',id).or('puntos_sumados.is.null,puntos_sumados.eq.false').select('id');
   if(error) return showToast(error.message);
   if(!data||!data.length) return showToast('Ya estaba cerrada');
@@ -2954,7 +3012,7 @@ async function cargarMesadaPendiente(id){
     await supabase.from('familia_miembros').update({puntos:(Number(who.puntos)||0)+pts}).eq('id',who.id);
     await supabase.from('familia_historial').insert({miembro_id:who.id,texto:'Mesada: '+(t.titulo||'Mesada')+' (+'+pts+' pts)',tarea_id:t.id});
   }
-  const {error}=await supabase.from('familia_tareas').update({estado:'completada',puntos_sumados:true,puntos_aplicados:pts}).eq('id',id);
+  const {error}=await supabase.from('familia_tareas').update({estado:'completada',puntos_sumados:true,puntos_aplicados:pts,cerrado_en:new Date().toISOString()}).eq('id',id);
   if(error) return showToast(error.message);
   showToast('Mesada cargada');
   await loadAll();
