@@ -533,7 +533,12 @@ function shiftDate(base, rec, steps){
   else if(rec==='quarterly') d.setMonth(d.getMonth()+3*steps);
   return d;
 }
-function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+/* v6 Mesada final: el error de BD «puntos insuficientes: X disponibles para premios; Y de mesada se liberan el DD/MM»
+   se muestra amable en cualquier camino (pedir, canjear, v1 o v3). */
+function mesadaAmable(m){const x=/puntos insuficientes:\s*(\d+)\s*disponibles para premios(?:;\s*(\d+)\s*de mesada se liberan el\s*(\d{1,2})\/(\d{1,2}))?/i.exec(String(m||''));
+  if(!x) return m; const mes=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][(+x[4]||1)-1];
+  return 'Te faltan puntos: tienes '+x[1]+' disponibles para premios.'+(x[2]&&+x[2]>0?' Tus '+x[2]+' de mesada se liberan el '+(+x[3])+' de '+mes+'.':'');}
+function showToast(m){m=mesadaAmable(m);const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
 function showSection(n,btn){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
@@ -834,7 +839,8 @@ async function loadAll(opts){
       supabase.from('familia_miembros').select('*').order('id'),
       sinArchivadas(supabase.from('familia_tareas').select(columnasTareas())).order('creado_en',{ascending:false}),
       supabase.from('familia_premios').select('*').order('costo'),
-      sinArchivadas(supabase.from('familia_historial').select('*')).order('creado_en',{ascending:false}).limit(1000),
+      // v6 Mesada final: lectura desde la vista familia_historial_v (trae mesada_estado); las escrituras siguen en familia_historial.
+      sinArchivadas(supabase.from('familia_historial_v').select('*')).order('creado_en',{ascending:false}).limit(1000),
       supabase.from('familia_config').select('*').eq('id',1).maybeSingle(),
       supabase.from('familia_plantillas_tareas').select('*'),
       supabase.from('familia_mensajes').select('*').order('creado_en',{ascending:false}).limit(200),
@@ -842,6 +848,8 @@ async function loadAll(opts){
       supabase.from('familia_notificaciones').select('*').order('leida',{ascending:true}).order('creado_en',{ascending:false}).limit(80),
       supabase.from('familia_deberes').select('*').order('id')
     ]);
+    // v6 Mesada final: si la vista no existe o falla, se vuelve a la tabla (comportamiento anterior).
+    if(h&&h.error) h=await sinArchivadas(supabase.from('familia_historial').select('*')).order('creado_en',{ascending:false}).limit(1000);
     if(m.error){
       await new Promise(r=>setTimeout(r,700));
       const retry=await supabase.from('familia_miembros').select('*').order('id');
@@ -971,8 +979,8 @@ function render(){
   document.getElementById('switchUserCard').style.display=admin?'':'none';
   document.getElementById('backToDadCard').style.display=originalAdminId?'':'none';
   const mesadaCard=document.getElementById('adminMesadaCard');
-  if(mesadaCard) mesadaCard.style.display=admin?'':'none';
-  if(admin) paintMesadaCard();
+  // v6 Mesada final: la mesada manual v4 (cargarMesada / mesada pendiente) se retira de la UI también en v1; la mesada es mensual por BD.
+  if(mesadaCard) mesadaCard.style.display='none';
   const viewBtn=document.getElementById('btnTaskView');
   if(viewBtn){
     viewBtn.style.display=admin?'':'none';
@@ -3156,6 +3164,8 @@ function paintMesadaCard(){
 }
 function openMesada(){paintMesadaCard();}
 async function cargarMesada(){
+  // v6 Mesada final: retirada (la mesada la carga la BD el día 01). Se deja la función para no romper enlaces viejos.
+  return showToast('La mesada ahora se configura en «Mesada mensual»');
   const u=currentUser();
   if(!isAdmin(u)) return;
   const pts=Math.max(0,+document.getElementById('mesadaPts').value||0);
@@ -3753,7 +3763,8 @@ window.FamiliaV3=(function(){
     // v6 A5: solicitudes de tareas de los hijos (estado 'solicitada'): Aprobar / Negar.
     const sq=state.tasks.filter(t=>t.estado==='solicitada'&&!ocultas.has(t.id));
     if(sq.length) h0+='<h2>Solicitudes de tareas</h2>'+sq.map(t=>ficha(t,soloLectura()?'':`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aprobarSolicitud(${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.negarSolicitud(${t.id})">Negar</button></div>`)).join('');
-    if(mp.length) h0+='<h2>Mesadas por cargar</h2>'+mp.map(t=>ficha(t,soloLectura()?'':`<button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.mesadaPendiente(${t.id})">Cargar</button>`)).join('');
+    // v6 Mesada final: ya no se muestran «Mesadas por cargar» (RPC v4 retirada del FE).
+    if(false&&mp.length) h0+='<h2>Mesadas por cargar</h2>'+mp.map(t=>ficha(t,soloLectura()?'':`<button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.mesadaPendiente(${t.id})">Cargar</button>`)).join('');
     let h=h0+a.map(t=>ficha(t,`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aprobar(${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.devolver(${t.id})">Devolver</button></div>`)).join('');
     if(v.length){
       h+='<h2 style="margin-top:16px">Vencidos</h2>';
@@ -3773,27 +3784,32 @@ window.FamiliaV3=(function(){
   }
 
   /* --- PREMIOS: barra de 20 cuadritos, llenos = round(20·min(S,C)/C); orden recordado. --- */
-  /* =================== v6 · MESADA (contrato BORRADOR v6/mesada-contrato-fe.md) ===================
-     Todos los nombres de RPC y parámetros están en MESADA_RPC: si BD cambia el contrato final, se ajusta solo aquí.
-     Si las RPC aún no existen (error), la app sigue como antes: disponible = puntos y sin contador. */
+  /* =================== v6 · MESADA (contrato FINAL v6/mesada-contrato-fe.md, aplicado en prod 2026-10-24) ===================
+     Todos los nombres de RPC y parámetros están en MESADA_RPC. Si las RPC fallan, la app sigue: disponible = puntos y sin contador. */
   const MESADA_RPC={
-    estado:{fn:'familia_rpc_mesada_estado',args:(actor,miembro)=>({p_actor_id:actor,p_miembro_id:miembro==null?null:miembro})},
+    saldo:{fn:'familia_rpc_mesada_saldo',args:miembro=>({p_miembro_id:miembro})},
+    estado:{fn:'familia_rpc_mesada_estado',args:(actor,miembro)=>({p_actor_id:actor,p_miembro_id:miembro==null?null:miembro,p_zona:zonaDispositivo()})},
+    // Campos null = no cambian; sin periodo pendiente, la fecha queda guardada para el próximo (lo resuelve BD).
     guardar:{fn:'familia_rpc_mesada_config_guardar',args:(actor,c)=>({p_actor_id:actor,p_modo:c.modo,p_dia_liberacion:c.dia,p_bono_activo:c.bonoActivo,
-      p_bono_pct:c.bonoPct,p_hijos:c.hijos,p_fecha_liberacion:c.fecha||null})},
-    liberar:{fn:'familia_rpc_mesada_liberar',args:(actor,periodo)=>({p_actor_id:actor,p_confirmado:true,p_periodo:periodo||null})},
-    tablaMesadas:'familia_mesadas'   // historial: estado de cada abono (cargada / liberada / anulada)
+      p_bono_pct:c.bonoPct,p_hijos:c.hijos,p_fecha_liberacion:c.fecha||null,p_periodo:null})},
+    // Libera EN ORDEN todos los periodos pendientes con fecha ≤ hoy.
+    liberar:{fn:'familia_rpc_mesada_liberar',args:actor=>({p_actor_id:actor,p_confirmado:true,p_zona:zonaDispositivo()})}
   };
-  let mesadaEst=null, mesadaCargando=null, mesadaEstados={};
+  function zonaDispositivo(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||null;}catch(e){return null;}}
+  let mesadaEst=null, mesadaCargando=null;
   async function cargarMesadaEst(){
     if(mesadaCargando) return mesadaCargando;
     const u=currentUser(); if(!u) return null;
     mesadaCargando=(async()=>{
       try{
-        const r=await supabase.rpc(MESADA_RPC.estado.fn,MESADA_RPC.estado.args(state.currentUserId,isAdmin(u)?null:u.id));
-        mesadaEst=r.error?null:(r.data||null);
-        // Estados de los abonos que aparecen en el historial (badge «por liberar / liberada / anulada»).
-        const ids=[...new Set((state.history||[]).map(h=>h.mesada_id).filter(x=>x!=null))];
-        if(ids.length){const q=await supabase.from(MESADA_RPC.tablaMesadas).select('id,estado,periodo').in('id',ids); if(!q.error) (q.data||[]).forEach(m=>{mesadaEstados[m.id]=m;});}
+        if(isAdmin(u)){
+          const r=await supabase.rpc(MESADA_RPC.estado.fn,MESADA_RPC.estado.args(state.currentUserId,null));
+          mesadaEst=r.error?null:(r.data||null);
+        }else{
+          // Hijo: basta su saldo (más liviano que estado).
+          const r=await supabase.rpc(MESADA_RPC.saldo.fn,MESADA_RPC.saldo.args(u.id));
+          mesadaEst=r.error||!r.data?null:{hijos:[{...r.data,miembro_id:r.data.miembro_id??u.id}]};
+        }
       }catch(e){mesadaEst=null;}
       finally{mesadaCargando=null;}
       return mesadaEst;
@@ -3817,7 +3833,8 @@ window.FamiliaV3=(function(){
   // Badge de estado en filas de mesada del historial.
   function badgeMesada(h){
     if(h.mesada_id==null&&h.tipo!=='mesada'&&h.tipo!=='bono_excelencia'&&h.tipo!=='mesada_anulada') return '';
-    const e=h.tipo==='mesada_anulada'?'anulada':((mesadaEstados[h.mesada_id]||{}).estado||'');
+    // v6 Mesada final: el estado viene en la fila (vista familia_historial_v · mesada_estado).
+    const e=h.tipo==='mesada_anulada'?'anulada':(h.mesada_estado||'');
     const t={cargada:'por liberar',liberada:'liberada',anulada:'anulada'}[e]; if(!t) return '';
     return ` <span class="v6-mb ${e}">${t}</span>`;
   }
@@ -3834,20 +3851,21 @@ window.FamiliaV3=(function(){
     abrirHoja('<h3>Mesada mensual</h3><p class="v3-sub">Cargando…</p>');
     await cargarMesadaEst();
     if(!mesadaEst){abrirHoja('<h3>Mesada mensual</h3><p class="v3-sub v3-st-err">La mesada mensual aún no está disponible en la base de datos.</p>');return;}
-    const c=mesadaEst.config||{}, pp=mesadaEst.periodo_pendiente||null;
+    // v6 Mesada final: periodos_pendientes (lista) y fecha_liberacion principal.
+    const c=mesadaEst.config||{}, pend=Array.isArray(mesadaEst.periodos_pendientes)?mesadaEst.periodos_pendientes:[], liberable=pend.some(p=>p.puede_liberar);
     const hijos=state.members.filter(isKid).slice().sort(byName);
     const fila=k=>{const x=(mesadaEst.hijos||[]).find(h=>Number(h.miembro_id)===k.id)||{};
       return `<div class="v6-mfila"><span class="v3-grow">${esc(k.nombre)}</span><input class="v6mMonto" data-id="${k.id}" type="number" min="0" value="${Number(x.monto)||0}" aria-label="Monto de ${esc(k.nombre)}"><label class="v6-mp"><input class="v6mPausa" data-id="${k.id}" type="checkbox" ${x.pausada?'checked':''} style="width:auto"> Pausar</label></div>`;};
     abrirHoja(`<h3>Mesada mensual</h3>
       <label>Modo</label><select id="v6mModo"><option value="manual" ${c.modo!=='automatico'?'selected':''}>Manual (tú pulsas «Liberar»)</option><option value="automatico" ${c.modo==='automatico'?'selected':''}>Automático (se libera sola)</option></select>
-      <label>Fecha de liberación (común para todos)</label><input id="v6mFecha" type="date" value="${esc((pp&&pp.fecha_liberacion)||'')}">
+      <label>Fecha de liberación (común para todos)</label><input id="v6mFecha" type="date" value="${esc(mesadaEst.fecha_liberacion||'')}">
       <label>Día de liberación cada mes (1–28)</label><input id="v6mDia" type="number" min="1" max="28" value="${Number(c.dia_liberacion)||1}">
       <label style="display:flex;gap:8px;align-items:center;color:#1e293b"><input id="v6mBono" type="checkbox" ${c.bono_activo?'checked':''} style="width:auto"> Compensación por excelencia</label>
       <label>% de la mesada como compensación (0–100)</label><input id="v6mPct" type="number" min="0" max="100" value="${Number(c.bono_pct)||0}">
       <label>Monto por hijo (pts)</label>${hijos.map(fila).join('')}
       <button class="v3-cta v3-full" style="margin-top:12px" onclick="FamiliaV3.guardarMesadaV6()">Guardar</button>
-      ${pp?`<p class="v3-sub" style="margin-top:12px">Pendiente: ${esc(fechaCorta(pp.periodo))} · se libera el ${esc(fechaCorta(pp.fecha_liberacion))}${pp.dias_para_liberar!=null?' (en '+pp.dias_para_liberar+' días)':''}</p>`:''}
-      <button class="v3-btn2 v3-full" style="margin-top:8px" ${pp&&pp.puede_liberar?'':'disabled'} onclick="FamiliaV3.liberarMesadaV6()">Liberar todas las mesadas pendientes</button>`);
+      ${pend.map(pp=>`<p class="v3-sub" style="margin-top:8px">Pendiente: ${esc(fechaCorta(pp.periodo))} · se libera el ${esc(fechaCorta(pp.fecha_liberacion))}${pp.dias_para_liberar!=null?' (en '+pp.dias_para_liberar+' días)':''}</p>`).join('')||'<p class="v3-sub" style="margin-top:8px">Sin mesadas pendientes de liberar.</p>'}
+      <button class="v3-btn2 v3-full" style="margin-top:8px" ${liberable?'':'disabled'} onclick="FamiliaV3.liberarMesadaV6()">Liberar todas las mesadas pendientes</button>`);
   }
   async function guardarMesadaV6(){
     const v=id=>document.getElementById(id);
@@ -3863,16 +3881,17 @@ window.FamiliaV3=(function(){
     showToast('Mesada guardada'); hojaMesadaV6();
   }
   async function liberarMesadaV6(){
-    const pp=mesadaEst&&mesadaEst.periodo_pendiente; if(!pp) return showToast('No hay mesadas pendientes');
+    const pend=(mesadaEst&&mesadaEst.periodos_pendientes)||[]; if(!pend.some(p=>p.puede_liberar)) return showToast('No hay mesadas por liberar todavía');
     const hs=(mesadaEst.hijos||[]).filter(h=>Number(h.bloqueada)>0);
     // UNA confirmación para liberar TODAS las mesadas pendientes.
     if(!confirm('¿Liberar todas las mesadas pendientes ('+(hs.map(h=>h.nombre+' '+h.bloqueada+' pts').join(', ')||'sin montos')+')? Quedarán disponibles para premios.')) return;
     const k='mesadaLib'; if(enCurso.has(k)) return; enCurso.add(k);
     try{
-      const r=await supabase.rpc(MESADA_RPC.liberar.fn,MESADA_RPC.liberar.args(state.currentUserId,pp.periodo));
+      const r=await supabase.rpc(MESADA_RPC.liberar.fn,MESADA_RPC.liberar.args(state.currentUserId));
       if(r.error) return showToast('No se pudo: '+r.error.message);
       const d=r.data||{};
-      showToast(d.idempotente?'Ya estaba liberada':('Liberadas: '+((d.liberados||[]).length)+(d.anulados&&d.anulados.length?' · anuladas (pausa): '+d.anulados.length:'')));
+      const ps=d.periodos||[], lib=ps.reduce((a,p)=>a+(Number(p.liberados)||0),0), anu=ps.reduce((a,p)=>a+(Number(p.anulados)||0),0);
+      showToast(ps.length?('Liberadas: '+lib+(anu?' · anuladas (pausa): '+anu:'')):'No había mesadas por liberar');
       mesadaEst=null; await cargarMesadaEst(); hojaMesadaV6(); loadAll();
     }finally{enCurso.delete(k);}
   }
@@ -3944,7 +3963,6 @@ window.FamiliaV3=(function(){
         <button class="v3-btn2" onclick="FamiliaV3.hojaLote()">Repetitiva</button>
         <button class="v3-btn2" onclick="FamiliaV3.panelV1('section-premios','Premios')">Premios</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>{openNewReward();const s=document.getElementById('rewardTipo');if(s){s.value='hijo';syncRewardParent();}})">Nuevo premio</button>
-        <button class="v3-btn2" onclick="FamiliaV3.hojaMesada()">Mesada</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaMesadaV6()">Mesada mensual</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openPenalty())">Descuento</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNewMember())">Integrante</button>
@@ -4222,6 +4240,8 @@ window.FamiliaV3=(function(){
   }
   /* Mesada (todos o un hijo) · guía final rev.2: {ok,idempotente,miembros:[ids],pts}. */
   function hojaMesada(){
+    // v6 Mesada final: la mesada manual v4 se retira; se redirige a «Mesada mensual».
+    return hojaMesadaV6();
     if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
     reqId('mesada');
     const hijos=state.members.filter(isKid).slice().sort(byName);
@@ -4229,6 +4249,7 @@ window.FamiliaV3=(function(){
       <label>Puntos</label><input id="v4mPts" type="number" min="1" value="50"><button class="v3-cta v3-full" style="margin-top:12px" onclick="FamiliaV3.guardarMesada()">Cargar</button>`);
   }
   async function guardarMesada(){
+    return showToast('La mesada ahora se configura en «Mesada mensual»');   // v6: RPC v4 retirada
     const pts=parseInt(document.getElementById('v4mPts').value,10)||0; if(pts<=0) return showToast('Escribe los puntos');
     // QA 6b: sin destinatario por defecto; hay que elegir un hijo (o «Todos los hijos» a propósito).
     const k=document.getElementById('v4mKid').value;
@@ -4239,6 +4260,7 @@ window.FamiliaV3=(function(){
     cerrarHoja(); if(!d.idempotente) showToast('Mesada cargada: +'+(d.pts||pts)+' pts a '+((d.miembros||[]).length||1)+' hijo(s)'); loadAll();
   }
   async function mesadaPendiente(id){
+    return showToast('La mesada ahora se configura en «Mesada mensual»');   // v6: RPC v4 retirada
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     {const t=state.tasks.find(x=>x.id===id); if(!confirm('¿Cargar mesada de '+((t&&Number(t.puntos))||0)+' pts a '+((memberById(t&&t.asignada_a)||{}).nombre||'este hijo')+'?')) return;}
     const d=await rpcIntento('mp'+id,'familia_rpc_mesada_pendiente',{p_tarea_id:id}); if(!d) return;
