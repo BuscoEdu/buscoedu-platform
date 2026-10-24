@@ -3276,6 +3276,8 @@ init();
 .v4-panel-body{flex:1;overflow-y:auto;max-width:720px;width:100%;margin:0 auto}
 .v4-panel-body .section{display:block!important}
 /* En modo v3 los modales de la v1 deben quedar por encima del panel y de la hoja. */
+/* «Ver como» (solo lectura): los botones de acción de la v1 se ven apagados; la guarda JS bloquea la escritura. */
+body.v4-ro .v4-panel .btn:not(.secondary),body.v4-ro .v4-panel .btn.danger,body.v4-ro .modal .btn:not(.secondary),body.v4-ro .modal .btn.danger{opacity:.4;pointer-events:none}
 body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 .v4-rk{display:grid;grid-template-columns:28px 1fr repeat(4,minmax(44px,auto));gap:6px;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem}
 .v4-rk.h{font-size:.68rem;color:#64748b;text-transform:uppercase}
@@ -3602,18 +3604,34 @@ window.FamiliaV3=(function(){
     const filas=state.members.filter(isKid).map(k=>{
       const led=kidLedger(k.id);
       const mv=desde?led.moves.filter(m=>new Date(m.fecha)>=desde):led.moves;
-      let g=0,c=0,d=0; mv.forEach(m=>{if(m.pts>0&&m.sumaRanking)g+=m.pts; if(m.tipo==='Premio')c+=-m.pts; if(m.tipo==='Penalización')d+=-m.pts;});
-      return {k,g,c,d,saldo:Number(k.puntos)||0};
+      // o = otros ajustes del historial (mesada, manuales, anulaciones…): todo lo que no es ganado, canje ni descuento.
+      let g=0,c=0,d=0,o=0; mv.forEach(m=>{if(m.pts>0&&m.sumaRanking)g+=m.pts; else if(m.tipo==='Premio')c+=-m.pts; else if(m.tipo==='Penalización')d+=-m.pts; else o+=m.pts;});
+      const saldo=Number(k.puntos)||0;
+      // Conciliación (solo Total): g − c − d + o debe dar el saldo real; si no, la diferencia sin
+      // movimiento en el historial se muestra tal cual (nunca se maquilla).
+      const sinReg=desde?0:saldo-(g-c-d+o);
+      return {k,g,c,d,o,saldo,sinReg};
     }).sort((a,b)=>b.g-a.g||b.saldo-a.saldo);
     const ini=inicioSemana();
     document.getElementById('v4Ranking').innerHTML=`<div class="v3-seg"><button class="${rkModo==='semana'?'on':''}" onclick="FamiliaV3.ranking('semana')">Semana</button><button class="${rkModo==='total'?'on':''}" onclick="FamiliaV3.ranking('total')">Total</button></div>
-      ${desde?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · hora local (${esc(zonaHoraria())})</p>`:''}
+      ${desde?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · hora local (${esc((u&&u.zona_horaria)||zonaHoraria())})</p>`:''}
       <div class="v3-card" style="display:block"><div class="v4-rk h"><span></span><span>Hijo</span><span class="n">Ganados</span><span class="n">Canjeados</span><span class="n">Desc.</span><span class="n">Saldo</span></div>
-      ${filas.map((x,i)=>`<div class="v4-rk" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.abrirV1(()=>openBalance(${x.k.id}))" title="Ver saldo detallado"><span>${MED[i]||(i+1)+'.'}</span><span>${esc(x.k.nombre)}</span><span class="n v3-st-ok">${x.g}</span><span class="n">${x.c}</span><span class="n v3-st-err">${x.d}</span><strong class="n">${x.saldo}</strong></div>`).join('')||'<p class="v3-sub">Sin hijos</p>'}
-      <p class="v3-sub" style="margin-top:6px">Toca un hijo para ver su saldo detallado. Saldo = puntos que le quedan hoy.</p></div>`;
+      ${filas.map((x,i)=>`<div class="v4-rk" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.abrirV1(()=>openBalance(${x.k.id}))" title="Ver saldo detallado"><span>${MED[i]||(i+1)+'.'}</span><span>${esc(x.k.nombre)}</span><span class="n v3-st-ok">${x.g}</span><span class="n">${x.c}</span><span class="n v3-st-err">${x.d}</span><strong class="n">${x.saldo}</strong></div>${!desde&&(x.o||x.sinReg)?`<div class="v3-sub" style="padding:0 0 6px 34px">${x.o?`Otros ajustes (mesada, manual): ${x.o>0?'+':''}${x.o}`:''}${x.o&&x.sinReg?' · ':''}${x.sinReg?`<span class="v3-st-warn">Diferencia sin registro en el historial: ${x.sinReg>0?'+':''}${x.sinReg}</span>`:''}</div>`:''}`).join('')||'<p class="v3-sub">Sin hijos</p>'}
+      <p class="v3-sub" style="margin-top:6px">${desde?'En «Semana» las columnas son de esta semana; Saldo es el de hoy (no se concilia).':'Ganados − Canjeados − Descuentos + Otros ajustes = Saldo.'} Toca un hijo para ver su saldo detallado.</p></div>`;
   }
 
   /* --- Zona horaria del navegador: se guarda en el dispositivo (no hay columna en BD; ver bitácora). --- */
+  /* Guarda la zona del navegador en familia_miembros.zona_horaria (F4d) SOLO para el miembro que
+     realmente usa la app (no en «Ver como») y SOLO si cambió; una vez por sesión y miembro. */
+  const tzGuardada=new Set();
+  async function guardarZona(u){
+    if(!u||soloLectura()||tzGuardada.has(u.id)) return;
+    tzGuardada.add(u.id);
+    const z=zonaHoraria(); if(z==='local'||u.zona_horaria===z) return;
+    const {error}=await supabase.from('familia_miembros').update({zona_horaria:z}).eq('id',u.id);
+    if(error){tzGuardada.delete(u.id);return;}   // se reintenta en el próximo pintado
+    u.zona_horaria=z;
+  }
   function zonaHoraria(){
     let z='local'; try{z=Intl.DateTimeFormat().resolvedOptions().timeZone||'local';}catch(e){}
     try{localStorage.setItem('familia_tz',z);}catch(e){}
@@ -3629,7 +3647,7 @@ window.FamiliaV3=(function(){
     cerrarPanel(); cerrarHoja();
     const n=document.getElementById(id); if(!n) return;
     panelNodo=n; panelPadre=n.parentNode; panelSig=n.nextSibling;
-    document.getElementById('v4PanelTit').textContent=titulo;
+    document.getElementById('v4PanelTit').textContent=titulo+(soloLectura()?' · solo lectura':'');
     document.getElementById('v4PanelBody').appendChild(n);
     document.getElementById('v4Panel').classList.add('on');
     try{renderV1Ref&&renderV1Ref();}catch(e){}   // la v1 repinta su sección (filtros, listas, botones de admin)
@@ -3638,6 +3656,19 @@ window.FamiliaV3=(function(){
     if(panelNodo&&panelPadre){panelPadre.insertBefore(panelNodo,panelSig);}
     panelNodo=null; document.getElementById('v4Panel').classList.remove('on');
   }
+  /* --- Guarda de solo lectura: en modo v3 + «Ver como», toda función de la v1 que escribe en la BD
+         y se dispara por un botón queda bloqueada (se envuelve la función global; la v1 sola no cambia
+         porque la guarda solo actúa con la v3 encendida). Quedan fuera las escrituras de fondo de la carga
+         (expireWindows, ensureBaseRewards, activateDueDrafts, consumeDeepLink, maybeAskCycle) y closeNotifs. --- */
+  ['savePlantilla','deletePlantilla','dismissNotif','createTask','seedBaseRewards','activateTask','discardDraft','deleteTask','saveTaskFicha',
+   'submitEvidence','confirmApproval','confirmMiss','returnTask','rejectTask','acceptExpired','acceptChildNotice','confirmTransfer','acceptTransfer',
+   'approveTransfer','rejectTransfer','applyPenalty','saveReward','requestPrize','approvePrize','rejectPrize','redeemReward','saveProfile',
+   'confirmResetAll','resetOneKidPin','createGoal','sendMessage','createMember','solicitarTarea','cargarMesada','cargarMesadaPendiente',
+   'toggleDeber','saveDeber','repartirDeberes'].forEach(n=>{
+    const f=window[n]; if(typeof f!=='function') return;
+    window[n]=function(){ if(activo()&&soloLectura()){showToast('Modo «Ver como»: solo lectura'); return;} return f.apply(this,arguments); };
+  });
+
   /* --- Hojas que reutilizan funciones de la v1 con sus mismos id de elementos. --- */
   function hojaMetas(){
     abrirHoja(`<h3>Mis metas</h3><div id="goalList"></div><label>Nueva meta</label><input id="goalTitle" maxlength="80"><label>Puntos</label><input id="goalPoints" type="number" min="1" value="100">
@@ -3667,6 +3698,9 @@ window.FamiliaV3=(function(){
     const noLeidas=(state.notifs||[]).filter(x=>x.para_id===u.id&&!x.leida).length;
     document.getElementById('v4Bell').innerHTML=svg('campana')+(noLeidas?`<span class="v3-dot">${noLeidas}</span>`:'');
     document.body.classList.add('v3-modo');
+    // «Ver como»: marca de solo lectura para los paneles y modales de la v1.
+    document.body.classList.toggle('v4-ro',soloLectura());
+    guardarZona(u);
     document.getElementById('v3Pts').textContent=(Number(u.puntos)||0)+' pts';
     const n=porAprobar().length+solicitudesPendientes().length+vencidos().length;
     const ib=document.getElementById('v3InboxBtn');
