@@ -1981,7 +1981,7 @@ function renderImmediateBlock(){
   const card=document.getElementById('immediateCard');
   const u=currentUser();
   if(!el||!card||!u||isAdmin(u)){ if(el) el.classList.remove('show'); return; }
-  const t=state.tasks.find(x=>x.inmediata&&(x.asignada_a===u.id||x.conjunto_con===u.id)&&['pendiente','esperando_aprobacion','aviso_vencida'].includes(x.estado)&&!isGoal(x));
+  const t=state.tasks.find(x=>x.inmediata&&(x.asignada_a===u.id||x.conjunto_con===u.id)&&['pendiente','esperando_aprobacion','aviso_vencida','aviso_rechazada'].includes(x.estado)&&!isGoal(x));
   if(!t){ el.classList.remove('show'); return; }
   const end=t.fecha_limite?new Date(t.fecha_limite).getTime():0;
   const left=end?end-Date.now():0;
@@ -1994,7 +1994,18 @@ function renderImmediateBlock(){
     card.innerHTML='<h3>Tarea vencida</h3><p>'+esc(t.titulo||'Tarea')+'</p><button class="btn" style="width:100%;margin-top:12px" onclick="acceptExpired('+t.id+')">Aceptar</button>';
     return;
   }
-  card.innerHTML='<h3>Tarea obligatoria</h3><p>No puedes seguir hasta entregarla.</p><p style="margin-top:8px"><strong>'+esc(t.titulo||'Tarea')+'</strong></p><p style="font-size:2rem;font-weight:700;margin:8px 0">'+fmtLeft(left)+'</p><button class="btn" style="width:100%;margin-top:12px" onclick="openEvidence('+t.id+')">Ya la hice</button>';
+  // v6b B4: si papá/mamá la devolvió, se dice «Devuelta» y se muestra su nota (se repinta en vivo por tiempo real).
+  const nd=notaDevueltaObl(t);
+  card.innerHTML='<h3>Tarea obligatoria</h3>'+(nd!==null?'<p class="v6b-obl-dev">Devuelta'+(nd?'</p><p class="v6b-obl-nota">«'+esc(nd)+'»':'')+'</p>':'')+'<p>No puedes seguir hasta entregarla.</p><p style="margin-top:8px"><strong>'+esc(t.titulo||'Tarea')+'</strong></p><p style="font-size:2rem;font-weight:700;margin:8px 0">'+fmtLeft(left)+'</p><button class="btn" style="width:100%;margin-top:12px" onclick="openEvidence('+t.id+')">Ya la hice</button>';
+}
+/* v6b B4: nota de devolución de una obligatoria. null = no fue devuelta; '' = devuelta sin nota.
+   Fuente: comentario_aprobacion y, si falta, la fila «Devuelta: … · nota» del historial (misma regla que la v3). */
+function notaDevueltaObl(t){
+  if(!t||(t.estado!=='pendiente'&&t.estado!=='aviso_rechazada')) return null;
+  if(t.comentario_aprobacion) return t.comentario_aprobacion;
+  const h=(state.history||[]).filter(x=>Number(x.tarea_id)===Number(t.id)&&/^Devuelta:/.test(x.texto||'')).sort((a,b)=>new Date(b.creado_en)-new Date(a.creado_en))[0];
+  if(!h) return t.estado==='aviso_rechazada'?'':null;
+  const i=(h.texto||'').indexOf(' · '); return i>=0?h.texto.slice(i+3):'';
 }
 function ackMiss(id){
   try{sessionStorage.setItem('ackMiss'+id,'1');}catch(e){}
@@ -3475,6 +3486,17 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 /* QA v6a: devuelta manda sobre el color de ventana (borde izquierdo naranja suave). */
 .v3-card.dev.v6-dentro,.v3-card.dev.v6-fuera,.v3-card.dev.v6-poco{border-left-color:#fb923c}.v6-vtag.warn{background:#b45309}
 .v6-vtag.ok{background:#15803d}
+/* v6b B2: ficha de revisión del padre (web y móvil 360/390). */
+.v6b-rev{margin-top:12px;border:1px solid #c7d2fe;background:#f8faff;border-radius:12px;padding:12px}
+.v6b-rev-t{font-weight:700;margin-bottom:6px}
+.v6b-rev label{display:block;margin-bottom:4px}
+.v6b-rev textarea{width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;resize:vertical}
+.v6b-acc{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.v6b-acc button{min-height:44px;width:100%;margin:0;white-space:normal}
+.v6b-dev{border-color:#fb923c!important;color:#9a3412!important}
+/* v6b B4: «Devuelta» en la ventana de bloqueo de obligatoria. */
+.v6b-obl-dev{display:inline-block;background:#fb923c;color:#431407;font-weight:700;border-radius:8px;padding:2px 10px;margin:6px 0}
+.v6b-obl-nota{font-style:italic;margin-bottom:6px}
 /* v6 Mesada: filas por hijo (caben en 360) y badge de estado en el historial. */
 .v6-mfila{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}.v6-mfila input[type=number]{width:96px}.v6-mp{display:flex!important;gap:4px;align-items:center;margin:0!important;color:#1e293b!important}
 .v6-mb{font-size:.72rem;font-weight:700;border-radius:6px;padding:1px 6px;white-space:nowrap;color:#fff;background:#6b7280}.v6-mb.cargada{background:#b45309}.v6-mb.liberada{background:#15803d}.v6-mb.anulada{background:#b91c1c}.v6-vtag.err{background:#b91c1c}
@@ -3767,7 +3789,7 @@ window.FamiliaV3=(function(){
     if(sq.length) h0+='<h2>Solicitudes de tareas</h2>'+sq.map(t=>ficha(t,soloLectura()?'':`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aprobarSolicitud(${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.negarSolicitud(${t.id})">Negar</button></div>`)).join('');
     // v6 Mesada final: ya no se muestran «Mesadas por cargar» (RPC v4 retirada del FE).
     if(false&&mp.length) h0+='<h2>Mesadas por cargar</h2>'+mp.map(t=>ficha(t,soloLectura()?'':`<button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.mesadaPendiente(${t.id})">Cargar</button>`)).join('');
-    let h=h0+a.map(t=>ficha(t,`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aprobar(${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.devolver(${t.id})">Devolver</button></div>`)).join('');
+    let h=h0+a.map(t=>ficha(t,`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aprobar(${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.detalle(${t.id})">Devolver</button></div>`)).join('');
     if(v.length){
       h+='<h2 style="margin-top:16px">Vencidos</h2>';
       // F2c: se decide en cualquier estado vencido (por_decidir, pendiente_hijo o formato viejo).
@@ -4468,11 +4490,24 @@ window.FamiliaV3=(function(){
     ocultas.add(id); pintar();
     showToast(d.idempotente?'Ya estaba aplicado':('+'+(d.pts||0)+' ✓ guardado en tu historial')); scheduleReload();
   }
+  /* v6b B1: «Devolver» ya no envía sin preguntar. Desde la bandeja abre la ficha de revisión (B2); desde la ficha
+     toma la nota, pide UNA confirmación y, si la RPC responde bien, cierra la ventana y avisa. Si falla, la ficha
+     queda abierta con la nota escrita y sale el error (rpc() muestra el toast). */
   async function devolver(id){
-    const c=prompt('¿Qué le falta? (se le muestra al hijo)'); if(c===null) return;
-    // Guía F3 (rev. BE): desde la bandeja v3 se devuelve con p_con_aviso:false.
-    await rpc('familia_rpc_devolver_tarea',{p_tarea_id:id,p_actor_id:state.currentUserId,p_comentario:c||null,p_con_aviso:false});
-    scheduleReload();
+    if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
+    const t=state.tasks.find(x=>x.id===id); if(!t) return showToast('No se encontró la tarea. Recarga e inténtalo otra vez.');
+    const box=document.getElementById('v6bCom');
+    if(!box) return detalle(id);
+    const c=box.value.trim(), nom=((memberById(t.asignada_a)||{}).nombre)||'el hijo';
+    if(!confirm('¿Devolver «'+t.titulo+'» a '+nom+(c?' con la nota: «'+c+'»':' sin nota')+'?')) return;
+    const k='dv'+id; if(enCurso.has(k)) return; enCurso.add(k);
+    try{
+      // Guía F3 (rev. BE): desde la v3 se devuelve con p_con_aviso:false.
+      const d=await rpc('familia_rpc_devolver_tarea',{p_tarea_id:id,p_actor_id:state.currentUserId,p_comentario:c||null,p_con_aviso:false});
+      if(!d) return;
+      cerrarHoja(); showToast(d.idempotente?'Ya estaba aplicado':'Devuelta a '+nom); scheduleReload();
+    }catch(e){showToast('No se pudo devolver: '+((e&&e.message)||e));}
+    finally{enCurso.delete(k);}
   }
   // v6 A1: «Descontar» abre una hoja (con «← Volver») para adjuntar una foto opcional; el botón de la hoja confirma y aplica.
   function descontar(id){
@@ -4572,7 +4607,6 @@ window.FamiliaV3=(function(){
       <p class="v3-sub" style="margin-top:4px">${windowBlock(t)||'Sin ventana definida'}</p>${horaVentana(t)?`<p class="v3-sub" style="margin-top:2px"><strong>${esc(horaVentana(t))}</strong></p>`:''}</div>
       ${isAdmin(currentUser())&&!soloLectura()?`<button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.abrirV1(()=>openTaskCard(${t.id}))">Editar / eliminar (ficha completa)</button>`:''}
       ${t.comentario_completado?`<p class="v3-sub">«${esc(t.comentario_completado)}»</p>`:''}${comentAprob(t)&&/aprob|complet/.test(t.estado)?`<p class="v3-sub v3-st-ok">Papá/mamá: «${esc(comentAprob(t))}»</p>`:''}<div id="v3Foto" class="v3-sub">Cargando evidencia…</div>
-      ${isAdmin(currentUser())&&!soloLectura()&&t.estado==='esperando_aprobacion'?`<label class="v3-sub" style="display:block;margin-top:10px">Comentario al aprobar (opcional)</label><input id="v3cAprob" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px"><button class="v3-cta v3-full" style="margin-top:8px" onclick="FamiliaV3.aprobar(${t.id},document.getElementById('v3cAprob').value.trim())">Aprobar</button>`:''}
       ${accionesHijo(t)}${accionesPadre(t)}
       <button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.cerrarHoja()">Cerrar</button>`);
     const {data,error}=await supabase.from('familia_tareas').select('foto_url,foto_2,foto_path,foto_2_path').eq('id',id).is('archivada_en',null).maybeSingle();   // v4: sin archivadas
@@ -4635,12 +4669,19 @@ window.FamiliaV3=(function(){
   /* --- V3b: padre en el detalle: principal Aprobar, + Devolver, y en el menú ⋯ «Rechazar»
          (motivo obligatorio). UNA escritura: familia_rpc_rechazar_tarea (⚠ nombre esperado; BE
          aún no la publica en la carpeta sql). Cierra con 0 pts y no vuelve a la vista del hijo. --- */
+  /* v6b B2: ficha de revisión del padre en un solo bloque: un comentario para el hijo y dos botones del mismo
+     tamaño (Aprobar / Devolver), que en 360–390 px quedan lado a lado sin cortarse; «Rechazar» sigue en ⋯. */
   function accionesPadre(t){
     if(!isAdmin(currentUser())||soloLectura()||t.estado!=='esperando_aprobacion') return '';
-    return `<button class="v3-btn2 v3-full" style="margin-top:8px" onclick="FamiliaV3.devolver(${t.id})">Devolver</button>
+    const nom=esc(((memberById(t.asignada_a)||{}).nombre)||'el hijo');
+    return `<div class="v6b-rev"><div class="v6b-rev-t">Revisar la tarea</div>
+      <label for="v6bCom" class="v3-sub">Comentario para ${nom} (opcional al aprobar; recomendado al devolver)</label>
+      <textarea id="v6bCom" maxlength="200" rows="3" placeholder="Ej.: Te faltó tender la cama"></textarea>
+      <div class="v6b-acc"><button class="v3-cta" onclick="FamiliaV3.aprobar(${t.id},document.getElementById('v6bCom').value.trim())">Aprobar${Number(t.puntos)?' · +'+Number(t.puntos)+' pts':''}</button>
+      <button class="v3-btn2 v6b-dev" onclick="FamiliaV3.devolver(${t.id})">Devolver</button></div>
       <details style="margin-top:10px"><summary class="v3-sub" aria-label="Más acciones">⋯ Más acciones</summary>
       <label class="v3-sub" style="display:block;margin-top:10px">Motivo del rechazo (obligatorio, lo verá el hijo)</label><input id="v3rMot" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px">
-      <button class="v3-btn2 err v3-full" style="margin-top:8px" onclick="FamiliaV3.rechazar(${t.id})">Rechazar · 0 pts</button></details>`;
+      <button class="v3-btn2 err v3-full" style="margin-top:8px" onclick="FamiliaV3.rechazar(${t.id})">Rechazar · 0 pts</button></details></div>`;
   }
   async function rechazar(id){
     const mot=(document.getElementById('v3rMot')||{}).value; const motivo=(mot||'').trim();
@@ -4868,7 +4909,9 @@ window.FamiliaV3=(function(){
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'familia_tareas'},p=>{
         if(!activo()||!p||!p.new) return;
         const i=state.tasks.findIndex(t=>t.id===p.new.id);
-        if(i>=0){state.tasks[i]=Object.assign({},state.tasks[i],p.new);pintar();}
+        if(i>=0){state.tasks[i]=Object.assign({},state.tasks[i],p.new);pintar();
+          // v6b B4: la ventana de bloqueo de obligatoria se actualiza al instante (p. ej. «Devuelta» + nota).
+          try{renderImmediateBlock();}catch(e){console.error('bloqueo',e);}}
       })
       .on('postgres_changes',{event:'*',schema:'public',table:'familia_historial'},()=>{histTotal=null;})
       .subscribe();
