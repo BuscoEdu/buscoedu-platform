@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>FamiliaTareas</title>
-<!-- familia-v43 -->
+<!-- familia-v44 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <style>
 :root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
@@ -722,6 +722,9 @@ function windowBlock(t){
   const c=closedAt(t);
   if(c) lines.push('Cierre: '+fmtDate(c));
   return lines.map(esc).join('<br>');
+}
+function stripPts(s){
+  return String(s||'').replace(/\s*\([+-]?\d+(?:[.,]\d+)?\s*pts\)/gi,'').trim();
 }
 function paintFichaTone(kind){
   const box=document.querySelector('#modal-ficha .modal-content');
@@ -1441,11 +1444,12 @@ function openBalance(id){
     if(task&&isClosedTask(task)){
       const o=taskOutcome(task);
       const bad=o.kind==='penalizacion'||o.kind==='cerrada';
-      return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${task.id})"><strong>${esc(o.label)}</strong><br>${esc(task.titulo||m.detalle)}<br><small>${windowBlock(task)}</small><br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
+      const when=m.fecha?fmtDate(m.fecha):'';
+      return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${task.id})"><strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
     }
-    const when=m.fecha?new Date(m.fecha).toLocaleString('es-CO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+    const when=m.fecha?fmtDate(m.fecha):'';
     const open=tid?` onclick="openTaskFromBalance(${id},${tid})" class="hist-ok"`:` class="hist-ok" style="cursor:default"`;
-    return `<div${open}><strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(m.detalle)}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
+    return `<div${open}><strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
   }).join('')+closedHtml):'<div class="empty">Sin movimientos</div>';
   openModal('modal-balance');
 }
@@ -2025,9 +2029,14 @@ function openTaskCard(id, fromBalance){
   const outcome=taskOutcome(t);
   paintFichaTone(outcome.kind);
   if(isClosedTask(t)){
-    document.getElementById('fichaStatus').innerHTML=`<span class="outcome ${outcome.kind}">${esc(outcome.label)}</span><div style="margin-top:8px;font-size:.9rem">${windowBlock(t)}</div><div style="margin-top:8px;font-size:.95rem">${pointsLine(t)}</div>`;
+    const whoName=memberById(t.asignada_a);
+    const win=[];
+    if(t.habilita_en) win.push('Inicio: '+fmtDate(t.habilita_en));
+    if(t.fecha_limite) win.push('Fin: '+fmtDate(t.fecha_limite));
+    const mark=t.marcada_en||closedAt(t);
+    document.getElementById('fichaStatus').innerHTML=`<div style="font-size:.95rem">${pointsLine(t)}</div><div style="margin-top:6px;font-size:.9rem">${win.map(esc).join('<br>')}</div><div style="margin-top:8px"><strong>${esc(whoName?.nombre||'Sin asignar')} - ${esc(outcome.label||'Cerrada')}</strong></div>${mark?`<div style="margin-top:4px;font-size:.9rem">${esc(fmtDate(mark))}</div>`:''}`;
   }else{
-    document.getElementById('fichaStatus').innerHTML=`<div style="font-size:.95rem">${pointsLine(t)}</div><div style="margin-top:6px;font-size:.9rem">${windowBlock(t)}</div>`;
+    document.getElementById('fichaStatus').innerHTML=`<div style="font-size:.95rem">${pointsLine(t)}</div><div style="margin-top:6px;font-size:.9rem">${t.habilita_en?'Inicio: '+esc(fmtDate(t.habilita_en))+'<br>':''}${t.fecha_limite?'Fin: '+esc(fmtDate(t.fecha_limite)):''}</div>`;
   }
   document.getElementById('fichaNombre').value=t.titulo||'';
   document.getElementById('fichaPuntos').value=t.puntos||0;
@@ -2247,6 +2256,7 @@ async function submitEvidence(){
     payload.comentario_completado=comment||null;
     if(foto) payload.foto_url=foto;
   }
+  if(!t||!t.marcada_en) payload.marcada_en=new Date().toISOString();
   const {error}=await supabase.from('familia_tareas').update(payload).eq('id',pendingTaskId);
   if(error) return showToast(error.message);
   showToast(payload.estado==='esperando_aprobacion'?'Quedó pendiente de aprobación':'Falta la parte del otro');
