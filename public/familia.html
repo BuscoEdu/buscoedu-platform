@@ -3542,6 +3542,8 @@ window.FamiliaV3=(function(){
     if(t.estado_vencida==='pendiente_hijo'||(t.estado==='aviso_vencida'&&!t.estado_vencida)) return {c:'err',txt:'Se pasó la hora',cls:'v3-st-err'};
     if(t.estado_vencida==='por_decidir') return {c:'esp',txt:'Esperando a papá/mamá',cls:'v3-st-esp'};
     if(t.estado==='esperando_aprobacion'||t.estado==='transferencia_por_aprobar') return {c:'esp',txt:t.estado==='transferencia_por_aprobar'?'Traspaso por aprobar':'Esperando aprobación',cls:'v3-st-esp'};
+    // v6 A5: solicitud del hijo sin aprobar: sin «Ya la hice», sin reloj y sin descuento.
+    if(t.estado==='solicitada') return {c:'esp',txt:'Solicitada: esperando a papá/mamá',cls:'v3-st-esp'};
     if(t.estado==='pendiente_transferencia') return {c:'esp',txt:'Pasada a '+(((memberById(t.para_quien)||{}).nombre)||'un hermano'),cls:'v3-st-esp'};
     // Motivo de la devolución visible en la tarjeta del hijo: comentario_aprobacion y, si falta, comentario.
     if(t.estado==='aviso_rechazada') return {c:'dev',txt:'Devuelta'+(comentAprob(t)?': '+comentAprob(t):''),cls:'v3-st-dev'};
@@ -3678,6 +3680,9 @@ window.FamiliaV3=(function(){
     let h0=tr.length?'<h2>Traspasos</h2>'+tr.map(t=>ficha(t,soloLectura()?'':`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.traspaso('aprobar',${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.traspaso('rechazar',${t.id})">Rechazar</button></div>`)).join(''):'';
     // v4 · mesadas pendientes (tipo 'mesada' sin puntos sumados) — aisladas: RPC provisional.
     const mp=state.tasks.filter(t=>t.tipo==='mesada'&&!t.puntos_sumados&&t.estado!=='completada'&&!ocultas.has(t.id));
+    // v6 A5: solicitudes de tareas de los hijos (estado 'solicitada'): Aprobar / Negar.
+    const sq=state.tasks.filter(t=>t.estado==='solicitada'&&!ocultas.has(t.id));
+    if(sq.length) h0+='<h2>Solicitudes de tareas</h2>'+sq.map(t=>ficha(t,soloLectura()?'':`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aprobarSolicitud(${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.negarSolicitud(${t.id})">Negar</button></div>`)).join('');
     if(mp.length) h0+='<h2>Mesadas por cargar</h2>'+mp.map(t=>ficha(t,soloLectura()?'':`<button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.mesadaPendiente(${t.id})">Cargar</button>`)).join('');
     let h=h0+a.map(t=>ficha(t,`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aprobar(${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.devolver(${t.id})">Devolver</button></div>`)).join('');
     if(v.length){
@@ -4107,20 +4112,20 @@ window.FamiliaV3=(function(){
         tipo:deber?'deber':'tarea',clase:deber?'deber':'tarea',inmediata:false,estado:'pendiente',creada_por:u.id,puntos_sumados:false,
         habilita_en:now.toISOString(),fecha_limite:limite.toISOString(),ventana_horas:2,client_req_id:reqId(k)};
       // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
-      if(!confirm('¿Solicitar «'+p.titulo+'»'+(row.puntos?' por '+row.puntos+' pts':'')+'? Tendrás 2 h para hacerla.')) return;
-      /* QA v5 (MEDIA): antes era un insert directo a familia_tareas que en QA no dejó fila. Ahora va por la RPC que la
-         guía F3 asigna a solicitarTarea (familia_rpc_crear_tarea, la misma de «Crear», que sí persiste) y después se
-         relee la fila por id: si no está, se avisa el error; nunca éxito silencioso. */
-      const nid=await rpc('familia_rpc_crear_tarea',{p_titulo:row.titulo,p_creada_por:u.id,p_asignada_a:u.id,p_client_req_id:row.client_req_id,
-        p_puntos:row.puntos,p_clase:row.clase,p_tipo:row.tipo,p_estado:'pendiente',p_icono:row.icono,p_recurrencia:'once',p_inmediata:false,
-        p_habilita_en:row.habilita_en,p_fecha_limite:row.fecha_limite,p_ventana_min:120});
-      if(nid==null) return;   // rpc() ya mostró el error; se conserva el req id para reintentar
-      const {data,error}=await supabase.from('familia_tareas').select(V3_COLS_TAREAS).eq('id',nid).maybeSingle();
-      if(error) return showToast('No se pudo comprobar la tarea: '+error.message);
-      if(!data) return showToast('No se pudo: la tarea no quedó guardada. Intenta de nuevo.');
-      // QA v5 fix 2: al guardar se cierra la hoja y se avisa con un toast de éxito.
+      if(!confirm('¿Solicitar «'+p.titulo+'»'+(row.puntos?' por '+row.puntos+' pts':'')+'? Papá o mamá deben aprobarla; luego tendrás 2 h.')) return;
+      /* v6 A5: la solicitud nace en estado 'solicitada' (sin habilita/fecha límite: no corre la ventana ni hay descuento).
+         familia_rpc_crear_tarea solo admite pendiente/borrador, así que se inserta directo como la v1 (familia_tareas no
+         tiene CHECK sobre estado según f2_README:137). Se pide solo el id y se relee la fila; si no está, error. */
+      const ins={titulo:row.titulo,puntos:row.puntos,recurrencia:'once',icono:row.icono,asignada_a:u.id,tipo:row.tipo,clase:row.clase,
+        inmediata:false,estado:'solicitada',creada_por:u.id,puntos_sumados:false,habilita_en:null,fecha_limite:null,ventana_horas:2,client_req_id:row.client_req_id};
+      const r1=await supabase.from('familia_tareas').insert(ins).select('id').maybeSingle();
+      if(r1.error) return showToast('No se pudo: '+r1.error.message);
+      if(!r1.data) return showToast('No se pudo: la solicitud no quedó guardada. Intenta de nuevo.');
+      const {data,error}=await supabase.from('familia_tareas').select(V3_COLS_TAREAS).eq('id',r1.data.id).maybeSingle();
+      if(error) return showToast('No se pudo comprobar la solicitud: '+error.message);
+      if(!data) return showToast('No se pudo: la solicitud no quedó guardada. Intenta de nuevo.');
       delete reqIds[k]; if(!state.tasks.some(x=>x.id===data.id)) state.tasks.unshift(data); cerrarHoja(); pintar();
-      showToast('Listo: «'+data.titulo+'» quedó en tu Hoy. Tienes 2 h para hacerla.');
+      showToast('Listo: pediste «'+data.titulo+'». Cuando papá o mamá la aprueben tendrás 2 h para hacerla.');
     }finally{enCurso.delete(k);}
   }
   /* --- v5 ítem 8 (D1): Catálogo = sección de tareas de la v1 en modo «Definiciones» (plantillas). Se activa
@@ -4423,6 +4428,35 @@ window.FamiliaV3=(function(){
     abrirHoja(`<h3>${esc(t.titulo)}</h3><p class="v3-st-err" style="margin:8px 0">Se pasó la hora. Todavía no se descuenta nada: papá o mamá deciden.</p>
       <button class="v3-cta v3-full" onclick="FamiliaV3.entendido(${id})">Entendido, se me pasó</button>`);
   }
+  /* v6 A5: el padre aprueba (pasa a pendiente; la ventana de 2 h empieza ahora) o niega (se cierra como 'rechazada'
+     con el motivo). Escritura directa con guarda .eq('estado','solicitada'); 0 filas = error, nunca éxito silencioso. */
+  function papaMama(){const u=currentUser()||{}; return /mam|madre/i.test(u.rol||'')?'Tu mamá':'Tu papá';}
+  async function aprobarSolicitud(id){
+    const t=state.tasks.find(x=>x.id===id), k=t&&memberById(t.asignada_a); if(!t||soloLectura()) return;
+    if(!confirm('¿Aprobar la solicitud de '+((k&&k.nombre)||'este hijo')+': «'+t.titulo+'»'+(t.puntos?' ('+t.puntos+' pts)':'')+'? Tendrá 2 h desde ahora.')) return;
+    const ck='as'+id; if(enCurso.has(ck)) return; enCurso.add(ck);
+    try{
+      const now=new Date(), lim=new Date(now.getTime()+2*3600000);
+      const {data,error}=await supabase.from('familia_tareas').update({estado:'pendiente',habilita_en:now.toISOString(),fecha_limite:lim.toISOString(),ventana_horas:2}).eq('id',id).eq('estado','solicitada').select('id');
+      if(error) return showToast('No se pudo: '+error.message);
+      if(!data||!data.length) return showToast('No se pudo: la solicitud ya no estaba por aprobar.');
+      await supabase.from('familia_notificaciones').insert({para_id:t.asignada_a,tipo:'tarea',tarea_id:id,texto:'Te aprobaron «'+t.titulo+'». Tienes 2 h para hacerla.'});
+      showToast('Aprobada: '+t.titulo); scheduleReload();
+    }finally{enCurso.delete(ck);}
+  }
+  async function negarSolicitud(id){
+    const t=state.tasks.find(x=>x.id===id), k=t&&memberById(t.asignada_a); if(!t||soloLectura()) return;
+    // Una sola confirmación: el prompt pregunta y pide el motivo (opcional); Cancelar no hace nada.
+    const m=prompt('¿Negar la solicitud de '+((k&&k.nombre)||'este hijo')+': «'+t.titulo+'»? Motivo (opcional, lo verá):',''); if(m===null) return;
+    const ck='ns'+id; if(enCurso.has(ck)) return; enCurso.add(ck);
+    try{
+      const {data,error}=await supabase.from('familia_tareas').update({estado:'rechazada',comentario_aprobacion:m.trim()||null,cerrado_en:new Date().toISOString()}).eq('id',id).eq('estado','solicitada').select('id');
+      if(error) return showToast('No se pudo: '+error.message);
+      if(!data||!data.length) return showToast('No se pudo: la solicitud ya no estaba por aprobar.');
+      await supabase.from('familia_notificaciones').insert({para_id:t.asignada_a,tipo:'tarea',tarea_id:id,texto:papaMama()+' no aprobó «'+t.titulo+'»'+(m.trim()?': '+m.trim():'')});
+      showToast('Solicitud negada'); scheduleReload();
+    }finally{enCurso.delete(ck);}
+  }
   async function entendido(id){
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     {const t=state.tasks.find(x=>x.id===id); if(!confirm('¿Aceptar que «'+((t&&t.titulo)||'esta tarea')+'» se te pasó?')) return;}
@@ -4605,7 +4639,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {activo,ir,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
