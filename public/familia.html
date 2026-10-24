@@ -4933,6 +4933,9 @@ window.FamiliaV3=(function(){
   function puedeEnviarTarde(t,u){
     if(!u||isAdmin(u)||soloLectura()||!t) return false;
     if(!(t.asignada_a===u.id||t.conjunto_con===u.id)) return false;
+    // v6b B6 fix QA: expireWindows() pasa la tarea a aviso_vencida justo al vencer; mientras no tenga
+    // puntos sumados ni decisión de vencida, el hijo aún puede enviarla tarde o pedir más tiempo.
+    if(t.estado==='aviso_vencida') return !t.puntos_sumados&&!t.estado_vencida;
     if(!(t.estado==='pendiente'||t.estado==='aviso_rechazada')) return false;
     return typeof taskTiming==='function'&&taskTiming(t)==='late';
   }
