@@ -4066,9 +4066,17 @@ window.FamiliaV3=(function(){
         habilita_en:now.toISOString(),fecha_limite:limite.toISOString(),ventana_horas:2,client_req_id:reqId(k)};
       // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
       if(!confirm('¿Solicitar «'+p.titulo+'»'+(row.puntos?' por '+row.puntos+' pts':'')+'? Tendrás 2 h para hacerla.')) return;
-      const {data,error}=await supabase.from('familia_tareas').insert(row).select(V3_COLS_TAREAS).single();
-      if(error) return showToast('No se pudo: '+error.message);
-      delete reqIds[k]; state.tasks.unshift(data); cerrarHoja(); pintar(); detalle(data.id);
+      /* QA v5 (MEDIA): antes era un insert directo a familia_tareas que en QA no dejó fila. Ahora va por la RPC que la
+         guía F3 asigna a solicitarTarea (familia_rpc_crear_tarea, la misma de «Crear», que sí persiste) y después se
+         relee la fila por id: si no está, se avisa el error; nunca éxito silencioso. */
+      const nid=await rpc('familia_rpc_crear_tarea',{p_titulo:row.titulo,p_creada_por:u.id,p_asignada_a:u.id,p_client_req_id:row.client_req_id,
+        p_puntos:row.puntos,p_clase:row.clase,p_tipo:row.tipo,p_estado:'pendiente',p_icono:row.icono,p_recurrencia:'once',p_inmediata:false,
+        p_habilita_en:row.habilita_en,p_fecha_limite:row.fecha_limite,p_ventana_min:120});
+      if(nid==null) return;   // rpc() ya mostró el error; se conserva el req id para reintentar
+      const {data,error}=await supabase.from('familia_tareas').select(V3_COLS_TAREAS).eq('id',nid).maybeSingle();
+      if(error) return showToast('No se pudo comprobar la tarea: '+error.message);
+      if(!data) return showToast('No se pudo: la tarea no quedó guardada. Intenta de nuevo.');
+      delete reqIds[k]; if(!state.tasks.some(x=>x.id===data.id)) state.tasks.unshift(data); cerrarHoja(); pintar(); detalle(data.id);
     }finally{enCurso.delete(k);}
   }
   /* --- v5 ítem 8 (D1): Catálogo = sección de tareas de la v1 en modo «Definiciones» (plantillas). Se activa
@@ -4211,7 +4219,9 @@ window.FamiliaV3=(function(){
     scheduleReload();
   }
   async function descontar(id){
-    if(!confirm('¿Aplicar el Descuento de este deber?')) return;
+    // QA v5: una sola confirmación que nombra al hijo y la tarea, igual que Perdonar.
+    const t=state.tasks.find(x=>x.id===id), k=t&&memberById(t.asignada_a);
+    if(!confirm('¿Descontar a '+((k&&k.nombre)||'este hijo')+': '+((t&&t.titulo)||'esta tarea')+'?')) return;
     await rpc('familia_rpc_descontar_vencida',{p_tarea_id:id,p_actor_id:state.currentUserId}); scheduleReload();
   }
   // v5 ítem 11: una sola confirmación con nombre del hijo y tarea.
