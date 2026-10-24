@@ -3450,7 +3450,9 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 .v3-card{background:#fff;border:1px solid #e2e8f0;border-left:4px solid #9ca3af;border-radius:12px;padding:12px;margin-bottom:10px;display:flex;align-items:center;gap:10px}
 /* v6 A3: ventana en la tarjeta. Verde #15803d y rojo #b91c1c (estándar UX; texto blanco sobre el color ≥ 4.5:1). */
 .v3-card.v6-dentro{border-color:#15803d;border-left:6px solid #15803d;background:#f0fdf4}.v3-card.v6-fuera{border-color:#b91c1c;border-left:6px solid #b91c1c;background:#fef2f2}
-.v6-vtag{display:inline-block;font-size:.75rem;font-weight:700;color:#fff;border-radius:6px;padding:1px 6px;margin-right:6px;white-space:nowrap}.v6-vtag.ok{background:#15803d}.v6-vtag.err{background:#b91c1c}
+.v6-vtag{display:inline-block;font-size:.75rem;font-weight:700;color:#fff;border-radius:6px;padding:1px 6px;margin-right:6px;white-space:nowrap}/* v6 A3b: naranja «Queda poco» (#b45309 sobre #fffbeb; etiqueta blanca sobre #b45309). */
+.v3-card.v6-poco{border-color:#b45309;border-left:6px solid #b45309;background:#fffbeb}.v6-vtag.warn{background:#b45309}
+.v6-vtag.ok{background:#15803d}.v6-vtag.err{background:#b91c1c}
 .v3-card.ok{border-left-color:var(--v3-ok)}.v3-card.err{border-left-color:var(--v3-err)}.v3-card.rev{border-left-color:var(--v3-azul)}
 .v3-card .v3-grow{flex:1;min-width:0}
 .v3-card .v3-t{font-weight:600;overflow-wrap:anywhere}
@@ -3608,30 +3610,41 @@ window.FamiliaV3=(function(){
     const a=t.habilita_en?'Abre: '+((t.inmediata||t.tipo==='inmediata')&&ya?'ahora':f(t.habilita_en)):'', c=t.fecha_limite?'Cierra: '+f(t.fecha_limite):'';
     return a||c?`<div class="v3-sub" style="margin-top:2px">${esc([a,c].filter(Boolean).join(' · '))}</div>`:'';
   }
-  /* v6 A4: «Hora: 18:52 · ventana ±1 h». La hora es el centro entre abre y cierra (mismo modelo que la ficha de la v1:
-     hora ± ventana); hora local del dispositivo, como el resto de la app. */
-  function horaVentana(t){
+  /* v6 A3b/A4: modelo de ventana de cada tarea.
+     · Centrada (Crear completo de la v1 y la ficha): abre = hora − V, cierra = hora + V (V = ventana_horas).
+     · «Después» (abre = la hora elegida y la ventana corre después): RPC crear_tarea / crear_lote (ventana_min no nulo),
+       Obligatoria (inmediata), Solicitar (icono 🙋) y deberes base repartidos (icono 📚). Ahí hora = abre y V = cierra − abre.
+     Naranja desde hora + V/2; rojo desde el cierre guardado (fecha_limite). Ej.: 7:00 con ventana 1 h → 7:30 naranja, 8:00 rojo. */
+  function modeloVentana(t){
     const a=t.habilita_en?new Date(t.habilita_en).getTime():0, c=t.fecha_limite?new Date(t.fecha_limite).getTime():0;
-    if(!a||!c||c<=a) return '';
-    const h=new Date((a+c)/2).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
-    const m=Math.round((c-a)/2/60000);
-    const v=m%60===0?(m/60)+' h':(m<60?m+' min':(Math.floor(m/60)+' h '+(m%60)+' min'));
-    return 'Hora: '+h+' · ventana ±'+v;
+    if(!a||!c||c<=a) return null;
+    const despues=t.ventana_min!=null||t.inmediata||t.tipo==='inmediata'||t.icono==='🙋'||t.icono==='📚';
+    const hora=despues?a:(a+c)/2, V=despues?(c-a):(c-a)/2;
+    return {a,c,hora,V,despues,naranja:hora+V/2};
   }
-  /* v6 A3: verde si ahora está dentro de la ventana y falta hacerla; rojo si ya cerró y no se hizo.
-     Solo para lo que aún depende del hijo (pendiente, devuelta o vencida sin decidir). */
+  // v6 A4: «Hora: 18:52 · ventana ±1 h» (centrada) o «Hora: 07:00 · ventana 1 h después» (modelo «después»); hora local.
+  function horaVentana(t){
+    const mv=modeloVentana(t); if(!mv) return '';
+    const h=new Date(mv.hora).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+    const m=Math.round(mv.V/60000);
+    const v=m%60===0?(m/60)+' h':(m<60?m+' min':(Math.floor(m/60)+' h '+(m%60)+' min'));
+    return 'Hora: '+h+' · ventana '+(mv.despues?v+' después':'±'+v);
+  }
+  /* v6 A3/A3b: verde dentro de la ventana antes de hora + V/2; naranja «Queda poco» desde ahí hasta el cierre;
+     rojo cuando ya cerró sin hacerse. Solo para lo que aún depende del hijo. */
   function enVentana(t){
     const sinHacer=t.estado==='pendiente'||t.estado==='aviso_rechazada'||t.estado==='aviso_vencida'||t.estado_vencida==='pendiente_hijo';
     if(!sinHacer) return '';
-    const now=Date.now(), a=t.habilita_en?new Date(t.habilita_en).getTime():0, c=t.fecha_limite?new Date(t.fecha_limite).getTime():0;
-    if(c&&now>c) return 'fuera';
-    if(t.estado==='pendiente'||t.estado==='aviso_rechazada'){ if((!a||now>=a)&&c&&now<=c) return 'dentro'; }
-    return '';
+    const now=Date.now(), c=t.fecha_limite?new Date(t.fecha_limite).getTime():0;
+    if(c&&now>=c) return 'fuera';
+    if(t.estado!=='pendiente'&&t.estado!=='aviso_rechazada') return '';
+    const mv=modeloVentana(t); if(!mv||now<mv.a) return '';
+    return now<mv.naranja?'dentro':'poco';
   }
   function ficha(t,acciones){
     const e=estadoDe(t), who=memberById(t.asignada_a);
     // v6 A3: clase y etiqueta de ventana (verde «En su hora» / rojo «Se pasó la hora»).
-    const vv=enVentana(t), vcls=vv?' v6-'+vv:'', vtxt=vv==='dentro'?'<span class="v6-vtag ok">En su hora</span>':vv==='fuera'?'<span class="v6-vtag err">Se pasó la hora</span>':'';
+    const vv=enVentana(t), vcls=vv?' v6-'+vv:'', vtxt=vv==='dentro'?'<span class="v6-vtag ok">En su hora</span>':vv==='poco'?'<span class="v6-vtag warn">Queda poco</span>':vv==='fuera'?'<span class="v6-vtag err">Se pasó la hora</span>':'';
     const hv=horaVentana(t);
     return `<div class="v3-card ${e.c}${vcls}" data-id="${t.id}" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.detalle(${t.id})">
       <div class="v3-grow"><div class="v3-t">${esc(t.titulo)}</div>
@@ -4500,7 +4513,7 @@ window.FamiliaV3=(function(){
     const ck='as'+id; if(enCurso.has(ck)) return; enCurso.add(ck);
     try{
       const now=new Date(), lim=new Date(now.getTime()+2*3600000);
-      const {data,error}=await supabase.from('familia_tareas').update({estado:'pendiente',habilita_en:now.toISOString(),fecha_limite:lim.toISOString(),ventana_horas:2}).eq('id',id).eq('estado','solicitada').select('id');
+      const {data,error}=await supabase.from('familia_tareas').update({estado:'pendiente',habilita_en:now.toISOString(),fecha_limite:lim.toISOString(),ventana_horas:2,ventana_min:120})   // v6 A3b: ventana_min marca el modelo «después».eq('id',id).eq('estado','solicitada').select('id');
       if(error) return showToast('No se pudo: '+error.message);
       if(!data||!data.length) return showToast('No se pudo: la solicitud ya no estaba por aprobar.');
       await supabase.from('familia_notificaciones').insert({para_id:t.asignada_a,tipo:'tarea',tarea_id:id,texto:'Te aprobaron «'+t.titulo+'». Tienes 2 h para hacerla.'});
