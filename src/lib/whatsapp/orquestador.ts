@@ -24,7 +24,7 @@ import type { ConfigWhatsApp } from './config';
 import { puedeEnviar, remitentePuedeRecibirRespuesta } from './config';
 import type { BotonRespuesta, EnviadorWhatsApp, FilaLista } from './graph-client';
 import { destinoRemitente, MAX_FILAS_LISTA_BUSCOEDU, WhatsAppApiError } from './graph-client';
-import { filtrosDesdeTexto as filtrosBusqueda, filtrosVacios } from './busqueda';
+import { ciudadNotaVirtual, detectarTopePrecio, filtrosDesdeTexto as filtrosBusqueda, filtrosRespaldoArea, filtrosVacios, terminosReconocidos } from './busqueda';
 import * as C from './copy';
 import { clasificarTexto, esRevocacion, NO_CONSENTIMIENTO, SALUDOS, SI_CONSENTIMIENTO } from './intenciones';
 import * as M from './mensajes';
@@ -35,6 +35,7 @@ import type {
   CatalogoWa,
   ContactoWa,
   ConversorLeadsWa,
+  ConteoProgramasWa,
   FiltrosBusquedaWa,
   OfertaAgrupadaWa,
   OfertaWa,
@@ -325,6 +326,17 @@ async function atender(
     tipo: mensaje.tipo
   });
 
+  // Bloque: WA-fix-1b · S18 · «Autorizo» / «No autorizo» escritos en el paso de autorización de contacto =
+  // mismos botones [Sí, autorizo] / [No, gracias] de ESA aplicación (tolerante a mayúsculas y tildes).
+  // Va antes de la revocación: aquí «no autorizo» responde a T22, no retira el consentimiento de datos.
+  const enAutorizacion = contacto.sesion.aplicacion;
+  if (mensaje.tipo === 'texto' && enAutorizacion?.paso === 'consentimiento') {
+    const respuesta = respuestaAutorizacionEscrita(mensaje.texto);
+    if (respuesta) {
+      return gestionarRespuestaInteractiva(contacto, `${respuesta === 'si' ? 'autorizar' : 'noautorizar'}:${enAutorizacion.ofertaId}`, deps, ahora);
+    }
+  }
+
   // Bloque: revocación con consentimiento previo (T05, C-03). UPDATE, nunca DELETE (C-51).
   if (mensaje.tipo === 'texto' && esRevocacion(mensaje.texto)) {
     return revocar(contacto, deps, ahora);
@@ -367,6 +379,15 @@ async function atender(
   // Bloque: aplicación en curso esperando datos escritos. Si el texto es claramente una búsqueda
   // («quiero estudiar…»), se cancela Aplicar en vez de guardar la frase como nombre (QA S18f).
   const aplicacion = contacto.sesion.aplicacion;
+  // Bloque: WA-fix-1b · B3 · «cancelar» (o «cancelar aplicación») durante Aplicar: se cierra la aplicación
+  // y se vuelve a la lista, en vez de tomarlo como nombre. En el paso de autorización equivale a [No, gracias].
+  if (aplicacion && accionEscrita(mensaje.texto) === 'cancelar') {
+    if (aplicacion.paso === 'consentimiento') return gestionarRespuestaInteractiva(contacto, `noautorizar:${aplicacion.ofertaId}`, deps, ahora);
+    contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, aplicacion: null, intentosNombre: 0, intentosCorreo: 0 } });
+    // Copy v1.8: aviso «Listo, no apliqué…» y luego la última lista.
+    await enviarTexto(contacto, deps, C.T_CANCELAR_APLICAR);
+    return reenviarLista(contacto, deps, ahora);
+  }
   if (aplicacion && (aplicacion.paso === 'datos_nombre' || aplicacion.paso === 'datos_correo')) {
     if (aplicacion.paso === 'datos_nombre' && extraerSlotsDeclarados(mensaje.texto).intereses) {
       contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, aplicacion: null, intentosNombre: 0 } });
@@ -388,6 +409,43 @@ async function atenderTextoLibre(
   deps: DependenciasOrquestador,
   ahora: number
 ): Promise<ResultadoProceso> {
+  // Bloque: B3 · «guardar» / «aplicar» escritos = mismos botones sobre la última ficha abierta (<24 h).
+  // Guardar ≠ Aplicar ≠ Autorizar: aquí nunca se autoriza ni se crea lead.
+  // WA-fix-1b: también frases («guardar en mi lista», «quiero aplicar») y «cancelar» (= [Ver otros]).
+  const plano = plegarComando(texto);
+  const accion = accionEscrita(texto);
+  if (accion === 'guardar' || accion === 'aplicar') {
+    const ficha = fichaAbiertaVigente(contacto, ahora);
+    if (!ficha) {
+      await enviarBotones(contacto, deps, C.T_SIN_FICHA_ABIERTA, C.BOTONES_NUEVA_O_ASESOR);
+      return 'respondido';
+    }
+    return gestionarRespuestaInteractiva(contacto, `${accion === 'guardar' ? 'lista' : 'aplicar'}:${ficha.id}`, deps, ahora);
+  }
+  // «cancelar» con ficha abierta = botón [Ver otros]: vuelve a la lista, sin guardar ni aplicar.
+  if (accion === 'cancelar' && fichaAbiertaVigente(contacto, ahora)) {
+    return gestionarRespuestaInteractiva(contacto, 'menu:volver', deps, ahora);
+  }
+  // Copy v1.8 · «cancelar» sin ficha ni aplicación: no hay nada que cancelar → re-explicación (T_REEXPLICAR).
+  if (accion === 'cancelar') {
+    await enviarBotones(contacto, deps, C.T_REEXPLICAR, C.BOTONES_MENU);
+    return 'respondido';
+  }
+  // Bloque: S16 · «no entiendo» del estudiante: re-explicación con ejemplo (no el T10 genérico).
+  // WA-fix-1b: la 2.ª seguida no repite el mismo texto; escala con T10_REPETIDO (B2) y botón de asesor.
+  if (NO_ENTIENDE_ESTUDIANTE.has(plano)) {
+    const fallos = (contacto.sesion.fallosSeguidos || 0) + 1;
+    contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, fallosSeguidos: fallos } });
+    if (fallos >= 2) await enviarBotones(contacto, deps, C.T10_REPETIDO, C.BOTONES_ASESOR_O_BUSCAR);
+    else await enviarBotones(contacto, deps, C.T_REEXPLICAR, C.BOTONES_MENU);
+    return 'respondido';
+  }
+  // Bloque: WA-fix-1b · S7 · presupuesto/tope de precio va a la búsqueda (copy v1.7 + resultados), nunca a
+  // «No te entendí» ni a T17 suelto. No se filtra por precio.
+  if (detectarTopePrecio(texto)) {
+    if (contacto.sesion.fallosSeguidos) contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, fallosSeguidos: 0 } });
+    return buscarYMostrar(contacto, deps, ahora, { texto });
+  }
   const intencion = clasificarTexto(texto);
   // Cualquier intención reconocida reinicia el contador de «no entendí».
   if (intencion.tipo !== 'no_entendi' && contacto.sesion.fallosSeguidos) {
@@ -410,6 +468,16 @@ async function atenderTextoLibre(
     case 'precio':
       await enviarBotones(contacto, deps, C.T17_PRECIO, C.BOTONES_NUEVA_O_ASESOR);
       return 'respondido';
+    case 'registro': {
+      // S14 · SNIES de la ficha abierta si el catálogo lo trae; nunca se dice «acreditado».
+      const ficha = fichaAbiertaVigente(contacto, ahora);
+      await enviarBotones(contacto, deps, C.tRegistroSnies(ficha?.snies), C.BOTONES_ASESOR_O_BUSCAR);
+      return 'respondido';
+    }
+    case 'emoji':
+      // S10 · solo emojis: respuesta propia.
+      await enviarBotones(contacto, deps, C.T_SOLO_EMOJI, C.BOTONES_MENU);
+      return 'respondido';
     case 'pregunta_abierta':
       await enviarBotones(contacto, deps, C.T12_PREGUNTA_ABIERTA, C.BOTONES_ASESOR_O_BUSCAR);
       return 'respondido';
@@ -418,6 +486,49 @@ async function atenderTextoLibre(
     default:
       return buscarYMostrar(contacto, deps, ahora, { texto });
   }
+}
+
+// Bloque: WA-fix-1b · B3 · frases escritas equivalentes a los botones de la ficha (texto ya plegado: sin
+// tildes, minúsculas, sin signos). Solo frases claras y completas, para no robar búsquedas.
+const FRASES_GUARDAR = new Set([
+  'guardar', 'guardalo', 'guardala', 'guardar en mi lista', 'guardar en lista', 'guardar en la lista', 'guardar lista',
+  'guardar mi lista', 'guardarlo', 'guardarla', 'agregar a mi lista', 'anadir a mi lista', 'quiero guardar', 'quiero guardarlo'
+]);
+const FRASES_APLICAR = new Set([
+  'aplicar', 'quiero aplicar', 'aplicar ya', 'deseo aplicar', 'me gustaria aplicar', 'voy a aplicar', 'aplicar a este',
+  'aplicar a este programa', 'quiero aplicar a este', 'quiero aplicar a este programa', 'aplico'
+]);
+const FRASES_CANCELAR = new Set(['cancelar', 'cancela', 'cancelo', 'cancelar aplicacion', 'cancelar la aplicacion', 'no quiero aplicar', 'mejor no']);
+
+/** B3 · acción escrita sobre la ficha o la aplicación en curso; null si el texto no es una de esas frases. */
+export function accionEscrita(texto: string): 'guardar' | 'aplicar' | 'cancelar' | null {
+  const t = plegarComando(texto);
+  if (FRASES_GUARDAR.has(t)) return 'guardar';
+  if (FRASES_APLICAR.has(t)) return 'aplicar';
+  if (FRASES_CANCELAR.has(t)) return 'cancelar';
+  return null;
+}
+
+// Bloque: WA-fix-1b · S18 · respuestas escritas a T22 (autorización de contacto). Mensaje completo y plegado.
+const SI_AUTORIZAR = new Set(['autorizo', 'si autorizo', 'si', 'si acepto', 'acepto', 'yo autorizo', 'lo autorizo', 'si lo autorizo', 'si claro', 'claro que si', 'de acuerdo']);
+const NO_AUTORIZAR = new Set(['no', 'no autorizo', 'no gracias', 'no acepto', 'no lo autorizo']);
+
+/** S18 · «Autorizo»/«AUTORÍZO»/«sí, autorizo» → 'si'; «no, gracias»/«no autorizo» → 'no'; otro texto → null. */
+export function respuestaAutorizacionEscrita(texto: string): 'si' | 'no' | null {
+  const t = plegarComando(texto);
+  if (SI_AUTORIZAR.has(t)) return 'si';
+  if (NO_AUTORIZAR.has(t)) return 'no';
+  return null;
+}
+
+// Bloque: S16 · frases con las que el estudiante dice que no entendió al bot.
+const NO_ENTIENDE_ESTUDIANTE = new Set(['no entiendo', 'no entendi', 'no te entiendo', 'no comprendo', 'no entiendo nada', 'como asi']);
+
+// Bloque: B3 · ficha abierta hace menos de 24 h (y aún en la sesión).
+function fichaAbiertaVigente(contacto: ContactoWa, ahora: number): OfertaWa | null {
+  const f = contacto.sesion.fichaAbierta;
+  if (!f || ahora - f.en > VIGENCIA_LISTA_MS) return null;
+  return ofertaDeSesion(contacto, f.ofertaId, ahora);
 }
 
 // Bloque: T10 «no entendí»; a la 2.ª seguida ofrece asesor (re-explica en otras palabras, criterio S16).
@@ -615,10 +726,19 @@ export function filtrosDesdeTexto(texto: string, _previos: Record<string, string
 }
 
 // Bloque: catálogo con tope de tiempo (C-23): si no responde en 5 s o lanza, es error técnico (T13), nunca «0 resultados».
+/**
+ * Bloque: S12 exacto · conteo por área a usar en el menú. Si el catálogo lo trae (Supabase, paginado S6), se usa
+ * tal cual. Si no (catálogos de prueba antiguos), se cuenta sobre lo devuelto y solo es exacto si vino TODO.
+ */
+function conteoDe(r: { ofertas: OfertaWa[]; conteo?: ConteoProgramasWa }, total: number): ConteoProgramasWa {
+  if (r.conteo) return r.conteo;
+  return { exacto: r.ofertas.length >= total, areas: C.contarAreas(r.ofertas) };
+}
+
 async function buscarConTimeout(
   deps: DependenciasOrquestador,
   filtros: FiltrosBusquedaWa
-): Promise<{ ok: true; ofertas: OfertaWa[]; total: number } | { ok: false }> {
+): Promise<{ ok: true; ofertas: OfertaWa[]; total: number; respaldoArea?: boolean; conteo: ConteoProgramasWa } | { ok: false }> {
   let temporizador: ReturnType<typeof setTimeout> | undefined;
   try {
     const limite = new Promise<{ ok: false }>((resolver) => {
@@ -629,7 +749,8 @@ async function buscarConTimeout(
       deps.log?.('wa_catalogo_error');
       return { ok: false };
     }
-    return { ok: true, ofertas: r.ofertas, total: Math.max(r.total ?? r.ofertas.length, r.ofertas.length) };
+    const total = Math.max(r.total ?? r.ofertas.length, r.ofertas.length);
+    return { ok: true, ofertas: r.ofertas, total, conteo: conteoDe(r, total), ...(r.respaldoArea ? { respaldoArea: true } : {}) };
   } catch (error) {
     deps.log?.('wa_catalogo_error', { error: error instanceof Error ? error.name : 'desconocido' });
     return { ok: false };
@@ -658,18 +779,47 @@ async function buscarYMostrar(
   let filtros: FiltrosBusquedaWa;
   let etiqueta: string;
   let pagina = 0;
+  let topePrecio = false;
   if ('texto' in origen) {
     const r = filtrosBusqueda(origen.texto);
     filtros = r.filtros;
     etiqueta = r.etiqueta;
+    topePrecio = r.topePrecio;
   } else {
     filtros = origen.filtros;
     etiqueta = origen.etiqueta;
     pagina = origen.pagina;
   }
-  if (filtrosVacios(filtros)) return noEntendi(contacto, deps);
+  // Bloque: WA-fix-1b · S7 · solo presupuesto («tengo 3 millones»): se muestran opciones de la última búsqueda
+  // vigente o, si no hay, del catálogo completo; nunca «No te entendí» ni filtro por precio.
+  if (filtrosVacios(filtros) && topePrecio) {
+    const s = contacto.sesion;
+    if (s.filtrosBusqueda && !filtrosVacios(s.filtrosBusqueda)) {
+      filtros = s.filtrosBusqueda;
+      etiqueta = s.consulta || '';
+    } else {
+      filtros = {};
+      etiqueta = '';
+    }
+  } else if (filtrosVacios(filtros)) return noEntendi(contacto, deps);
 
-  const resultado = await buscarConTimeout(deps, filtros);
+  let resultado = await buscarConTimeout(deps, filtros);
+  let areaRespaldo: string | null = null;
+  // Bloque: S5 · respaldo por área. La RPC de BD lo marca (respaldoArea); sin RPC, se reintenta aquí con el
+  // primer término cuando el AND dio 0 resultados.
+  if (resultado.ok && resultado.respaldoArea) {
+    areaRespaldo = resultado.ofertas[0]?.area || filtros.terminos_todos?.[0] || filtros.programa_o_area || null;
+  } else if (resultado.ok && resultado.ofertas.length === 0 && pagina === 0) {
+    const respaldo = filtrosRespaldoArea(filtros);
+    if (respaldo) {
+      const r2 = await buscarConTimeout(deps, respaldo.filtros);
+      if (r2.ok && r2.ofertas.length > 0) {
+        resultado = r2;
+        filtros = respaldo.filtros;
+        areaRespaldo = respaldo.area;
+      }
+    }
+  }
   if (!resultado.ok) {
     // Se guarda la consulta para que [Reintentar] la repita tal cual.
     contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, filtrosBusqueda: filtros, consulta: etiqueta, pagina } });
@@ -680,8 +830,31 @@ async function buscarYMostrar(
   const desde = pagina * PROGRAMAS_POR_PAGINA;
   const pag = resultado.ofertas.slice(desde, desde + PROGRAMAS_POR_PAGINA);
   if (pag.length === 0) {
+    // Bloque: más allá del total (Ver más) → fin de lista; nunca error ni lista vacía.
+    if (pagina > 0) {
+      await enviarBotones(contacto, deps, C.T_FIN_LISTA, C.BOTONES_NUEVA_O_ASESOR);
+      return 'respondido';
+    }
+    // Bloque: WA-fix-1b · S12 · texto sin ningún término del catálogo («ayudar gente», «autorizo»): T11 con esa
+    // frase se leía roto («no tengo programas con «ayudar gente»»). Se pide de nuevo qué estudiar con el
+    // ejemplo de área de T02 y el menú. Si la frase sí tenía un término reconocido, sigue T11.
+    // Copy v1.8 · 0 resultados → menú de áreas del catálogo (sin repetir el texto del usuario). Si el
+    // catálogo no da áreas, frase vaga → T02; nombre concreto → T11 (como antes).
+    if (await enviarMenuAreasCatalogo(contacto, deps)) return 'respondido';
+    if (sinTerminoReconocido(filtros)) {
+      await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
+      return 'respondido';
+    }
     await enviarBotones(contacto, deps, C.t11SinResultados(etiqueta), C.BOTONES_NUEVA_O_ASESOR);
     return 'respondido';
+  }
+
+  // Bloque: avisos previos a la lista (solo en la 1.ª página): S7 precio, S5 respaldo, S6 virtual + ciudad.
+  if (pagina === 0) {
+    if (topePrecio) await enviarTexto(contacto, deps, C.T_SIN_FILTRO_PRECIO);
+    if (areaRespaldo) await enviarTexto(contacto, deps, C.tRespaldoArea(etiqueta, areaRespaldo));
+    const ciudadVirtual = ciudadNotaVirtual(filtros);
+    if (ciudadVirtual) await enviarTexto(contacto, deps, C.tVirtualDesdeCiudad(ciudadVirtual));
   }
 
   // Bloque: la lista nueva vale 24 h; las fichas de listas anteriores se conservan (máx 24) para toques tardíos.
@@ -696,11 +869,75 @@ async function buscarYMostrar(
     listaEn: ahora,
     pagina,
     total: resultado.total,
+    totalExacto: resultado.conteo.exacto,
     aplicacion: null
   };
   contacto = await actualizar(contacto, deps, { sesion });
-  await enviarListaResultados(contacto, deps, pag, resultado.total, pagina, etiqueta);
+  await enviarListaResultados(contacto, deps, pag, resultado.total, pagina, etiqueta, resultado.conteo.exacto);
+  // Bloque: S12 · más de 20 programas → se ofrecen áreas para acotar (solo si hay 2+ áreas distintas).
+  if (pagina === 0 && resultado.total > 20) {
+    // Copy v1.8 · ahora es lista interactiva «Ver áreas» (antes texto tOfrecerAreas).
+    // S12 exacto: con conteo exacto, N y «{n} programas»; con tope de páginas, «Encontré más de N programas…»
+    // y filas sin número (nunca un número que parezca exacto).
+    const areas = resultado.conteo.areas;
+    if (areas.length >= 2) await enviarMenuAreas(contacto, deps, C.tMenuAreasMuchos(resultado.total, resultado.conteo.exacto), areas, resultado.conteo.exacto);
+  }
   return 'respondido';
+}
+
+/*
+ * Bloque: copy v1.8 · S12 · menú de áreas (lista interactiva).
+ * Qué: botón «Ver áreas», máx. 5 filas `area:{área}` (título = área ≤24, descripción «{n} programas»), de mayor
+ * a menor, + fila `area:otra` «Escribir otra cosa». contarAreas ya excluye programas sin área y áreas en 0.
+ * Por qué: «no tengo con «ayudar gente»» repetía el texto del usuario y no orientaba.
+ */
+// S12 exacto: con exacto=false la fila va SIN descripción (sin número); el orden se mantiene (cantidad vista
+// desc y nombre), que es estable, pero no se presenta como cifra.
+export function filasMenuAreas(areas: Array<{ area: string; cantidad: number }>, exacto = true): FilaLista[] {
+  const filas = areas
+    .filter((a) => a.area && a.cantidad > 0)
+    .slice(0, 5)
+    .map((a) => ({
+      id: `area:${a.area}`.slice(0, 200),
+      titulo: cortarArea(a.area),
+      ...(exacto ? { descripcion: C.tFilaAreaDescripcion(a.cantidad) } : {})
+    }));
+  return [...filas, { id: 'area:otra', titulo: C.FILA_ESCRIBIR_OTRA }];
+}
+
+// Título de fila ≤24 sin partir palabras (áreas largas: «Ciencias Sociales y Humanidades» → «Ciencias Sociales…»).
+function cortarArea(area: string): string {
+  if (area.length <= 24) return area;
+  const palabras = area.slice(0, 23).split(' ');
+  if (palabras.length > 1) palabras.pop();
+  while (palabras.length > 1 && /^(y|e|de|del|la|el|en)$/i.test(palabras[palabras.length - 1])) palabras.pop();
+  return `${palabras.join(' ')}…`;
+}
+
+async function enviarMenuAreas(contacto: ContactoWa, deps: DependenciasOrquestador, cuerpo: string, areas: Array<{ area: string; cantidad: number }>, exacto: boolean) {
+  const filas = filasMenuAreas(areas, exacto);
+  if (filas.length < 2) return false;
+  const r = await enviarLista(contacto, deps, { cuerpo, textoBoton: C.BOTON_VER_AREAS, tituloSeccion: C.BOTON_VER_AREAS, filas });
+  return r !== 'fallo';
+}
+
+// 0 resultados: las áreas salen del catálogo completo (filtros vacíos); si falla, false y sigue el texto de antes.
+async function enviarMenuAreasCatalogo(contacto: ContactoWa, deps: DependenciasOrquestador): Promise<boolean> {
+  const todo = await buscarConTimeout(deps, {});
+  if (!todo.ok) return false;
+  // S12 exacto · el cuerpo de 0 resultados no lleva número; las filas muestran «{n} programas» solo si es exacto.
+  const areas = todo.conteo.areas;
+  if (areas.length === 0) return false;
+  return enviarMenuAreas(contacto, deps, C.T_MENU_AREAS_SIN_RESULTADOS, areas, todo.conteo.exacto);
+}
+
+// Bloque: S12 · la búsqueda solo trae texto libre (sin ciudad, modalidad, nivel ni término canónico).
+// Solo frases de 2+ palabras: un nombre suelto que no está («mecatrónica») sigue con T11, que sí se lee bien.
+function sinTerminoReconocido(f: FiltrosBusquedaWa): boolean {
+  if (f.ciudad || f.modalidad || f.nivel_academico || f.terminos_todos?.length) return false;
+  const frase = (f.programa_o_area || '').trim();
+  if (frase.split(/\s+/).length < 2) return false;
+  return terminosReconocidos(frase).length === 0;
 }
 
 // Bloque: envía la lista armada por presentacion.ts (FE). Si Meta la rechaza, texto corto top 3 ≤600 (C-39).
@@ -710,10 +947,11 @@ async function enviarListaResultados(
   pag: OfertaWa[],
   total: number,
   pagina: number,
-  etiqueta: string
+  etiqueta: string,
+  exacto = true
 ) {
   const agrupadas = pag.map(aAgrupada);
-  const armado = armarResultados(agrupadas, total, pagina, etiqueta);
+  const armado = armarResultados(agrupadas, total, pagina, etiqueta, exacto);
   const r = await enviarLista(contacto, deps, {
     cuerpo: armado.cuerpo,
     textoBoton: armado.botonTexto,
@@ -722,7 +960,7 @@ async function enviarListaResultados(
     ...(armado.pie ? { pie: armado.pie } : {})
   });
   // Respaldo FE (top 3 ≤600, «escribe *más*» solo si hay otra página), nunca el bloque de 8 fichas.
-  if (r === 'fallo') await enviarTexto(contacto, deps, armarResultadosTexto(agrupadas, total, pagina, etiqueta));
+  if (r === 'fallo') await enviarTexto(contacto, deps, armarResultadosTexto(agrupadas, total, pagina, etiqueta, exacto));
 }
 
 function aAgrupada(o: OfertaWa): OfertaAgrupadaWa {
@@ -732,13 +970,14 @@ function aAgrupada(o: OfertaWa): OfertaAgrupadaWa {
 // Bloque: «Ver más» = siguiente página de la MISMA consulta (orden estable en BD).
 async function verMas(contacto: ContactoWa, deps: DependenciasOrquestador, ahora: number): Promise<ResultadoProceso> {
   const s = contacto.sesion;
-  if (!s.filtrosBusqueda || !s.consulta) {
+  if (!s.filtrosBusqueda || s.consulta == null) {
     await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
     return 'respondido';
   }
   const siguiente = (s.pagina || 0) + 1;
+  // Offset > total: fin de la lista (no T18 «ya no está», que es para una ficha vencida) + menú de siempre.
   if (s.total !== undefined && siguiente * PROGRAMAS_POR_PAGINA >= s.total) {
-    await enviarBotones(contacto, deps, C.T18_YA_NO_ESTA, C.BOTONES_NUEVA_O_ASESOR);
+    await enviarBotones(contacto, deps, C.T_FIN_LISTA, C.BOTONES_NUEVA_O_ASESOR);
     return 'respondido';
   }
   return buscarYMostrar(contacto, deps, ahora, { filtros: s.filtrosBusqueda, etiqueta: s.consulta, pagina: siguiente });
@@ -749,10 +988,10 @@ async function reenviarLista(contacto: ContactoWa, deps: DependenciasOrquestador
   const s = contacto.sesion;
   const lista = listaVigente(contacto, ahora);
   if (lista.length > 0) {
-    await enviarListaResultados(contacto, deps, lista, s.total ?? lista.length, s.pagina || 0, s.consulta || '');
+    await enviarListaResultados(contacto, deps, lista, s.total ?? lista.length, s.pagina || 0, s.consulta || '', s.totalExacto !== false);
     return 'respondido';
   }
-  if (s.filtrosBusqueda && s.consulta) {
+  if (s.filtrosBusqueda && s.consulta != null) {
     return buscarYMostrar(contacto, deps, ahora, { filtros: s.filtrosBusqueda, etiqueta: s.consulta, pagina: 0 });
   }
   await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
@@ -772,6 +1011,8 @@ async function elegirPorNumero(contacto: ContactoWa, numero: number, deps: Depen
 }
 
 async function mostrarFicha(contacto: ContactoWa, oferta: OfertaWa, deps: DependenciasOrquestador): Promise<ResultadoProceso> {
+  // Bloque: B3 · se recuerda la ficha abierta para «guardar»/«aplicar» escritos.
+  contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, fichaAbierta: { ofertaId: oferta.id, en: deps.ahora?.() ?? Date.now() } } });
   const ficha = armarFicha(aAgrupada(oferta));
   await enviarBotones(contacto, deps, ficha.cuerpo, ficha.botones);
   return 'respondido';
@@ -804,6 +1045,17 @@ async function gestionarRespuestaInteractiva(
     return 'respondido';
   }
 
+  // Bloque: copy v1.8 · fila del menú de áreas: área → programas de esa área (misma búsqueda por área del
+  // respaldo S5); «Escribir otra cosa» → T02_PEDIR.
+  if (accion === 'area') {
+    const area = respuestaId.slice('area:'.length);
+    if (!area || area === 'otra') {
+      await enviarBotones(contacto, deps, C.T02_PEDIR, C.BOTONES_MENU);
+      return 'respondido';
+    }
+    return buscarYMostrar(contacto, deps, ahora, { filtros: { programa_o_area: area }, etiqueta: area, pagina: 0 });
+  }
+
   // Bloque: botones de menú del flujo (copy.ts).
   if (accion === 'menu') {
     switch (ofertaId) {
@@ -818,7 +1070,7 @@ async function gestionarRespuestaInteractiva(
         return reenviarLista(contacto, deps, ahora);
       case 'reintentar': {
         const s = contacto.sesion;
-        if (s.filtrosBusqueda && s.consulta) {
+        if (s.filtrosBusqueda && s.consulta != null) {
           return buscarYMostrar(contacto, deps, ahora, { filtros: s.filtrosBusqueda, etiqueta: s.consulta, pagina: s.pagina || 0 });
         }
         break;
@@ -875,6 +1127,18 @@ async function gestionarRespuestaInteractiva(
  * Acepta «Ana María Gómez-Ruiz», «D'Angelo Pérez», «QA-WA Prueba Jota».
  */
 export const PATRON_NOMBRE = /^(?=.{3,120}$)[A-Za-zÁÉÍÓÚáéíóúÑñÜü]+(?:['’-][A-Za-zÁÉÍÓÚáéíóúÑñÜü]+)*(?:\s+[A-Za-zÁÉÍÓÚáéíóúÑñÜü]+(?:['’-][A-Za-zÁÉÍÓÚáéíóúÑñÜü]+)*)+$/;
+// Bloque: S18 · una sola palabra de letras = nombre sin apellido (se pide aparte).
+const PATRON_UNA_PALABRA = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü]+(?:['’-][A-Za-zÁÉÍÓÚáéíóúÑñÜü]+)*$/;
+
+/**
+ * S18 · nombres / apellidos sin perder el apellido: 2 palabras = 1+1; 3 = 1 nombre + 2 apellidos;
+ * 4 o más = 2 nombres + el resto como apellidos.
+ */
+export function partirNombre(completo: string): { nombres: string; apellidos: string } {
+  const partes = completo.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+  const corte = partes.length >= 4 ? 2 : 1;
+  return { nombres: partes.slice(0, corte).join(' '), apellidos: partes.slice(corte).join(' ') };
+}
 const PATRON_CORREO = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 const MAX_INTENTOS = 3;
 
@@ -893,7 +1157,14 @@ async function capturarDatosAplicacion(
   }
 
   if (aplicacion.paso === 'datos_nombre') {
-    const nombre = texto.replace(/\s+/g, ' ').trim().slice(0, 120);
+    const escrito = texto.replace(/\s+/g, ' ').trim();
+    // Bloque: S18 · si ya teníamos el nombre de una palabra, este mensaje es el apellido.
+    const nombre = (aplicacion.nombreParcial ? `${aplicacion.nombreParcial} ${escrito}` : escrito).slice(0, 120);
+    if (!aplicacion.nombreParcial && PATRON_UNA_PALABRA.test(nombre)) {
+      contacto = await actualizar(contacto, deps, { sesion: { ...contacto.sesion, aplicacion: { ...aplicacion, nombreParcial: nombre } } });
+      await enviarTexto(contacto, deps, C.tPedirApellido(nombre));
+      return 'respondido';
+    }
     if (!PATRON_NOMBRE.test(nombre)) {
       // Bloque: contador de intentos T20; al 3.º pasa a asesor (T14).
       const intentos = (contacto.sesion.intentosNombre || 0) + 1;
@@ -903,7 +1174,7 @@ async function capturarDatosAplicacion(
       return 'respondido';
     }
     contacto = await actualizar(contacto, deps, {
-      sesion: { ...contacto.sesion, intentosNombre: 0, aplicacion: { ...aplicacion, nombreCompleto: nombre, paso: 'datos_correo' } }
+      sesion: { ...contacto.sesion, intentosNombre: 0, aplicacion: { ...aplicacion, nombreParcial: undefined, nombreCompleto: nombre, paso: 'datos_correo' } }
     });
     await enviarTexto(contacto, deps, C.t21PedirCorreo(nombre.split(' ')[0]));
     return 'respondido';
@@ -996,7 +1267,7 @@ async function resolverAutorizacion(
   }
 
   // Conversión real (fn_ba031_convertir_si_consentido): atómica; si falla no queda lead a medias.
-  const partes = aplicacion.nombreCompleto.split(' ');
+  const partes = partirNombre(aplicacion.nombreCompleto);
   const resultado = await deps.conversor.convertir(
     {
       consentimiento_aceptado: true,
@@ -1004,8 +1275,8 @@ async function resolverAutorizacion(
       celular_e164: contacto.e164,
       // Null-safe: si algún día hay contactos sin teléfono (propuesta BD), no debe lanzar TypeError.
       pais_celular: (contacto.e164 || '').startsWith('+57') ? 'CO' : null,
-      nombres: partes[0],
-      apellidos: partes.slice(1).join(' '),
+      nombres: partes.nombres,
+      apellidos: partes.apellidos,
       nombre_completo: aplicacion.nombreCompleto,
       correo: aplicacion.correo ?? null,
       visitante_id: null,

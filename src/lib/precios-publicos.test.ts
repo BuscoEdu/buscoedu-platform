@@ -82,8 +82,11 @@ describe('precios pendientes «MARCA:»', () => {
   // Bloque: contrato. Ni el catálogo (portal + NaIA + WA usan obtenerOfertas) ni el contexto de NaIA
   // ni WhatsApp leen precios hoy; WA siempre usa T17. Si alguien agrega precios, debe pasar por la puerta.
   it('ninguna superficie del estudiante lee precios_oferta sin la puerta', () => {
+    // WA-fix-1: ofertas.ts SÍ lee precios_oferta, pero solo a través de la puerta (precioParaEstudiante).
+    const fuenteOfertas = readFileSync(join(RAIZ, 'src/lib/ofertas.ts'), 'utf8');
+    assert.match(fuenteOfertas, /precioParaEstudiante\(/);
     const superficies = [
-      'src/lib/ofertas.ts', 'src/lib/naia-real.ts', 'src/lib/whatsapp/catalogo-supabase.ts',
+      'src/lib/naia-real.ts', 'src/lib/whatsapp/catalogo-supabase.ts',
       'src/lib/whatsapp/presentacion.ts', 'src/lib/whatsapp/orquestador.ts', 'app/api/naia/route.ts',
       'components/explorar/OfferDetailModal.tsx'
     ];
