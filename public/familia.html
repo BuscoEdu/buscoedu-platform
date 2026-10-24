@@ -1379,6 +1379,7 @@ function movementOf(h){
   else if(/^Cumplida|^Se anuló|^Devuelta|^Traspaso/.test(t)) row={tipo:'Tarea',pts:num(/\(([+-]?\d+)\s*pts\)/),detalle:t,fecha:h.creado_en};
   if(!row) return null;
   row.tareaId=h.tarea_id||null;
+  row.h=h;   // v5 ítem 15: fila original (tipo/pts) para el ícono por tipo en v3/v4
   return row;
 }
 function taskForMove(memberId,m){
@@ -1460,14 +1461,16 @@ function openBalance(id){
       const o=taskOutcome(task);
       const bad=o.kind==='penalizacion'||o.kind==='cerrada';
       const when=m.fecha?fmtDate(m.fecha):'';
-      return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${task.id})"><strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
+      return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${task.id})">${iconoMovV3(m.h)}<strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
     }
     const when=m.fecha?fmtDate(m.fecha):'';
     const open=tid?` onclick="openTaskFromBalance(${id},${tid})" class="hist-ok"`:` class="hist-ok" style="cursor:default"`;
-    return `<div${open}><strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
+    return `<div${open}>${iconoMovV3(m.h)}<strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
   }).join('')+closedHtml):'<div class="empty">Sin movimientos</div>';
   openModal('modal-balance');
 }
+// v5 ítem 15: ícono por tipo en el saldo detallado; con la v3 apagada devuelve '' (la v1 se ve igual).
+function iconoMovV3(h){return (window.FamiliaV3&&FamiliaV3.activo()&&h)?FamiliaV3.iconoMov(h):'';}
 function renderHistory(){
   const u=currentUser();
   const items=isAdmin(u)?state.history:state.history.filter(h=>h.miembro_id===u.id);
@@ -3288,6 +3291,11 @@ init();
 /* En modo v3 los modales de la v1 deben quedar por encima del panel y de la hoja. */
 /* «Ver como» (solo lectura): los botones de acción de la v1 se ven apagados; la guarda JS bloquea la escritura. */
 body.v4-ro .v4-panel .btn:not(.secondary),body.v4-ro .v4-panel .btn.danger,body.v4-ro .modal .btn:not(.secondary),body.v4-ro .modal .btn.danger{opacity:.4;pointer-events:none}
+/* v5 ítem 15: ícono de tipo al inicio de cada movimiento; ancho fijo y sin encogerse (390/360). */
+.v5-mi{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex:0 0 26px;border-radius:50%;margin-right:8px;vertical-align:middle}
+.v5-mi svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.v5-mi.tarea{background:#dcfce7;color:#15803d}.v5-mi.deber{background:#e0e7ff;color:#4338ca}.v5-mi.desc{background:#fee2e2;color:#b91c1c}
+.v5-mi.premio{background:#fef3c7;color:#b45309}.v5-mi.mesada{background:#ccfbf1;color:#0f766e}.v5-mi.neutro{background:#f1f5f9;color:#64748b}
 /* v5 ítem 5: botones de administración en 2 columnas, mismo alto (también a 390/360). */
 .v5-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .v5-grid .v3-btn2{min-height:44px;width:100%}.v5-grid .v5-ancho{grid-column:1 / -1}
@@ -3645,7 +3653,7 @@ window.FamiliaV3=(function(){
     }
     // V5b: «Mi historial» del miembro (más reciente primero; incluye «Rechazada · 0 pts» con su motivo).
     const mio=(state.history||[]).filter(x=>x.miembro_id===u.id).slice(0,100);
-    h+=`<h2 style="margin-top:14px">Mi historial</h2><div class="v3-card" style="display:block">${mio.length?mio.map(x=>`<div class="v3-rk"><span class="v3-grow">${esc(x.texto||'')}<br><span class="v3-sub">${x.creado_en?new Date(x.creado_en).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></span>${x.pts!=null?`<strong class="${x.pts>0?'v3-st-ok':x.pts<0?'v3-st-err':''}">${x.pts>0?'+':''}${x.pts}</strong>`:''}</div>`).join(''):'<p class="v3-sub">Todavía no hay movimientos.</p>'}</div>`;
+    h+=`<h2 style="margin-top:14px">Mi historial</h2><div class="v3-card" style="display:block">${mio.length?mio.map(x=>`<div class="v3-rk">${iconoMov(x)}<span class="v3-grow">${esc(x.texto||'')}<br><span class="v3-sub">${x.creado_en?new Date(x.creado_en).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></span>${x.pts!=null?`<strong class="${x.pts>0?'v3-st-ok':x.pts<0?'v3-st-err':''}">${x.pts>0?'+':''}${x.pts}</strong>`:''}</div>`).join(''):'<p class="v3-sub">Todavía no hay movimientos.</p>'}</div>`;
     h+=`<button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.salir()">Salir</button>`;
     document.getElementById('v3Yo').innerHTML=h;
   }
@@ -3679,6 +3687,24 @@ window.FamiliaV3=(function(){
     if(m.pts>0&&m.sumaRanking) return {k:'g',pts:m.pts};
     return {k:'o',pts:m.pts};
   }
+  /* v5 ítem 15: ícono por tipo de movimiento, mapeado con claseMov (tipo/pts; texto solo en filas viejas).
+     g → tarea (o deber si tipo 'deber' o la tarea es deber) · d → descuento · c → premio · me → mesada ·
+     o / sin clase (perdón, traspaso, ajuste, reset) → neutro. */
+  const ICO_MOV={
+    tarea:['Tarea','<path d="M5 12l4 4 10-10"/>'],
+    deber:['Deber','<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/>'],
+    desc:['Descuento','<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>'],
+    premio:['Premio','<path d="M4 10h16v10H4z"/><path d="M12 10v10M3 7h18v3H3z"/>'],
+    mesada:['Mesada','<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/>'],
+    neutro:['Otro movimiento','<circle cx="12" cy="12" r="3"/>']
+  };
+  function tipoIcono(h){
+    const r=claseMov(h);
+    if(!r) return 'neutro';
+    if(r.k==='g'){const t=h.tarea_id?state.tasks.find(x=>Number(x.id)===Number(h.tarea_id)):null; return (h.tipo==='deber'||(t&&esDeber(t)))?'deber':'tarea';}
+    return {d:'desc',c:'premio',me:'mesada'}[r.k]||'neutro';
+  }
+  function iconoMov(h){const k=tipoIcono(h),[l,p]=ICO_MOV[k]; return `<span class="v5-mi ${k}" role="img" aria-label="${l}" title="${l}"><svg viewBox="0 0 24 24">${p}</svg></span>`;}
   function pintarRanking(u){
     const desde=rkModo==='semana'?inicioSemana():null;
     const MED=['🥇','🥈','🥉','🍬','⭐','🎈','🍪','🍎','⚽','🎯'];
@@ -4392,7 +4418,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,hojaSolicitar,solicitar,catalogo,previaLote,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {activo,ir,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
