@@ -3633,6 +3633,12 @@ body.v3-modo.tema-rosa,body.v3-modo.tema-rosa #v3App{--v3-cta:#be185d;--v6t-head
 .v6b-temas button{min-height:56px;border-radius:10px;border:2px solid transparent;color:#fff;font-size:.72rem;font-weight:700;cursor:pointer;padding:4px 2px;overflow-wrap:anywhere}
 .v6b-temas button.on{border-color:#0f172a;box-shadow:0 0 0 2px #fff inset}
 /* v6b B15: descripción (2 líneas en la tarjeta, completa en el detalle y en el bloqueo). */
+/* v6b B19: miniaturas al elegir y galería en el detalle (toque = ampliar). */
+.v6b-fotos{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
+.v6b-ft{display:flex;flex-direction:column;align-items:center;gap:4px}.v6b-ft img{width:84px;height:84px;object-fit:cover;border-radius:8px}
+.v6b-ft button{min-height:36px;padding:4px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer;font-size:.8rem}
+.v6b-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:4px}
+.v6b-gal figure{margin:0;text-align:center}.v6b-gal img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;cursor:pointer}.v6b-gal figcaption{font-size:.75rem;color:#64748b}
 .v6b-freq{display:none}.v3-modo .v6b-freq{display:inline}
 .v6b-solo{display:none}.v3-modo .v6b-solo{display:block}
 .v6b-cont{display:block;text-align:right;font-size:.75rem;color:#64748b}
@@ -4845,6 +4851,7 @@ window.FamiliaV3=(function(){
   /* --- Detalle de un ítem: la foto se pide SOLO aquí, por id (la lista nunca la trae en v3). --- */
   async function detalle(id){
     const t=state.tasks.find(x=>x.id===id); if(!t) return;
+    limpiarFotosSel();   // v6b B19: cada detalle empieza sin fotos elegidas
     const e=estadoDe(t), quien=memberById(t.asignada_a), junto=memberById(t.conjunto_con);
     // v4 · ajuste 3: nombre, tipo, abre/cierra/cerrada (windowBlock + closedAt de la v1) y franja con el color del hijo.
     abrirHoja(`<div style="border-left:6px solid ${esc((quien&&quien.color)||'#9ca3af')};padding-left:10px"><h3>${esc(t.titulo)}</h3>
@@ -4856,10 +4863,15 @@ window.FamiliaV3=(function(){
       ${t.comentario_completado?`<p class="v3-sub">«${esc(t.comentario_completado)}»</p>`:''}${comentAprob(t)&&/aprob|complet/.test(t.estado)?`<p class="v3-sub v3-st-ok">Papá/mamá: «${esc(comentAprob(t))}»</p>`:''}<div id="v3Foto" class="v3-sub">Cargando evidencia…</div>
       ${accionesHijo(t)}${accionesPadre(t)}
       <button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.cerrarHoja()">Cerrar</button>`);
-    const {data,error}=await supabase.from('familia_tareas').select('foto_url,foto_2,foto_path,foto_2_path').eq('id',id).is('archivada_en',null).maybeSingle();   // v4: sin archivadas
+    // v6b B19: se piden fotos/fotos_2 (hasta 3 cada uno); si la BD aún no los tiene, se vuelve a las columnas viejas.
+    let {data,error}=await supabase.from('familia_tareas').select('foto_url,foto_2,foto_path,foto_2_path,fotos,fotos_2').eq('id',id).is('archivada_en',null).maybeSingle();   // v4: sin archivadas
+    if(error&&faltaEnBD(error,['fotos','fotos_2'])) ({data,error}=await supabase.from('familia_tareas').select('foto_url,foto_2,foto_path,foto_2_path').eq('id',id).is('archivada_en',null).maybeSingle());
     const box=document.getElementById('v3Foto'); if(!box) return;
-    const fotos=error||!data?[]:[data.foto_url,data.foto_2].filter(f=>typeof f==='string'&&/^(data:image\/|https:)/.test(f));
-    box.innerHTML=fotos.length?fotos.map(f=>`<img src="${esc(f)}" alt="Evidencia" style="max-width:100%;border-radius:10px;margin-top:8px">`).join(''):(error?esc(error.message):'Sin foto.');
+    const ok=f=>typeof f==='string'&&/^(data:image\/|https:)/.test(f);
+    const grupo=(arr,uno)=>(Array.isArray(arr)&&arr.length?arr:[uno]).filter(ok);
+    const g1=data?grupo(data.fotos,data.foto_url):[], g2=data?grupo(data.fotos_2,data.foto_2):[];
+    const gal=(l,tit)=>l.length?`<div class="v3-sub" style="margin-top:8px">${tit}</div><div class="v6b-gal">${l.map((f,i)=>{const k=window._v6Fotos.push(f)-1; return `<figure><img src="${esc(f)}" alt="Evidencia ${i+1} de ${l.length}" onclick="verFotoMov(${k})"><figcaption>${i+1}/${l.length}</figcaption></figure>`;}).join('')}</div>`:'';
+    box.innerHTML=error?`<span class="v3-st-err">No se pudo cargar la evidencia: ${esc(error.message)}</span>`:(g1.length||g2.length?gal(g1,junto?esc((quien&&quien.nombre)||'Asignado'):'Fotos')+gal(g2,esc((junto&&junto.nombre)||'Compañero')):'Sin foto.');
   }
   /* --- V4: hijo «Ya la hice» + foto, desde el detalle. Mismo flujo que la v1 (submitEvidence):
          UNA actualización de familia_tareas con la foto en base64 (fileToDataUrl de la v1, 720 px JPEG)
@@ -4876,7 +4888,47 @@ window.FamiliaV3=(function(){
      · Ventana cerrada (taskTiming 'late') y aún sin enviar: «Se pasó la hora» + «Enviar tarde» / «Pedir más tiempo». */
   function camposEnvio(){
     return `<label class="v3-sub" style="display:block;margin-top:10px">Comentario (opcional)</label><input id="v3eCom" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px">
-      <label class="v3-sub" style="display:block;margin-top:8px">Foto de evidencia (opcional)</label><input id="v3eFoto" type="file" accept="image/*" capture="environment">`;
+      <label class="v3-sub" style="display:block;margin-top:8px" for="v3eFoto">Fotos de evidencia (opcional, hasta 3)</label><input id="v3eFoto" type="file" accept="image/*" multiple onchange="FamiliaV3.agregarFotos(this)">
+      <div id="v6bFotos" class="v6b-fotos"></div>`;
+  }
+  /* v6b B19: hasta 3 fotos por envío. Se eligen (una o varias veces), se ven en miniatura y se pueden quitar antes de
+     enviar. Al enviar se comprimen en el teléfono (data URL JPEG ≤ ~300 KB cada una, sin Storage). */
+  const FOTO_MAX=3, FOTO_BYTES=300*1024;
+  let fotosSel=[];
+  function agregarFotos(inp){
+    const nuevos=[...((inp&&inp.files)||[])];
+    let sobran=0;
+    nuevos.forEach(f=>{ if(fotosSel.length<FOTO_MAX) fotosSel.push({file:f,url:URL.createObjectURL(f)}); else sobran++; });
+    if(sobran) showToast('Máximo 3 fotos');
+    if(inp) inp.value='';
+    pintarFotosSel();
+  }
+  function quitarFotoSel(i){const x=fotosSel[i]; if(x) try{URL.revokeObjectURL(x.url);}catch(e){} fotosSel.splice(i,1); pintarFotosSel();}
+  function limpiarFotosSel(){fotosSel.forEach(x=>{try{URL.revokeObjectURL(x.url);}catch(e){}}); fotosSel=[];}
+  function pintarFotosSel(){
+    const box=document.getElementById('v6bFotos'); if(!box) return;
+    box.innerHTML=fotosSel.map((x,i)=>`<div class="v6b-ft"><img src="${esc(x.url)}" alt="Foto ${i+1} de ${fotosSel.length}"><button type="button" aria-label="Quitar la foto ${i+1}" onclick="FamiliaV3.quitarFotoSel(${i})">Quitar</button></div>`).join('')+(fotosSel.length?`<span class="v3-sub">${fotosSel.length}/${FOTO_MAX}</span>`:'');
+  }
+  // Comprime una foto: baja el tamaño y la calidad JPEG hasta quedar ≤ FOTO_BYTES. Si no lo logra o no se puede leer → error.
+  function comprimirFoto(file){
+    return new Promise((resolve,reject)=>{
+      const img=new Image(), url=URL.createObjectURL(file);
+      img.onload=()=>{
+        URL.revokeObjectURL(url);
+        const c=document.createElement('canvas'), ctx=c.getContext('2d');
+        for(const max of [1280,1024,860,720,560]){
+          let w=img.width,h=img.height; if(Math.max(w,h)>max){const k=max/Math.max(w,h); w=Math.round(w*k); h=Math.round(h*k);}
+          c.width=w; c.height=h; ctx.drawImage(img,0,0,w,h);
+          for(const q of [0.8,0.7,0.6,0.5,0.4]){
+            const d=c.toDataURL('image/jpeg',q), bytes=Math.ceil((d.length-d.indexOf(',')-1)*3/4);
+            if(bytes<=FOTO_BYTES) return resolve(d);
+          }
+        }
+        reject(new Error('grande'));
+      };
+      img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('leer'));};
+      img.src=url;
+    });
   }
   function puedeEnviarTarde(t,u){
     if(!u||isAdmin(u)||soloLectura()||!t) return false;
@@ -4912,21 +4964,41 @@ window.FamiliaV3=(function(){
       // URGENTE prod 335: si la hoja ya no tiene los campos (re-pintada), se avisa en vez de fallar en silencio.
       const eCom=document.getElementById('v3eCom'), eFoto=document.getElementById('v3eFoto');
       if(!eCom||!eFoto) return showToast('Vuelve a abrir la tarea e inténtalo otra vez.');
-      const comment=eCom.value.trim(), file=eFoto.files&&eFoto.files[0];
-      let foto=null;
-      if(file){try{foto=await fileToDataUrl(file);}catch(e){return showToast('No se pudo leer la foto');}}
+      const comment=eCom.value.trim();
+      // v6b B19: se comprimen TODAS antes de escribir; si una falla, no se envía nada.
+      const fotos=[];
+      for(let i=0;i<fotosSel.length;i++){
+        try{fotos.push(await comprimirFoto(fotosSel[i].file));}
+        catch(e){return showToast(e&&e.message==='grande'?'La foto '+(i+1)+' es muy pesada y no se pudo achicar. Quítala o toma otra. No se envió nada.':'No se pudo leer la foto '+(i+1)+'. No se envió nada.');}
+      }
+      const companero=!!(t.conjunto_con&&u.id===t.conjunto_con);
+      const colF=companero?'fotos_2':'fotos', colAnt=companero?'fotos_2_anterior':'fotos_anterior', colLegado=companero?'foto_2':'foto_url';
       const payload={};
-      if(t.conjunto_con&&u.id===t.conjunto_con){payload.evidencia_2=comment||'Listo'; if(foto) payload.foto_2=foto; if(t.comentario_completado) payload.estado='esperando_aprobacion';}
-      else if(t.conjunto_con&&u.id===t.asignada_a){payload.comentario_completado=comment||null; if(foto) payload.foto_url=foto; if(t.evidencia_2) payload.estado='esperando_aprobacion';}
-      else{payload.estado='esperando_aprobacion'; payload.comentario_completado=comment||null; if(foto) payload.foto_url=foto;}
+      if(companero){payload.evidencia_2=comment||'Listo'; if(t.comentario_completado) payload.estado='esperando_aprobacion';}
+      else if(t.conjunto_con&&u.id===t.asignada_a){payload.comentario_completado=comment||null; if(t.evidencia_2) payload.estado='esperando_aprobacion';}
+      else{payload.estado='esperando_aprobacion'; payload.comentario_completado=comment||null;}
+      // Dueño → fotos (foto_url = fotos[1] por trigger); compañero → fotos_2 (foto_2 = fotos_2[1]). El juego anterior pasa a *_anterior.
+      if(fotos.length){
+        payload[colF]=fotos;
+        const prev=await supabase.from('familia_tareas').select(colF).eq('id',id).maybeSingle();
+        if(!prev.error&&prev.data&&Array.isArray(prev.data[colF])&&prev.data[colF].length) payload[colAnt]=prev.data[colF];
+      }
       if(!t.marcada_en) payload.marcada_en=new Date().toISOString();
       // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
       // URGENTE prod 335: si el navegador bloquea los diálogos, confirm() devuelve false al instante (<50 ms) → se avisa.
-      const t0=Date.now(), okEnv=confirm(tarde?'¿Enviar «'+t.titulo+'» tarde? Papá o mamá deciden si cuenta.':'¿Enviar «'+t.titulo+'» para que papá o mamá la revisen?');
+      const nf=fotos.length?' ('+fotos.length+' foto'+(fotos.length>1?'s':'')+')':'';
+      const t0=Date.now(), okEnv=confirm(tarde?'¿Enviar «'+t.titulo+'»'+nf+' tarde? Papá o mamá deciden si cuenta.':'¿Enviar «'+t.titulo+'»'+nf+' para que papá o mamá la revisen?');
       if(!okEnv){ if(Date.now()-t0<50) showToast('Tu navegador bloqueó la confirmación. Cierra la pestaña, ábrela de nuevo e inténtalo.'); return; }
-      const {error}=await supabase.from('familia_tareas').update(payload).eq('id',id);
-      if(error) return showToast('No se pudo: '+error.message);
-      Object.assign(t,payload); delete t.foto_url; delete t.foto_2;   // en memoria la v3 no guarda fotos
+      let {error}=await supabase.from('familia_tareas').update(payload).eq('id',id);
+      // v6b B19 respaldo: si la BD aún no tiene la columna de varias fotos, con 1 foto se usa la columna vieja; con más, no se envía nada.
+      if(error&&fotos.length&&faltaEnBD(error,[colF,colAnt])){
+        if(fotos.length>1) return showToast('Por ahora solo se puede enviar 1 foto. Quita las demás. No se envió nada.');
+        delete payload[colF]; delete payload[colAnt]; payload[colLegado]=fotos[0];
+        ({error}=await supabase.from('familia_tareas').update(payload).eq('id',id));
+      }
+      if(error) return showToast(msgErrorBD(error));
+      limpiarFotosSel();
+      Object.assign(t,payload); COLS_FOTO.forEach(c=>{delete t[c];});   // en memoria la v3 no guarda fotos
       cerrarHoja(); pintar();
       showToast(payload.estado==='esperando_aprobacion'?'Quedó en revisión':'Falta la parte del otro');
       scheduleReload();
@@ -4984,7 +5056,7 @@ window.FamiliaV3=(function(){
   function reintentar(){state._tareasError=null; ['v3Hoy','v3Bandeja'].forEach(i=>{const e=document.getElementById(i); if(e) e.innerHTML='<p class="v3-sub">Cargando…</p>';}); loadAll();}
 
   // Si la carga trajo '*' (primera vez o reintento), se quitan las fotos de memoria en v3.
-  const COLS_FOTO=['foto_url','foto_2','foto_anterior','foto_2_anterior','foto_path','foto_2_path'];
+  const COLS_FOTO=['foto_url','foto_2','foto_anterior','foto_2_anterior','foto_path','foto_2_path','fotos','fotos_anterior','fotos_2','fotos_2_anterior'];   // v6b B19
   function quitarFotos(){(state.tasks||[]).forEach(t=>COLS_FOTO.forEach(c=>{if(c in t) delete t[c];}));}
 
   /* --- Hijo: deber vencido → «Entendido, se me pasó» → familia_rpc_aceptar_vencida. --- */
@@ -5215,7 +5287,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,pedirTiempo,guardarTema,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
