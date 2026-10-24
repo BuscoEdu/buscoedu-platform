@@ -3504,6 +3504,7 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 /* v6b B12: hora elegida grande; abre/cierra como dato secundario. */
 .v6b-hora{margin-top:4px;font-size:.85rem;color:#334155}.v6b-hora b{font-size:1.25rem;font-variant-numeric:tabular-nums;color:#0f172a}
 /* v6b B6: aviso de solo lectura en «Ver como». */
+.v6b-mest{background:#eef2ff;border-radius:8px;padding:8px 10px;margin:6px 0 10px;font-size:.88rem;color:#1e293b}
 .v6b-ro{margin-top:10px;background:#f1f5f9;border-radius:8px;padding:8px;color:#334155;font-size:.85rem}
 .v3-modo button[disabled]{opacity:.55;cursor:not-allowed}
 /* v6 Mesada: filas por hijo (caben en 360) y badge de estado en el historial. */
@@ -3902,7 +3903,7 @@ window.FamiliaV3=(function(){
     const hijos=state.members.filter(isKid).slice().sort(byName);
     const fila=k=>{const x=(mesadaEst.hijos||[]).find(h=>Number(h.miembro_id)===k.id)||{};
       return `<div class="v6-mfila"><span class="v3-grow">${esc(k.nombre)}</span><input class="v6mMonto" data-id="${k.id}" type="number" min="0" value="${Number(x.monto)||0}" aria-label="Monto de ${esc(k.nombre)}"><label class="v6-mp"><input class="v6mPausa" data-id="${k.id}" type="checkbox" ${x.pausada?'checked':''} style="width:auto"> Pausar</label></div>`;};
-    abrirHoja(`<h3>Mesada mensual</h3>
+    abrirHoja(`<h3>Mesada mensual</h3>${estadoProximaMesada()}
       <label>Modo</label><select id="v6mModo"><option value="manual" ${c.modo!=='automatico'?'selected':''}>Manual (tú pulsas «Liberar»)</option><option value="automatico" ${c.modo==='automatico'?'selected':''}>Automático (se libera sola)</option></select>
       <label>Fecha de liberación (común para todos)</label><input id="v6mFecha" type="date" value="${esc(mesadaEst.fecha_liberacion||'')}" oninput="FamiliaV3.ayudaFechaMesada()">
       <p id="v6mFechaAyuda" class="v3-sub" style="margin:4px 0 0">${ayudaFecha(mesadaEst.fecha_liberacion)}</p>
@@ -3912,6 +3913,18 @@ window.FamiliaV3=(function(){
       <button class="v3-cta v3-full" style="margin-top:12px" onclick="FamiliaV3.guardarMesadaV6()">Guardar</button>
       ${pend.map(pp=>`<p class="v3-sub" style="margin-top:8px">Pendiente: ${esc(fechaCorta(pp.periodo))} · se libera el ${esc(fechaCorta(pp.fecha_liberacion))}${pp.dias_para_liberar!=null?' (en '+pp.dias_para_liberar+' días)':''}</p>`).join('')||'<p class="v3-sub" style="margin-top:8px">Sin mesadas pendientes de liberar.</p>'}
       <button class="v3-btn2 v3-full" style="margin-top:8px" ${liberable?'':'disabled'} onclick="FamiliaV3.liberarMesadaV6()">Liberar todas las mesadas pendientes</button>`);
+  }
+  /* v6b B7: «Próxima mesada: programada sí/no · modo Manual/Automática · fecha (y hora si la BD la trae)».
+     Programada = hay fecha_liberacion y al menos un hijo con monto > 0 sin pausa. La hora solo se muestra si el
+     valor trae hora (hoy la BD manda 'YYYY-MM-DD'); si no, se dice que la hora no está definida. */
+  function estadoProximaMesada(){
+    const e=mesadaEst||{}, c=e.config||{}, f=e.fecha_liberacion||null;
+    const prog=!!f&&(e.hijos||[]).some(h=>Number(h.monto)>0&&!h.pausada);
+    const modo=c.modo==='automatico'?'Automática':'Manual';
+    let cuando='sin fecha';
+    if(f){const conHora=String(f).length>10, d=new Date(conHora?f:f+'T12:00:00');
+      cuando=d.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'})+(conHora?' a las '+d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false}):' (hora no definida en la BD)');}
+    return `<p class="v6b-mest"><strong>Próxima mesada:</strong> programada ${prog?'sí':'no'} · modo ${modo} · ${esc(cuando)}</p>`;
   }
   /* v6 Mesada (decisión Jhon): solo «Fecha de liberación». El día mensual sale de esa fecha, tope 28. */
   function diaDeFecha(f){const d=parseInt(String(f||'').slice(8,10),10); return d?Math.min(28,d):null;}
@@ -4079,6 +4092,13 @@ window.FamiliaV3=(function(){
     return {d:'desc',c:'premio',me:'mesada'}[r.k]||'neutro';
   }
   function iconoMov(h){const k=tipoIcono(h),[l,p]=ICO_MOV[k]; return `<span class="v5-mi ${k}" role="img" aria-label="${l}" title="${l}"><svg viewBox="0 0 24 24">${p}</svg></span>`;}
+  /* v6b B5: fecha desde la que hay datos para «Total» = el movimiento más antiguo del historial cargado
+     (histTotal sin tope o, si falta, state.history). No hay columna «fecha de habilitación»: no se inventa. */
+  function fechaInicioApp(){
+    const src=(histTotal&&histTotal.length?histTotal:state.history)||[];
+    let min=null; src.forEach(h=>{const d=h&&h.creado_en?new Date(h.creado_en):null; if(d&&!isNaN(d)&&(!min||d<min)) min=d;});
+    return min;
+  }
   function pintarRanking(u){
     const desde=rkModo==='semana'?inicioSemana():null;
     const MED=['🥇','🥈','🥉','🍬','⭐','🎈','🍪','🍎','⚽','🎯'];
@@ -4099,9 +4119,9 @@ window.FamiliaV3=(function(){
     // v5 ítem 7: solo Saldo y Ganado, nombres grandes; medallas emoji se quedan (D6). El desglose y la
     // conciliación siguen en el saldo detallado (openBalance) al tocar el nombre.
     document.getElementById('v4Ranking').innerHTML=`<div class="v3-seg"><button class="${rkModo==='semana'?'on':''}" onclick="FamiliaV3.ranking('semana')">Semana</button><button class="${rkModo==='total'?'on':''}" onclick="FamiliaV3.ranking('total')">Total</button></div>
-      ${desde?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · hora local (${esc((u&&u.zona_horaria)||zonaHoraria())})</p>`:''}
-      <div class="v3-card" style="display:block"><div class="v5-rk h"><span></span><span>Hijo</span><span class="n">Saldo</span><span class="n">Ganado</span></div>
-      ${filas.map((x,i)=>`<div class="v5-rk" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.abrirV1(()=>openBalance(${x.k.id}))" title="Ver saldo detallado"><span>${MED[i]||(i+1)+'.'}</span><span class="nom">${esc(x.k.nombre)}</span><strong class="n">${x.saldo}</strong><span class="n v3-st-ok">${x.g}</span></div>`).join('')||'<p class="v3-sub">Sin hijos</p>'}
+      ${desde?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · hora local (${esc((u&&u.zona_horaria)||zonaHoraria())})</p>`:(()=>{const f=fechaInicioApp(); return `<p class="v3-sub">${f?'Desde el '+esc(f.toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'}))+', cuando se empezó a usar la app':'Desde que se empezó a usar la app'}</p>`;})()}
+      <div class="v3-card" style="display:block"><div class="v5-rk h"><span></span><span>Hijo</span><span class="n">Ganado</span><span class="n">Saldo</span></div>
+      ${filas.map((x,i)=>`<div class="v5-rk" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.abrirV1(()=>openBalance(${x.k.id}))" title="Ver saldo detallado"><span>${MED[i]||(i+1)+'.'}</span><span class="nom">${esc(x.k.nombre)}</span><strong class="n v3-st-ok">${x.g}</strong><span class="n">${x.saldo}</span></div>`).join('')||'<p class="v3-sub">Sin hijos</p>'}
       <p class="v3-sub" style="margin-top:6px">Orden por Ganado${desde?' de esta semana':''}. Saldo = puntos de hoy. Toca un nombre para ver el detalle.</p></div>`;
   }
 
