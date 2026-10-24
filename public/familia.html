@@ -851,6 +851,8 @@ async function loadAll(opts){
       const retry=await supabase.from('familia_tareas').select('*').order('creado_en',{ascending:false});
       if(!retry.error) t=retry;
     }
+    // v3 (V16): se guarda si la carga de tareas falló, para que la v3 no confunda error con vacío.
+    state._tareasError=t.error?(t.error.message||'Error al cargar'):null;
     if(t.error){
       if(!state._tasksWarned){
         state._tasksWarned=true;
@@ -877,6 +879,7 @@ async function loadAll(opts){
     }
     render();
   }catch(e){
+    state._tareasError=(e&&e.message)||'Error al cargar';   // v3 (V16)
     if(!state._tasksWarned){
       state._tasksWarned=true;
       showToast('Tareas: no se pudieron cargar. Se dejan las últimas.');
@@ -3376,7 +3379,7 @@ window.FamiliaV3=(function(){
     return {c:'',txt:'Pendiente',cls:''};
   }
   // aviso_aprobada NO es cerrada: el hijo debe tocar «Entendido» para que la RPC sume los puntos.
-  function cerrada(t){return t.estado==='completada'||t.estado==='no_terminada'||t.estado==='borrador';}
+  function cerrada(t){return t.estado==='rechazada'||t.estado==='completada'||t.estado==='no_terminada'||t.estado==='borrador';}
 
   /* --- Inicio de semana: domingo 00:00 en la hora local del dispositivo (datos en UTC). --- */
   function inicioSemana(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-d.getDay());return d;}
@@ -3431,6 +3434,12 @@ window.FamiliaV3=(function(){
       if(soloLectura()) act='';
       return ficha(t,act);
     };
+    // V16: si la carga falló, se muestra el error con «Reintentar» (nunca «Nada para hoy.»).
+    if(state._tareasError){
+      document.getElementById('v3Hoy').innerHTML=`<div class="v3-card err" style="display:block"><div class="v3-t v3-st-err">No se pudieron cargar las tareas</div>
+        <div class="v3-sub">${esc(state._tareasError)}</div><button class="v3-cta" style="margin-top:10px" onclick="FamiliaV3.reintentar()">Reintentar</button></div>`;
+      return;
+    }
     let h=admin?`<button class="v3-cta v3-full" style="margin-bottom:12px" onclick="FamiliaV3.crearPaso1()">${svg('mas').replace('v3-ico','v3-ico" style="vertical-align:-5px')} Crear</button>`:'';
     h+=hoy.length?hoy.map(fila).join(''):'<p class="v3-sub">Nada para hoy.</p>';
     // Vencidos: el hijo los ve aquí; el padre los decide en «Revisar».
@@ -3444,6 +3453,12 @@ window.FamiliaV3=(function(){
   function porAprobar(){return state.tasks.filter(t=>t.estado==='esperando_aprobacion'&&!ocultas.has(t.id));}
   function vencidos(){return state.tasks.filter(t=>!ocultas.has(t.id)&&!t.puntos_sumados&&(t.estado_vencida==='por_decidir'||t.estado_vencida==='pendiente_hijo'||(t.estado==='aviso_vencida'&&!t.estado_vencida)));}
   function pintarBandeja(){
+    // V16 también en «Revisar»: con error de carga se muestra el mensaje y «Reintentar», no el vacío.
+    if(state._tareasError){
+      document.getElementById('v3Bandeja').innerHTML=`<div class="v3-card err" style="display:block"><div class="v3-t v3-st-err">No se pudieron cargar las tareas</div>
+        <div class="v3-sub">${esc(state._tareasError)}</div><button class="v3-cta" style="margin-top:10px" onclick="FamiliaV3.reintentar()">Reintentar</button></div>`;
+      return;
+    }
     const a=porAprobar(), v=vencidos();
     let h=a.map(t=>ficha(t,`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aprobar(${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.devolver(${t.id})">Devolver</button></div>`)).join('');
     if(v.length){
@@ -3511,7 +3526,7 @@ window.FamiliaV3=(function(){
       .map((x,i)=>`<div class="v3-rk"><b>${i+1}</b><span class="v3-grow">${esc(x.m.nombre)}</span><strong>${x.p}</strong></div>`).join('');
     const ini=inicioSemana();
     let h=`<div class="v3-card" style="display:block"><div class="v3-t">${esc(u.nombre)}</div><div class="v3-sub">${esc(u.rol||'')} · ${Number(u.puntos)||0} pts</div>
-      <button class="v3-btn2" style="margin-top:8px" onclick="FamiliaV3.hojaPerfil()">Editar perfil</button>${originalAdminId?'<button class="v3-cta" style="margin:8px 0 0 8px" onclick="FamiliaV3.volverAMi()">Volver a mi usuario</button>':''}</div>
+      ${soloLectura()?'':'<button class="v3-btn2" style="margin-top:8px" onclick="FamiliaV3.hojaPerfil()">Editar perfil</button>'}${originalAdminId?'<button class="v3-cta" style="margin:8px 0 0 8px" onclick="FamiliaV3.volverAMi()">Volver a mi usuario</button>':''}</div>
       <h2>Ranking</h2>
       <div class="v3-seg"><button class="${rkModo==='semana'?'on':''}" onclick="FamiliaV3.ranking('semana')">Semana</button><button class="${rkModo==='total'?'on':''}" onclick="FamiliaV3.ranking('total')">Total</button></div>
       ${rkModo==='semana'?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · semana según tu hora local · se reinicia el domingo a las 00:00</p>`:''}
@@ -3527,6 +3542,9 @@ window.FamiliaV3=(function(){
         <button class="v3-btn2" onclick="FamiliaV3.hojaPremio()">Nuevo premio</button></div>
         <p class="v3-sub" style="margin-top:8px">Mesada y «Resetear todo» llegan cuando BE publique sus RPC (no se hacen con varios pasos desde el teléfono).</p></details>`;
     }
+    // V5b: «Mi historial» del miembro (más reciente primero; incluye «Rechazada · 0 pts» con su motivo).
+    const mio=(state.history||[]).filter(x=>x.miembro_id===u.id).slice(0,100);
+    h+=`<h2 style="margin-top:14px">Mi historial</h2><div class="v3-card" style="display:block">${mio.length?mio.map(x=>`<div class="v3-rk"><span class="v3-grow">${esc(x.texto||'')}<br><span class="v3-sub">${x.creado_en?new Date(x.creado_en).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></span>${x.pts!=null?`<strong class="${x.pts>0?'v3-st-ok':x.pts<0?'v3-st-err':''}">${x.pts>0?'+':''}${x.pts}</strong>`:''}</div>`).join(''):'<p class="v3-sub">Todavía no hay movimientos.</p>'}</div>`;
     h+=`<button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.salir()">Salir</button>`;
     document.getElementById('v3Yo').innerHTML=h;
   }
@@ -3673,12 +3691,77 @@ window.FamiliaV3=(function(){
     abrirHoja(`<h3>${esc(t.titulo)}</h3><p class="v3-sub" style="margin:6px 0"><span class="v3-chip ${esDeber(t)?'deber':''}">${esDeber(t)?'Deber':'Tarea'}</span> <span class="${e.cls}">${esc(e.txt)}</span>${t.fecha_limite?' · vence '+new Date(t.fecha_limite).toLocaleString('es-CO',{weekday:'short',hour:'2-digit',minute:'2-digit'}):''}</p>
       ${t.comentario_completado?`<p class="v3-sub">«${esc(t.comentario_completado)}»</p>`:''}${comentAprob(t)&&/aprob|complet/.test(t.estado)?`<p class="v3-sub v3-st-ok">Papá/mamá: «${esc(comentAprob(t))}»</p>`:''}<div id="v3Foto" class="v3-sub">Cargando evidencia…</div>
       ${isAdmin(currentUser())&&!soloLectura()&&t.estado==='esperando_aprobacion'?`<label class="v3-sub" style="display:block;margin-top:10px">Comentario al aprobar (opcional)</label><input id="v3cAprob" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px"><button class="v3-cta v3-full" style="margin-top:8px" onclick="FamiliaV3.aprobar(${t.id},document.getElementById('v3cAprob').value.trim())">Aprobar</button>`:''}
+      ${accionesHijo(t)}${accionesPadre(t)}
       <button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.cerrarHoja()">Cerrar</button>`);
     const {data,error}=await supabase.from('familia_tareas').select('foto_url,foto_2,foto_path,foto_2_path').eq('id',id).maybeSingle();
     const box=document.getElementById('v3Foto'); if(!box) return;
     const fotos=error||!data?[]:[data.foto_url,data.foto_2].filter(f=>typeof f==='string'&&/^(data:image\/|https:)/.test(f));
     box.innerHTML=fotos.length?fotos.map(f=>`<img src="${esc(f)}" alt="Evidencia" style="max-width:100%;border-radius:10px;margin-top:8px">`).join(''):(error?esc(error.message):'Sin foto.');
   }
+  /* --- V4: hijo «Ya la hice» + foto, desde el detalle. Mismo flujo que la v1 (submitEvidence):
+         UNA actualización de familia_tareas con la foto en base64 (fileToDataUrl de la v1, 720 px JPEG)
+         en foto_url (asignado) o foto_2 (compañero de conjunto), comentario y estado
+         'esperando_aprobacion' (en conjunto, solo cuando ambos ya enviaron). No hay RPC para esto en la guía F3. --- */
+  function puedeEnviar(t,u){
+    if(!u||isAdmin(u)||soloLectura()) return false;
+    if(!(t.asignada_a===u.id||t.conjunto_con===u.id)) return false;
+    if(!(t.estado==='pendiente'||t.estado==='aviso_rechazada')) return false;
+    return !(typeof taskTiming==='function'&&taskTiming(t)!=='ready');   // misma ventana que la v1
+  }
+  function accionesHijo(t){
+    const u=currentUser(); if(!puedeEnviar(t,u)) return '';
+    return `<label class="v3-sub" style="display:block;margin-top:10px">Comentario (opcional)</label><input id="v3eCom" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px">
+      <label class="v3-sub" style="display:block;margin-top:8px">Foto de evidencia (opcional)</label><input id="v3eFoto" type="file" accept="image/*" capture="environment">
+      <button class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.enviar(${t.id})">Ya la hice</button>`;
+  }
+  async function enviar(id){
+    const k='e'+id; if(enCurso.has(k)) return;
+    const t=state.tasks.find(x=>x.id===id), u=currentUser(); if(!t||!puedeEnviar(t,u)) return;
+    enCurso.add(k);
+    try{
+      const comment=document.getElementById('v3eCom').value.trim(), file=document.getElementById('v3eFoto').files[0];
+      let foto=null;
+      if(file){try{foto=await fileToDataUrl(file);}catch(e){return showToast('No se pudo leer la foto');}}
+      const payload={};
+      if(t.conjunto_con&&u.id===t.conjunto_con){payload.evidencia_2=comment||'Listo'; if(foto) payload.foto_2=foto; if(t.comentario_completado) payload.estado='esperando_aprobacion';}
+      else if(t.conjunto_con&&u.id===t.asignada_a){payload.comentario_completado=comment||null; if(foto) payload.foto_url=foto; if(t.evidencia_2) payload.estado='esperando_aprobacion';}
+      else{payload.estado='esperando_aprobacion'; payload.comentario_completado=comment||null; if(foto) payload.foto_url=foto;}
+      if(!t.marcada_en) payload.marcada_en=new Date().toISOString();
+      const {error}=await supabase.from('familia_tareas').update(payload).eq('id',id);
+      if(error) return showToast('No se pudo: '+error.message);
+      Object.assign(t,payload); delete t.foto_url; delete t.foto_2;   // en memoria la v3 no guarda fotos
+      cerrarHoja(); pintar();
+      showToast(payload.estado==='esperando_aprobacion'?'Quedó en revisión':'Falta la parte del otro');
+      scheduleReload();
+    }finally{enCurso.delete(k);}
+  }
+
+  /* --- V3b: padre en el detalle: principal Aprobar, + Devolver, y en el menú ⋯ «Rechazar»
+         (motivo obligatorio). UNA escritura: familia_rpc_rechazar_tarea (⚠ nombre esperado; BE
+         aún no la publica en la carpeta sql). Cierra con 0 pts y no vuelve a la vista del hijo. --- */
+  function accionesPadre(t){
+    if(!isAdmin(currentUser())||soloLectura()||t.estado!=='esperando_aprobacion') return '';
+    return `<button class="v3-btn2 v3-full" style="margin-top:8px" onclick="FamiliaV3.devolver(${t.id})">Devolver</button>
+      <details style="margin-top:10px"><summary class="v3-sub" aria-label="Más acciones">⋯ Más acciones</summary>
+      <label class="v3-sub" style="display:block;margin-top:10px">Motivo del rechazo (obligatorio, lo verá el hijo)</label><input id="v3rMot" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px">
+      <button class="v3-btn2 err v3-full" style="margin-top:8px" onclick="FamiliaV3.rechazar(${t.id})">Rechazar · 0 pts</button></details>`;
+  }
+  async function rechazar(id){
+    const mot=(document.getElementById('v3rMot')||{}).value; const motivo=(mot||'').trim();
+    if(!motivo) return showToast('Escribe el motivo del rechazo');
+    const k='r'+id; if(enCurso.has(k)) return;
+    if(!confirm('¿Rechazar? Se cierra con 0 pts y no vuelve a aparecer.')) return;
+    enCurso.add(k);
+    const d=await rpc('familia_rpc_rechazar_tarea',{p_tarea_id:id,p_actor_id:state.currentUserId,p_motivo:motivo,p_client_req_id:reqId(k)});
+    enCurso.delete(k);
+    if(!d) return;                 // error: se conserva el req id para reintentar
+    delete reqIds[k];
+    ocultas.add(id); cerrarHoja(); pintar();
+    showToast(d.idempotente?'Ya estaba aplicado':'Rechazada · 0 pts'); scheduleReload();
+  }
+  // V16: reintento manual de la carga.
+  function reintentar(){state._tareasError=null; ['v3Hoy','v3Bandeja'].forEach(i=>{const e=document.getElementById(i); if(e) e.innerHTML='<p class="v3-sub">Cargando…</p>';}); loadAll();}
+
   // Si la carga trajo '*' (primera vez o reintento), se quitan las fotos de memoria en v3.
   const COLS_FOTO=['foto_url','foto_2','foto_anterior','foto_2_anterior','foto_path','foto_2_path'];
   function quitarFotos(){(state.tasks||[]).forEach(t=>COLS_FOTO.forEach(c=>{if(c in t) delete t[c];}));}
@@ -3848,7 +3931,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {activo,ir,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
