@@ -3258,7 +3258,29 @@ init();
 #v3App{--v3-ok:#15803d;--v3-warn:#b45309;--v3-err:#b91c1c;--v3-gris:#4b5563;--v3-vacio:#e5e7eb;--v3-cta:#ff7a59;--v3-cta-txt:#1f1a4d;--v3-azul:#1d4ed8;display:none;flex-direction:column;height:100vh;height:100dvh;max-width:720px;margin:0 auto;background:#f8fafc;color:#1e293b}
 #v3App.v3-on{display:flex}
 /* Cabecera con íconos de línea blanca. */
-.v3-head{background:#1f1a4d;color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;flex:none}
+/* v4 · ajuste 5: cabecera alegre de la v1 (degradado violeta) con avatar, nombre, rol, frase y puntos. */
+.v3-head{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;flex:none;border-radius:0 0 20px 20px}
+.v4-av{width:44px;height:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex:none;overflow:hidden;color:#1e293b}
+.v4-who{flex:1;min-width:0}.v4-who b{display:block;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v4-who small{display:block;font-size:.75rem;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v4-fam{font-size:.72rem;opacity:.85}
+.v3-head .v3-pts{background:rgba(255,255,255,.2);padding:6px 10px;border-radius:999px}
+/* v4 · ajuste 5: paleta de estados (gris pendiente, verde hecho, amarillo esperando, naranja suave devuelta, rojo SOLO vencida sin enviar). */
+.v3-card.esp{border-left-color:#ca8a04}.v3-card.dev{border-left-color:#fb923c}
+.v3-st-esp{color:#a16207}.v3-st-dev{color:#c2410c}
+/* Panel que aloja una sección completa de la v1 (filtros, plantillas, premios…) dentro de la v3. */
+.v4-panel{position:fixed;inset:0;background:#f8fafc;z-index:2400;display:none;flex-direction:column}
+.v4-panel.on{display:flex}
+.v4-panel-top{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:12px 16px;display:flex;gap:10px;align-items:center}
+.v4-panel-top button{background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer}
+.v4-panel-body{flex:1;overflow-y:auto;max-width:720px;width:100%;margin:0 auto}
+.v4-panel-body .section{display:block!important}
+/* En modo v3 los modales de la v1 deben quedar por encima del panel y de la hoja. */
+body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
+.v4-rk{display:grid;grid-template-columns:28px 1fr repeat(4,minmax(44px,auto));gap:6px;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem}
+.v4-rk.h{font-size:.68rem;color:#64748b;text-transform:uppercase}
+.v4-rk span.n{text-align:right;font-variant-numeric:tabular-nums}
+@media (max-width:400px){.v4-rk{grid-template-columns:24px 1fr repeat(4,38px);font-size:.78rem}}
 .v3-head h1{font-size:1.05rem;flex:1;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .v3-pts{font-weight:700;font-size:.95rem;white-space:nowrap}
 .v3-icobtn{background:none;border:0;color:#fff;position:relative;padding:6px;cursor:pointer;line-height:0}
@@ -3315,19 +3337,25 @@ details.v3-admin summary{cursor:pointer;font-weight:600}
 <div id="v3App" aria-live="polite">
   <!-- Cabecera: familia, saldo, bandeja (padres) y salir. -->
   <div class="v3-head">
-    <h1 id="v3Fam">Familia</h1>
+    <div class="v4-av" id="v4Av" aria-hidden="true">👤</div>
+    <div class="v4-who"><span class="v4-fam" id="v3Fam">Familia</span><b id="v4Nom"></b><small id="v4Rol"></small><small id="v4Frase"></small></div>
     <span class="v3-pts" id="v3Pts"></span>
+    <!-- Campana de avisos de la v1 (openNotifs) con ícono de línea. -->
+    <button class="v3-icobtn" id="v4Bell" aria-label="Avisos" onclick="FamiliaV3.abrirV1(()=>openNotifs())"></button>
     <button class="v3-icobtn" id="v3InboxBtn" aria-label="Por aprobar" onclick="FamiliaV3.ir('bandeja')"></button>
   </div>
   <div class="v3-main">
     <section class="v3-sec on" id="v3-hoy"><h2>Hoy</h2><div id="v3Hoy"></div></section>
     <section class="v3-sec" id="v3-bandeja"><h2>Por revisar</h2><div id="v3Bandeja"></div></section>
     <section class="v3-sec" id="v3-premios"><h2>Premios</h2><div id="v3Premios"></div></section>
+    <section class="v3-sec" id="v3-ranking"><h2>Ranking (hijos)</h2><div id="v4Ranking"></div></section>
     <section class="v3-sec" id="v3-yo"><div id="v3Yo"></div></section>
   </div>
   <nav class="v3-nav" id="v3Nav"></nav>
 </div>
 <div class="v3-toast" id="v3Toast"><span id="v3ToastTxt"></span><button id="v3ToastUndo">Deshacer</button></div>
+<!-- Panel v4: aloja temporalmente una sección de la v1 (se mueve el nodo y se devuelve al cerrar). -->
+<div class="v4-panel" id="v4Panel"><div class="v4-panel-top"><button onclick="FamiliaV3.cerrarPanel()">← Volver</button><strong id="v4PanelTit"></strong></div><div class="v4-panel-body" id="v4PanelBody"></div></div>
 <div class="v3-sheet" id="v3Sheet" onclick="if(event.target===this)FamiliaV3.cerrarHoja()"><div id="v3SheetBody"></div></div>
 
 <script>
@@ -3344,7 +3372,9 @@ window.FamiliaV3=(function(){
     bandeja:'<path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 2h6l1-2h5"/>',
     premio:'<path d="M4 10h16v10H4z"/><path d="M12 10v10M3 7h18v3H3z"/><path d="M12 7c-2-4-6-3-5 0M12 7c2-4 6-3 5 0"/>',
     yo:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 15-5 16 0"/>',
-    mas:'<path d="M12 5v14M5 12h14"/>'
+    mas:'<path d="M12 5v14M5 12h14"/>',
+    trofeo:'<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8"/>',
+    campana:'<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>'
   };
   function svg(n){return '<svg class="v3-ico" viewBox="0 0 24 24" aria-hidden="true">'+ICO[n]+'</svg>';}
 
@@ -3370,11 +3400,14 @@ window.FamiliaV3=(function(){
   function comentAprob(t){return t.comentario_aprobacion||t.comentario||'';}
   // B4: en «Ver como» (originalAdminId con valor) la vista es solo lectura: sin botones de acción.
   function soloLectura(){return typeof originalAdminId!=='undefined'&&!!originalAdminId;}
+  /* v4 · ajuste 5: un color por estado. Rojo SOLO para vencida sin enviar; amarillo = esperando
+     aprobación (o decisión del padre); naranja suave = devuelta (con su motivo); verde = hecha; gris = pendiente. */
   function estadoDe(t){
     if(t.estado_vencida==='pendiente_hijo'||(t.estado==='aviso_vencida'&&!t.estado_vencida)) return {c:'err',txt:'Se pasó la hora',cls:'v3-st-err'};
-    if(t.estado_vencida==='por_decidir') return {c:'rev',txt:'Esperando a papá/mamá',cls:'v3-st-rev'};
-    if(t.estado==='esperando_aprobacion') return {c:'rev',txt:'En revisión',cls:'v3-st-rev'};
-    if(t.estado==='aviso_rechazada') return {c:'err',txt:'Devuelta'+(t.comentario?': '+t.comentario:''),cls:'v3-st-err'};
+    if(t.estado_vencida==='por_decidir') return {c:'esp',txt:'Esperando a papá/mamá',cls:'v3-st-esp'};
+    if(t.estado==='esperando_aprobacion'||t.estado==='transferencia_por_aprobar') return {c:'esp',txt:'Esperando aprobación',cls:'v3-st-esp'};
+    // Motivo de la devolución visible en la tarjeta del hijo: comentario_aprobacion y, si falta, comentario.
+    if(t.estado==='aviso_rechazada') return {c:'dev',txt:'Devuelta'+(comentAprob(t)?': '+comentAprob(t):''),cls:'v3-st-dev'};
     if(t.estado==='completada'||t.estado==='aviso_aprobada') return {c:'ok',txt:'Aprobada'+(comentAprob(t)?': '+comentAprob(t):''),cls:'v3-st-ok'};
     return {c:'',txt:'Pendiente',cls:''};
   }
@@ -3440,7 +3473,9 @@ window.FamiliaV3=(function(){
         <div class="v3-sub">${esc(state._tareasError)}</div><button class="v3-cta" style="margin-top:10px" onclick="FamiliaV3.reintentar()">Reintentar</button></div>`;
       return;
     }
-    let h=admin?`<button class="v3-cta v3-full" style="margin-bottom:12px" onclick="FamiliaV3.crearPaso1()">${svg('mas').replace('v3-ico','v3-ico" style="vertical-align:-5px')} Crear</button>`:'';
+    // v4 · ajuste 5: «Crear» rápido (2 pasos, RPC) + «Crear completo» (formulario de la v1: hora, ícono,
+    // «Junto con», entre padres, inmediata, penalización, repetición de deberes).
+    let h=admin&&!soloLectura()?`<div class="v3-row" style="margin-bottom:12px"><button class="v3-cta" style="flex:1" onclick="FamiliaV3.crearPaso1()">${svg('mas').replace('v3-ico','v3-ico" style="vertical-align:-5px')} Crear</button><button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNueva())">Crear completo</button><button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Tareas: filtros, plantillas y borradores')">Filtros</button></div>`:'';
     h+=hoy.length?hoy.map(fila).join(''):'<p class="v3-sub">Nada para hoy.</p>';
     // Vencidos: el hijo los ve aquí; el padre los decide en «Revisar».
     if(venc.length) h+=`<h2 style="margin-top:14px">Vencidos</h2>`+(admin?`<p class="v3-sub">${venc.length} en «Revisar».</p>`:venc.map(fila).join(''));
@@ -3472,7 +3507,7 @@ window.FamiliaV3=(function(){
     if(sol.length){
       h+='<h2 style="margin-top:16px">Premios pedidos</h2>'+sol.map(x=>{const r=state.rewards.find(p=>p.id===x.premio_id)||{},k=memberById(x.miembro_id)||{};
         return `<div class="v3-card"><div class="v3-grow"><div class="v3-t">${esc(r.nombre||'Premio')}</div><div class="v3-sub">${esc(k.nombre||'')} · ${Number(r.costo)||0} pts</div></div>
-        <button class="v3-cta" onclick="FamiliaV3.aprobarPremio(${x.id})">Aprobar</button></div>`;}).join('');
+        <div class="v3-row"><button class="v3-cta" onclick="FamiliaV3.aprobarPremio(${x.id})">Aprobar</button><button class="v3-btn2" onclick="rejectPrize(${x.id})">Rechazar</button></div></div>`;}).join('');
     }
     document.getElementById('v3Bandeja').innerHTML=h||'<p class="v3-sub">Nada por revisar.</p>';
   }
@@ -3526,20 +3561,28 @@ window.FamiliaV3=(function(){
       .map((x,i)=>`<div class="v3-rk"><b>${i+1}</b><span class="v3-grow">${esc(x.m.nombre)}</span><strong>${x.p}</strong></div>`).join('');
     const ini=inicioSemana();
     let h=`<div class="v3-card" style="display:block"><div class="v3-t">${esc(u.nombre)}</div><div class="v3-sub">${esc(u.rol||'')} · ${Number(u.puntos)||0} pts</div>
-      ${soloLectura()?'':'<button class="v3-btn2" style="margin-top:8px" onclick="FamiliaV3.hojaPerfil()">Editar perfil</button>'}${originalAdminId?'<button class="v3-cta" style="margin:8px 0 0 8px" onclick="FamiliaV3.volverAMi()">Volver a mi usuario</button>':''}</div>
-      <h2>Ranking</h2>
-      <div class="v3-seg"><button class="${rkModo==='semana'?'on':''}" onclick="FamiliaV3.ranking('semana')">Semana</button><button class="${rkModo==='total'?'on':''}" onclick="FamiliaV3.ranking('total')">Total</button></div>
-      ${rkModo==='semana'?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · semana según tu hora local · se reinicia el domingo a las 00:00</p>`:''}
-      <div class="v3-card" style="display:block">${filas(state.members.filter(m=>!isAdmin(m)))}
-      <div class="v3-sub" style="margin-top:8px">Padres</div>${filas(state.members.filter(isAdmin))}
-      <p class="v3-sub" style="margin-top:6px">Cuenta lo ganado menos los descuentos. Canjear no resta.</p></div>`;
+      ${soloLectura()?'':'<button class="v3-btn2" style="margin-top:8px" onclick="FamiliaV3.abrirV1(()=>openProfile())">Editar perfil</button>'}${originalAdminId?'<button class="v3-cta" style="margin:8px 0 0 8px" onclick="FamiliaV3.volverAMi()">Volver a mi usuario</button>':''}</div>`;
+    // v4 · ajuste 1: el ranking salió de «Yo» (ahora es pestaña). Aquí: accesos a funciones de la v1.
+    if(!soloLectura()){
+      h+=`<h2 style="margin-top:6px">Más</h2><div class="v3-row">
+        <button class="v3-btn2" onclick="FamiliaV3.hojaMetas()">Metas</button>
+        <button class="v3-btn2" onclick="FamiliaV3.hojaChat()">Chat</button>
+        <button class="v3-btn2" onclick="FamiliaV3.hojaMedallas()">Medallas</button>
+        <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openRewardHistory())">Historial de canjes</button>
+        ${!admin?`<button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openSolicitar())">Solicitar tarea</button><button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openSiblingTask())">Para un hermano</button>`:''}
+      </div>`;
+    }
     // Bloque admin: se agrega al DOM SOLO si es padre (para el hijo no existe, no basta con ocultarlo).
     if(admin){
       h+=`<details class="v3-admin"><summary>Administrar familia</summary><div class="v3-row" style="margin-top:10px">
-        <button class="v3-btn2" onclick="FamiliaV3.hojaIntegrante()">Nuevo integrante</button>
+        <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNewMember())">Nuevo integrante</button>
+        <button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Tareas: filtros, plantillas y borradores')">Lista completa de tareas</button>
+        <button class="v3-btn2" onclick="FamiliaV3.panelV1('section-premios','Premios: editar, apagar, lista base')">Administrar premios</button>
+        <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openDeberes())">Deberes del ciclo</button>
+        <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openPenalty())">Descuento manual</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaVerComo()">Ver como otro</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaPin()">PIN de hijos</button>
-        <button class="v3-btn2" onclick="FamiliaV3.hojaPremio()">Nuevo premio</button></div>
+        <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNewReward())">Nuevo premio</button></div>
         <p class="v3-sub" style="margin-top:8px">Mesada y «Resetear todo» llegan cuando BE publique sus RPC (no se hacen con varios pasos desde el teléfono).</p></details>`;
     }
     // V5b: «Mi historial» del miembro (más reciente primero; incluye «Rechazada · 0 pts» con su motivo).
@@ -3549,18 +3592,89 @@ window.FamiliaV3=(function(){
     document.getElementById('v3Yo').innerHTML=h;
   }
 
+  /* --- v4 · ajustes 1+2: Ranking de hijos con Ganados · Canjeados · Descuentos · Saldo.
+         Cifras de kidLedger de la v1 (mismo cálculo que su ranking); Saldo = miembros.puntos
+         (lo que de verdad le queda). Orden por Ganados y, si empatan, por saldo. Medallas de la v1.
+         «Semana» filtra los movimientos desde el domingo 00:00 de la hora local del dispositivo. --- */
+  function pintarRanking(u){
+    const desde=rkModo==='semana'?inicioSemana():null;
+    const MED=['🥇','🥈','🥉','🍬','⭐','🎈','🍪','🍎','⚽','🎯'];
+    const filas=state.members.filter(isKid).map(k=>{
+      const led=kidLedger(k.id);
+      const mv=desde?led.moves.filter(m=>new Date(m.fecha)>=desde):led.moves;
+      let g=0,c=0,d=0; mv.forEach(m=>{if(m.pts>0&&m.sumaRanking)g+=m.pts; if(m.tipo==='Premio')c+=-m.pts; if(m.tipo==='Penalización')d+=-m.pts;});
+      return {k,g,c,d,saldo:Number(k.puntos)||0};
+    }).sort((a,b)=>b.g-a.g||b.saldo-a.saldo);
+    const ini=inicioSemana();
+    document.getElementById('v4Ranking').innerHTML=`<div class="v3-seg"><button class="${rkModo==='semana'?'on':''}" onclick="FamiliaV3.ranking('semana')">Semana</button><button class="${rkModo==='total'?'on':''}" onclick="FamiliaV3.ranking('total')">Total</button></div>
+      ${desde?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · hora local (${esc(zonaHoraria())})</p>`:''}
+      <div class="v3-card" style="display:block"><div class="v4-rk h"><span></span><span>Hijo</span><span class="n">Ganados</span><span class="n">Canjeados</span><span class="n">Desc.</span><span class="n">Saldo</span></div>
+      ${filas.map((x,i)=>`<div class="v4-rk" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.abrirV1(()=>openBalance(${x.k.id}))" title="Ver saldo detallado"><span>${MED[i]||(i+1)+'.'}</span><span>${esc(x.k.nombre)}</span><span class="n v3-st-ok">${x.g}</span><span class="n">${x.c}</span><span class="n v3-st-err">${x.d}</span><strong class="n">${x.saldo}</strong></div>`).join('')||'<p class="v3-sub">Sin hijos</p>'}
+      <p class="v3-sub" style="margin-top:6px">Toca un hijo para ver su saldo detallado. Saldo = puntos que le quedan hoy.</p></div>`;
+  }
+
+  /* --- Zona horaria del navegador: se guarda en el dispositivo (no hay columna en BD; ver bitácora). --- */
+  function zonaHoraria(){
+    let z='local'; try{z=Intl.DateTimeFormat().resolvedOptions().timeZone||'local';}catch(e){}
+    try{localStorage.setItem('familia_tz',z);}catch(e){}
+    return z;
+  }
+
+  /* --- Puente a la v1: cierra la hoja v3 y llama a la función de la v1 (abre su modal por encima). --- */
+  function abrirV1(fn){cerrarHoja(); try{fn();}catch(e){showToast('No se pudo abrir: '+e.message);}}
+  /* --- Panel: mueve una sección de la v1 (con sus filtros y botones) a un panel de la v3 y la devuelve al cerrar. --- */
+  let renderV1Ref=null;
+  let panelNodo=null, panelPadre=null, panelSig=null;
+  function panelV1(id,titulo){
+    cerrarPanel(); cerrarHoja();
+    const n=document.getElementById(id); if(!n) return;
+    panelNodo=n; panelPadre=n.parentNode; panelSig=n.nextSibling;
+    document.getElementById('v4PanelTit').textContent=titulo;
+    document.getElementById('v4PanelBody').appendChild(n);
+    document.getElementById('v4Panel').classList.add('on');
+    try{renderV1Ref&&renderV1Ref();}catch(e){}   // la v1 repinta su sección (filtros, listas, botones de admin)
+  }
+  function cerrarPanel(){
+    if(panelNodo&&panelPadre){panelPadre.insertBefore(panelNodo,panelSig);}
+    panelNodo=null; document.getElementById('v4Panel').classList.remove('on');
+  }
+  /* --- Hojas que reutilizan funciones de la v1 con sus mismos id de elementos. --- */
+  function hojaMetas(){
+    abrirHoja(`<h3>Mis metas</h3><div id="goalList"></div><label>Nueva meta</label><input id="goalTitle" maxlength="80"><label>Puntos</label><input id="goalPoints" type="number" min="1" value="100">
+      <button class="v3-cta v3-full" style="margin-top:12px" onclick="createGoal()">Guardar meta</button>`);
+    renderGoals();
+  }
+  function hojaChat(){
+    const u=currentUser();
+    abrirHoja(`<h3>Chat</h3><select id="chatTo" onchange="renderChat()"><option value="">Grupo</option>${state.members.filter(m=>m.id!==u.id).map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('')}</select>
+      <div id="chatMessages" style="max-height:45vh;overflow-y:auto;margin:10px 0"></div><input id="chatInput" maxlength="500" placeholder="Escribe…">
+      <button class="v3-cta v3-full" style="margin-top:8px" onclick="sendMessage().then(()=>setTimeout(renderChat,900))">Enviar</button>`);
+    renderChat();
+  }
+  function hojaMedallas(){abrirHoja(`<h3>Medallas</h3><div id="badgeList"></div>`); renderBadges();}
+
   /* --- Pintado general: cabecera, nav, contador de bandeja y sección activa. --- */
   function pintar(){
     const u=currentUser(); if(!u) return;
     const admin=isAdmin(u);
     document.getElementById('v3Fam').textContent=familyTitleText();
+    // v4 · ajuste 5: datos de quien usa la app (mismo avatar que la v1 con paintAvatar).
+    paintAvatar(document.getElementById('v4Av'),u);
+    document.getElementById('v4Nom').textContent=u.nombre||'';
+    const edad=typeof ageOf==='function'?ageOf(u):null;
+    document.getElementById('v4Rol').textContent=(u.rol||'')+(admin?' · Admin':'')+(edad?' · '+edad+' años':'');
+    document.getElementById('v4Frase').textContent=u.frase||'';
+    const noLeidas=(state.notifs||[]).filter(x=>x.para_id===u.id&&!x.leida).length;
+    document.getElementById('v4Bell').innerHTML=svg('campana')+(noLeidas?`<span class="v3-dot">${noLeidas}</span>`:'');
+    document.body.classList.add('v3-modo');
     document.getElementById('v3Pts').textContent=(Number(u.puntos)||0)+' pts';
     const n=porAprobar().length+solicitudesPendientes().length+vencidos().length;
     const ib=document.getElementById('v3InboxBtn');
     ib.style.display=admin?'':'none';
     ib.innerHTML=svg('bandeja')+(n?`<span class="v3-dot">${n}</span>`:'');
     ib.setAttribute('aria-label','Por aprobar, '+n);
-    const tabs=[['hoy','Hoy','hoy'],['premios','Premios','premio'],['yo','Yo','yo']];
+    // v4 · ajuste 1: pestaña propia de Ranking (lista solo hijos, como la v1), visible para todos.
+    const tabs=[['hoy','Hoy','hoy'],['premios','Premios','premio'],['ranking','Ranking','trofeo'],['yo','Yo','yo']];
     if(admin) tabs.splice(1,0,['bandeja','Revisar','bandeja']);
     if(!admin&&seccion==='bandeja') seccion='hoy';
     document.getElementById('v3Nav').innerHTML=tabs.map(([k,l,i])=>`<button class="${seccion===k?'on':''}" onclick="FamiliaV3.ir('${k}')" aria-label="${l}">${svg(i)}${l}</button>`).join('');
@@ -3568,6 +3682,7 @@ window.FamiliaV3=(function(){
     if(seccion==='hoy') pintarHoy(u);
     if(seccion==='bandeja') pintarBandeja();
     if(seccion==='premios') pintarPremios(u);
+    if(seccion==='ranking') pintarRanking(u);
     if(seccion==='yo') pintarYo(u);
   }
 
@@ -3687,8 +3802,13 @@ window.FamiliaV3=(function(){
   /* --- Detalle de un ítem: la foto se pide SOLO aquí, por id (la lista nunca la trae en v3). --- */
   async function detalle(id){
     const t=state.tasks.find(x=>x.id===id); if(!t) return;
-    const e=estadoDe(t);
-    abrirHoja(`<h3>${esc(t.titulo)}</h3><p class="v3-sub" style="margin:6px 0"><span class="v3-chip ${esDeber(t)?'deber':''}">${esDeber(t)?'Deber':'Tarea'}</span> <span class="${e.cls}">${esc(e.txt)}</span>${t.fecha_limite?' · vence '+new Date(t.fecha_limite).toLocaleString('es-CO',{weekday:'short',hour:'2-digit',minute:'2-digit'}):''}</p>
+    const e=estadoDe(t), quien=memberById(t.asignada_a), junto=memberById(t.conjunto_con);
+    // v4 · ajuste 3: nombre, tipo, abre/cierra/cerrada (windowBlock + closedAt de la v1) y franja con el color del hijo.
+    abrirHoja(`<div style="border-left:6px solid ${esc((quien&&quien.color)||'#9ca3af')};padding-left:10px"><h3>${esc(t.titulo)}</h3>
+      <p class="v3-sub" style="margin:6px 0"><span class="v3-chip ${esDeber(t)?'deber':''}">${esDeber(t)?'Deber':'Tarea'}</span> <span class="${e.cls}">${esc(e.txt)}</span></p>
+      <p class="v3-sub">${quien?'Para: '+esc(quien.nombre):''}${junto?' · junto con '+esc(junto.nombre):''}${' · '+(Number(t.puntos)||0)+' pts'}${(t.pierde_pts||t.puntos_penalizacion_dia)?' · <span class="v3-st-err">Descuento −'+(Number(t.pierde_pts||t.puntos_penalizacion_dia)||0)+' pts</span>':''}</p>
+      <p class="v3-sub" style="margin-top:4px">${windowBlock(t)||'Sin ventana definida'}</p></div>
+      ${isAdmin(currentUser())&&!soloLectura()?`<button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.abrirV1(()=>openTaskCard(${t.id}))">Editar / eliminar (ficha completa)</button>`:''}
       ${t.comentario_completado?`<p class="v3-sub">«${esc(t.comentario_completado)}»</p>`:''}${comentAprob(t)&&/aprob|complet/.test(t.estado)?`<p class="v3-sub v3-st-ok">Papá/mamá: «${esc(comentAprob(t))}»</p>`:''}<div id="v3Foto" class="v3-sub">Cargando evidencia…</div>
       ${isAdmin(currentUser())&&!soloLectura()&&t.estado==='esperando_aprobacion'?`<label class="v3-sub" style="display:block;margin-top:10px">Comentario al aprobar (opcional)</label><input id="v3cAprob" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px"><button class="v3-cta v3-full" style="margin-top:8px" onclick="FamiliaV3.aprobar(${t.id},document.getElementById('v3cAprob').value.trim())">Aprobar</button>`:''}
       ${accionesHijo(t)}${accionesPadre(t)}
@@ -3890,6 +4010,7 @@ window.FamiliaV3=(function(){
 
   /* --- Gancho al render de la v1: si el interruptor está encendido, se muestra la v3. --- */
   const renderV1=render;
+  renderV1Ref=renderV1;   // para que el panel v4 repinte la sección de la v1
   render=function(){
     renderV1.apply(this,arguments);
     // Se recuerda el modo para que la próxima carga ya pida columnas sin fotos.
@@ -3931,7 +4052,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {activo,ir,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
