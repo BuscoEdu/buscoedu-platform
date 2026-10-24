@@ -3858,8 +3858,8 @@ window.FamiliaV3=(function(){
       return `<div class="v6-mfila"><span class="v3-grow">${esc(k.nombre)}</span><input class="v6mMonto" data-id="${k.id}" type="number" min="0" value="${Number(x.monto)||0}" aria-label="Monto de ${esc(k.nombre)}"><label class="v6-mp"><input class="v6mPausa" data-id="${k.id}" type="checkbox" ${x.pausada?'checked':''} style="width:auto"> Pausar</label></div>`;};
     abrirHoja(`<h3>Mesada mensual</h3>
       <label>Modo</label><select id="v6mModo"><option value="manual" ${c.modo!=='automatico'?'selected':''}>Manual (tú pulsas «Liberar»)</option><option value="automatico" ${c.modo==='automatico'?'selected':''}>Automático (se libera sola)</option></select>
-      <label>Fecha de liberación (común para todos)</label><input id="v6mFecha" type="date" value="${esc(mesadaEst.fecha_liberacion||'')}">
-      <label>Día de liberación cada mes (1–28)</label><input id="v6mDia" type="number" min="1" max="28" value="${Number(c.dia_liberacion)||1}">
+      <label>Fecha de liberación (común para todos)</label><input id="v6mFecha" type="date" value="${esc(mesadaEst.fecha_liberacion||'')}" oninput="FamiliaV3.ayudaFechaMesada()">
+      <p id="v6mFechaAyuda" class="v3-sub" style="margin:4px 0 0">${ayudaFecha(mesadaEst.fecha_liberacion)}</p>
       <label style="display:flex;gap:8px;align-items:center;color:#1e293b"><input id="v6mBono" type="checkbox" ${c.bono_activo?'checked':''} style="width:auto"> Compensación por excelencia</label>
       <label>% de la mesada como compensación (0–100)</label><input id="v6mPct" type="number" min="0" max="100" value="${Number(c.bono_pct)||0}">
       <label>Monto por hijo (pts)</label>${hijos.map(fila).join('')}
@@ -3867,14 +3867,18 @@ window.FamiliaV3=(function(){
       ${pend.map(pp=>`<p class="v3-sub" style="margin-top:8px">Pendiente: ${esc(fechaCorta(pp.periodo))} · se libera el ${esc(fechaCorta(pp.fecha_liberacion))}${pp.dias_para_liberar!=null?' (en '+pp.dias_para_liberar+' días)':''}</p>`).join('')||'<p class="v3-sub" style="margin-top:8px">Sin mesadas pendientes de liberar.</p>'}
       <button class="v3-btn2 v3-full" style="margin-top:8px" ${liberable?'':'disabled'} onclick="FamiliaV3.liberarMesadaV6()">Liberar todas las mesadas pendientes</button>`);
   }
+  /* v6 Mesada (decisión Jhon): solo «Fecha de liberación». El día mensual sale de esa fecha, tope 28. */
+  function diaDeFecha(f){const d=parseInt(String(f||'').slice(8,10),10); return d?Math.min(28,d):null;}
+  function ayudaFecha(f){const d=parseInt(String(f||'').slice(8,10),10); return d>28?'Los meses siguientes se libera el día 28.':'';}
+  function ayudaFechaMesada(){const e=document.getElementById('v6mFechaAyuda'), f=document.getElementById('v6mFecha'); if(e&&f) e.textContent=ayudaFecha(f.value);}
   async function guardarMesadaV6(){
     const v=id=>document.getElementById(id);
-    const cfg={modo:v('v6mModo').value,dia:Math.min(28,Math.max(1,parseInt(v('v6mDia').value,10)||1)),bonoActivo:v('v6mBono').checked,
+    const cfg={modo:v('v6mModo').value,dia:diaDeFecha(v('v6mFecha').value),bonoActivo:v('v6mBono').checked,
       bonoPct:Math.min(100,Math.max(0,parseInt(v('v6mPct').value,10)||0)),fecha:v('v6mFecha').value||null,
       hijos:[...document.querySelectorAll('.v6mMonto')].map(i=>({miembro_id:+i.dataset.id,monto:Math.max(0,parseInt(i.value,10)||0),
         pausada:!!(document.querySelector('.v6mPausa[data-id="'+i.dataset.id+'"]')||{}).checked}))};
     const res=cfg.hijos.map(h=>((memberById(h.miembro_id)||{}).nombre||'')+' '+h.monto+(h.pausada?' (pausada)':'')).join(', ');
-    if(!confirm('¿Guardar la mesada: '+res+' · modo '+cfg.modo+(cfg.fecha?' · se libera el '+fechaCorta(cfg.fecha):'')+(cfg.bonoActivo?' · compensación '+cfg.bonoPct+' %':'')+'?')) return;
+    if(!confirm('¿Guardar la mesada: '+res+' · modo '+cfg.modo+(cfg.fecha?' · se libera el '+fechaCorta(cfg.fecha)+(cfg.dia<parseInt(cfg.fecha.slice(8,10),10)?' (meses siguientes: día 28)':''):' · sin cambiar la fecha')+(cfg.bonoActivo?' · compensación '+cfg.bonoPct+' %':'')+'?')) return;
     const r=await supabase.rpc(MESADA_RPC.guardar.fn,MESADA_RPC.guardar.args(state.currentUserId,cfg));
     if(r.error) return showToast('No se pudo: '+r.error.message);
     if(r.data&&r.data.config) mesadaEst=r.data;
@@ -4869,7 +4873,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {activo,ir,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
