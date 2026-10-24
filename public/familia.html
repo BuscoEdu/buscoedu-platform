@@ -1121,7 +1121,9 @@ function renderTasks(){
   const parentList=document.getElementById('parentTaskList');
   if(isAdmin(u)&&taskEditMode){
     const rows=state.plantillas.filter(passDefFilter).sort((a,b)=>String(a.titulo||'').localeCompare(String(b.titulo||''),'es')||(a.id-b.id));
-    list.innerHTML=rows.map(plantillaCard).join('')||'<div class="empty">No hay definiciones. Al crear una tarea, guárdala para que aparezca aquí.</div>';
+    // v6b B17: leyenda de tonos del catálogo; solo se ve en modo v3–v6 (CSS .v3-modo), la v1 no cambia.
+    const leyenda='<div class="v6b-ley" aria-label="Leyenda de colores"><span class="v6b-tag hijo">Tarea de hijos</span><span class="v6b-tag padre">Tarea de padres</span><span class="v6b-tag deber">Deber</span></div>';
+    list.innerHTML=rows.length?leyenda+rows.map(plantillaCard).join(''):'<div class="empty">No hay definiciones. Al crear una tarea, guárdala para que aparezca aquí.</div>';
     if(parentList) parentList.innerHTML='';
     return;
   }
@@ -1184,7 +1186,9 @@ function plantillaCard(p){
   // v5 ítem 21: etiqueta visible «Obligatoria».
   const tipo=p.tipo==='inmediata'?'Obligatoria':(p.tipo==='deber'?'Deber':'Tarea');
   const rec=p.tipo==='deber'&&p.recurrencia&&p.recurrencia!=='once'?(REC_LABEL[p.recurrencia]||p.recurrencia):'';
-  return `<div class="reward-item${aud==='Padres'?' parent':' kid'}" onclick="openPlantilla(${p.id})"><div style="flex:1">${plantillaIcon(p)} <strong>${esc(p.titulo||'Tarea')}</strong><br><small>${aud} · ${tipo}${rec?' · '+esc(rec):''} · ${Number(p.puntos)||0} pts</small></div></div>`;
+  // v6b B17: clase de tono (tpl-hijo / tpl-padre / tpl-deber) + etiqueta; el estilo solo aplica en modo v3–v6.
+  const tono=p.tipo==='deber'?'deber':(aud==='Padres'?'padre':'hijo'), et={hijo:'Tarea de hijos',padre:'Tarea de padres',deber:'Deber'}[tono];
+  return `<div class="reward-item${aud==='Padres'?' parent':' kid'} tpl-${tono}" onclick="openPlantilla(${p.id})"><div style="flex:1"><span class="v6b-tag ${tono}">${et}</span>${plantillaIcon(p)} <strong>${esc(p.titulo||'Tarea')}</strong><br><small>${aud} · ${tipo}${rec?' · '+esc(rec):''} · ${Number(p.puntos)||0} pts</small></div></div>`;
 }
 function syncElemTipo(){
   const aud=document.getElementById('elemAudiencia').value;
@@ -3504,6 +3508,16 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 /* v6b B12: hora elegida grande; abre/cierra como dato secundario. */
 .v6b-hora{margin-top:4px;font-size:.85rem;color:#334155}.v6b-hora b{font-size:1.25rem;font-variant-numeric:tabular-nums;color:#0f172a}
 /* v6b B6: aviso de solo lectura en «Ver como». */
+/* v6b B17: tres tonos de azul en el catálogo (fondo + borde + etiqueta), texto oscuro y etiquetas blancas con
+   contraste AA (≥4,5:1: #0369a1 5,9 · #1d4ed8 6,7 · #312e81 12). Fuera de .v3-modo (v1) la etiqueta y la leyenda no se ven. */
+.v6b-tag,.v6b-ley{display:none}
+.v3-modo .v6b-ley{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.v3-modo .v6b-tag{display:inline-block;font-size:.7rem;font-weight:700;color:#fff;border-radius:999px;padding:2px 8px;margin-right:6px;vertical-align:1px;white-space:nowrap}
+.v3-modo .v6b-tag.hijo{background:#0369a1}.v3-modo .v6b-tag.padre{background:#1d4ed8}.v3-modo .v6b-tag.deber{background:#312e81}
+.v3-modo .reward-item.tpl-hijo{background:#f0f9ff;border-color:#bae6fd;border-left:6px solid #0369a1;color:#0f172a}
+.v3-modo .reward-item.tpl-padre{background:#dbeafe;border-color:#93c5fd;border-left:6px solid #1d4ed8;color:#0f172a}
+.v3-modo .reward-item.tpl-deber{background:#e0e7ff;border-color:#a5b4fc;border-left:6px solid #312e81;color:#0f172a}
+.v3-modo .reward-item[class*="tpl-"] small{color:#334155}
 .v6b-caja{position:relative;max-height:470px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-right:2px}
 .v6b-mest{background:#eef2ff;border-radius:8px;padding:8px 10px;margin:6px 0 10px;font-size:.88rem;color:#1e293b}
 .v6b-ro{margin-top:10px;background:#f1f5f9;border-radius:8px;padding:8px;color:#334155;font-size:.85rem}
