@@ -3437,7 +3437,7 @@ init();
 #v3App.v3-on{display:flex}
 /* Cabecera con íconos de línea blanca. */
 /* v4 · ajuste 5: cabecera alegre de la v1 (degradado violeta) con avatar, nombre, rol, frase y puntos. */
-.v3-head{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;flex:none;border-radius:0 0 20px 20px}
+.v3-head{background:var(--v6t-head,linear-gradient(135deg,#6366f1,#8b5cf6));color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;flex:none;border-radius:0 0 20px 20px}
 .v4-av{width:44px;height:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex:none;overflow:hidden;color:#1e293b}
 .v4-who{flex:1;min-width:0}.v4-who b{display:block;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .v4-who small{display:block;font-size:.75rem;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -3449,7 +3449,7 @@ init();
 /* Panel que aloja una sección completa de la v1 (filtros, plantillas, premios…) dentro de la v3. */
 .v4-panel{position:fixed;inset:0;background:#f8fafc;z-index:2400;display:none;flex-direction:column}
 .v4-panel.on{display:flex}
-.v4-panel-top{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:12px 16px;display:flex;gap:10px;align-items:center}
+.v4-panel-top{background:var(--v6t-head,linear-gradient(135deg,#6366f1,#8b5cf6));color:#fff;padding:12px 16px;display:flex;gap:10px;align-items:center}
 .v4-panel-top button{background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer}
 .v4-panel-body{flex:1;overflow-y:auto;max-width:720px;width:100%;margin:0 auto}
 .v4-panel-body .section{display:block!important}
@@ -3518,6 +3518,16 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 .v3-modo .reward-item.tpl-padre{background:#dbeafe;border-color:#93c5fd;border-left:6px solid #1d4ed8;color:#0f172a}
 .v3-modo .reward-item.tpl-deber{background:#e0e7ff;border-color:#a5b4fc;border-left:6px solid #312e81;color:#0f172a}
 .v3-modo .reward-item[class*="tpl-"] small{color:#334155}
+/* v6b B20: 5 gamas por miembro. SOLO cambian barra superior, barra inferior y botones principales (--v3-cta);
+   alertas y estados (verde/naranja/rojo, badges) quedan fijos. Texto blanco sobre cada color ≥ 4,5:1 (AA). */
+body.v3-modo.tema-azul,body.v3-modo.tema-azul #v3App{--v3-cta:#4f46e5;--v6t-head:linear-gradient(135deg,#4f46e5,#7c3aed);--v6t-nav:#1f1a4d;--v6t-nav-txt:#c7c3e6}
+body.v3-modo.tema-verde,body.v3-modo.tema-verde #v3App{--v3-cta:#15803d;--v6t-head:linear-gradient(135deg,#15803d,#0f766e);--v6t-nav:#052e16;--v6t-nav-txt:#bbf7d0}
+body.v3-modo.tema-morado,body.v3-modo.tema-morado #v3App{--v3-cta:#7e22ce;--v6t-head:linear-gradient(135deg,#7e22ce,#a21caf);--v6t-nav:#2e1065;--v6t-nav-txt:#e9d5ff}
+body.v3-modo.tema-naranja,body.v3-modo.tema-naranja #v3App{--v3-cta:#c2410c;--v6t-head:linear-gradient(135deg,#c2410c,#b45309);--v6t-nav:#431407;--v6t-nav-txt:#fed7aa}
+body.v3-modo.tema-rosa,body.v3-modo.tema-rosa #v3App{--v3-cta:#be185d;--v6t-head:linear-gradient(135deg,#be185d,#9d174d);--v6t-nav:#500724;--v6t-nav-txt:#fbcfe8}
+.v6b-temas{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:6px}
+.v6b-temas button{min-height:56px;border-radius:10px;border:2px solid transparent;color:#fff;font-size:.72rem;font-weight:700;cursor:pointer;padding:4px 2px;overflow-wrap:anywhere}
+.v6b-temas button.on{border-color:#0f172a;box-shadow:0 0 0 2px #fff inset}
 .v6b-caja{position:relative;max-height:470px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-right:2px}
 .v6b-mest{background:#eef2ff;border-radius:8px;padding:8px 10px;margin:6px 0 10px;font-size:.88rem;color:#1e293b}
 .v6b-ro{margin-top:10px;background:#f1f5f9;border-radius:8px;padding:8px;color:#334155;font-size:.85rem}
@@ -3547,8 +3557,8 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 .v3-seg button{background:#fff;border:0;padding:7px 14px;cursor:pointer;font-size:.85rem}
 .v3-seg button.on{background:#1f1a4d;color:#fff}
 /* Navegación inferior con íconos de línea. */
-.v3-nav{display:flex;justify-content:space-around;background:#1f1a4d;padding:6px 0 calc(6px + env(safe-area-inset-bottom));flex:none}
-.v3-nav button{background:none;border:0;color:#c7c3e6;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.68rem;cursor:pointer;padding:4px 10px;border-radius:10px}
+.v3-nav{display:flex;justify-content:space-around;background:var(--v6t-nav,#1f1a4d);padding:6px 0 calc(6px + env(safe-area-inset-bottom));flex:none}
+.v3-nav button{background:none;border:0;color:var(--v6t-nav-txt,#c7c3e6);display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.68rem;cursor:pointer;padding:4px 10px;border-radius:10px}
 .v3-nav button.on{color:#fff;background:rgba(255,255,255,.12)}
 /* Aviso inferior con Deshacer (5 s). */
 .v3-toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:#1e293b;color:#fff;border-radius:10px;padding:10px 14px;display:none;gap:12px;align-items:center;z-index:3000;max-width:92vw;font-size:.88rem}
@@ -3899,7 +3909,7 @@ window.FamiliaV3=(function(){
     const m=memberById(id), pts=Number(m&&m.puntos)||0;
     const x=mesadaEst&&Array.isArray(mesadaEst.hijos)?mesadaEst.hijos.find(h=>Number(h.miembro_id)===Number(id)):null;
     if(!x) return {total:pts,disponible:pts,bloqueada:0,fecha:null,monto:0,pausada:false};
-    return {total:Number(x.total)||0,disponible:Number(x.disponible)||0,bloqueada:Number(x.bloqueada)||0,fecha:x.proxima_liberacion||null,monto:Number(x.monto)||0,pausada:!!x.pausada};
+    return {total:Number(x.total)||0,disponible:Number(x.disponible)||0,bloqueada:Number(x.bloqueada)||0,fecha:x.proxima_liberacion||null,ts:x.proxima_liberacion_ts||null,monto:Number(x.monto)||0,pausada:!!x.pausada};
   }
   function fechaCorta(f){if(!f) return ''; const d=new Date(String(f).length<=10?f+'T12:00:00':f); return d.toLocaleDateString('es-CO',{day:'2-digit',month:'short'});}
   // Mensaje del contrato cuando los disponibles no alcanzan (pedir y canjear).
@@ -3921,7 +3931,7 @@ window.FamiliaV3=(function(){
     if(isAdmin(u)) return '';
     const md=mesadaDe(u.id); if(!md.bloqueada||!md.fecha) return '';
     const dias=Math.max(0,Math.ceil((new Date(String(md.fecha).length<=10?md.fecha+'T00:00:00':md.fecha)-new Date())/86400000));
-    return `<div class="v3-card" style="display:block;border-left-color:#7c3aed"><strong>Tu mesada de ${md.bloqueada} pts</strong><br><span class="v3-sub">se libera ${dias===0?'hoy':'en '+dias+' día'+(dias===1?'':'s')} (${esc(fechaCorta(md.fecha))}). Mientras tanto tienes ${md.disponible} disponibles para premios.</span></div>`;
+    return `<div class="v3-card" style="display:block;border-left-color:#7c3aed"><strong>Tu mesada de ${md.bloqueada} pts</strong><br><span class="v3-sub">se libera ${dias===0?'hoy':'en '+dias+' día'+(dias===1?'':'s')} (${esc(fechaCorta(md.fecha))}${md.ts&&horaLocal(md.ts)?' a las '+esc(horaLocal(md.ts)):''}). Mientras tanto tienes ${md.disponible} disponibles para premios.</span></div>`;
   }
   /* Sección «Mesada» del padre: monto por hijo, pausa, fecha común editable, modo, % de bono y «Liberar» (UNA confirmación). */
   async function hojaMesadaV6(){
@@ -3948,8 +3958,11 @@ window.FamiliaV3=(function(){
   /* v6b B7: «Próxima mesada: programada sí/no · modo Manual/Automática · fecha (y hora si la BD la trae)».
      Programada = hay fecha_liberacion y al menos un hijo con monto > 0 sin pausa. La hora solo se muestra si el
      valor trae hora (hoy la BD manda 'YYYY-MM-DD'); si no, se dice que la hora no está definida. */
+  /* v6b B7 (completo): fecha_liberacion_ts / proxima_liberacion_ts (timestamptz, 00:00 Madrid) se muestran en la
+     hora local del dispositivo. Si la BD aún no los manda, se usa la fecha sola (comportamiento anterior). */
+  function horaLocal(ts){const d=new Date(ts); return isNaN(d)?'':d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});}
   function estadoProximaMesada(){
-    const e=mesadaEst||{}, c=e.config||{}, f=e.fecha_liberacion||null;
+    const e=mesadaEst||{}, c=e.config||{}, f=e.fecha_liberacion_ts||e.fecha_liberacion||null;
     const prog=!!f&&(e.hijos||[]).some(h=>Number(h.monto)>0&&!h.pausada);
     const modo=c.modo==='automatico'?'Automática':'Manual';
     let cuando='sin fecha';
@@ -4077,6 +4090,7 @@ window.FamiliaV3=(function(){
     const caja=(tit,l,vacio)=>`<h2 style="margin-top:14px">${tit} <span class="v3-sub">(${l.length})</span></h2><div class="v3-card" style="display:block">${l.length?`<div class="v6b-caja">${l.slice(0,100).map(filaMov).join('')}</div>`:`<p class="v3-sub">${vacio}</p>`}</div>`;
     h+=caja('Canjes',mio.filter(esCanje),'Todavía no hay canjes.');
     h+=caja('Tareas',mio.filter(x=>!esCanje(x)),'Todavía no hay movimientos de tareas.');
+    h+=selectorTema(u);
     h+=`<button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.salir()">Salir</button>`;
     document.getElementById('v3Yo').innerHTML=h;
     ajustarCajasLuego();
@@ -4489,6 +4503,8 @@ window.FamiliaV3=(function(){
     document.body.classList.add('v3-modo');
     // «Ver como»: marca de solo lectura para los paneles y modales de la v1.
     document.body.classList.toggle('v4-ro',soloLectura());
+    // v6b B20: gama del miembro que se pinta (en «Ver como», la del miembro visto, sin modificarla).
+    aplicarTema(u);
     guardarZona(u);
     document.getElementById('v3Pts').textContent=(Number(u.puntos)||0)+' pts';
     // v6 A5b: estado 'solicitada' (pedido del hijo sin aprobar): cuenta en el aviso del padre (Revisar → Solicitudes de tareas).
@@ -4510,6 +4526,30 @@ window.FamiliaV3=(function(){
     if(seccion==='yo') pintarYo(u);
   }
 
+  /* v6b B20: temas válidos; NULL o valor desconocido → azul. */
+  const TEMAS={azul:['Azul','#4f46e5'],verde:['Verde','#15803d'],morado:['Morado','#7e22ce'],naranja:['Naranja','#c2410c'],rosa:['Rosa','#be185d']};
+  function temaDe(u){const t=String((u&&u.tema)||'').toLowerCase(); return TEMAS[t]?t:'azul';}
+  function aplicarTema(u){const b=document.body; Object.keys(TEMAS).forEach(k=>b.classList.remove('tema-'+k)); b.classList.add('tema-'+temaDe(u));}
+  function selectorTema(u){
+    if(soloLectura()) return '';
+    const act=temaDe(u);
+    return `<h2 style="margin-top:14px">Color de la app</h2><div class="v3-card" style="display:block"><p class="v3-sub">Cambia la barra de arriba, la de abajo y los botones. Los colores de alerta no cambian.</p>
+      <div class="v6b-temas" role="radiogroup" aria-label="Color de la app">${Object.entries(TEMAS).map(([k,[n,c]])=>`<button type="button" role="radio" aria-checked="${k===act}" class="${k===act?'on':''}" style="background:${c}" onclick="FamiliaV3.guardarTema('${k}')">${n}</button>`).join('')}</div></div>`;
+  }
+  // Guarda la gama con familia_rpc_guardar_tema (UNA confirmación). Nunca en «Ver como». Error → toast, sin cambiar nada.
+  async function guardarTema(k){
+    const u=currentUser(); if(!u||!TEMAS[k]) return;
+    if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
+    if(temaDe(u)===k) return;
+    if(!confirm('¿Usar el color '+TEMAS[k][0]+' en tu app?')) return;
+    if(enCurso.has('tema')) return; enCurso.add('tema');
+    try{
+      const d=await rpc('familia_rpc_guardar_tema',{p_actor_id:u.id,p_tema:k});
+      if(!d) return;
+      u.tema=d.tema||k; pintar(); showToast('Color guardado: '+TEMAS[temaDe(u)][0]);
+    }catch(e){showToast('No se pudo guardar el color: '+((e&&e.message)||e));}
+    finally{enCurso.delete('tema');}
+  }
   /* --- Aviso con Deshacer: la acción real se ejecuta a los 5 s si no se deshace. --- */
   // `urgente` (opcional): versión que sobrevive al cierre de la página (fetch keepalive).
   function avisoDeshacer(txt,ejecutar,revertir,urgente){
@@ -5044,7 +5084,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,pedirTiempo,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {activo,ir,pedirTiempo,guardarTema,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
