@@ -572,3 +572,4 @@ Bitácora: 2026-10-24 — F0 v3: aprobar, cerrar y rechazar una tarea ya no pone
 
 - 2026-10-24 · QA v6a fix (Frontend BuscoEdu): aprobarSolicitud con .eq(id) fuera del comentario (PATCH sin id); borde naranja de devuelta sobre colores de ventana. Por qué: QA PR #75.
 - 2026-10-24 · QA v6a fix 2 (Frontend BuscoEdu): aprobar/negar solicitud exigen exactamente 1 fila; barrido .update( sin otros filtros comentados.
+- 2026-10-24 · URGENTE prod tarea 335 (Frontend BuscoEdu): «Ya la hice» ya no falla en silencio: guarda campos ausentes, detecta confirm() bloqueado por el navegador y muestra el error. Por qué: botón visible sin efecto reportado por Jhon.

@@ -4607,7 +4607,10 @@ window.FamiliaV3=(function(){
     const t=state.tasks.find(x=>x.id===id), u=currentUser(); if(!t||!puedeEnviar(t,u)) return;
     enCurso.add(k);
     try{
-      const comment=document.getElementById('v3eCom').value.trim(), file=document.getElementById('v3eFoto').files[0];
+      // URGENTE prod 335: si la hoja ya no tiene los campos (re-pintada), se avisa en vez de fallar en silencio.
+      const eCom=document.getElementById('v3eCom'), eFoto=document.getElementById('v3eFoto');
+      if(!eCom||!eFoto) return showToast('Vuelve a abrir la tarea e inténtalo otra vez.');
+      const comment=eCom.value.trim(), file=eFoto.files&&eFoto.files[0];
       let foto=null;
       if(file){try{foto=await fileToDataUrl(file);}catch(e){return showToast('No se pudo leer la foto');}}
       const payload={};
@@ -4616,14 +4619,17 @@ window.FamiliaV3=(function(){
       else{payload.estado='esperando_aprobacion'; payload.comentario_completado=comment||null; if(foto) payload.foto_url=foto;}
       if(!t.marcada_en) payload.marcada_en=new Date().toISOString();
       // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
-      if(!confirm('¿Enviar «'+t.titulo+'» para que papá o mamá la revisen?')) return;
+      // URGENTE prod 335: si el navegador bloquea los diálogos, confirm() devuelve false al instante (<50 ms) → se avisa.
+      const t0=Date.now(), okEnv=confirm('¿Enviar «'+t.titulo+'» para que papá o mamá la revisen?');
+      if(!okEnv){ if(Date.now()-t0<50) showToast('Tu navegador bloqueó la confirmación. Cierra la pestaña, ábrela de nuevo e inténtalo.'); return; }
       const {error}=await supabase.from('familia_tareas').update(payload).eq('id',id);
       if(error) return showToast('No se pudo: '+error.message);
       Object.assign(t,payload); delete t.foto_url; delete t.foto_2;   // en memoria la v3 no guarda fotos
       cerrarHoja(); pintar();
       showToast(payload.estado==='esperando_aprobacion'?'Quedó en revisión':'Falta la parte del otro');
       scheduleReload();
-    }finally{enCurso.delete(k);}
+    }catch(e){ showToast('No se pudo enviar: '+((e&&e.message)||e)); console.error('enviar',e); }   // URGENTE 335: ✗ fallos silenciosos
+    finally{enCurso.delete(k);}
   }
 
   /* --- V3b: padre en el detalle: principal Aprobar, + Devolver, y en el menú ⋯ «Rechazar»
