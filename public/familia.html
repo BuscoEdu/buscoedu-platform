@@ -3734,7 +3734,46 @@ window.FamiliaV3=(function(){
       <label>Reparto</label><select id="v4lModo"><option value="uno">Un solo hijo</option><option value="entre">Turnar entre los marcados (al azar)</option><option value="cada_uno">Cada uno la suya</option></select>
       <label>Estado inicial</label><select id="v4lEst"><option value="pendiente">Activa</option><option value="borrador">Borrador</option></select>
       <p class="v3-sub" style="margin-top:8px">Las fechas llegan hasta el último día del mes. La BD reparte y omite duplicados a menos de 12 h.</p>
+      <button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.previaLote()">Ver fechas (estimado)</button>
+      <div id="v4lPrev" class="v3-sub" style="margin-top:8px"></div>
       <button class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.guardarLote()">Crear</button>`);
+  }
+  /* Vista previa ESTIMADA del lote, solo en el navegador (misma lógica que projectSlots de la v1:
+     desde la primera vez hasta el último día del mes; diaria 1–4 veces repartidas en el día, semanal
+     cada 7 días, mensual una sola). El reparto «entre» baraja aquí y la BD vuelve a barajar: lo real
+     es lo que devuelve la RPC. No escribe nada (también se puede ver en «Ver como»). */
+  function fechasLote(ini,rec,veces){
+    const out=[]; if(isNaN(ini)) return out;
+    const fin=new Date(ini.getFullYear(),ini.getMonth()+1,0,23,59,59,999);
+    if(rec==='monthly'){out.push(new Date(ini));return out;}
+    const paso=rec==='weekly'?7:1, cur=new Date(ini); let g=0;
+    while(cur<=fin&&g++<40){
+      const n=rec==='daily'?veces:1, h0=ini.getHours(), m0=ini.getMinutes();
+      for(let i=0;i<n;i++){
+        const at=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate(),h0,m0,0,0);
+        if(n>1){const hop=Math.max(1,Math.floor(Math.max(0,23-h0)/Math.max(1,n-1))||1); at.setHours(h0+i*hop,m0,0,0);}
+        if(at.getDate()!==cur.getDate()) continue;
+        if(at>=ini&&at<=fin) out.push(at);
+      }
+      cur.setDate(cur.getDate()+paso);
+    }
+    return out;
+  }
+  function previaLote(){
+    const v=id=>document.getElementById(id).value;
+    const ini=new Date(v('v4lIni')), veces=Math.min(4,Math.max(1,parseInt(v('v4lVeces'),10)||1));
+    const hijos=[...document.querySelectorAll('.v4lHijo:checked')].map(c=>memberById(+c.value)).filter(Boolean);
+    const box=document.getElementById('v4lPrev');
+    if(!hijos.length){box.textContent='Marca al menos un hijo para ver el reparto.';return;}
+    const fechas=fechasLote(ini,v('v4lRec'),veces), modo=v('v4lModo');
+    let filas=[];
+    if(modo==='cada_uno') fechas.forEach(f=>hijos.forEach(k=>filas.push([f,k])));
+    else if(modo==='entre'){const b=shuffle(hijos); fechas.forEach((f,i)=>filas.push([f,b[i%b.length]]));}
+    else fechas.forEach(f=>filas.push([f,hijos[0]]));
+    if(!filas.length){box.innerHTML='<span class="v3-st-warn">No quedan fechas en lo que queda del mes.</span>';return;}
+    const fmt=d=>d.toLocaleString('es-CO',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    box.innerHTML=`<strong>Estimado: ${filas.length} tarea(s)</strong> · la BD confirma el reparto real y omite duplicados a menos de 12 h${filas.length>200?' · <span class="v3-st-err">supera el máximo de 200</span>':''}
+      <div style="max-height:30vh;overflow-y:auto;margin-top:6px;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px">${filas.slice(0,80).map(([f,k])=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0"><span>${esc(fmt(f))}</span><span>${esc(k.nombre)}</span></div>`).join('')}${filas.length>80?`<div>… y ${filas.length-80} más</div>`:''}</div>`;
   }
   async function guardarLote(){
     const v=id=>document.getElementById(id).value, n=(id,def)=>{const x=parseInt(v(id),10);return isNaN(x)?def:x;};
@@ -4178,6 +4217,10 @@ window.FamiliaV3=(function(){
       // (primera vez, aún sin saber el modo), se quitan aquí las filas archivadas.
       state.tasks=(state.tasks||[]).filter(t=>!t.archivada_en);
       state.history=(state.history||[]).filter(h=>!h.archivada_en);
+      // v4 · campana: se ocultan (y no cuentan) los avisos cuya tarea ya no está en la lista cargada
+      // (archivada por «Resetear todo» o eliminada). Los avisos sin tarea (premios, etc.) se quedan.
+      const vivas=new Set(state.tasks.map(t=>Number(t.id)));
+      state.notifs=(state.notifs||[]).filter(x=>x.tarea_id==null||vivas.has(Number(x.tarea_id)));
     }
     const on=activo()&&!!currentUser()&&!false;
     const app=document.getElementById('v3App');
@@ -4211,7 +4254,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {activo,ir,previaLote,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
