@@ -252,7 +252,8 @@ h3{margin-bottom:12px}
   <div class="form-group"><label>Penalización por no hacerlo</label><input type="number" id="taskPenalty" min="0" value="0"></div>
   <!-- v5 ítem 20: id para ocultar la hora cuando es Inmediata (abre en el momento de crearla). -->
   <div class="form-group" id="taskDueWrap"><label>Hora de la tarea</label><input type="datetime-local" id="taskDue" onchange="paintDueHint()"></div>
-  <div class="form-group"><label>Ventana para hacerla</label><div style="display:flex;gap:8px"><input type="number" id="taskWindowQty" min="1" value="1" style="width:96px" onchange="paintDueHint()"><select id="taskWindowUnit" onchange="paintDueHint()"><option value="minutos">Minutos</option><option value="horas" selected>Horas</option><option value="dias">Días</option></select></div></div>
+  <div class="form-group"><!-- v6 A4: etiqueta aclarada (la ventana va antes y después de la hora). -->
+  <label>Ventana (horas antes y después de la hora)</label><div style="display:flex;gap:8px"><input type="number" id="taskWindowQty" min="1" value="1" style="width:96px" onchange="paintDueHint()"><select id="taskWindowUnit" onchange="paintDueHint()"><option value="minutos">Minutos</option><option value="horas" selected>Horas</option><option value="dias">Días</option></select></div></div>
   <input type="hidden" id="taskWindow" value="1">
   <input type="hidden" id="taskCount" value="1">
   <input type="hidden" id="taskRecurrent">
@@ -306,7 +307,7 @@ h3{margin-bottom:12px}
   <div class="form-group"><label>Puntos</label><input type="number" id="elemPuntos" value="10"></div>
   <div class="form-group"><label>Máximo que se puede perder</label><input type="number" id="elemMaxNeg" min="0" value="10"></div>
   <div class="form-group"><label>Resta por minuto después del límite</label><input type="number" id="elemPerMin" min="0" step="0.1" value="0"></div>
-  <div class="form-group"><label>Ventana para hacerla (horas)</label><input type="number" id="elemWindow" min="1" max="336" value="24"></div>
+  <div class="form-group"><label>Ventana (horas antes y después de la hora)</label><input type="number" id="elemWindow" min="1" max="336" value="24"></div>
   <button class="btn" style="width:100%" onclick="savePlantilla()">Guardar</button>
   <button class="btn danger" style="width:100%;margin-top:8px" onclick="deletePlantilla()">Eliminar</button>
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-elemento')">Cerrar</button>
@@ -401,7 +402,7 @@ h3{margin-bottom:12px}
   <div class="form-group"><label>Asignada a</label><select id="fichaAsignada"></select></div>
   <div class="form-group" id="fichaRecWrap"><label>Cada cuánto</label><select id="fichaRec"><option value="once">Una vez</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
   <div class="form-group"><label>Hora de la tarea</label><input type="datetime-local" id="fichaDue"></div>
-  <div class="form-group"><label>Ventana (horas, antes y después)</label><input type="number" id="fichaVentana" min="0.25" step="0.25" max="336" value="1"></div>
+  <div class="form-group"><label>Ventana (horas antes y después de la hora)</label><input type="number" id="fichaVentana" min="0.25" step="0.25" max="336" value="1"></div>
   <div class="form-group"><label>Resta por cada día de atraso</label><input type="number" id="fichaPen"></div>
   </div>
   <div id="fichaRead" style="display:none"></div>
@@ -3400,6 +3401,9 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 .v3-sec{display:none}.v3-sec.on{display:block}
 .v3-sec h2{font-size:1.05rem;margin:0 0 10px}
 .v3-card{background:#fff;border:1px solid #e2e8f0;border-left:4px solid #9ca3af;border-radius:12px;padding:12px;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+/* v6 A3: ventana en la tarjeta. Verde #15803d y rojo #b91c1c (estándar UX; texto blanco sobre el color ≥ 4.5:1). */
+.v3-card.v6-dentro{border-color:#15803d;border-left:6px solid #15803d;background:#f0fdf4}.v3-card.v6-fuera{border-color:#b91c1c;border-left:6px solid #b91c1c;background:#fef2f2}
+.v6-vtag{display:inline-block;font-size:.75rem;font-weight:700;color:#fff;border-radius:6px;padding:1px 6px;margin-right:6px;white-space:nowrap}.v6-vtag.ok{background:#15803d}.v6-vtag.err{background:#b91c1c}
 .v3-card.ok{border-left-color:var(--v3-ok)}.v3-card.err{border-left-color:var(--v3-err)}.v3-card.rev{border-left-color:var(--v3-azul)}
 .v3-card .v3-grow{flex:1;min-width:0}
 .v3-card .v3-t{font-weight:600;overflow-wrap:anywhere}
@@ -3555,13 +3559,36 @@ window.FamiliaV3=(function(){
     const a=t.habilita_en?'Abre: '+((t.inmediata||t.tipo==='inmediata')&&ya?'ahora':f(t.habilita_en)):'', c=t.fecha_limite?'Cierra: '+f(t.fecha_limite):'';
     return a||c?`<div class="v3-sub" style="margin-top:2px">${esc([a,c].filter(Boolean).join(' · '))}</div>`:'';
   }
+  /* v6 A4: «Hora: 18:52 · ventana ±1 h». La hora es el centro entre abre y cierra (mismo modelo que la ficha de la v1:
+     hora ± ventana); hora local del dispositivo, como el resto de la app. */
+  function horaVentana(t){
+    const a=t.habilita_en?new Date(t.habilita_en).getTime():0, c=t.fecha_limite?new Date(t.fecha_limite).getTime():0;
+    if(!a||!c||c<=a) return '';
+    const h=new Date((a+c)/2).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+    const m=Math.round((c-a)/2/60000);
+    const v=m%60===0?(m/60)+' h':(m<60?m+' min':(Math.floor(m/60)+' h '+(m%60)+' min'));
+    return 'Hora: '+h+' · ventana ±'+v;
+  }
+  /* v6 A3: verde si ahora está dentro de la ventana y falta hacerla; rojo si ya cerró y no se hizo.
+     Solo para lo que aún depende del hijo (pendiente, devuelta o vencida sin decidir). */
+  function enVentana(t){
+    const sinHacer=t.estado==='pendiente'||t.estado==='aviso_rechazada'||t.estado==='aviso_vencida'||t.estado_vencida==='pendiente_hijo';
+    if(!sinHacer) return '';
+    const now=Date.now(), a=t.habilita_en?new Date(t.habilita_en).getTime():0, c=t.fecha_limite?new Date(t.fecha_limite).getTime():0;
+    if(c&&now>c) return 'fuera';
+    if(t.estado==='pendiente'||t.estado==='aviso_rechazada'){ if((!a||now>=a)&&c&&now<=c) return 'dentro'; }
+    return '';
+  }
   function ficha(t,acciones){
     const e=estadoDe(t), who=memberById(t.asignada_a);
-    return `<div class="v3-card ${e.c}" data-id="${t.id}" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.detalle(${t.id})">
+    // v6 A3: clase y etiqueta de ventana (verde «En su hora» / rojo «Se pasó la hora»).
+    const vv=enVentana(t), vcls=vv?' v6-'+vv:'', vtxt=vv==='dentro'?'<span class="v6-vtag ok">En su hora</span>':vv==='fuera'?'<span class="v6-vtag err">Se pasó la hora</span>':'';
+    const hv=horaVentana(t);
+    return `<div class="v3-card ${e.c}${vcls}" data-id="${t.id}" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.detalle(${t.id})">
       <div class="v3-grow"><div class="v3-t">${esc(t.titulo)}</div>
       <div class="v3-sub"><span class="v3-chip ${esDeber(t)?'deber':''}">${esDeber(t)?'Deber':'Tarea'}</span>
       ${who?esc(who.nombre)+' · ':''}<span class="${e.cls}">${esc(e.txt)}</span>${t.puntos?' · '+t.puntos+' pts':''}</div>
-      ${renglonVentana(t)}</div>
+      ${renglonVentana(t)}${hv||vtxt?`<div class="v3-sub" style="margin-top:2px">${vtxt}${hv?esc(hv):''}</div>`:''}</div>
       ${acciones||''}</div>`;
   }
 
@@ -4295,7 +4322,7 @@ window.FamiliaV3=(function(){
     abrirHoja(`<div style="border-left:6px solid ${esc((quien&&quien.color)||'#9ca3af')};padding-left:10px"><h3>${esc(t.titulo)}</h3>
       <p class="v3-sub" style="margin:6px 0"><span class="v3-chip ${esDeber(t)?'deber':''}">${esDeber(t)?'Deber':'Tarea'}</span> <span class="${e.cls}">${esc(e.txt)}</span></p>
       <p class="v3-sub">${quien?'Para: '+esc(quien.nombre):''}${junto?' · junto con '+esc(junto.nombre):''}${' · '+(Number(t.puntos)||0)+' pts'}${descuentoDe(t)>0?' · <span class="v3-st-err">Descuento −'+descuentoDe(t)+' pts</span>':''}</p>
-      <p class="v3-sub" style="margin-top:4px">${windowBlock(t)||'Sin ventana definida'}</p></div>
+      <p class="v3-sub" style="margin-top:4px">${windowBlock(t)||'Sin ventana definida'}</p>${horaVentana(t)?`<p class="v3-sub" style="margin-top:2px"><strong>${esc(horaVentana(t))}</strong></p>`:''}</div>
       ${isAdmin(currentUser())&&!soloLectura()?`<button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.abrirV1(()=>openTaskCard(${t.id}))">Editar / eliminar (ficha completa)</button>`:''}
       ${t.comentario_completado?`<p class="v3-sub">«${esc(t.comentario_completado)}»</p>`:''}${comentAprob(t)&&/aprob|complet/.test(t.estado)?`<p class="v3-sub v3-st-ok">Papá/mamá: «${esc(comentAprob(t))}»</p>`:''}<div id="v3Foto" class="v3-sub">Cargando evidencia…</div>
       ${isAdmin(currentUser())&&!soloLectura()&&t.estado==='esperando_aprobacion'?`<label class="v3-sub" style="display:block;margin-top:10px">Comentario al aprobar (opcional)</label><input id="v3cAprob" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px"><button class="v3-cta v3-full" style="margin-top:8px" onclick="FamiliaV3.aprobar(${t.id},document.getElementById('v3cAprob').value.trim())">Aprobar</button>`:''}
