@@ -3504,6 +3504,7 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 /* v6b B12: hora elegida grande; abre/cierra como dato secundario. */
 .v6b-hora{margin-top:4px;font-size:.85rem;color:#334155}.v6b-hora b{font-size:1.25rem;font-variant-numeric:tabular-nums;color:#0f172a}
 /* v6b B6: aviso de solo lectura en «Ver como». */
+.v6b-caja{position:relative;max-height:470px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-right:2px}
 .v6b-mest{background:#eef2ff;border-radius:8px;padding:8px 10px;margin:6px 0 10px;font-size:.88rem;color:#1e293b}
 .v6b-ro{margin-top:10px;background:#f1f5f9;border-radius:8px;padding:8px;color:#334155;font-size:.85rem}
 .v3-modo button[disabled]{opacity:.55;cursor:not-allowed}
@@ -3785,10 +3786,26 @@ window.FamiliaV3=(function(){
     h+=hoy.length?hoy.map(fila).join(''):'<p class="v3-sub">Nada para hoy.</p>';
     // Vencidos: el hijo los ve aquí; el padre los decide en «Revisar».
     if(venc.length) h+=`<h2 style="margin-top:14px">Vencidos</h2>`+(admin?`<p class="v3-sub">${venc.length} en «Revisar».</p>`:venc.map(fila).join(''));
-    if(luego.length) h+=`<details style="margin-top:12px"><summary class="v3-sub">Más adelante (${luego.length})</summary>${luego.map(fila).join('')}</details>`;
+    // v6b B8+B10: «Más adelante» en orden cronológico (más próxima primero) dentro de una caja que muestra 5 y hace scroll.
+    if(luego.length) h+=`<details style="margin-top:12px" ontoggle="FamiliaV3._cajas()"><summary class="v3-sub">Más adelante (${luego.length})</summary><div class="v6b-caja">${luego.slice().sort(porCuando).map(fila).join('')}</div></details>`;
     if(misSol.length) h+=`<h2 style="margin-top:14px">Mis solicitudes</h2>`+misSol.map(t=>ficha(t,'')).join('');
     document.getElementById('v3Hoy').innerHTML=h;
+    ajustarCajasLuego();
   }
+  /* v6b B8: clave de orden = abre (habilita_en) o, si falta, cierre (fecha_limite); sin fechas al final; empate por id. */
+  function cuandoMs(t){const x=t.habilita_en||t.fecha_limite; const n=x?new Date(x).getTime():NaN; return isNaN(n)?Infinity:n;}
+  function porCuando(a,b){return (cuandoMs(a)-cuandoMs(b))||(a.id-b.id);}
+  /* v6b B10/B14: cada .v6b-caja mide la 5.ª fila y fija ese alto máximo; el resto queda con scroll interno.
+     CSS trae un alto aproximado como respaldo si la medición no corre. */
+  function ajustarCajas(){
+    document.querySelectorAll('#v3App .v6b-caja').forEach(c=>{
+      const f=c.children; if(f.length<=5||!c.offsetParent){c.style.maxHeight='';return;}
+      const q=f[4], alto=q.offsetTop+q.offsetHeight+2;
+      if(alto>40) c.style.maxHeight=alto+'px';
+    });
+  }
+  function ajustarCajasLuego(){(window.requestAnimationFrame||setTimeout)(()=>{try{ajustarCajas();}catch(e){}});}
+  window.addEventListener('resize',ajustarCajasLuego);
 
   /* --- BANDEJA (padres): por aprobar + vencidos (Descontar / Perdonar). --- */
   function solicitudesPendientes(){return (state.solicitudes||[]).filter(x=>x.estado==='pendiente'&&!ocultas.has('s'+x.id));}
@@ -4036,10 +4053,19 @@ window.FamiliaV3=(function(){
     // v6 Mesada: contador «se libera en N días», solo en «Yo» y solo para el hijo.
     h+=contadorMesada(u);
     // V5b: «Mi historial» del miembro (más reciente primero; incluye «Rechazada · 0 pts» con su motivo).
-    const mio=(state.history||[]).filter(x=>x.miembro_id===u.id).slice(0,100);
-    h+=`<h2 style="margin-top:14px">Mi historial</h2><div class="v3-card" style="display:block">${mio.length?mio.map(x=>`<div class="v3-rk">${iconoMov(x)}<span class="v3-grow">${esc(x.texto||'')}${badgeMesada(x)}${fotoMovHtml(x)?'<br>'+fotoMovHtml(x):''}<br><span class="v3-sub">${x.creado_en?new Date(x.creado_en).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></span>${x.pts!=null?`<strong class="${x.pts>0?'v3-st-ok':x.pts<0?'v3-st-err':''}">${x.pts>0?'+':''}${x.pts}</strong>`:''}</div>`).join(''):'<p class="v3-sub">Todavía no hay movimientos.</p>'}</div>`;
+    // v6b B11: orden explícito por fecha y hora, del más reciente al más antiguo (sin fecha al final).
+    // v6b B14: dos cajas separadas, «Canjes» (premios) y «Tareas» (tareas, deberes, descuentos, mesada y otros),
+    // cada una con alto de ≈5 movimientos y scroll interno.
+    const ms=x=>{const n=x&&x.creado_en?new Date(x.creado_en).getTime():NaN; return isNaN(n)?-Infinity:n;};
+    const mio=(state.history||[]).filter(x=>x.miembro_id===u.id).slice().sort((a,b)=>(ms(b)-ms(a))||((b.id||0)-(a.id||0)));
+    const esCanje=x=>{const r=claseMov(x); return !!(r&&r.k==='c');};
+    const filaMov=x=>`<div class="v3-rk">${iconoMov(x)}<span class="v3-grow">${esc(x.texto||'')}${badgeMesada(x)}${fotoMovHtml(x)?'<br>'+fotoMovHtml(x):''}<br><span class="v3-sub">${x.creado_en?new Date(x.creado_en).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></span>${x.pts!=null?`<strong class="${x.pts>0?'v3-st-ok':x.pts<0?'v3-st-err':''}">${x.pts>0?'+':''}${x.pts}</strong>`:''}</div>`;
+    const caja=(tit,l,vacio)=>`<h2 style="margin-top:14px">${tit} <span class="v3-sub">(${l.length})</span></h2><div class="v3-card" style="display:block">${l.length?`<div class="v6b-caja">${l.slice(0,100).map(filaMov).join('')}</div>`:`<p class="v3-sub">${vacio}</p>`}</div>`;
+    h+=caja('Canjes',mio.filter(esCanje),'Todavía no hay canjes.');
+    h+=caja('Tareas',mio.filter(x=>!esCanje(x)),'Todavía no hay movimientos de tareas.');
     h+=`<button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.salir()">Salir</button>`;
     document.getElementById('v3Yo').innerHTML=h;
+    ajustarCajasLuego();
   }
 
   /* --- v4 · ajustes 1+2: Ranking de hijos con Ganados · Canjeados · Descuentos · Saldo.
@@ -5004,7 +5030,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,pedirTiempo,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {activo,ir,pedirTiempo,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
