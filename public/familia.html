@@ -236,6 +236,8 @@ h3{margin-bottom:12px}
     <div class="form-group"><label>Hijo</label><select id="penaltyMember"></select></div>
     <div class="form-group"><label>Puntos a restar</label><input type="number" id="penaltyPoints" value="5" min="1"></div>
     <div class="form-group"><label>Motivo</label><input id="penaltyReason" placeholder="Ej. no hizo la cama"></div>
+    <!-- v6 A1: foto opcional de evidencia del descuento (el hijo la ve en su historial). -->
+    <div class="form-group"><label>Foto (opcional)</label><input type="file" id="penaltyPhoto" accept="image/*"></div>
     <button class="btn danger" id="btnApplyPenalty" style="width:100%" onclick="applyPenalty()">Aplicar</button>
   </div>
   <div id="nuevaTaskFields">
@@ -1472,11 +1474,11 @@ function openBalance(id){
       const o=taskOutcome(task);
       const bad=o.kind==='penalizacion'||o.kind==='cerrada';
       const when=m.fecha?fmtDate(m.fecha):'';
-      return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${task.id})">${iconoMovV3(m.h)}<strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
+      return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${task.id})">${iconoMovV3(m.h)}<strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}${fotoMovHtml(m.h)?'<br>'+fotoMovHtml(m.h):''}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
     }
     const when=m.fecha?fmtDate(m.fecha):'';
     const open=tid?` onclick="openTaskFromBalance(${id},${tid})" class="hist-ok"`:` class="hist-ok" style="cursor:default"`;
-    return `<div${open}>${iconoMovV3(m.h)}<strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
+    return `<div${open}>${iconoMovV3(m.h)}<strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}${fotoMovHtml(m.h)?'<br>'+fotoMovHtml(m.h):''}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
   }).join('')+closedHtml):'<div class="empty">Sin movimientos</div>';
   openModal('modal-balance');
 }
@@ -1486,7 +1488,7 @@ function renderHistory(){
   const u=currentUser();
   const items=isAdmin(u)?state.history:state.history.filter(h=>h.miembro_id===u.id);
   const el=document.getElementById('historyList');
-  el.innerHTML=items.length?items.map(h=>`<div style="font-size:.85rem;padding:6px 0;border-bottom:1px solid var(--border)">${esc(h.texto||'')}</div>`).join(''):'<div class="empty">Sin historial</div>';
+  el.innerHTML=items.length?items.map(h=>`<div style="font-size:.85rem;padding:6px 0;border-bottom:1px solid var(--border)">${esc(h.texto||'')}${fotoMovHtml(h)?'<br>'+fotoMovHtml(h):''}</div>`).join(''):'<div class="empty">Sin historial</div>';
 }
 function fillChatTo(){
   const sel=document.getElementById('chatTo');
@@ -2287,6 +2289,29 @@ function fileToDataUrl(file){
     img.src=url;
   });
 }
+/* v6 A1: foto en descuentos. Mientras la BD no tenga familia_historial.foto_url / p_foto, el error se reconoce y se
+   reintenta UNA vez sin la foto (aviso al padre). Códigos: PGRST204 (columna no está en el esquema), 42703 (columna no
+   existe), PGRST202 / 42883 (función con esa firma no existe). Con esos errores la primera escritura no hizo nada. */
+function faltaFotoEnBD(err){
+  if(!err) return false;
+  const c=String(err.code||''), m=String(err.message||'');
+  return c==='PGRST204'||c==='42703'||c==='PGRST202'||c==='42883'||/foto_url|p_foto/.test(m);
+}
+// v6 A1: miniatura de la foto de un movimiento; al tocarla se abre grande (con «← Volver»). Las fotos se guardan en
+// una lista y se pasan por índice, para no meter el base64 dentro del HTML del onclick.
+window._v6Fotos=window._v6Fotos||[];
+function fotoMovHtml(h){
+  const f=h&&h.foto_url;
+  if(typeof f!=='string'||!/^(data:image\/|https:)/.test(f)) return '';
+  const i=window._v6Fotos.push(f)-1;
+  return `<img src="${esc(f)}" alt="Foto del descuento" onclick="event.stopPropagation();verFotoMov(${i})" style="width:48px;height:48px;object-fit:cover;border-radius:8px;margin:4px 6px 0 0;cursor:pointer;vertical-align:middle">`;
+}
+function verFotoMov(i){
+  const f=window._v6Fotos[i]; if(!f) return;
+  let o=document.getElementById('v6FotoGrande');
+  if(!o){o=document.createElement('div');o.id='v6FotoGrande';o.style.cssText='position:fixed;inset:0;z-index:3000;background:rgba(15,23,42,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px';o.onclick=e=>{if(e.target===o)o.remove();};document.body.appendChild(o);}
+  o.innerHTML='<button type="button" onclick="document.getElementById(\'v6FotoGrande\').remove()" style="align-self:flex-start;min-height:44px;padding:8px 14px;border:0;border-radius:10px;background:#eef2ff;color:#4338ca;font-weight:600;margin-bottom:10px">← Volver</button><img src="'+esc(f)+'" alt="Foto del descuento" style="max-width:100%;max-height:80vh;border-radius:12px">';
+}
 async function submitEvidence(){
   if(!pendingTaskId) return;
   const comment=document.getElementById('evComment').value.trim();
@@ -2576,12 +2601,27 @@ async function applyPenalty(){
   if(!mid||pts<=0||!motivo) return showToast('Completa hijo, puntos y motivo');
   const m=memberById(mid);
   // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
-  if(!confirm('¿Descontar '+pts+' pts a '+((m&&m.nombre)||'este hijo')+' por «'+motivo+'»?')) return;
+  // v6 A1: la foto se lee ANTES de confirmar y de escribir (misma compresión que la evidencia: 720 px, JPEG 0,62).
+  const pf=document.getElementById('penaltyPhoto'), pfile=pf&&pf.files?pf.files[0]:null;
+  let foto=null;
+  if(pfile){try{foto=await fileToDataUrl(pfile);}catch(e){return showToast('No se pudo leer la foto');}}
+  if(!confirm('¿Descontar '+pts+' pts a '+((m&&m.nombre)||'este hijo')+' por «'+motivo+'»'+(foto?' (con foto)':'')+'?')) return;
   const {error}=await supabase.from('familia_miembros').update({puntos:(Number(m?.puntos)||0)-pts}).eq('id',mid);
   if(error) return showToast(error.message);
   // v5 ítem 14: la fila nace tipada (tipo 'descuento', pts negativos) para que ranking y saldo la clasifiquen bien.
-  await supabase.from('familia_historial').insert({miembro_id:mid,texto:`Penalización: ${motivo} (-${pts} pts)`,tipo:'descuento',pts:-pts});
-  showToast('Penalización aplicada');
+  // v6 A1: los puntos se restan UNA sola vez (arriba); solo el historial se reintenta, y solo sin la foto.
+  const fila={miembro_id:mid,texto:`Penalización: ${motivo} (-${pts} pts)`,tipo:'descuento',pts:-pts};
+  const inicio=new Date(Date.now()-60000).toISOString();
+  let r=await supabase.from('familia_historial').insert(foto?{...fila,foto_url:foto}:fila);
+  if(r.error&&foto&&faltaFotoEnBD(r.error)){
+    // Antes de reintentar se comprueba que la primera no haya dejado fila (no duplicar el movimiento).
+    const ya=await supabase.from('familia_historial').select('id').eq('miembro_id',mid).eq('texto',fila.texto).gte('creado_en',inicio).limit(1);
+    if(!ya.error&&ya.data&&ya.data.length) r={error:null};
+    else r=await supabase.from('familia_historial').insert(fila);
+    if(!r.error) showToast('Descuento aplicado. La foto no se pudo guardar (falta la columna en la BD).');
+  }else if(!r.error) showToast('Penalización aplicada');
+  if(r.error) showToast('Puntos descontados, pero el historial falló: '+r.error.message);
+  if(pf) pf.value='';
   closeModal('modal-tarea');
   loadAll();
 }
@@ -3779,7 +3819,7 @@ window.FamiliaV3=(function(){
     }
     // V5b: «Mi historial» del miembro (más reciente primero; incluye «Rechazada · 0 pts» con su motivo).
     const mio=(state.history||[]).filter(x=>x.miembro_id===u.id).slice(0,100);
-    h+=`<h2 style="margin-top:14px">Mi historial</h2><div class="v3-card" style="display:block">${mio.length?mio.map(x=>`<div class="v3-rk">${iconoMov(x)}<span class="v3-grow">${esc(x.texto||'')}<br><span class="v3-sub">${x.creado_en?new Date(x.creado_en).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></span>${x.pts!=null?`<strong class="${x.pts>0?'v3-st-ok':x.pts<0?'v3-st-err':''}">${x.pts>0?'+':''}${x.pts}</strong>`:''}</div>`).join(''):'<p class="v3-sub">Todavía no hay movimientos.</p>'}</div>`;
+    h+=`<h2 style="margin-top:14px">Mi historial</h2><div class="v3-card" style="display:block">${mio.length?mio.map(x=>`<div class="v3-rk">${iconoMov(x)}<span class="v3-grow">${esc(x.texto||'')}${fotoMovHtml(x)?'<br>'+fotoMovHtml(x):''}<br><span class="v3-sub">${x.creado_en?new Date(x.creado_en).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></span>${x.pts!=null?`<strong class="${x.pts>0?'v3-st-ok':x.pts<0?'v3-st-err':''}">${x.pts>0?'+':''}${x.pts}</strong>`:''}</div>`).join(''):'<p class="v3-sub">Todavía no hay movimientos.</p>'}</div>`;
     h+=`<button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.salir()">Salir</button>`;
     document.getElementById('v3Yo').innerHTML=h;
   }
@@ -4267,11 +4307,34 @@ window.FamiliaV3=(function(){
     await rpc('familia_rpc_devolver_tarea',{p_tarea_id:id,p_actor_id:state.currentUserId,p_comentario:c||null,p_con_aviso:false});
     scheduleReload();
   }
-  async function descontar(id){
+  // v6 A1: «Descontar» abre una hoja (con «← Volver») para adjuntar una foto opcional; el botón de la hoja confirma y aplica.
+  function descontar(id){
+    const t=state.tasks.find(x=>x.id===id), k=t&&memberById(t.asignada_a); if(!t||soloLectura()) return;
+    abrirHoja(`<h3>Descontar</h3><p class="v3-sub">${esc((k&&k.nombre)||'')} · ${esc(t.titulo)}${t.pierde_pts?' · −'+t.pierde_pts+' pts':''}</p>
+      <label>Foto (opcional, la verá ${esc((k&&k.nombre)||'el hijo')})</label><input id="v6dFoto" type="file" accept="image/*">
+      <button class="v3-btn2 err v3-full" style="margin-top:12px" onclick="FamiliaV3.descontarYa(${id})">Descontar</button>`);
+  }
+  async function descontarYa(id){
     // QA v5: una sola confirmación que nombra al hijo y la tarea, igual que Perdonar.
     const t=state.tasks.find(x=>x.id===id), k=t&&memberById(t.asignada_a);
-    if(!confirm('¿Descontar a '+((k&&k.nombre)||'este hijo')+': '+((t&&t.titulo)||'esta tarea')+'?')) return;
-    await rpc('familia_rpc_descontar_vencida',{p_tarea_id:id,p_actor_id:state.currentUserId}); scheduleReload();
+    const fe=document.getElementById('v6dFoto'), file=fe&&fe.files?fe.files[0]:null;
+    let foto=null;
+    if(file){try{foto=await fileToDataUrl(file);}catch(e){return showToast('No se pudo leer la foto');}}
+    if(!confirm('¿Descontar a '+((k&&k.nombre)||'este hijo')+': '+((t&&t.titulo)||'esta tarea')+(foto?' (con foto)':'')+'?')) return;
+    const ck='d'+id; if(enCurso.has(ck)) return; enCurso.add(ck);
+    try{
+      const base={p_tarea_id:id,p_actor_id:state.currentUserId};
+      let r=await supabase.rpc('familia_rpc_descontar_vencida',foto?{...base,p_foto:foto}:base);
+      let sinFoto=false;
+      // v6 A1: si la RPC aún no tiene p_foto (firma no encontrada), no se ejecutó nada; se reintenta UNA vez sin foto.
+      // Además la RPC es idempotente (estado_vencida='descontada' → {idempotente:true}), así que nunca descuenta dos veces.
+      if(r.error&&foto&&faltaFotoEnBD(r.error)){ r=await supabase.rpc('familia_rpc_descontar_vencida',base); sinFoto=true; }
+      if(r.error) return showToast('No se pudo: '+r.error.message);
+      if(r.data==null) return showToast('No se pudo: respuesta vacía');
+      cerrarHoja();
+      showToast(r.data.idempotente?'Ya estaba aplicado':(sinFoto?'Descuento aplicado. La foto no se pudo guardar (falta en la BD).':'Descuento aplicado'));
+      scheduleReload();
+    }finally{enCurso.delete(ck);}
   }
   // v5 ítem 11: una sola confirmación con nombre del hijo y tarea.
   async function perdonar(id){
@@ -4639,7 +4702,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {activo,ir,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
