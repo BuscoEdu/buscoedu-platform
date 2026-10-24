@@ -2615,7 +2615,8 @@ async function applyPenalty(){
   if(error) return showToast(error.message);
   // v5 ítem 14: la fila nace tipada (tipo 'descuento', pts negativos) para que ranking y saldo la clasifiquen bien.
   // v6 A1: los puntos se restan UNA sola vez (arriba); solo el historial se reintenta, y solo sin la foto.
-  const fila={miembro_id:mid,texto:`Penalización: ${motivo} (-${pts} pts)`,tipo:'descuento',pts:-pts};
+  // v6 Mesada: actor_id = el padre que descuenta (columna de F1).
+  const fila={miembro_id:mid,texto:`Penalización: ${motivo} (-${pts} pts)`,tipo:'descuento',pts:-pts,actor_id:state.currentUserId};
   const inicio=new Date(Date.now()-60000).toISOString();
   let r=await supabase.from('familia_historial').insert(foto?{...fila,foto_url:foto}:fila);
   if(r.error&&foto&&faltaFotoEnBD(r.error)){
@@ -2747,6 +2748,8 @@ async function requestPrize(id){
   if(r.stock===0) return showToast('Sin stock');
   if((u.puntos||0)<(r.costo||0)) return showToast('Puntos insuficientes');
   if(state.solicitudes.some(s=>s.estado==='pendiente'&&s.miembro_id===u.id&&s.premio_id===r.id)) return showToast('Ya está esperando a un padre');
+  // v6 Mesada: con la v3 encendida se bloquea por disponibles (la mesada por liberar no sirve para pedir).
+  if(window.FamiliaV3&&FamiliaV3.activo()){const f=FamiliaV3.faltaDisponible(u.id,Number(r.costo)||0); if(f) return showToast(f);}
   // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
   if(!confirm('¿Seguro que quieres pedir '+r.nombre+' por '+(Number(r.costo)||0)+' pts?')) return;
   const {error}=await supabase.from('familia_solicitudes_premios').insert({premio_id:r.id,miembro_id:u.id,estado:'pendiente'});
@@ -2765,6 +2768,8 @@ async function approvePrize(solicitudId){
   if(!kid||isAdmin(kid)||!r||(r.tipo||'hijo')==='padre') return showToast('No se puede aprobar este premio');
   const costo=Number(r.costo)||0;
   if((Number(kid.puntos)||0)<costo) return showToast(kid.nombre+' ya no tiene esos puntos');
+  // v6 Mesada: bloqueo por disponibles del hijo al canjear.
+  if(window.FamiliaV3&&FamiliaV3.activo()&&FamiliaV3.faltaDisponible(kid.id,costo)) return showToast(kid.nombre+': '+FamiliaV3.faltaDisponible(kid.id,costo));
   if(r.activo===false||r.stock===0) return showToast('Ese premio ya no está disponible');
   // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
   if(!confirm('¿Aprobar «'+r.nombre+'» para '+kid.nombre+' (−'+costo+' pts)?')) return;
@@ -3457,7 +3462,10 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 .v3-card.v6-dentro{border-color:#15803d;border-left:6px solid #15803d;background:#f0fdf4}.v3-card.v6-fuera{border-color:#b91c1c;border-left:6px solid #b91c1c;background:#fef2f2}
 .v6-vtag{display:inline-block;font-size:.75rem;font-weight:700;color:#fff;border-radius:6px;padding:1px 6px;margin-right:6px;white-space:nowrap}/* v6 A3b: naranja «Queda poco» (#b45309 sobre #fffbeb; etiqueta blanca sobre #b45309). */
 .v3-card.v6-poco{border-color:#b45309;border-left:6px solid #b45309;background:#fffbeb}.v6-vtag.warn{background:#b45309}
-.v6-vtag.ok{background:#15803d}.v6-vtag.err{background:#b91c1c}
+.v6-vtag.ok{background:#15803d}
+/* v6 Mesada: filas por hijo (caben en 360) y badge de estado en el historial. */
+.v6-mfila{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}.v6-mfila input[type=number]{width:96px}.v6-mp{display:flex!important;gap:4px;align-items:center;margin:0!important;color:#1e293b!important}
+.v6-mb{font-size:.72rem;font-weight:700;border-radius:6px;padding:1px 6px;white-space:nowrap;color:#fff;background:#6b7280}.v6-mb.cargada{background:#b45309}.v6-mb.liberada{background:#15803d}.v6-mb.anulada{background:#b91c1c}.v6-vtag.err{background:#b91c1c}
 .v3-card.ok{border-left-color:var(--v3-ok)}.v3-card.err{border-left-color:var(--v3-err)}.v3-card.rev{border-left-color:var(--v3-azul)}
 .v3-card .v3-grow{flex:1;min-width:0}
 .v3-card .v3-t{font-weight:600;overflow-wrap:anywhere}
@@ -3765,6 +3773,109 @@ window.FamiliaV3=(function(){
   }
 
   /* --- PREMIOS: barra de 20 cuadritos, llenos = round(20·min(S,C)/C); orden recordado. --- */
+  /* =================== v6 · MESADA (contrato BORRADOR v6/mesada-contrato-fe.md) ===================
+     Todos los nombres de RPC y parámetros están en MESADA_RPC: si BD cambia el contrato final, se ajusta solo aquí.
+     Si las RPC aún no existen (error), la app sigue como antes: disponible = puntos y sin contador. */
+  const MESADA_RPC={
+    estado:{fn:'familia_rpc_mesada_estado',args:(actor,miembro)=>({p_actor_id:actor,p_miembro_id:miembro==null?null:miembro})},
+    guardar:{fn:'familia_rpc_mesada_config_guardar',args:(actor,c)=>({p_actor_id:actor,p_modo:c.modo,p_dia_liberacion:c.dia,p_bono_activo:c.bonoActivo,
+      p_bono_pct:c.bonoPct,p_hijos:c.hijos,p_fecha_liberacion:c.fecha||null})},
+    liberar:{fn:'familia_rpc_mesada_liberar',args:(actor,periodo)=>({p_actor_id:actor,p_confirmado:true,p_periodo:periodo||null})},
+    tablaMesadas:'familia_mesadas'   // historial: estado de cada abono (cargada / liberada / anulada)
+  };
+  let mesadaEst=null, mesadaCargando=null, mesadaEstados={};
+  async function cargarMesadaEst(){
+    if(mesadaCargando) return mesadaCargando;
+    const u=currentUser(); if(!u) return null;
+    mesadaCargando=(async()=>{
+      try{
+        const r=await supabase.rpc(MESADA_RPC.estado.fn,MESADA_RPC.estado.args(state.currentUserId,isAdmin(u)?null:u.id));
+        mesadaEst=r.error?null:(r.data||null);
+        // Estados de los abonos que aparecen en el historial (badge «por liberar / liberada / anulada»).
+        const ids=[...new Set((state.history||[]).map(h=>h.mesada_id).filter(x=>x!=null))];
+        if(ids.length){const q=await supabase.from(MESADA_RPC.tablaMesadas).select('id,estado,periodo').in('id',ids); if(!q.error) (q.data||[]).forEach(m=>{mesadaEstados[m.id]=m;});}
+      }catch(e){mesadaEst=null;}
+      finally{mesadaCargando=null;}
+      return mesadaEst;
+    })();
+    return mesadaCargando;
+  }
+  // Saldo del hijo según el contrato; sin datos → todo disponible (comportamiento anterior).
+  function mesadaDe(id){
+    const m=memberById(id), pts=Number(m&&m.puntos)||0;
+    const x=mesadaEst&&Array.isArray(mesadaEst.hijos)?mesadaEst.hijos.find(h=>Number(h.miembro_id)===Number(id)):null;
+    if(!x) return {total:pts,disponible:pts,bloqueada:0,fecha:null,monto:0,pausada:false};
+    return {total:Number(x.total)||0,disponible:Number(x.disponible)||0,bloqueada:Number(x.bloqueada)||0,fecha:x.proxima_liberacion||null,monto:Number(x.monto)||0,pausada:!!x.pausada};
+  }
+  function fechaCorta(f){if(!f) return ''; const d=new Date(String(f).length<=10?f+'T12:00:00':f); return d.toLocaleDateString('es-CO',{day:'2-digit',month:'short'});}
+  // Mensaje del contrato cuando los disponibles no alcanzan (pedir y canjear).
+  function faltaDisponible(id,costo){
+    const md=mesadaDe(id);
+    if(md.disponible>=costo) return '';
+    return 'Te faltan puntos: tienes '+md.disponible+' disponibles para premios.'+(md.bloqueada?' Tus '+md.bloqueada+' de mesada se liberan el '+fechaCorta(md.fecha)+'.':'');
+  }
+  // Badge de estado en filas de mesada del historial.
+  function badgeMesada(h){
+    if(h.mesada_id==null&&h.tipo!=='mesada'&&h.tipo!=='bono_excelencia'&&h.tipo!=='mesada_anulada') return '';
+    const e=h.tipo==='mesada_anulada'?'anulada':((mesadaEstados[h.mesada_id]||{}).estado||'');
+    const t={cargada:'por liberar',liberada:'liberada',anulada:'anulada'}[e]; if(!t) return '';
+    return ` <span class="v6-mb ${e}">${t}</span>`;
+  }
+  // Contador del hijo (solo en «Yo»).
+  function contadorMesada(u){
+    if(isAdmin(u)) return '';
+    const md=mesadaDe(u.id); if(!md.bloqueada||!md.fecha) return '';
+    const dias=Math.max(0,Math.ceil((new Date(String(md.fecha).length<=10?md.fecha+'T00:00:00':md.fecha)-new Date())/86400000));
+    return `<div class="v3-card" style="display:block;border-left-color:#7c3aed"><strong>Tu mesada de ${md.bloqueada} pts</strong><br><span class="v3-sub">se libera ${dias===0?'hoy':'en '+dias+' día'+(dias===1?'':'s')} (${esc(fechaCorta(md.fecha))}). Mientras tanto tienes ${md.disponible} disponibles para premios.</span></div>`;
+  }
+  /* Sección «Mesada» del padre: monto por hijo, pausa, fecha común editable, modo, % de bono y «Liberar» (UNA confirmación). */
+  async function hojaMesadaV6(){
+    if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
+    abrirHoja('<h3>Mesada mensual</h3><p class="v3-sub">Cargando…</p>');
+    await cargarMesadaEst();
+    if(!mesadaEst){abrirHoja('<h3>Mesada mensual</h3><p class="v3-sub v3-st-err">La mesada mensual aún no está disponible en la base de datos.</p>');return;}
+    const c=mesadaEst.config||{}, pp=mesadaEst.periodo_pendiente||null;
+    const hijos=state.members.filter(isKid).slice().sort(byName);
+    const fila=k=>{const x=(mesadaEst.hijos||[]).find(h=>Number(h.miembro_id)===k.id)||{};
+      return `<div class="v6-mfila"><span class="v3-grow">${esc(k.nombre)}</span><input class="v6mMonto" data-id="${k.id}" type="number" min="0" value="${Number(x.monto)||0}" aria-label="Monto de ${esc(k.nombre)}"><label class="v6-mp"><input class="v6mPausa" data-id="${k.id}" type="checkbox" ${x.pausada?'checked':''} style="width:auto"> Pausar</label></div>`;};
+    abrirHoja(`<h3>Mesada mensual</h3>
+      <label>Modo</label><select id="v6mModo"><option value="manual" ${c.modo!=='automatico'?'selected':''}>Manual (tú pulsas «Liberar»)</option><option value="automatico" ${c.modo==='automatico'?'selected':''}>Automático (se libera sola)</option></select>
+      <label>Fecha de liberación (común para todos)</label><input id="v6mFecha" type="date" value="${esc((pp&&pp.fecha_liberacion)||'')}">
+      <label>Día de liberación cada mes (1–28)</label><input id="v6mDia" type="number" min="1" max="28" value="${Number(c.dia_liberacion)||1}">
+      <label style="display:flex;gap:8px;align-items:center;color:#1e293b"><input id="v6mBono" type="checkbox" ${c.bono_activo?'checked':''} style="width:auto"> Compensación por excelencia</label>
+      <label>% de la mesada como compensación (0–100)</label><input id="v6mPct" type="number" min="0" max="100" value="${Number(c.bono_pct)||0}">
+      <label>Monto por hijo (pts)</label>${hijos.map(fila).join('')}
+      <button class="v3-cta v3-full" style="margin-top:12px" onclick="FamiliaV3.guardarMesadaV6()">Guardar</button>
+      ${pp?`<p class="v3-sub" style="margin-top:12px">Pendiente: ${esc(fechaCorta(pp.periodo))} · se libera el ${esc(fechaCorta(pp.fecha_liberacion))}${pp.dias_para_liberar!=null?' (en '+pp.dias_para_liberar+' días)':''}</p>`:''}
+      <button class="v3-btn2 v3-full" style="margin-top:8px" ${pp&&pp.puede_liberar?'':'disabled'} onclick="FamiliaV3.liberarMesadaV6()">Liberar todas las mesadas pendientes</button>`);
+  }
+  async function guardarMesadaV6(){
+    const v=id=>document.getElementById(id);
+    const cfg={modo:v('v6mModo').value,dia:Math.min(28,Math.max(1,parseInt(v('v6mDia').value,10)||1)),bonoActivo:v('v6mBono').checked,
+      bonoPct:Math.min(100,Math.max(0,parseInt(v('v6mPct').value,10)||0)),fecha:v('v6mFecha').value||null,
+      hijos:[...document.querySelectorAll('.v6mMonto')].map(i=>({miembro_id:+i.dataset.id,monto:Math.max(0,parseInt(i.value,10)||0),
+        pausada:!!(document.querySelector('.v6mPausa[data-id="'+i.dataset.id+'"]')||{}).checked}))};
+    const res=cfg.hijos.map(h=>((memberById(h.miembro_id)||{}).nombre||'')+' '+h.monto+(h.pausada?' (pausada)':'')).join(', ');
+    if(!confirm('¿Guardar la mesada: '+res+' · modo '+cfg.modo+(cfg.fecha?' · se libera el '+fechaCorta(cfg.fecha):'')+(cfg.bonoActivo?' · compensación '+cfg.bonoPct+' %':'')+'?')) return;
+    const r=await supabase.rpc(MESADA_RPC.guardar.fn,MESADA_RPC.guardar.args(state.currentUserId,cfg));
+    if(r.error) return showToast('No se pudo: '+r.error.message);
+    if(r.data&&r.data.config) mesadaEst=r.data;
+    showToast('Mesada guardada'); hojaMesadaV6();
+  }
+  async function liberarMesadaV6(){
+    const pp=mesadaEst&&mesadaEst.periodo_pendiente; if(!pp) return showToast('No hay mesadas pendientes');
+    const hs=(mesadaEst.hijos||[]).filter(h=>Number(h.bloqueada)>0);
+    // UNA confirmación para liberar TODAS las mesadas pendientes.
+    if(!confirm('¿Liberar todas las mesadas pendientes ('+(hs.map(h=>h.nombre+' '+h.bloqueada+' pts').join(', ')||'sin montos')+')? Quedarán disponibles para premios.')) return;
+    const k='mesadaLib'; if(enCurso.has(k)) return; enCurso.add(k);
+    try{
+      const r=await supabase.rpc(MESADA_RPC.liberar.fn,MESADA_RPC.liberar.args(state.currentUserId,pp.periodo));
+      if(r.error) return showToast('No se pudo: '+r.error.message);
+      const d=r.data||{};
+      showToast(d.idempotente?'Ya estaba liberada':('Liberadas: '+((d.liberados||[]).length)+(d.anulados&&d.anulados.length?' · anuladas (pausa): '+d.anulados.length:'')));
+      mesadaEst=null; await cargarMesadaEst(); hojaMesadaV6(); loadAll();
+    }finally{enCurso.delete(k);}
+  }
   function pintarPremios(u){
     const asc=localStorage.getItem('v3_premios_orden')!=='desc';
     const S=Number(u.puntos)||0;
@@ -3772,11 +3883,12 @@ window.FamiliaV3=(function(){
     const lista=state.rewards.filter(r=>r.activo!==false&&((r.tipo||'hijo')==='padre')===isAdmin(u)).slice().sort((a,b)=>asc?(a.costo-b.costo):(b.costo-a.costo));
     let h=`<button class="v3-btn2" style="margin-bottom:10px" onclick="FamiliaV3.ordenPremios()">Orden: ${asc?'menor → mayor':'mayor → menor'}</button>`;
     h+=lista.map(r=>{
-      const C=Math.max(1,Number(r.costo)||0), llenos=Math.round(20*Math.min(S,C)/C), full=S>=C;
+      // v6 Mesada: verde si el TOTAL (incluida la mesada por liberar) alcanza; pedir solo con disponibles (botonPremio).
+      const C=Math.max(1,Number(r.costo)||0), T=isAdmin(u)?S:mesadaDe(u.id).total, llenos=Math.round(20*Math.min(T,C)/C), full=T>=C;
       const celdas=Array.from({length:20},(_,i)=>`<i class="${i<llenos?'f':''}"></i>`).join('');
       return `<div class="v3-card" style="display:block"><div class="v3-row" style="justify-content:space-between"><span class="v3-t">${esc(r.nombre)}</span><span class="v3-sub">${C} pts</span></div>
         <div class="v3-bar ${full?'full':''}" role="progressbar" aria-valuemin="0" aria-valuemax="${C}" aria-valuenow="${Math.min(S,C)}" aria-label="${Math.min(S,C)} de ${C}">${celdas}</div>
-        ${full?`<div class="v3-row" style="justify-content:space-between;align-items:center"><span class="v3-st-ok">¡Ya lo puedes canjear!</span>${botonPremio(u,r)}</div>`:`<span class="v3-sub">Te faltan ${C-S} pts</span>`}</div>`;
+        ${full?`<div class="v3-row" style="justify-content:space-between;align-items:center"><span class="v3-st-ok">${!isAdmin(u)&&faltaDisponible(u.id,C)?'Te alcanza con tu mesada':'¡Ya lo puedes canjear!'}</span>${botonPremio(u,r)}</div>${!isAdmin(u)&&faltaDisponible(u.id,C)?`<p class="v3-sub" style="margin-top:4px">${esc(faltaDisponible(u.id,C))}</p>`:''}`:`<span class="v3-sub">Te faltan ${C-T} pts</span>`}</div>`;
     }).join('');
     document.getElementById('v3Premios').innerHTML=h||'<p class="v3-sub">Aún no hay premios.</p>';
   }
@@ -3802,7 +3914,7 @@ window.FamiliaV3=(function(){
   /* Suma: ganado − descuentos; los canjes y la mesada no cuentan. */
   function puntosRanking(id,desde){
     const src=histTotal||state.history;
-    return src.filter(h=>h.miembro_id===id&&h.pts!=null&&h.tipo!=='canje'&&h.tipo!=='premio'&&h.tipo!=='mesada'&&(!desde||new Date(h.creado_en)>=desde))
+    return src.filter(h=>h.miembro_id===id&&h.pts!=null&&h.tipo!=='canje'&&h.tipo!=='premio'&&h.tipo!=='mesada'&&h.tipo!=='bono_excelencia'&&h.tipo!=='mesada_anulada'&&(!desde||new Date(h.creado_en)>=desde))
       .reduce((s,h)=>s+Number(h.pts),0);
   }
 
@@ -3833,15 +3945,18 @@ window.FamiliaV3=(function(){
         <button class="v3-btn2" onclick="FamiliaV3.panelV1('section-premios','Premios')">Premios</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>{openNewReward();const s=document.getElementById('rewardTipo');if(s){s.value='hijo';syncRewardParent();}})">Nuevo premio</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaMesada()">Mesada</button>
+        <button class="v3-btn2" onclick="FamiliaV3.hojaMesadaV6()">Mesada mensual</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openPenalty())">Descuento</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNewMember())">Integrante</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaPin()">PINs</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaVerComo()">Ver como</button>
         <button class="v3-btn2 err v5-ancho" onclick="FamiliaV3.hojaReset()">Resetear</button></div></details>`;
     }
+    // v6 Mesada: contador «se libera en N días», solo en «Yo» y solo para el hijo.
+    h+=contadorMesada(u);
     // V5b: «Mi historial» del miembro (más reciente primero; incluye «Rechazada · 0 pts» con su motivo).
     const mio=(state.history||[]).filter(x=>x.miembro_id===u.id).slice(0,100);
-    h+=`<h2 style="margin-top:14px">Mi historial</h2><div class="v3-card" style="display:block">${mio.length?mio.map(x=>`<div class="v3-rk">${iconoMov(x)}<span class="v3-grow">${esc(x.texto||'')}${fotoMovHtml(x)?'<br>'+fotoMovHtml(x):''}<br><span class="v3-sub">${x.creado_en?new Date(x.creado_en).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></span>${x.pts!=null?`<strong class="${x.pts>0?'v3-st-ok':x.pts<0?'v3-st-err':''}">${x.pts>0?'+':''}${x.pts}</strong>`:''}</div>`).join(''):'<p class="v3-sub">Todavía no hay movimientos.</p>'}</div>`;
+    h+=`<h2 style="margin-top:14px">Mi historial</h2><div class="v3-card" style="display:block">${mio.length?mio.map(x=>`<div class="v3-rk">${iconoMov(x)}<span class="v3-grow">${esc(x.texto||'')}${badgeMesada(x)}${fotoMovHtml(x)?'<br>'+fotoMovHtml(x):''}<br><span class="v3-sub">${x.creado_en?new Date(x.creado_en).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></span>${x.pts!=null?`<strong class="${x.pts>0?'v3-st-ok':x.pts<0?'v3-st-err':''}">${x.pts>0?'+':''}${x.pts}</strong>`:''}</div>`).join(''):'<p class="v3-sub">Todavía no hay movimientos.</p>'}</div>`;
     h+=`<button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.salir()">Salir</button>`;
     document.getElementById('v3Yo').innerHTML=h;
   }
@@ -3858,7 +3973,8 @@ window.FamiliaV3=(function(){
   function claseMov(h){
     const tx=h.texto||'', ti=h.tipo, pts=h.pts==null?null:Number(h.pts);
     if(ti&&pts!=null){
-      if(/^Mesada/.test(tx)||ti==='mesada') return {k:'me',pts};
+      // v6 Mesada: abono, compensación por excelencia y anulación van en la columna mesada (no suman al ranking).
+      if(/^Mesada/.test(tx)||ti==='mesada'||ti==='bono_excelencia'||ti==='mesada_anulada') return {k:'me',pts};
       // v5: filas tipadas con texto de penalización/atraso/descuento (p. ej. tipo 'deber' pts<0) → Descuentos.
       if(/^(Penalización|Atraso|Descuento)/.test(tx)&&pts<0) return {k:'d',pts};
       if(ti==='premio'||ti==='canje') return {k:'c',pts};
@@ -4379,6 +4495,8 @@ window.FamiliaV3=(function(){
       const u=currentUser(), r=state.rewards.find(x=>x.id===id);
       if(!u||!r) return;
       if((Number(u.puntos)||0)<(Number(r.costo)||0)) return showToast('Puntos insuficientes');
+      // v6 Mesada: se bloquea por disponibles (la mesada por liberar no sirve para pedir).
+      {const f=faltaDisponible(u.id,Number(r.costo)||0); if(f) return showToast(f);}
       // v5 ítem 17 (ajuste): primero se revisa el duplicado, para no preguntar algo que se va a rechazar.
       if((state.solicitudes||[]).some(x=>x.estado==='pendiente'&&x.miembro_id===u.id&&x.premio_id===id)) return showToast('Ya está esperando a papá/mamá');
       // v5 ítem 13: una confirmación antes de pedir.
@@ -4391,6 +4509,9 @@ window.FamiliaV3=(function(){
   }
   // Padre: aprueba la solicitud del hijo → familia_rpc_canjear_premio (idempotente por estado).
   async function aprobarPremio(sid){
+    // v6 Mesada: antes de canjear se revisan los disponibles del hijo (la RPC canjear_premio también lo valida).
+    {const s=(state.solicitudes||[]).find(x=>x.id===sid), r=s&&state.rewards.find(x=>x.id===s.premio_id);
+     if(s&&r){const f=faltaDisponible(s.miembro_id,Number(r.costo)||0); if(f) return showToast(((memberById(s.miembro_id)||{}).nombre||'El hijo')+': '+f.replace('Te faltan puntos: tienes','tiene').replace('Tus','sus'));}}
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     {const s=(state.solicitudes||[]).find(x=>x.id===sid), r=s&&state.rewards.find(x=>x.id===s.premio_id); if(!confirm('¿Aprobar «'+((r&&r.nombre)||'este premio')+'» para '+((memberById(s&&s.miembro_id)||{}).nombre||'este hijo')+(r?' (−'+(Number(r.costo)||0)+' pts)':'')+'?')) return;}
     const k='s'+sid; if(enCurso.has(k)) return; enCurso.add(k); ocultas.add(k); pintar();
@@ -4601,7 +4722,8 @@ window.FamiliaV3=(function(){
   // Crear, Solicitar…) abre con «← Volver» arriba; un toque cierra la hoja y deja la sección de origen (p. ej. Yo).
   function abrirHoja(html){document.getElementById('v3SheetBody').innerHTML='<div class="v5-volver"><button type="button" onclick="FamiliaV3.cerrarHoja()">← Volver</button></div>'+html;document.getElementById('v3Sheet').classList.add('on');}
   function cerrarHoja(){document.getElementById('v3Sheet').classList.remove('on');}
-  function ir(s){seccion=s;pintar();if(s==='yo')cargarHistorial().then(pintar);}
+  // v6 Mesada: al entrar a Yo o Premios se pide el estado de la mesada (una vez por entrada) y se repinta.
+  function ir(s){seccion=s;pintar();if(s==='yo')cargarHistorial().then(pintar);if(s==='yo'||s==='premios')cargarMesadaEst().then(pintar);}
   function ranking(m){rkModo=m;pintar();}
   function ordenPremios(){localStorage.setItem('v3_premios_orden',localStorage.getItem('v3_premios_orden')==='desc'?'asc':'desc');pintar();}
   /* --- Administración v3 (MED 4): hojas propias; cada escritura es UNA fila (sin pasos encadenados). --- */
@@ -4725,7 +4847,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {activo,ir,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
