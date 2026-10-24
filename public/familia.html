@@ -250,7 +250,8 @@ h3{margin-bottom:12px}
   <div class="form-group"><label>Ícono</label><div class="emoji-grid" id="taskIconGrid"></div><input type="hidden" id="taskIcon" value="📋"></div>
   <div class="form-group" id="taskPointsWrap"><label>Puntos</label><input type="number" id="taskPoints" value="10"></div>
   <div class="form-group"><label>Penalización por no hacerlo</label><input type="number" id="taskPenalty" min="0" value="0"></div>
-  <div class="form-group"><label>Hora de la tarea</label><input type="datetime-local" id="taskDue" onchange="paintDueHint()"></div>
+  <!-- v5 ítem 20: id para ocultar la hora cuando es Inmediata (abre en el momento de crearla). -->
+  <div class="form-group" id="taskDueWrap"><label>Hora de la tarea</label><input type="datetime-local" id="taskDue" onchange="paintDueHint()"></div>
   <div class="form-group"><label>Ventana para hacerla</label><div style="display:flex;gap:8px"><input type="number" id="taskWindowQty" min="1" value="1" style="width:96px" onchange="paintDueHint()"><select id="taskWindowUnit" onchange="paintDueHint()"><option value="minutos">Minutos</option><option value="horas" selected>Horas</option><option value="dias">Días</option></select></div></div>
   <input type="hidden" id="taskWindow" value="1">
   <input type="hidden" id="taskCount" value="1">
@@ -1245,6 +1246,7 @@ function toggleTaskView(){
 }
 function openNueva(){
   if(!requireAdmin()) return;
+  window._v5SoloTareas=false;   // v5 ítem 20: la v1 abre con todas sus opciones; la v3 la vuelve a poner después
   const kind=document.getElementById('nuevaKind');
   const wrap=document.getElementById('nuevaKindWrap');
   if(wrap) wrap.style.display='';
@@ -1623,6 +1625,8 @@ function openNewTask(audiencia){
       ?'<option value="tarea">Tarea</option><option value="deber">Deber</option>'
       :'<option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Inmediata</option>';
     tipo.value='tarea';
+    // v5 ítem 20: «Crear completo» de la v3/v4/v5 crea solo tareas; los deberes van por la sección Deberes.
+    if(window._v5SoloTareas){const o=tipo.querySelector('option[value="deber"]'); if(o) o.remove();}
   }
   document.getElementById('taskTipoWrap').style.display='';
   prepareTaskForm(taskCreateMode);
@@ -1779,8 +1783,10 @@ function syncTaskType(){
     if(deber||inmediata){ pts.dataset.locked='1'; pts.value='0'; pts.disabled=true; }
     else { pts.disabled=false; if(pts.dataset.locked==='1'){ pts.value='10'; pts.dataset.locked='0'; } }
   }
+  // v5 ítem 20: Inmediata abre al crearla, no se elige hora.
+  {const dw=document.getElementById('taskDueWrap'); if(dw) dw.style.display=inmediata?'none':'';}
   if(inmediata){
-    help.textContent='Se usa una sola vez. Empieza ahora y no queda como plantilla.';
+    help.textContent='Se usa una sola vez. Abre en el momento de crearla y no queda como plantilla.';
     const due=document.getElementById('taskDue');
     if(due) due.value=toLocalInput(new Date().toISOString());
   }else if(deber){
@@ -3532,7 +3538,9 @@ window.FamiliaV3=(function(){
   /* v5 ítem 6 (D3): 3.er renglón de la tarjeta con Abre y Cierra (fecha + hora local). Si no hay datos, no se pinta. */
   function renglonVentana(t){
     const f=x=>new Date(x).toLocaleString('es-CO',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-    const a=t.habilita_en?'Abre: '+f(t.habilita_en):'', c=t.fecha_limite?'Cierra: '+f(t.fecha_limite):'';
+    // v5 ítem 20: inmediata ya abierta → «Abre: ahora»; si no, la fecha y hora reales.
+    const ya=t.habilita_en&&new Date(t.habilita_en)<=new Date()&&(!t.fecha_limite||new Date(t.fecha_limite)>new Date());
+    const a=t.habilita_en?'Abre: '+((t.inmediata||t.tipo==='inmediata')&&ya?'ahora':f(t.habilita_en)):'', c=t.fecha_limite?'Cierra: '+f(t.fecha_limite):'';
     return a||c?`<div class="v3-sub" style="margin-top:2px">${esc([a,c].filter(Boolean).join(' · '))}</div>`:'';
   }
   function ficha(t,acciones){
@@ -3599,7 +3607,7 @@ window.FamiliaV3=(function(){
     // «Junto con», entre padres, inmediata, penalización, repetición de deberes).
     // v5 ítem 1: el hijo solicita tareas (y pasa a un hermano) desde Hoy, no desde «Yo → Más».
     let hHijo=!admin&&!soloLectura()?`<div class="v3-row" style="margin-bottom:12px"><button class="v3-cta" style="flex:1" onclick="FamiliaV3.hojaSolicitar()">Solicitar tarea</button><button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openSiblingTask())">Para un hermano</button></div>`:'';
-    let h=hHijo+(admin&&!soloLectura()?`<div class="v3-row" style="margin-bottom:12px"><button class="v3-cta" style="flex:1" onclick="FamiliaV3.crearPaso1()">${svg('mas').replace('v3-ico','v3-ico" style="vertical-align:-5px')} Crear</button><button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNueva())">Crear completo</button><button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Tareas: filtros, plantillas y borradores')">Filtros</button></div>`:'');
+    let h=hHijo+(admin&&!soloLectura()?`<div class="v3-row" style="margin-bottom:12px"><button class="v3-cta" style="flex:1" onclick="FamiliaV3.crearTarea()">${svg('mas').replace('v3-ico','v3-ico" style="vertical-align:-5px')} Crear</button><button class="v3-btn2" onclick="FamiliaV3.crearCompleto()">Crear completo</button><button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Tareas: filtros, plantillas y borradores')">Filtros</button></div>`:'');
     h+=hoy.length?hoy.map(fila).join(''):'<p class="v3-sub">Nada para hoy.</p>';
     // Vencidos: el hijo los ve aquí; el padre los decide en «Revisar».
     if(venc.length) h+=`<h2 style="margin-top:14px">Vencidos</h2>`+(admin?`<p class="v3-sub">${venc.length} en «Revisar».</p>`:venc.map(fila).join(''));
@@ -3707,7 +3715,7 @@ window.FamiliaV3=(function(){
       h+=`<details class="v3-admin"><summary>Administrar familia</summary><div class="v5-grid">
         <button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Editar tareas')">Editar tareas</button>
         <button class="v3-btn2" onclick="FamiliaV3.catalogo()">Catálogo</button>
-        <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openDeberes())">Deberes</button>
+        <button class="v3-btn2" onclick="FamiliaV3.hojaDeberes()">Deberes</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaLote()">Repetitiva</button>
         <button class="v3-btn2" onclick="FamiliaV3.panelV1('section-premios','Premios')">Premios</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>{openNewReward();const s=document.getElementById('rewardTipo');if(s){s.value='hijo';syncRewardParent();}})">Nuevo premio</button>
@@ -3889,22 +3897,25 @@ window.FamiliaV3=(function(){
   /* Tarea repetitiva (lote): la BD reparte y calcula fechas hasta fin de mes. Sin p_zona (decisión BE:
      el servidor usa miembro.zona_horaria → familia_config → 'Europe/Madrid'; devuelve `zona`).
      p_inicio va en ISO UTC (confirmado). p_icono se omite (default de la BD '📋'). */
-  function hojaLote(){
+  // v5 ítem 20: hojaLote('deber') es el «Deber repetitivo» de la sección Deberes; sin argumento, solo tareas.
+  let loteClase='tarea';
+  function hojaLote(clase){
+    loteClase=clase==='deber'?'deber':'tarea';
+    const dl=loteClase==='deber';
     if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
     const hijos=state.members.filter(isKid).slice().sort(byName);
     const d=new Date(); d.setMinutes(0,0,0); d.setHours(d.getHours()+1);
     const loc=new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
-    reqId('lote');   // la intención nace al abrir el formulario
-    abrirHoja(`<h3>Tarea repetitiva</h3>
+    reqId('lote-'+loteClase);   // la intención nace al abrir el formulario (v5 ítem 20: una por clase)
+    abrirHoja(`<h3>${dl?'Deber repetitivo':'Tarea repetitiva'}</h3>
       <label>Título</label><input id="v4lTit" maxlength="120">
-      <!-- v5 ítem 19: Tipo Tarea/Deber. La RPC ya acepta p_clase 'deber' (tipo/clase 'deber', 0 pts, pierde_pts = descuento). -->
-      <label>Tipo</label><select id="v4lClase" onchange="FamiliaV3.claseLote()"><option value="tarea">Tarea (suma puntos)</option><option value="deber">Deber (0 pts; descuento si se vence)</option></select>
-      <div id="v4lPtsBox"><label>Puntos</label><input id="v4lPts" type="number" min="0" value="10"></div>
+      <!-- v5 ítem 20: sin selector Tarea/Deber (se quitó el de ítem 19). La clase sale de loteClase; deber = 0 pts + descuento. -->
+      ${dl?'<p class="v3-sub">Un deber no suma puntos; si se vence aplica el descuento.</p>':'<label>Puntos</label><input id="v4lPts" type="number" min="0" value="10">'}
       <label>Primera vez</label><input id="v4lIni" type="datetime-local" value="${loc}">
       <label>Repetir</label><select id="v4lRec"><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option></select>
       <label>Veces al día (1–4)</label><input id="v4lVeces" type="number" min="1" max="4" value="1">
       <label>Tiempo para hacerla (min)</label><input id="v4lVen" type="number" min="1" value="60">
-      <label>Descuento si se pasa (pts)</label><input id="v4lPen" type="number" min="0" value="0">
+      <label>Descuento si se pasa (pts)</label><input id="v4lPen" type="number" min="0" value="${dl?3:0}">
       <label>Para</label><div>${hijos.map(m=>`<label style="display:flex;gap:6px;align-items:center;margin:4px 0;color:#1e293b"><input type="checkbox" class="v4lHijo" value="${m.id}" style="width:auto">${esc(m.nombre)}</label>`).join('')}</div>
       <label>Reparto</label><select id="v4lModo"><option value="uno">Un solo hijo</option><option value="entre">Turnar entre los marcados (al azar)</option><option value="cada_uno">Cada uno la suya</option></select>
       <label>Estado inicial</label><select id="v4lEst"><option value="pendiente">Activa</option><option value="borrador">Borrador</option></select>
@@ -3950,20 +3961,29 @@ window.FamiliaV3=(function(){
     box.innerHTML=`<strong>Estimado: ${filas.length} tarea(s)</strong> · la BD confirma el reparto real y omite duplicados a menos de 12 h${filas.length>200?' · <span class="v3-st-err">supera el máximo de 200</span>':''}
       <div style="max-height:30vh;overflow-y:auto;margin-top:6px;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px">${filas.slice(0,80).map(([f,k])=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0"><span>${esc(fmt(f))}</span><span>${esc(k.nombre)}</span></div>`).join('')}${filas.length>80?`<div>… y ${filas.length-80} más</div>`:''}</div>`;
   }
-  // v5 ítem 19: con Deber se oculta «Puntos» (la BD guarda 0); el descuento sigue en su campo.
-  function claseLote(){
-    const d=document.getElementById('v4lClase').value==='deber';
-    document.getElementById('v4lPtsBox').style.display=d?'none':'';
+  /* v5 ítem 20 (b): sección Deberes en orden: 1) un deber (crear en 2 pasos, clase deber), 2) deber repetitivo hasta fin
+     de mes con reparto al azar (misma familia_rpc_crear_lote, p_clase 'deber'), 3) lista de deberes base de la v1. */
+  function hojaDeberes(){
+    if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
+    abrirHoja(`<h3>Deberes</h3><p class="v3-sub">Un deber no suma puntos; si se vence aplica el descuento.</p>
+      <button class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.crearDeber()">1. Nuevo deber (una vez)</button>
+      <button class="v3-btn2 v3-full" style="margin-top:8px" onclick="FamiliaV3.hojaLote('deber')">2. Deber repetitivo (hasta fin de mes)</button>
+      <button class="v3-btn2 v3-full" style="margin-top:8px" onclick="FamiliaV3.abrirV1(()=>openDeberes())">3. Deberes base y repartir ciclo</button>`);
   }
+  function crearDeber(){crear={clase:'deber'};crearPaso1();}
+  // v5 ítem 20: «Crear» siempre abre como tarea; si quedó un deber a medias desde Deberes, se descarta.
+  function crearTarea(){if(crear.clase==='deber') crear={}; crearPaso1();}
+  // v5 ítem 20: «Crear completo» desde la v3 sin la opción Deber (la v1 directa la conserva).
+  function crearCompleto(){abrirV1(()=>{openNueva(); window._v5SoloTareas=true; const o=document.querySelector('#taskTipo option[value="deber"]'); if(o) o.remove();});}
   async function guardarLote(){
     const v=id=>document.getElementById(id).value, n=(id,def)=>{const x=parseInt(v(id),10);return isNaN(x)?def:x;};
     const hijos=[...document.querySelectorAll('.v4lHijo:checked')].map(c=>+c.value);
     const tit=v('v4lTit').trim(); if(!tit) return showToast('Escribe el título'); if(!hijos.length) return showToast('Marca al menos un hijo');
     const ini=new Date(v('v4lIni')); if(isNaN(ini)) return showToast('Fecha inválida');
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
-    // v5 ítem 19: el texto dice deber o tarea según el tipo elegido.
-    if(!confirm('¿Crear '+(v('v4lClase')==='deber'?'el deber':'la tarea')+' repetitiv'+(v('v4lClase')==='deber'?'o':'a')+' «'+tit+'» para '+hijos.length+' hijo(s) hasta fin de mes?')) return;
-    const d=await rpcIntento('lote','familia_rpc_crear_lote',{p_titulo:tit,p_clase:v('v4lClase'),p_puntos:v('v4lClase')==='deber'?0:Math.max(0,n('v4lPts',0)),   // v5 ítem 19: deber = 0 pts
+    // v5 ítem 20: el texto dice deber o tarea según la sección de origen.
+    if(!confirm('¿Crear '+(loteClase==='deber'?'el deber repetitivo':'la tarea repetitiva')+' «'+tit+'» para '+hijos.length+' hijo(s) hasta fin de mes?')) return;
+    const d=await rpcIntento('lote-'+loteClase,'familia_rpc_crear_lote',{p_titulo:tit,p_clase:loteClase,p_puntos:loteClase==='deber'?0:Math.max(0,n('v4lPts',0)),   // v5 ítem 20: clase fija según de dónde se abrió
       
       p_inicio:ini.toISOString(),p_recurrencia:v('v4lRec'),p_veces:Math.min(4,Math.max(1,n('v4lVeces',1))),p_ventana_min:Math.max(1,n('v4lVen',60)),
       p_penal:Math.max(0,n('v4lPen',0)),p_hijos:hijos,p_modo:v('v4lModo'),p_estado:v('v4lEst')});   // sin p_icono (default '📋') ni p_zona
@@ -4357,9 +4377,10 @@ window.FamiliaV3=(function(){
   function crearPaso1(){
     // El client_req_id nace al abrir el formulario y se reutiliza en cada reintento hasta que haya éxito.
     crear=Object.assign({clase:'tarea',titulo:'',asignada:'',req:(crypto.randomUUID?crypto.randomUUID():'v3-'+Date.now()+'-'+Math.random().toString(36).slice(2))},crear);
+    // v5 ítem 20: el botón «Crear» es solo de tareas; con clase 'deber' se llega solo desde Deberes (crearDeber).
+    const desdeDeberes=crear.clase==='deber';
     const hijos=state.members.filter(m=>!isAdmin(m)).slice().sort(byName);
-    abrirHoja(`<h3>Crear · paso 1 de 2</h3>
-      <div class="v3-seg" style="margin-top:10px"><button class="${crear.clase==='tarea'?'on':''}" onclick="FamiliaV3.claseCrear('tarea')">Tarea (suma)</button><button class="${crear.clase==='deber'?'on':''}" onclick="FamiliaV3.claseCrear('deber')">Deber (obligatorio)</button></div>
+    abrirHoja(`<h3>${desdeDeberes?'Nuevo deber':'Nueva tarea'} · paso 1 de 2</h3>
       <p class="v3-sub">${crear.clase==='deber'?'Un deber no suma puntos; si se pasa la hora puede tener Descuento.':'Una tarea suma puntos al aprobarla.'}</p>
       <label>¿Qué hay que hacer?</label><input id="v3cTit" value="${esc(crear.titulo)}" maxlength="120">
       <label>¿Para quién?</label><select id="v3cWho">${hijos.map(m=>`<option value="${m.id}" ${String(crear.asignada)===String(m.id)?'selected':''}>${esc(m.nombre)}</option>`).join('')}</select>
@@ -4526,7 +4547,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,claseLote,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {activo,ir,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
