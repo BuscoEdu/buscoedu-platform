@@ -814,6 +814,9 @@ function memberOptions(selected, opts){
    porque en la primera carga la config todavía no ha llegado. */
 const V3_COLS_TAREAS='id,titulo,descripcion,puntos,recurrencia,icono,asignada_a,conjunto_con,para_quien,tipo,clase,inmediata,estado,estado_vencida,creada_por,puntos_sumados,puntos_aplicados,puntos_penalizacion_dia,resta_por_minuto,max_negativo,pierde_pts,habilita_en,fecha_limite,ventana_horas,ventana_min,marcada_en,cerrado_en,creado_en,comentario,comentario_completado,comentario_aprobacion,evidencia_2,es_transferencia,duplicada_de,client_req_id';
 function columnasTareas(){return localStorage.getItem('familia_v3_on')==='1'?V3_COLS_TAREAS:'*';}
+/* v4 Ola 2: «Resetear todo» archiva (archivada_en) en vez de borrar. En modo v3/v4 toda lectura de
+   tareas e historial filtra archivada_en IS NULL; en modo v1 la consulta queda igual que antes. */
+function sinArchivadas(q){return localStorage.getItem('familia_v3_on')==='1'?q.is('archivada_en',null):q;}
 async function loadAll(opts){
   const penalize=!!(opts&&opts.penalize);
   if(loadLock){ reloadQueued=true; return; }
@@ -821,9 +824,9 @@ async function loadAll(opts){
   try{
     let [m,t,p,h,c,pl,msg,sol,nt,db]=await Promise.all([
       supabase.from('familia_miembros').select('*').order('id'),
-      supabase.from('familia_tareas').select(columnasTareas()).order('creado_en',{ascending:false}),
+      sinArchivadas(supabase.from('familia_tareas').select(columnasTareas())).order('creado_en',{ascending:false}),
       supabase.from('familia_premios').select('*').order('costo'),
-      supabase.from('familia_historial').select('*').order('creado_en',{ascending:false}).limit(1000),
+      sinArchivadas(supabase.from('familia_historial').select('*')).order('creado_en',{ascending:false}).limit(1000),
       supabase.from('familia_config').select('*').eq('id',1).maybeSingle(),
       supabase.from('familia_plantillas_tareas').select('*'),
       supabase.from('familia_mensajes').select('*').order('creado_en',{ascending:false}).limit(200),
@@ -848,7 +851,7 @@ async function loadAll(opts){
     if(t.error){
       await new Promise(r=>setTimeout(r,800));
       // v3: si alguna columna explícita no existe, el reintento usa '*' y la v3 quita las fotos en memoria.
-      const retry=await supabase.from('familia_tareas').select('*').order('creado_en',{ascending:false});
+      const retry=await sinArchivadas(supabase.from('familia_tareas').select('*')).order('creado_en',{ascending:false});
       if(!retry.error) t=retry;
     }
     // v3 (V16): se guarda si la carga de tareas falló, para que la v3 no confunda error con vacío.
@@ -3258,7 +3261,31 @@ init();
 #v3App{--v3-ok:#15803d;--v3-warn:#b45309;--v3-err:#b91c1c;--v3-gris:#4b5563;--v3-vacio:#e5e7eb;--v3-cta:#ff7a59;--v3-cta-txt:#1f1a4d;--v3-azul:#1d4ed8;display:none;flex-direction:column;height:100vh;height:100dvh;max-width:720px;margin:0 auto;background:#f8fafc;color:#1e293b}
 #v3App.v3-on{display:flex}
 /* Cabecera con íconos de línea blanca. */
-.v3-head{background:#1f1a4d;color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;flex:none}
+/* v4 · ajuste 5: cabecera alegre de la v1 (degradado violeta) con avatar, nombre, rol, frase y puntos. */
+.v3-head{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;flex:none;border-radius:0 0 20px 20px}
+.v4-av{width:44px;height:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex:none;overflow:hidden;color:#1e293b}
+.v4-who{flex:1;min-width:0}.v4-who b{display:block;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v4-who small{display:block;font-size:.75rem;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v4-fam{font-size:.72rem;opacity:.85}
+.v3-head .v3-pts{background:rgba(255,255,255,.2);padding:6px 10px;border-radius:999px}
+/* v4 · ajuste 5: paleta de estados (gris pendiente, verde hecho, amarillo esperando, naranja suave devuelta, rojo SOLO vencida sin enviar). */
+.v3-card.esp{border-left-color:#ca8a04}.v3-card.dev{border-left-color:#fb923c}
+.v3-st-esp{color:#a16207}.v3-st-dev{color:#c2410c}
+/* Panel que aloja una sección completa de la v1 (filtros, plantillas, premios…) dentro de la v3. */
+.v4-panel{position:fixed;inset:0;background:#f8fafc;z-index:2400;display:none;flex-direction:column}
+.v4-panel.on{display:flex}
+.v4-panel-top{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:12px 16px;display:flex;gap:10px;align-items:center}
+.v4-panel-top button{background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer}
+.v4-panel-body{flex:1;overflow-y:auto;max-width:720px;width:100%;margin:0 auto}
+.v4-panel-body .section{display:block!important}
+/* En modo v3 los modales de la v1 deben quedar por encima del panel y de la hoja. */
+/* «Ver como» (solo lectura): los botones de acción de la v1 se ven apagados; la guarda JS bloquea la escritura. */
+body.v4-ro .v4-panel .btn:not(.secondary),body.v4-ro .v4-panel .btn.danger,body.v4-ro .modal .btn:not(.secondary),body.v4-ro .modal .btn.danger{opacity:.4;pointer-events:none}
+body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
+.v4-rk{display:grid;grid-template-columns:28px 1fr repeat(4,minmax(44px,auto));gap:6px;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem}
+.v4-rk.h{font-size:.68rem;color:#64748b;text-transform:uppercase}
+.v4-rk span.n{text-align:right;font-variant-numeric:tabular-nums}
+@media (max-width:400px){.v4-rk{grid-template-columns:24px 1fr repeat(4,38px);font-size:.78rem}}
 .v3-head h1{font-size:1.05rem;flex:1;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .v3-pts{font-weight:700;font-size:.95rem;white-space:nowrap}
 .v3-icobtn{background:none;border:0;color:#fff;position:relative;padding:6px;cursor:pointer;line-height:0}
@@ -3315,19 +3342,25 @@ details.v3-admin summary{cursor:pointer;font-weight:600}
 <div id="v3App" aria-live="polite">
   <!-- Cabecera: familia, saldo, bandeja (padres) y salir. -->
   <div class="v3-head">
-    <h1 id="v3Fam">Familia</h1>
+    <div class="v4-av" id="v4Av" aria-hidden="true">👤</div>
+    <div class="v4-who"><span class="v4-fam" id="v3Fam">Familia</span><b id="v4Nom"></b><small id="v4Rol"></small><small id="v4Frase"></small></div>
     <span class="v3-pts" id="v3Pts"></span>
+    <!-- Campana de avisos de la v1 (openNotifs) con ícono de línea. -->
+    <button class="v3-icobtn" id="v4Bell" aria-label="Avisos" onclick="FamiliaV3.abrirV1(()=>openNotifs())"></button>
     <button class="v3-icobtn" id="v3InboxBtn" aria-label="Por aprobar" onclick="FamiliaV3.ir('bandeja')"></button>
   </div>
   <div class="v3-main">
     <section class="v3-sec on" id="v3-hoy"><h2>Hoy</h2><div id="v3Hoy"></div></section>
     <section class="v3-sec" id="v3-bandeja"><h2>Por revisar</h2><div id="v3Bandeja"></div></section>
     <section class="v3-sec" id="v3-premios"><h2>Premios</h2><div id="v3Premios"></div></section>
+    <section class="v3-sec" id="v3-ranking"><h2>Ranking (hijos)</h2><div id="v4Ranking"></div></section>
     <section class="v3-sec" id="v3-yo"><div id="v3Yo"></div></section>
   </div>
   <nav class="v3-nav" id="v3Nav"></nav>
 </div>
 <div class="v3-toast" id="v3Toast"><span id="v3ToastTxt"></span><button id="v3ToastUndo">Deshacer</button></div>
+<!-- Panel v4: aloja temporalmente una sección de la v1 (se mueve el nodo y se devuelve al cerrar). -->
+<div class="v4-panel" id="v4Panel"><div class="v4-panel-top"><button onclick="FamiliaV3.cerrarPanel()">← Volver</button><strong id="v4PanelTit"></strong></div><div class="v4-panel-body" id="v4PanelBody"></div></div>
 <div class="v3-sheet" id="v3Sheet" onclick="if(event.target===this)FamiliaV3.cerrarHoja()"><div id="v3SheetBody"></div></div>
 
 <script>
@@ -3344,7 +3377,9 @@ window.FamiliaV3=(function(){
     bandeja:'<path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 2h6l1-2h5"/>',
     premio:'<path d="M4 10h16v10H4z"/><path d="M12 10v10M3 7h18v3H3z"/><path d="M12 7c-2-4-6-3-5 0M12 7c2-4 6-3 5 0"/>',
     yo:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 15-5 16 0"/>',
-    mas:'<path d="M12 5v14M5 12h14"/>'
+    mas:'<path d="M12 5v14M5 12h14"/>',
+    trofeo:'<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8"/>',
+    campana:'<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>'
   };
   function svg(n){return '<svg class="v3-ico" viewBox="0 0 24 24" aria-hidden="true">'+ICO[n]+'</svg>';}
 
@@ -3370,11 +3405,15 @@ window.FamiliaV3=(function(){
   function comentAprob(t){return t.comentario_aprobacion||t.comentario||'';}
   // B4: en «Ver como» (originalAdminId con valor) la vista es solo lectura: sin botones de acción.
   function soloLectura(){return typeof originalAdminId!=='undefined'&&!!originalAdminId;}
+  /* v4 · ajuste 5: un color por estado. Rojo SOLO para vencida sin enviar; amarillo = esperando
+     aprobación (o decisión del padre); naranja suave = devuelta (con su motivo); verde = hecha; gris = pendiente. */
   function estadoDe(t){
     if(t.estado_vencida==='pendiente_hijo'||(t.estado==='aviso_vencida'&&!t.estado_vencida)) return {c:'err',txt:'Se pasó la hora',cls:'v3-st-err'};
-    if(t.estado_vencida==='por_decidir') return {c:'rev',txt:'Esperando a papá/mamá',cls:'v3-st-rev'};
-    if(t.estado==='esperando_aprobacion') return {c:'rev',txt:'En revisión',cls:'v3-st-rev'};
-    if(t.estado==='aviso_rechazada') return {c:'err',txt:'Devuelta'+(t.comentario?': '+t.comentario:''),cls:'v3-st-err'};
+    if(t.estado_vencida==='por_decidir') return {c:'esp',txt:'Esperando a papá/mamá',cls:'v3-st-esp'};
+    if(t.estado==='esperando_aprobacion'||t.estado==='transferencia_por_aprobar') return {c:'esp',txt:t.estado==='transferencia_por_aprobar'?'Traspaso por aprobar':'Esperando aprobación',cls:'v3-st-esp'};
+    if(t.estado==='pendiente_transferencia') return {c:'esp',txt:'Pasada a '+(((memberById(t.para_quien)||{}).nombre)||'un hermano'),cls:'v3-st-esp'};
+    // Motivo de la devolución visible en la tarjeta del hijo: comentario_aprobacion y, si falta, comentario.
+    if(t.estado==='aviso_rechazada') return {c:'dev',txt:'Devuelta'+(comentAprob(t)?': '+comentAprob(t):''),cls:'v3-st-dev'};
     if(t.estado==='completada'||t.estado==='aviso_aprobada') return {c:'ok',txt:'Aprobada'+(comentAprob(t)?': '+comentAprob(t):''),cls:'v3-st-ok'};
     return {c:'',txt:'Pendiente',cls:''};
   }
@@ -3420,7 +3459,8 @@ window.FamiliaV3=(function(){
   function pintarHoy(u){
     const admin=isAdmin(u);
     let lista=state.tasks.filter(t=>!ocultas.has(t.id)&&!cerrada(t));
-    if(!admin) lista=lista.filter(t=>t.asignada_a===u.id||t.conjunto_con===u.id).filter(t=>t.estado_vencida!=='por_decidir');
+    // v4: el hijo también ve las tareas que un hermano le pasa (pendiente_transferencia, para_quien = su id).
+    if(!admin) lista=lista.filter(t=>t.asignada_a===u.id||t.conjunto_con===u.id||(t.estado==='pendiente_transferencia'&&String(t.para_quien)===String(u.id))).filter(t=>t.estado_vencida!=='por_decidir');
     else lista=lista.filter(t=>t.estado!=='aviso_aprobada');
     lista.sort((a,b)=>(esDeber(b)-esDeber(a))||String(a.titulo).localeCompare(b.titulo));
     const hoy=lista.filter(t=>grupoFecha(t)==='hoy'), venc=lista.filter(t=>grupoFecha(t)==='vencido'), luego=lista.filter(t=>grupoFecha(t)==='luego');
@@ -3431,6 +3471,9 @@ window.FamiliaV3=(function(){
         act=`<button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.verVencida(${t.id})">Ver</button>`;
       if(!admin&&t.estado==='aviso_aprobada')
         act=`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aceptarAprobada(${t.id})">Entendido</button>`;
+      // v4 · traspaso: el hermano destino acepta o rechaza.
+      if(!admin&&t.estado==='pendiente_transferencia'&&String(t.para_quien)===String(u.id))
+        act=`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.traspaso('aceptar',${t.id})">Aceptar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.traspaso('rechazar',${t.id})">Rechazar</button></div>`;
       if(soloLectura()) act='';
       return ficha(t,act);
     };
@@ -3440,7 +3483,9 @@ window.FamiliaV3=(function(){
         <div class="v3-sub">${esc(state._tareasError)}</div><button class="v3-cta" style="margin-top:10px" onclick="FamiliaV3.reintentar()">Reintentar</button></div>`;
       return;
     }
-    let h=admin?`<button class="v3-cta v3-full" style="margin-bottom:12px" onclick="FamiliaV3.crearPaso1()">${svg('mas').replace('v3-ico','v3-ico" style="vertical-align:-5px')} Crear</button>`:'';
+    // v4 · ajuste 5: «Crear» rápido (2 pasos, RPC) + «Crear completo» (formulario de la v1: hora, ícono,
+    // «Junto con», entre padres, inmediata, penalización, repetición de deberes).
+    let h=admin&&!soloLectura()?`<div class="v3-row" style="margin-bottom:12px"><button class="v3-cta" style="flex:1" onclick="FamiliaV3.crearPaso1()">${svg('mas').replace('v3-ico','v3-ico" style="vertical-align:-5px')} Crear</button><button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNueva())">Crear completo</button><button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Tareas: filtros, plantillas y borradores')">Filtros</button></div>`:'';
     h+=hoy.length?hoy.map(fila).join(''):'<p class="v3-sub">Nada para hoy.</p>';
     // Vencidos: el hijo los ve aquí; el padre los decide en «Revisar».
     if(venc.length) h+=`<h2 style="margin-top:14px">Vencidos</h2>`+(admin?`<p class="v3-sub">${venc.length} en «Revisar».</p>`:venc.map(fila).join(''));
@@ -3460,7 +3505,13 @@ window.FamiliaV3=(function(){
       return;
     }
     const a=porAprobar(), v=vencidos();
-    let h=a.map(t=>ficha(t,`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aprobar(${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.devolver(${t.id})">Devolver</button></div>`)).join('');
+    // v4 · traspasos que esperan al padre (Aprobar / Rechazar por RPC).
+    const tr=state.tasks.filter(t=>t.estado==='transferencia_por_aprobar'&&!ocultas.has(t.id));
+    let h0=tr.length?'<h2>Traspasos</h2>'+tr.map(t=>ficha(t,soloLectura()?'':`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.traspaso('aprobar',${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.traspaso('rechazar',${t.id})">Rechazar</button></div>`)).join(''):'';
+    // v4 · mesadas pendientes (tipo 'mesada' sin puntos sumados) — aisladas: RPC provisional.
+    const mp=state.tasks.filter(t=>t.tipo==='mesada'&&!t.puntos_sumados&&t.estado!=='completada'&&!ocultas.has(t.id));
+    if(mp.length) h0+='<h2>Mesadas por cargar</h2>'+mp.map(t=>ficha(t,soloLectura()?'':`<button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.mesadaPendiente(${t.id})">Cargar</button>`)).join('');
+    let h=h0+a.map(t=>ficha(t,`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aprobar(${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.devolver(${t.id})">Devolver</button></div>`)).join('');
     if(v.length){
       h+='<h2 style="margin-top:16px">Vencidos</h2>';
       // F2c: se decide en cualquier estado vencido (por_decidir, pendiente_hijo o formato viejo).
@@ -3472,7 +3523,7 @@ window.FamiliaV3=(function(){
     if(sol.length){
       h+='<h2 style="margin-top:16px">Premios pedidos</h2>'+sol.map(x=>{const r=state.rewards.find(p=>p.id===x.premio_id)||{},k=memberById(x.miembro_id)||{};
         return `<div class="v3-card"><div class="v3-grow"><div class="v3-t">${esc(r.nombre||'Premio')}</div><div class="v3-sub">${esc(k.nombre||'')} · ${Number(r.costo)||0} pts</div></div>
-        <button class="v3-cta" onclick="FamiliaV3.aprobarPremio(${x.id})">Aprobar</button></div>`;}).join('');
+        <div class="v3-row"><button class="v3-cta" onclick="FamiliaV3.aprobarPremio(${x.id})">Aprobar</button><button class="v3-btn2" onclick="FamiliaV3.rechazarPremio(${x.id})">Rechazar</button></div></div>`;}).join('');
     }
     document.getElementById('v3Bandeja').innerHTML=h||'<p class="v3-sub">Nada por revisar.</p>';
   }
@@ -3508,7 +3559,7 @@ window.FamiliaV3=(function(){
   /* --- Historial completo para el ranking (sin el tope de 1.000 de loadAll). --- */
   async function cargarHistorial(){
     try{
-      const r=await supabase.from('familia_historial').select('miembro_id,pts,tipo,creado_en').range(0,49999);
+      const r=await supabase.from('familia_historial').select('miembro_id,pts,tipo,creado_en').is('archivada_en',null).range(0,49999);   // v4: sin archivadas
       if(!r.error) histTotal=r.data||[];
     }catch(e){}
   }
@@ -3526,21 +3577,32 @@ window.FamiliaV3=(function(){
       .map((x,i)=>`<div class="v3-rk"><b>${i+1}</b><span class="v3-grow">${esc(x.m.nombre)}</span><strong>${x.p}</strong></div>`).join('');
     const ini=inicioSemana();
     let h=`<div class="v3-card" style="display:block"><div class="v3-t">${esc(u.nombre)}</div><div class="v3-sub">${esc(u.rol||'')} · ${Number(u.puntos)||0} pts</div>
-      ${soloLectura()?'':'<button class="v3-btn2" style="margin-top:8px" onclick="FamiliaV3.hojaPerfil()">Editar perfil</button>'}${originalAdminId?'<button class="v3-cta" style="margin:8px 0 0 8px" onclick="FamiliaV3.volverAMi()">Volver a mi usuario</button>':''}</div>
-      <h2>Ranking</h2>
-      <div class="v3-seg"><button class="${rkModo==='semana'?'on':''}" onclick="FamiliaV3.ranking('semana')">Semana</button><button class="${rkModo==='total'?'on':''}" onclick="FamiliaV3.ranking('total')">Total</button></div>
-      ${rkModo==='semana'?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · semana según tu hora local · se reinicia el domingo a las 00:00</p>`:''}
-      <div class="v3-card" style="display:block">${filas(state.members.filter(m=>!isAdmin(m)))}
-      <div class="v3-sub" style="margin-top:8px">Padres</div>${filas(state.members.filter(isAdmin))}
-      <p class="v3-sub" style="margin-top:6px">Cuenta lo ganado menos los descuentos. Canjear no resta.</p></div>`;
+      ${soloLectura()?'':'<button class="v3-btn2" style="margin-top:8px" onclick="FamiliaV3.abrirV1(()=>openProfile())">Editar perfil</button>'}${originalAdminId?'<button class="v3-cta" style="margin:8px 0 0 8px" onclick="FamiliaV3.volverAMi()">Volver a mi usuario</button>':''}</div>`;
+    // v4 · ajuste 1: el ranking salió de «Yo» (ahora es pestaña). Aquí: accesos a funciones de la v1.
+    if(!soloLectura()){
+      h+=`<h2 style="margin-top:6px">Más</h2><div class="v3-row">
+        <button class="v3-btn2" onclick="FamiliaV3.hojaMetas()">Metas</button>
+        <button class="v3-btn2" onclick="FamiliaV3.hojaChat()">Chat</button>
+        <button class="v3-btn2" onclick="FamiliaV3.hojaMedallas()">Medallas</button>
+        <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openRewardHistory())">Historial de canjes</button>
+        ${!admin?`<button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openSolicitar())">Solicitar tarea</button><button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openSiblingTask())">Para un hermano</button>`:''}
+      </div>`;
+    }
     // Bloque admin: se agrega al DOM SOLO si es padre (para el hijo no existe, no basta con ocultarlo).
     if(admin){
       h+=`<details class="v3-admin"><summary>Administrar familia</summary><div class="v3-row" style="margin-top:10px">
-        <button class="v3-btn2" onclick="FamiliaV3.hojaIntegrante()">Nuevo integrante</button>
+        <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNewMember())">Nuevo integrante</button>
+        <button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Tareas: filtros, plantillas y borradores')">Lista completa de tareas</button>
+        <button class="v3-btn2" onclick="FamiliaV3.panelV1('section-premios','Premios: editar, apagar, lista base')">Administrar premios</button>
+        <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openDeberes())">Deberes del ciclo</button>
+        <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openPenalty())">Descuento manual</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaVerComo()">Ver como otro</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaPin()">PIN de hijos</button>
-        <button class="v3-btn2" onclick="FamiliaV3.hojaPremio()">Nuevo premio</button></div>
-        <p class="v3-sub" style="margin-top:8px">Mesada y «Resetear todo» llegan cuando BE publique sus RPC (no se hacen con varios pasos desde el teléfono).</p></details>`;
+        <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNewReward())">Nuevo premio</button></div>
+        <div class="v3-row" style="margin-top:8px">
+        <button class="v3-btn2" onclick="FamiliaV3.hojaLote()">Tarea repetitiva</button>
+        <button class="v3-btn2" onclick="FamiliaV3.hojaMesada()">Mesada</button>
+        <button class="v3-btn2 err" onclick="FamiliaV3.hojaReset()">Resetear todo</button></div></details>`;
     }
     // V5b: «Mi historial» del miembro (más reciente primero; incluye «Rechazada · 0 pts» con su motivo).
     const mio=(state.history||[]).filter(x=>x.miembro_id===u.id).slice(0,100);
@@ -3549,18 +3611,256 @@ window.FamiliaV3=(function(){
     document.getElementById('v3Yo').innerHTML=h;
   }
 
+  /* --- v4 · ajustes 1+2: Ranking de hijos con Ganados · Canjeados · Descuentos · Saldo.
+         Cifras de kidLedger de la v1 (mismo cálculo que su ranking); Saldo = miembros.puntos
+         (lo que de verdad le queda). Orden por Ganados y, si empatan, por saldo. Medallas de la v1.
+         «Semana» filtra los movimientos desde el domingo 00:00 de la hora local del dispositivo. --- */
+  function pintarRanking(u){
+    const desde=rkModo==='semana'?inicioSemana():null;
+    const MED=['🥇','🥈','🥉','🍬','⭐','🎈','🍪','🍎','⚽','🎯'];
+    const filas=state.members.filter(isKid).map(k=>{
+      const led=kidLedger(k.id);
+      const mv=desde?led.moves.filter(m=>new Date(m.fecha)>=desde):led.moves;
+      // o = otros ajustes del historial (mesada, manuales, anulaciones…): todo lo que no es ganado, canje ni descuento.
+      let g=0,c=0,d=0,o=0; mv.forEach(m=>{if(m.pts>0&&m.sumaRanking)g+=m.pts; else if(m.tipo==='Premio')c+=-m.pts; else if(m.tipo==='Penalización')d+=-m.pts; else o+=m.pts;});
+      const saldo=Number(k.puntos)||0;
+      // Conciliación (solo Total): g − c − d + o debe dar el saldo real; si no, la diferencia sin
+      // movimiento en el historial se muestra tal cual (nunca se maquilla).
+      const sinReg=desde?0:saldo-(g-c-d+o);
+      return {k,g,c,d,o,saldo,sinReg};
+    }).sort((a,b)=>b.g-a.g||b.saldo-a.saldo);
+    const ini=inicioSemana();
+    document.getElementById('v4Ranking').innerHTML=`<div class="v3-seg"><button class="${rkModo==='semana'?'on':''}" onclick="FamiliaV3.ranking('semana')">Semana</button><button class="${rkModo==='total'?'on':''}" onclick="FamiliaV3.ranking('total')">Total</button></div>
+      ${desde?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · hora local (${esc((u&&u.zona_horaria)||zonaHoraria())})</p>`:''}
+      <div class="v3-card" style="display:block"><div class="v4-rk h"><span></span><span>Hijo</span><span class="n">Ganados</span><span class="n">Canjeados</span><span class="n">Desc.</span><span class="n">Saldo</span></div>
+      ${filas.map((x,i)=>`<div class="v4-rk" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.abrirV1(()=>openBalance(${x.k.id}))" title="Ver saldo detallado"><span>${MED[i]||(i+1)+'.'}</span><span>${esc(x.k.nombre)}</span><span class="n v3-st-ok">${x.g}</span><span class="n">${x.c}</span><span class="n v3-st-err">${x.d}</span><strong class="n">${x.saldo}</strong></div>${!desde&&(x.o||x.sinReg)?`<div class="v3-sub" style="padding:0 0 6px 34px">${x.o?`Otros ajustes (mesada, manual): ${x.o>0?'+':''}${x.o}`:''}${x.o&&x.sinReg?' · ':''}${x.sinReg?`<span class="v3-st-warn">Diferencia sin registro en el historial: ${x.sinReg>0?'+':''}${x.sinReg}</span>`:''}</div>`:''}`).join('')||'<p class="v3-sub">Sin hijos</p>'}
+      <p class="v3-sub" style="margin-top:6px">${desde?'En «Semana» las columnas son de esta semana; Saldo es el de hoy (no se concilia).':'Ganados − Canjeados − Descuentos + Otros ajustes = Saldo.'} Toca un hijo para ver su saldo detallado.</p></div>`;
+  }
+
+  /* --- Zona horaria del navegador: se guarda en el dispositivo (no hay columna en BD; ver bitácora). --- */
+  /* Guarda la zona del navegador en familia_miembros.zona_horaria (F4d) SOLO para el miembro que
+     realmente usa la app (no en «Ver como») y SOLO si cambió; una vez por sesión y miembro. */
+  const tzGuardada=new Set();
+  async function guardarZona(u){
+    if(!u||soloLectura()||tzGuardada.has(u.id)) return;
+    tzGuardada.add(u.id);
+    const z=zonaHoraria(); if(z==='local'||u.zona_horaria===z) return;
+    const {error}=await supabase.from('familia_miembros').update({zona_horaria:z}).eq('id',u.id);
+    if(error){tzGuardada.delete(u.id);return;}   // se reintenta en el próximo pintado
+    u.zona_horaria=z;
+  }
+  function zonaHoraria(){
+    let z='local'; try{z=Intl.DateTimeFormat().resolvedOptions().timeZone||'local';}catch(e){}
+    try{localStorage.setItem('familia_tz',z);}catch(e){}
+    return z;
+  }
+
+  /* --- Puente a la v1: cierra la hoja v3 y llama a la función de la v1 (abre su modal por encima). --- */
+  function abrirV1(fn){cerrarHoja(); try{fn();}catch(e){showToast('No se pudo abrir: '+e.message);}}
+  /* --- Panel: mueve una sección de la v1 (con sus filtros y botones) a un panel de la v3 y la devuelve al cerrar. --- */
+  let renderV1Ref=null;
+  let panelNodo=null, panelPadre=null, panelSig=null;
+  function panelV1(id,titulo){
+    cerrarPanel(); cerrarHoja();
+    const n=document.getElementById(id); if(!n) return;
+    panelNodo=n; panelPadre=n.parentNode; panelSig=n.nextSibling;
+    document.getElementById('v4PanelTit').textContent=titulo+(soloLectura()?' · solo lectura':'');
+    document.getElementById('v4PanelBody').appendChild(n);
+    document.getElementById('v4Panel').classList.add('on');
+    try{renderV1Ref&&renderV1Ref();}catch(e){}   // la v1 repinta su sección (filtros, listas, botones de admin)
+  }
+  function cerrarPanel(){
+    if(panelNodo&&panelPadre){panelPadre.insertBefore(panelNodo,panelSig);}
+    panelNodo=null; document.getElementById('v4Panel').classList.remove('on');
+  }
+  /* --- Guarda de solo lectura: en modo v3 + «Ver como», toda función de la v1 que escribe en la BD
+         y se dispara por un botón queda bloqueada (se envuelve la función global; la v1 sola no cambia
+         porque la guarda solo actúa con la v3 encendida). Quedan fuera las escrituras de fondo de la carga
+         (expireWindows, ensureBaseRewards, activateDueDrafts, consumeDeepLink, maybeAskCycle) y closeNotifs. --- */
+  ['savePlantilla','deletePlantilla','dismissNotif','createTask','seedBaseRewards','activateTask','discardDraft','deleteTask','saveTaskFicha',
+   'submitEvidence','confirmApproval','confirmMiss','returnTask','rejectTask','acceptExpired','acceptChildNotice','confirmTransfer','acceptTransfer',
+   'approveTransfer','rejectTransfer','applyPenalty','saveReward','requestPrize','approvePrize','rejectPrize','redeemReward','saveProfile',
+   'confirmResetAll','resetOneKidPin','createGoal','sendMessage','createMember','solicitarTarea','cargarMesada','cargarMesadaPendiente',
+   'toggleDeber','saveDeber','repartirDeberes'].forEach(n=>{
+    const f=window[n]; if(typeof f!=='function') return;
+    window[n]=function(){ if(activo()&&soloLectura()){showToast('Modo «Ver como»: solo lectura'); return;} return f.apply(this,arguments); };
+  });
+
+  /* =================== v4 Ola 2 · RPC de la guía guia-FE-rpc-v4.md ===================
+     Reglas: guarda «Ver como» (soloLectura) en toda escritura, client_req_id por intención
+     (reqId: nace en el primer toque, se reutiliza en reintentos, se borra al éxito), error ≠ vacío. */
+  async function rpcIntento(clave,nombre,args){
+    if(soloLectura()){showToast('Modo «Ver como»: solo lectura');return null;}
+    if(enCurso.has(clave)) return null; enCurso.add(clave);
+    try{
+      const d=await rpc(nombre,Object.assign({p_actor_id:state.currentUserId,p_client_req_id:reqId(clave)},args));
+      if(d){delete reqIds[clave]; if(d.idempotente) showToast('Ya estaba aplicado');}
+      return d;
+    }finally{enCurso.delete(clave);}
+  }
+  /* Traspaso entre hermanos: pasar (dueño) · aceptar (destino) · rechazar (destino o padre) · aprobar (padre). */
+  async function traspaso(acc,id){
+    const args={p_tarea_id:id};
+    if(acc==='pasar'){const sel=document.getElementById('v4Herm'); if(!sel||!sel.value) return showToast('Selecciona un hermano'); args.p_para_id=+sel.value;}
+    const d=await rpcIntento('t'+acc+id,'familia_rpc_traspaso_'+acc,args); if(!d) return;
+    cerrarHoja(); if(!d.idempotente) showToast({pasar:'Se la pasaste; falta que acepte',aceptar:'Aceptada; falta que papá/mamá apruebe',rechazar:'Traspaso rechazado',aprobar:'Traspaso aprobado'}[acc]);
+    loadAll();
+  }
+  /* Rechazar premio pedido (motivo opcional, lo ve el hijo). */
+  async function rechazarPremio(sid){
+    const m=prompt('Motivo (opcional, lo verá el hijo)'); if(m===null) return;
+    const d=await rpcIntento('rp'+sid,'familia_rpc_rechazar_premio',{p_solicitud_id:sid,p_motivo:m.trim()||null}); if(!d) return;
+    if(!d.idempotente) showToast('Premio no aprobado'); loadAll();
+  }
+  /* Tarea repetitiva (lote): la BD reparte y calcula fechas hasta fin de mes. Sin p_zona (decisión BE:
+     el servidor usa miembro.zona_horaria → familia_config → 'Europe/Madrid'; devuelve `zona`).
+     p_inicio va en ISO UTC (confirmado). p_icono se omite (default de la BD '📋'). */
+  function hojaLote(){
+    if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
+    const hijos=state.members.filter(isKid).slice().sort(byName);
+    const d=new Date(); d.setMinutes(0,0,0); d.setHours(d.getHours()+1);
+    const loc=new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+    reqId('lote');   // la intención nace al abrir el formulario
+    abrirHoja(`<h3>Tarea repetitiva</h3>
+      <label>Título</label><input id="v4lTit" maxlength="120">
+      <label>Clase</label><select id="v4lClase"><option value="tarea">Tarea (suma)</option><option value="deber">Deber (obligatorio)</option></select>
+      <label>Puntos</label><input id="v4lPts" type="number" min="0" value="10">
+      <label>Primera vez</label><input id="v4lIni" type="datetime-local" value="${loc}">
+      <label>Repetir</label><select id="v4lRec"><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option></select>
+      <label>Veces al día (1–4)</label><input id="v4lVeces" type="number" min="1" max="4" value="1">
+      <label>Tiempo para hacerla (min)</label><input id="v4lVen" type="number" min="1" value="60">
+      <label>Descuento si se pasa (pts)</label><input id="v4lPen" type="number" min="0" value="0">
+      <label>Para</label><div>${hijos.map(m=>`<label style="display:flex;gap:6px;align-items:center;margin:4px 0;color:#1e293b"><input type="checkbox" class="v4lHijo" value="${m.id}" style="width:auto">${esc(m.nombre)}</label>`).join('')}</div>
+      <label>Reparto</label><select id="v4lModo"><option value="uno">Un solo hijo</option><option value="entre">Turnar entre los marcados (al azar)</option><option value="cada_uno">Cada uno la suya</option></select>
+      <label>Estado inicial</label><select id="v4lEst"><option value="pendiente">Activa</option><option value="borrador">Borrador</option></select>
+      <p class="v3-sub" style="margin-top:8px">Las fechas llegan hasta el último día del mes. La BD reparte y omite duplicados a menos de 12 h.</p>
+      <button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.previaLote()">Ver fechas (estimado)</button>
+      <div id="v4lPrev" class="v3-sub" style="margin-top:8px"></div>
+      <button class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.guardarLote()">Crear</button>`);
+  }
+  /* Vista previa ESTIMADA del lote, solo en el navegador (misma lógica que projectSlots de la v1:
+     desde la primera vez hasta el último día del mes; diaria 1–4 veces repartidas en el día, semanal
+     cada 7 días, mensual una sola). El reparto «entre» baraja aquí y la BD vuelve a barajar: lo real
+     es lo que devuelve la RPC. No escribe nada (también se puede ver en «Ver como»). */
+  function fechasLote(ini,rec,veces){
+    const out=[]; if(isNaN(ini)) return out;
+    const fin=new Date(ini.getFullYear(),ini.getMonth()+1,0,23,59,59,999);
+    if(rec==='monthly'){out.push(new Date(ini));return out;}
+    const paso=rec==='weekly'?7:1, cur=new Date(ini); let g=0;
+    while(cur<=fin&&g++<40){
+      const n=rec==='daily'?veces:1, h0=ini.getHours(), m0=ini.getMinutes();
+      for(let i=0;i<n;i++){
+        const at=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate(),h0,m0,0,0);
+        if(n>1){const hop=Math.max(1,Math.floor(Math.max(0,23-h0)/Math.max(1,n-1))||1); at.setHours(h0+i*hop,m0,0,0);}
+        if(at.getDate()!==cur.getDate()) continue;
+        if(at>=ini&&at<=fin) out.push(at);
+      }
+      cur.setDate(cur.getDate()+paso);
+    }
+    return out;
+  }
+  function previaLote(){
+    const v=id=>document.getElementById(id).value;
+    const ini=new Date(v('v4lIni')), veces=Math.min(4,Math.max(1,parseInt(v('v4lVeces'),10)||1));
+    const hijos=[...document.querySelectorAll('.v4lHijo:checked')].map(c=>memberById(+c.value)).filter(Boolean);
+    const box=document.getElementById('v4lPrev');
+    if(!hijos.length){box.textContent='Marca al menos un hijo para ver el reparto.';return;}
+    const fechas=fechasLote(ini,v('v4lRec'),veces), modo=v('v4lModo');
+    let filas=[];
+    if(modo==='cada_uno') fechas.forEach(f=>hijos.forEach(k=>filas.push([f,k])));
+    else if(modo==='entre'){const b=shuffle(hijos); fechas.forEach((f,i)=>filas.push([f,b[i%b.length]]));}
+    else fechas.forEach(f=>filas.push([f,hijos[0]]));
+    if(!filas.length){box.innerHTML='<span class="v3-st-warn">No quedan fechas en lo que queda del mes.</span>';return;}
+    const fmt=d=>d.toLocaleString('es-CO',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    box.innerHTML=`<strong>Estimado: ${filas.length} tarea(s)</strong> · la BD confirma el reparto real y omite duplicados a menos de 12 h${filas.length>200?' · <span class="v3-st-err">supera el máximo de 200</span>':''}
+      <div style="max-height:30vh;overflow-y:auto;margin-top:6px;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px">${filas.slice(0,80).map(([f,k])=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0"><span>${esc(fmt(f))}</span><span>${esc(k.nombre)}</span></div>`).join('')}${filas.length>80?`<div>… y ${filas.length-80} más</div>`:''}</div>`;
+  }
+  async function guardarLote(){
+    const v=id=>document.getElementById(id).value, n=(id,def)=>{const x=parseInt(v(id),10);return isNaN(x)?def:x;};
+    const hijos=[...document.querySelectorAll('.v4lHijo:checked')].map(c=>+c.value);
+    const tit=v('v4lTit').trim(); if(!tit) return showToast('Escribe el título'); if(!hijos.length) return showToast('Marca al menos un hijo');
+    const ini=new Date(v('v4lIni')); if(isNaN(ini)) return showToast('Fecha inválida');
+    const d=await rpcIntento('lote','familia_rpc_crear_lote',{p_titulo:tit,p_clase:v('v4lClase'),p_puntos:Math.max(0,n('v4lPts',0)),
+      p_inicio:ini.toISOString(),p_recurrencia:v('v4lRec'),p_veces:Math.min(4,Math.max(1,n('v4lVeces',1))),p_ventana_min:Math.max(1,n('v4lVen',60)),
+      p_penal:Math.max(0,n('v4lPen',0)),p_hijos:hijos,p_modo:v('v4lModo'),p_estado:v('v4lEst')});   // sin p_icono (default '📋') ni p_zona
+    if(!d) return;   // error: se conserva el req id para reintentar
+    abrirHoja(`<h3 class="v3-st-ok">Creadas ${Number(d.n)||((d.ids||[]).length)}</h3><p class="v3-sub">${esc(tit)} · hasta fin de mes${d.zona?' (zona '+esc(d.zona)+')':''}.</p><button class="v3-cta v3-full" style="margin-top:12px" onclick="FamiliaV3.cerrarHoja()">Listo</button>`);
+    loadAll();
+  }
+  /* Mesada (todos o un hijo) · guía final rev.2: {ok,idempotente,miembros:[ids],pts}. */
+  function hojaMesada(){
+    if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
+    reqId('mesada');
+    const hijos=state.members.filter(isKid).slice().sort(byName);
+    abrirHoja(`<h3>Mesada</h3><label>Hijo</label><select id="v4mKid"><option value="">Todos</option>${hijos.map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('')}</select>
+      <label>Puntos</label><input id="v4mPts" type="number" min="1" value="50"><button class="v3-cta v3-full" style="margin-top:12px" onclick="FamiliaV3.guardarMesada()">Cargar</button>`);
+  }
+  async function guardarMesada(){
+    const pts=parseInt(document.getElementById('v4mPts').value,10)||0; if(pts<=0) return showToast('Escribe los puntos');
+    const k=document.getElementById('v4mKid').value;
+    const d=await rpcIntento('mesada','familia_rpc_mesada',{p_pts:pts,p_miembro_id:k?+k:null}); if(!d) return;
+    cerrarHoja(); if(!d.idempotente) showToast('Mesada cargada: +'+(d.pts||pts)+' pts a '+((d.miembros||[]).length||1)+' hijo(s)'); loadAll();
+  }
+  async function mesadaPendiente(id){
+    const d=await rpcIntento('mp'+id,'familia_rpc_mesada_pendiente',{p_tarea_id:id}); if(!d) return;
+    if(!d.idempotente) showToast('Mesada cargada'); loadAll();
+  }
+  /* Resetear todo · guía final rev.2: solo archiva (archivada_en), puntos a 0; devuelve conteos archivados. */
+  function hojaReset(){
+    if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
+    reqId('reset');
+    abrirHoja(`<h3 class="v3-st-err">Resetear todo</h3><p class="v3-sub">Archiva tareas e historial (no se borran) y deja los puntos en 0. Escribe RESETEAR para confirmar.</p>
+      <input id="v4rConf" autocomplete="off"><button class="v3-btn2 err v3-full" style="margin-top:12px" onclick="FamiliaV3.confirmarReset()">Resetear</button>`);
+  }
+  async function confirmarReset(){
+    const c=document.getElementById('v4rConf').value.trim(); if(c!=='RESETEAR') return showToast('Escribe RESETEAR');
+    const d=await rpcIntento('reset','familia_rpc_resetear_todo',{p_confirmacion:c}); if(!d) return;
+    // Resumen con los conteos que devuelve la RPC (filas archivadas, no borradas).
+    abrirHoja(`<h3>${d.idempotente?'Ya estaba aplicado':'Listo: todo archivado'}</h3><p class="v3-sub" style="margin:8px 0">Tareas archivadas: ${Number(d.tareas)||0} · Movimientos del historial: ${Number(d.historial)||0} · Integrantes con puntos en 0: ${Number(d.miembros)||0}</p>
+      <button class="v3-cta v3-full" onclick="FamiliaV3.cerrarHoja()">Listo</button>`);
+    loadAll();
+  }
+
+  /* --- Hojas que reutilizan funciones de la v1 con sus mismos id de elementos. --- */
+  function hojaMetas(){
+    abrirHoja(`<h3>Mis metas</h3><div id="goalList"></div><label>Nueva meta</label><input id="goalTitle" maxlength="80"><label>Puntos</label><input id="goalPoints" type="number" min="1" value="100">
+      <button class="v3-cta v3-full" style="margin-top:12px" onclick="createGoal()">Guardar meta</button>`);
+    renderGoals();
+  }
+  function hojaChat(){
+    const u=currentUser();
+    abrirHoja(`<h3>Chat</h3><select id="chatTo" onchange="renderChat()"><option value="">Grupo</option>${state.members.filter(m=>m.id!==u.id).map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('')}</select>
+      <div id="chatMessages" style="max-height:45vh;overflow-y:auto;margin:10px 0"></div><input id="chatInput" maxlength="500" placeholder="Escribe…">
+      <button class="v3-cta v3-full" style="margin-top:8px" onclick="sendMessage().then(()=>setTimeout(renderChat,900))">Enviar</button>`);
+    renderChat();
+  }
+  function hojaMedallas(){abrirHoja(`<h3>Medallas</h3><div id="badgeList"></div>`); renderBadges();}
+
   /* --- Pintado general: cabecera, nav, contador de bandeja y sección activa. --- */
   function pintar(){
     const u=currentUser(); if(!u) return;
     const admin=isAdmin(u);
     document.getElementById('v3Fam').textContent=familyTitleText();
+    // v4 · ajuste 5: datos de quien usa la app (mismo avatar que la v1 con paintAvatar).
+    paintAvatar(document.getElementById('v4Av'),u);
+    document.getElementById('v4Nom').textContent=u.nombre||'';
+    const edad=typeof ageOf==='function'?ageOf(u):null;
+    document.getElementById('v4Rol').textContent=(u.rol||'')+(admin?' · Admin':'')+(edad?' · '+edad+' años':'');
+    document.getElementById('v4Frase').textContent=u.frase||'';
+    const noLeidas=(state.notifs||[]).filter(x=>x.para_id===u.id&&!x.leida).length;
+    document.getElementById('v4Bell').innerHTML=svg('campana')+(noLeidas?`<span class="v3-dot">${noLeidas}</span>`:'');
+    document.body.classList.add('v3-modo');
+    // «Ver como»: marca de solo lectura para los paneles y modales de la v1.
+    document.body.classList.toggle('v4-ro',soloLectura());
+    guardarZona(u);
     document.getElementById('v3Pts').textContent=(Number(u.puntos)||0)+' pts';
-    const n=porAprobar().length+solicitudesPendientes().length+vencidos().length;
+    const n=porAprobar().length+solicitudesPendientes().length+vencidos().length+state.tasks.filter(t=>t.estado==='transferencia_por_aprobar').length;
     const ib=document.getElementById('v3InboxBtn');
     ib.style.display=admin?'':'none';
     ib.innerHTML=svg('bandeja')+(n?`<span class="v3-dot">${n}</span>`:'');
     ib.setAttribute('aria-label','Por aprobar, '+n);
-    const tabs=[['hoy','Hoy','hoy'],['premios','Premios','premio'],['yo','Yo','yo']];
+    // v4 · ajuste 1: pestaña propia de Ranking (lista solo hijos, como la v1), visible para todos.
+    const tabs=[['hoy','Hoy','hoy'],['premios','Premios','premio'],['ranking','Ranking','trofeo'],['yo','Yo','yo']];
     if(admin) tabs.splice(1,0,['bandeja','Revisar','bandeja']);
     if(!admin&&seccion==='bandeja') seccion='hoy';
     document.getElementById('v3Nav').innerHTML=tabs.map(([k,l,i])=>`<button class="${seccion===k?'on':''}" onclick="FamiliaV3.ir('${k}')" aria-label="${l}">${svg(i)}${l}</button>`).join('');
@@ -3568,6 +3868,7 @@ window.FamiliaV3=(function(){
     if(seccion==='hoy') pintarHoy(u);
     if(seccion==='bandeja') pintarBandeja();
     if(seccion==='premios') pintarPremios(u);
+    if(seccion==='ranking') pintarRanking(u);
     if(seccion==='yo') pintarYo(u);
   }
 
@@ -3687,13 +3988,18 @@ window.FamiliaV3=(function(){
   /* --- Detalle de un ítem: la foto se pide SOLO aquí, por id (la lista nunca la trae en v3). --- */
   async function detalle(id){
     const t=state.tasks.find(x=>x.id===id); if(!t) return;
-    const e=estadoDe(t);
-    abrirHoja(`<h3>${esc(t.titulo)}</h3><p class="v3-sub" style="margin:6px 0"><span class="v3-chip ${esDeber(t)?'deber':''}">${esDeber(t)?'Deber':'Tarea'}</span> <span class="${e.cls}">${esc(e.txt)}</span>${t.fecha_limite?' · vence '+new Date(t.fecha_limite).toLocaleString('es-CO',{weekday:'short',hour:'2-digit',minute:'2-digit'}):''}</p>
+    const e=estadoDe(t), quien=memberById(t.asignada_a), junto=memberById(t.conjunto_con);
+    // v4 · ajuste 3: nombre, tipo, abre/cierra/cerrada (windowBlock + closedAt de la v1) y franja con el color del hijo.
+    abrirHoja(`<div style="border-left:6px solid ${esc((quien&&quien.color)||'#9ca3af')};padding-left:10px"><h3>${esc(t.titulo)}</h3>
+      <p class="v3-sub" style="margin:6px 0"><span class="v3-chip ${esDeber(t)?'deber':''}">${esDeber(t)?'Deber':'Tarea'}</span> <span class="${e.cls}">${esc(e.txt)}</span></p>
+      <p class="v3-sub">${quien?'Para: '+esc(quien.nombre):''}${junto?' · junto con '+esc(junto.nombre):''}${' · '+(Number(t.puntos)||0)+' pts'}${(t.pierde_pts||t.puntos_penalizacion_dia)?' · <span class="v3-st-err">Descuento −'+(Number(t.pierde_pts||t.puntos_penalizacion_dia)||0)+' pts</span>':''}</p>
+      <p class="v3-sub" style="margin-top:4px">${windowBlock(t)||'Sin ventana definida'}</p></div>
+      ${isAdmin(currentUser())&&!soloLectura()?`<button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.abrirV1(()=>openTaskCard(${t.id}))">Editar / eliminar (ficha completa)</button>`:''}
       ${t.comentario_completado?`<p class="v3-sub">«${esc(t.comentario_completado)}»</p>`:''}${comentAprob(t)&&/aprob|complet/.test(t.estado)?`<p class="v3-sub v3-st-ok">Papá/mamá: «${esc(comentAprob(t))}»</p>`:''}<div id="v3Foto" class="v3-sub">Cargando evidencia…</div>
       ${isAdmin(currentUser())&&!soloLectura()&&t.estado==='esperando_aprobacion'?`<label class="v3-sub" style="display:block;margin-top:10px">Comentario al aprobar (opcional)</label><input id="v3cAprob" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px"><button class="v3-cta v3-full" style="margin-top:8px" onclick="FamiliaV3.aprobar(${t.id},document.getElementById('v3cAprob').value.trim())">Aprobar</button>`:''}
       ${accionesHijo(t)}${accionesPadre(t)}
       <button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.cerrarHoja()">Cerrar</button>`);
-    const {data,error}=await supabase.from('familia_tareas').select('foto_url,foto_2,foto_path,foto_2_path').eq('id',id).maybeSingle();
+    const {data,error}=await supabase.from('familia_tareas').select('foto_url,foto_2,foto_path,foto_2_path').eq('id',id).is('archivada_en',null).maybeSingle();   // v4: sin archivadas
     const box=document.getElementById('v3Foto'); if(!box) return;
     const fotos=error||!data?[]:[data.foto_url,data.foto_2].filter(f=>typeof f==='string'&&/^(data:image\/|https:)/.test(f));
     box.innerHTML=fotos.length?fotos.map(f=>`<img src="${esc(f)}" alt="Evidencia" style="max-width:100%;border-radius:10px;margin-top:8px">`).join(''):(error?esc(error.message):'Sin foto.');
@@ -3710,7 +4016,13 @@ window.FamiliaV3=(function(){
   }
   function accionesHijo(t){
     const u=currentUser(); if(!puedeEnviar(t,u)) return '';
-    return `<label class="v3-sub" style="display:block;margin-top:10px">Comentario (opcional)</label><input id="v3eCom" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px">
+    // v4 · pasar a un hermano (solo el dueño, tarea pendiente).
+    const herm=state.members.filter(m=>isKid(m)&&m.id!==u.id);
+    // Paridad exacta con v1: pendiente, hijo dueño, no es transferencia y ventana 'ready' (puedeEnviar ya exige ready).
+    const pase=t.asignada_a===u.id&&t.estado==='pendiente'&&!t.es_transferencia&&herm.length?`<details style="margin-top:10px"><summary class="v3-sub">Pasar a un hermano</summary>
+      <select id="v4Herm" style="width:100%;padding:9px;margin-top:6px">${herm.map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('')}</select>
+      <button class="v3-btn2 v3-full" style="margin-top:6px" onclick="FamiliaV3.traspaso('pasar',${t.id})">Pasar</button></details>`:'';
+    return pase+`<label class="v3-sub" style="display:block;margin-top:10px">Comentario (opcional)</label><input id="v3eCom" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px">
       <label class="v3-sub" style="display:block;margin-top:8px">Foto de evidencia (opcional)</label><input id="v3eFoto" type="file" accept="image/*" capture="environment">
       <button class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.enviar(${t.id})">Ya la hice</button>`;
   }
@@ -3890,6 +4202,7 @@ window.FamiliaV3=(function(){
 
   /* --- Gancho al render de la v1: si el interruptor está encendido, se muestra la v3. --- */
   const renderV1=render;
+  renderV1Ref=renderV1;   // para que el panel v4 repinte la sección de la v1
   render=function(){
     renderV1.apply(this,arguments);
     // Se recuerda el modo para que la próxima carga ya pida columnas sin fotos.
@@ -3898,7 +4211,17 @@ window.FamiliaV3=(function(){
     // M1: si se pasa de v3 a v1 (interruptor apagado), la carga anterior vino SIN fotos;
     // se recarga una vez con '*' para que la v1 tenga sus fotos (solo en la transición, sin bucle).
     if(!activo()&&antes==='1') setTimeout(()=>loadAll(),0);
-    if(activo()) quitarFotos();
+    if(activo()){
+      quitarFotos();
+      // v4: contadores y totales salen de state.tasks/state.history; si esta carga vino sin el filtro
+      // (primera vez, aún sin saber el modo), se quitan aquí las filas archivadas.
+      state.tasks=(state.tasks||[]).filter(t=>!t.archivada_en);
+      state.history=(state.history||[]).filter(h=>!h.archivada_en);
+      // v4 · campana: se ocultan (y no cuentan) los avisos cuya tarea ya no está en la lista cargada
+      // (archivada por «Resetear todo» o eliminada). Los avisos sin tarea (premios, etc.) se quedan.
+      const vivas=new Set(state.tasks.map(t=>Number(t.id)));
+      state.notifs=(state.notifs||[]).filter(x=>x.tarea_id==null||vivas.has(Number(x.tarea_id)));
+    }
     const on=activo()&&!!currentUser()&&!false;
     const app=document.getElementById('v3App');
     if(on){
@@ -3931,7 +4254,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {activo,ir,previaLote,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
