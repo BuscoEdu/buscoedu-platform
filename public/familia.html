@@ -2282,8 +2282,9 @@ async function confirmApproval(id){
   if(siblingPay) pts=Number(t.puntos)||0;
   if(taskAudience(t)==='kid'){
     const ptsToStore=siblingPay?(Number(t.puntos)||0):(awardsPoints(t)?Math.max(0, Number(t.puntos)||0):0);
+    /* F0 v3 (BE, 24-oct-2026): ya no se borran foto_url/foto_2 al aprobar/cerrar; la evidencia se conserva para el historial. */
     const {error}=await supabase.from('familia_tareas').update({
-      estado:'aviso_aprobada',comentario_aprobacion:comment||null,puntos_aplicados:ptsToStore,puntos_sumados:false,foto_url:null,foto_2:null
+      estado:'aviso_aprobada',comentario_aprobacion:comment||null,puntos_aplicados:ptsToStore,puntos_sumados:false
     }).eq('id',id);
     if(error) return showToast(error.message);
     if(who) await supabase.from('familia_notificaciones').insert({para_id:who.id,tipo:'tarea',tarea_id:id,texto:'Revisa: aprobaron '+(t.titulo||'la tarea')});
@@ -2292,7 +2293,8 @@ async function confirmApproval(id){
     loadAll();
     return;
   }
-  const {data,error}=await supabase.from('familia_tareas').update({estado:'completada',comentario_aprobacion:comment||null,puntos_sumados:true,puntos_aplicados:siblingPay?0:pts,cerrado_en:new Date().toISOString(),foto_url:null,foto_2:null}).eq('id',id).or('puntos_sumados.is.null,puntos_sumados.eq.false').select('id');
+  /* F0 v3 (FE, 24-oct-2026): se conserva foto_url/foto_2; antes se ponían en null y se perdía la evidencia. */
+  const {data,error}=await supabase.from('familia_tareas').update({estado:'completada',comentario_aprobacion:comment||null,puntos_sumados:true,puntos_aplicados:siblingPay?0:pts,cerrado_en:new Date().toISOString()}).eq('id',id).or('puntos_sumados.is.null,puntos_sumados.eq.false').select('id');
   if(error) return showToast(error.message);
   if(!data||!data.length) return showToast('Los puntos de esta tarea ya se sumaron');
   if(siblingPay&&who&&creator){
@@ -2348,7 +2350,10 @@ async function returnTask(id){
   if(!requireAdmin()) return;
   const t=state.tasks.find(x=>x.id===id);
   const comment=document.getElementById('fichaApprovalComment').value.trim();
-  const {error}=await supabase.from('familia_tareas').update({estado:'pendiente',comentario_aprobacion:comment||null,foto_url:null,foto_2:null}).eq('id',id);
+  /* F1 v3: al devolver, la evidencia actual se guarda en foto_anterior/foto_2_anterior (columnas BD F1)
+     y luego se vacían foto_url/foto_2 para que el hijo reenvíe; así no se pierde la foto devuelta. */
+  const {error}=await supabase.from('familia_tareas').update({estado:'pendiente',comentario_aprobacion:comment||null,
+    foto_anterior:(t&&t.foto_url)||null,foto_2_anterior:(t&&t.foto_2)||null,foto_url:null,foto_2:null}).eq('id',id);
   if(error) return showToast(error.message);
   await supabase.from('familia_historial').insert({miembro_id:t?.asignada_a,texto:`Devuelta: ${t?.titulo||'tarea'}${comment?' · '+comment:''}`,tarea_id:id});
   showToast('Devuelta para rehacer');
@@ -2360,8 +2365,9 @@ async function rejectTask(id){
   const t=state.tasks.find(x=>x.id===id);
   if(!t) return;
   const comment=document.getElementById('fichaApprovalComment')?document.getElementById('fichaApprovalComment').value.trim():'';
+  /* F0 v3 (FE, 24-oct-2026): se conserva foto_url/foto_2; antes se ponían en null y se perdía la evidencia. */
   const {error}=await supabase.from('familia_tareas').update({
-    estado:'aviso_rechazada',comentario_aprobacion:comment||null,puntos_aplicados:0,puntos_sumados:false,foto_url:null,foto_2:null
+    estado:'aviso_rechazada',comentario_aprobacion:comment||null,puntos_aplicados:0,puntos_sumados:false
   }).eq('id',id);
   if(error) return showToast(error.message);
   if(t.asignada_a) await supabase.from('familia_notificaciones').insert({para_id:t.asignada_a,tipo:'tarea',tarea_id:id,texto:'Revisa: no se tuvo en cuenta '+(t.titulo||'la tarea')});
@@ -2388,8 +2394,9 @@ async function acceptChildNotice(id){
   let delta=0;
   if(aviso==='aviso_aprobada') delta=Math.max(0, Number(t.puntos_aplicados)||0);
   if(aviso==='aviso_vencida') delta=-(Math.max(0, Number(t.puntos_penalizacion_dia)||0));
+  /* F0 v3 (FE, 24-oct-2026): se conserva foto_url/foto_2; antes se ponían en null y se perdía la evidencia. */
   const {data,error}=await supabase.from('familia_tareas').update({
-    estado:'completada',puntos_sumados:true,puntos_aplicados:delta,cerrado_en:new Date().toISOString(),foto_url:null,foto_2:null
+    estado:'completada',puntos_sumados:true,puntos_aplicados:delta,cerrado_en:new Date().toISOString()
   }).eq('id',id).or('puntos_sumados.is.null,puntos_sumados.eq.false').select('id');
   if(error) return showToast(error.message);
   if(!data||!data.length) return showToast('Ya estaba cerrada');
