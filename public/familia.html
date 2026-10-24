@@ -814,7 +814,9 @@ function memberOptions(selected, opts){
    foto_2_anterior, foto_path, foto_2_path). En modo v1 se sigue pidiendo '*' (sin cambios).
    El modo se decide con lo último que dijo familia_config (guardado en el dispositivo),
    porque en la primera carga la config todavía no ha llegado. */
-const V3_COLS_TAREAS='id,titulo,descripcion,puntos,recurrencia,icono,asignada_a,conjunto_con,para_quien,tipo,clase,inmediata,estado,estado_vencida,creada_por,puntos_sumados,puntos_aplicados,puntos_penalizacion_dia,resta_por_minuto,max_negativo,pierde_pts,habilita_en,fecha_limite,ventana_horas,ventana_min,marcada_en,cerrado_en,creado_en,comentario,comentario_completado,comentario_aprobacion,evidencia_2,es_transferencia,duplicada_de,client_req_id';
+// QA v5 fix 2: se quitó «comentario» (no existe en prod: «column familia_tareas.comentario does not exist»); el resto
+// está en las SQL v3/v4 o lo escribe la v1 en prod. comentAprob() ya tolera t.comentario indefinido.
+const V3_COLS_TAREAS='id,titulo,descripcion,puntos,recurrencia,icono,asignada_a,conjunto_con,para_quien,tipo,clase,inmediata,estado,estado_vencida,creada_por,puntos_sumados,puntos_aplicados,puntos_penalizacion_dia,resta_por_minuto,max_negativo,pierde_pts,habilita_en,fecha_limite,ventana_horas,ventana_min,marcada_en,cerrado_en,creado_en,comentario_completado,comentario_aprobacion,evidencia_2,es_transferencia,duplicada_de,client_req_id';
 function columnasTareas(){return localStorage.getItem('familia_v3_on')==='1'?V3_COLS_TAREAS:'*';}
 /* v4 Ola 2: «Resetear todo» archiva (archivada_en) en vez de borrar. En modo v3/v4 toda lectura de
    tareas e historial filtra archivada_en IS NULL; en modo v1 la consulta queda igual que antes. */
@@ -4076,7 +4078,9 @@ window.FamiliaV3=(function(){
       const {data,error}=await supabase.from('familia_tareas').select(V3_COLS_TAREAS).eq('id',nid).maybeSingle();
       if(error) return showToast('No se pudo comprobar la tarea: '+error.message);
       if(!data) return showToast('No se pudo: la tarea no quedó guardada. Intenta de nuevo.');
-      delete reqIds[k]; if(!state.tasks.some(x=>x.id===data.id)) state.tasks.unshift(data); cerrarHoja(); pintar(); detalle(data.id);
+      // QA v5 fix 2: al guardar se cierra la hoja y se avisa con un toast de éxito.
+      delete reqIds[k]; if(!state.tasks.some(x=>x.id===data.id)) state.tasks.unshift(data); cerrarHoja(); pintar();
+      showToast('Listo: «'+data.titulo+'» quedó en tu Hoy. Tienes 2 h para hacerla.');
     }finally{enCurso.delete(k);}
   }
   /* --- v5 ítem 8 (D1): Catálogo = sección de tareas de la v1 en modo «Definiciones» (plantillas). Se activa
