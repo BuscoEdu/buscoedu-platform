@@ -1875,11 +1875,13 @@ async function createTask(){
       creada_por:state.currentUserId,puntos_sumados:false
     };
     if(taskCreateMode==='hermano'){
-      rows.push({...base,asignada_a:state.currentUserId,para_quien:String(slot.asignada_a),es_transferencia:true,aceptada_receptor:false,transferencia_aprobada:false,estado:'pendiente_transferencia',tipo:'tarea',inmediata:false});
+      rows.push({...base,asignada_a:state.currentUserId,para_quien:String(slot.asignada_a),es_transferencia:true,aceptada_receptor:false,transferencia_aprobada:false,estado:'pendiente_transferencia',tipo:'tarea',clase:'tarea',inmediata:false});
     }else if(validateMode){
-      rows.push({...base,asignada_a:slot.asignada_a,tipo,inmediata:false,estado:'esperando_aprobacion',comentario_completado:'Registrada como hecha'});
+      // v6 A2b: clase explícita (la app y las RPC deciden deber por clase; sin ella la BD pone 'tarea').
+      rows.push({...base,asignada_a:slot.asignada_a,tipo,clase:tipo==='deber'?'deber':'tarea',inmediata:false,estado:'esperando_aprobacion',comentario_completado:'Registrada como hecha'});
     }else{
-      rows.push({...base,asignada_a:slot.asignada_a,tipo,inmediata,estado:inmediata?'pendiente':'borrador'});
+      // v6 A2b: clase explícita (la app y las RPC deciden deber por clase; sin ella la BD pone 'tarea').
+      rows.push({...base,asignada_a:slot.asignada_a,tipo,clase:tipo==='deber'?'deber':'tarea',inmediata,estado:inmediata?'pendiente':'borrador'});
     }
   }
   if(!rows.length) return showToast('No quedó ninguna fecha. Revisa el hijo o el mes.');
@@ -2223,6 +2225,8 @@ async function saveTaskFicha(id){
     puntos:+document.getElementById('fichaPuntos').value||0,
     asignada_a:asignada,
     tipo,
+    // v6 A2b: clase explícita (la app y las RPC deciden deber por clase; sin ella la BD pone 'tarea'). Al editar el tipo se sincroniza la clase.
+    clase:tipo==='deber'?'deber':'tarea',
     inmediata,
     recurrencia:tipo==='deber'?document.getElementById('fichaRec').value:'once',
     fecha_limite:limite,
@@ -2859,7 +2863,8 @@ async function createGoal(){
   // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
   if(!confirm('¿Crear la meta «'+titulo+'» de '+puntos+' pts?')) return;
   const {error}=await supabase.from('familia_tareas').insert({
-    titulo,puntos,descripcion:'META',asignada_a:state.currentUserId,creada_por:state.currentUserId,
+    // v6 A2b: clase explícita (la app y las RPC deciden deber por clase; sin ella la BD pone 'tarea').
+    clase:'tarea',titulo,puntos,descripcion:'META',asignada_a:state.currentUserId,creada_por:state.currentUserId,
     estado:'pendiente',recurrencia:'once'
   });
   if(error) return showToast(error.message);
@@ -3072,7 +3077,8 @@ async function solicitarTarea(i){
   const limite=new Date(now.getTime()+2*3600000);
   const row={
     titulo:p.titulo,puntos:Number(p.puntos)||0,recurrencia:'once',icono:'🙋',
-    asignada_a:u.id,tipo:'tarea',inmediata:false,estado:'pendiente',
+    // v6 A2b: clase explícita (la app y las RPC deciden deber por clase; sin ella la BD pone 'tarea').
+    asignada_a:u.id,tipo:'tarea',clase:'tarea',inmediata:false,estado:'pendiente',
     creada_por:u.id,puntos_sumados:false,
     habilita_en:now.toISOString(),fecha_limite:limite.toISOString(),ventana_horas:2
   };
@@ -3220,8 +3226,9 @@ function sameDayTask(asignada,titulo,when){
 }
 function dutyRow(item,kidId,by,lote){
   const limite=new Date(item.when.getTime()+item.ventana*3600000);
+  // v6 A2b: clase explícita (la app y las RPC deciden deber por clase; sin ella la BD pone 'tarea').
   return {
-    titulo:item.titulo,puntos:0,tipo:'deber',asignada_a:kidId,creada_por:by,
+    titulo:item.titulo,puntos:0,tipo:'deber',clase:'deber',asignada_a:kidId,creada_por:by,
     recurrencia:item.rec,estado:'borrador',icono:'📚',lote,
     habilita_en:item.when.toISOString(),fecha_limite:limite.toISOString(),
     ventana_horas:item.ventana,puntos_sumados:false,inmediata:false
