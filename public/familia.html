@@ -314,6 +314,9 @@ h3{margin-bottom:12px}
   <div class="form-group"><label>Máximo que se puede perder</label><input type="number" id="elemMaxNeg" min="0" value="10"></div>
   <div class="form-group"><label>Resta por minuto después del límite</label><input type="number" id="elemPerMin" min="0" step="0.1" value="0"></div>
   <div class="form-group"><label>Ventana (horas antes y después de la hora)</label><input type="number" id="elemWindow" min="1" max="336" value="24"></div>
+  <!-- v6b B18: límite de veces por día e intervalo mínimo (solo modo v3–v6). -->
+  <div class="form-group v6b-solo"><label for="elemMaxDia">Máx. veces por día</label><select id="elemMaxDia"></select></div>
+  <div class="form-group v6b-solo"><label for="elemIntervalo">Tiempo mínimo entre una y otra</label><select id="elemIntervalo"></select></div>
   <button class="btn" style="width:100%" onclick="savePlantilla()">Guardar</button>
   <button class="btn danger" style="width:100%;margin-top:8px" onclick="deletePlantilla()">Eliminar</button>
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-elemento')">Cerrar</button>
@@ -831,7 +834,8 @@ function memberOptions(selected, opts){
    porque en la primera carga la config todavía no ha llegado. */
 // QA v5 fix 2: se quitó «comentario» (no existe en prod: «column familia_tareas.comentario does not exist»); el resto
 // está en las SQL v3/v4 o lo escribe la v1 en prod. comentAprob() ya tolera t.comentario indefinido.
-const V3_COLS_TAREAS='id,titulo,descripcion,puntos,recurrencia,icono,asignada_a,conjunto_con,para_quien,tipo,clase,inmediata,estado,estado_vencida,creada_por,puntos_sumados,puntos_aplicados,puntos_penalizacion_dia,resta_por_minuto,max_negativo,pierde_pts,habilita_en,fecha_limite,ventana_horas,ventana_min,marcada_en,cerrado_en,creado_en,comentario_completado,comentario_aprobacion,evidencia_2,es_transferencia,duplicada_de,client_req_id';
+const V3_COLS_TAREAS='id,titulo,descripcion,puntos,recurrencia,icono,asignada_a,conjunto_con,para_quien,tipo,clase,inmediata,estado,estado_vencida,creada_por,puntos_sumados,puntos_aplicados,puntos_penalizacion_dia,resta_por_minuto,max_negativo,pierde_pts,habilita_en,fecha_limite,ventana_horas,ventana_min,marcada_en,cerrado_en,creado_en,comentario_completado,comentario_aprobacion,evidencia_2,es_transferencia,duplicada_de,client_req_id,plantilla_id,max_por_dia,intervalo_min_min';
+// v6b B18: plantilla_id, max_por_dia e intervalo_min_min (contrato v6b). Si faltan en la BD, loadAll reintenta con '*'.
 function columnasTareas(){return localStorage.getItem('familia_v3_on')==='1'?V3_COLS_TAREAS:'*';}
 /* v4 Ola 2: «Resetear todo» archiva (archivada_en) en vez de borrar. En modo v3/v4 toda lectura de
    tareas e historial filtra archivada_en IS NULL; en modo v1 la consulta queda igual que antes. */
@@ -1194,7 +1198,7 @@ function plantillaCard(p){
   const rec=p.tipo==='deber'&&p.recurrencia&&p.recurrencia!=='once'?(REC_LABEL[p.recurrencia]||p.recurrencia):'';
   // v6b B17: clase de tono (tpl-hijo / tpl-padre / tpl-deber) + etiqueta; el estilo solo aplica en modo v3–v6.
   const tono=p.tipo==='deber'?'deber':(aud==='Padres'?'padre':'hijo'), et={hijo:'Tarea de hijos',padre:'Tarea de padres',deber:'Deber'}[tono];
-  return `<div class="reward-item${aud==='Padres'?' parent':' kid'} tpl-${tono}" onclick="openPlantilla(${p.id})"><div style="flex:1"><span class="v6b-tag ${tono}">${et}</span>${plantillaIcon(p)} <strong>${esc(p.titulo||'Tarea')}</strong><br><small>${aud} · ${tipo}${rec?' · '+esc(rec):''} · ${Number(p.puntos)||0} pts</small></div></div>`;
+  return `<div class="reward-item${aud==='Padres'?' parent':' kid'} tpl-${tono}" onclick="openPlantilla(${p.id})"><div style="flex:1"><span class="v6b-tag ${tono}">${et}</span>${plantillaIcon(p)} <strong>${esc(p.titulo||'Tarea')}</strong><br><small>${aud} · ${tipo}${rec?' · '+esc(rec):''} · ${Number(p.puntos)||0} pts</small><small class="v6b-freq"><br>${freqTxt(p.max_por_dia,p.intervalo_min_min)}</small></div></div>`;
 }
 function syncElemTipo(){
   const aud=document.getElementById('elemAudiencia').value;
@@ -1224,6 +1228,7 @@ function openPlantilla(id){
   document.getElementById('elemWindow').value=p.ventana_horas||24;
   document.getElementById('elemIcon').value=plantillaIcon(p);
   ponerDesc('elemDescripcion',p.descripcion);   // v6b B15
+  llenarFreq(p.max_por_dia,p.intervalo_min_min);   // v6b B18
   fillEmojiGrid('elemIconGrid','elemIcon');
   syncElemTipo();
   openModal('modal-elemento');
@@ -1250,7 +1255,10 @@ async function savePlantilla(){
   };
   // v6b B15: descripción solo en modo v3–v6.
   const claves=[];
-  if(v6bOn()){const d=descripcionDe((document.getElementById('elemDescripcion')||{}).value); if(descReservada(d)) return showToast('Escribe una descripción distinta de «META»'); row.descripcion=d; claves.push('descripcion');}
+  if(v6bOn()){const d=descripcionDe((document.getElementById('elemDescripcion')||{}).value); if(descReservada(d)) return showToast('Escribe una descripción distinta de «META»'); row.descripcion=d; claves.push('descripcion');
+    // v6b B18: máx. por día (1–10) e intervalo mínimo (lista cerrada del contrato).
+    const mx=parseInt((document.getElementById('elemMaxDia')||{}).value,10), iv=parseInt((document.getElementById('elemIntervalo')||{}).value,10);
+    row.max_por_dia=Math.min(10,Math.max(1,mx||1)); row.intervalo_min_min=V6B_INTERVALOS.includes(iv)?iv:0; claves.push('max_por_dia','intervalo_min_min');}
   // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
   if(!confirm('¿Guardar «'+titulo+'» en el catálogo?')) return;
   const r=await escribirV6b(f=>supabase.from('familia_plantillas_tareas').update(f).eq('id',id),row,claves);
@@ -1899,6 +1907,10 @@ async function createTask(){
   // v6b B15: descripción (solo modo v3–v6).
   const desc=v6bOn()?descripcionDe((document.getElementById('taskDescripcion')||{}).value):null;
   if(descReservada(desc)) return showToast('Escribe una descripción distinta de «META»');
+  // v6b B18: plantilla_id (activa el límite por día en la BD) solo con plantilla guardada y mismo título.
+  let plantillaId=null;
+  if(v6bOn()&&taskCreateMode!=='hermano'){const pv=(document.getElementById('taskPlantilla')||{}).value, pp=state.plantillas.find(x=>String(x.id)===String(pv));
+    if(pp&&String(pp.titulo||'').trim().toLowerCase()===titulo.toLowerCase()) plantillaId=pp.id;}
   const rows=[];
   for(const slot of assigned){
     if(!slot.asignada_a) continue;
@@ -1914,6 +1926,7 @@ async function createTask(){
       creada_por:state.currentUserId,puntos_sumados:false
     };
     if(desc) base.descripcion=desc;
+    if(plantillaId) base.plantilla_id=plantillaId;
     if(taskCreateMode==='hermano'){
       rows.push({...base,asignada_a:state.currentUserId,para_quien:String(slot.asignada_a),es_transferencia:true,aceptada_receptor:false,transferencia_aprobada:false,estado:'pendiente_transferencia',tipo:'tarea',clase:'tarea',inmediata:false});
     }else if(validateMode){
@@ -1925,6 +1938,9 @@ async function createTask(){
     }
   }
   if(!rows.length) return showToast('No quedó ninguna fecha. Revisa el hijo o el mes.');
+  if(plantillaId&&rows.some(r=>r.estado!=='borrador')){
+    for(const k of [...new Set(rows.map(r=>r.asignada_a))]){const b=await cupoBloqueo(plantillaId,k); if(b) return showToast(((memberById(k)||{}).nombre||'')+': '+b);}
+  }
   // v6b: mensajes de BD (B16 «Los padres no tienen deberes», B18 cupo/intervalo) y respaldo sin columnas nuevas.
   const ins=await escribirV6b(f=>supabase.from('familia_tareas').insert(f),rows,['descripcion','plantilla_id']);
   if(ins.error) return showToast(msgErrorBD(ins.error));
@@ -2387,6 +2403,27 @@ async function escribirV6b(fn,fila,claves){
   return r;
 }
 /* v6b B15: descripción en texto plano, recortada, ≤280; vacía → null. «META» está reservado para las metas de la v1. */
+/* v6b B18: opciones y texto de frecuencia («1 vez al día» / «2 al día · cada 2 h»). */
+const V6B_INTERVALOS=[0,15,30,60,120,180,240,360,480];
+function fmtMinutos(n){n=Number(n)||0; return n<60?n+' min':(n%60?Math.floor(n/60)+' h '+(n%60)+' min':(n/60)+' h');}
+function freqTxt(max,inter){const m=Math.max(1,Number(max)||1), i=Number(inter)||0; return (m===1?'1 vez al día':m+' al día')+(i?' · cada '+fmtMinutos(i):'');}
+function llenarFreq(max,inter){
+  const a=document.getElementById('elemMaxDia'), b=document.getElementById('elemIntervalo');
+  if(a){a.innerHTML=Array.from({length:10},(_,k)=>`<option value="${k+1}">${k+1}</option>`).join(''); a.value=String(Math.min(10,Math.max(1,Number(max)||1)));}
+  if(b){b.innerHTML=V6B_INTERVALOS.map(v=>`<option value="${v}">${v?fmtMinutos(v):'Sin mínimo'}</option>`).join(''); b.value=String(V6B_INTERVALOS.includes(Number(inter))?Number(inter):0);}
+}
+/* v6b B18: consulta previa del cupo (familia_rpc_cupo_plantilla). Devuelve el mensaje de bloqueo o null.
+   Si la RPC no existe o falla, devuelve null: el servidor igual valida al insertar (trigger atómico). */
+async function cupoBloqueo(plantillaId,miembroId){
+  if(!plantillaId||!miembroId) return null;
+  try{
+    const {data,error}=await supabase.rpc('familia_rpc_cupo_plantilla',{p_plantilla_id:Number(plantillaId),p_miembro_id:Number(miembroId)});
+    if(error||!data||!data.proxima_hora) return null;
+    if(Number(data.usadas)>=Number(data.max)) return 'Ya se hizo hoy ('+data.usadas+'/'+data.max+'). Vuelve mañana después de las 3:00';
+    const x=new Date(data.proxima_hora);
+    return isNaN(x)?null:'Podrás volver a hacerla a las '+x.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+  }catch(e){return null;}
+}
 function descripcionDe(v){const s=String(v==null?'':v).trim().slice(0,280); return s||null;}
 function descReservada(d){return d&&d.toUpperCase()==='META';}
 function descVisible(t){const d=t&&t.descripcion; return d&&d!=='META'?String(d):'';}
@@ -3596,6 +3633,7 @@ body.v3-modo.tema-rosa,body.v3-modo.tema-rosa #v3App{--v3-cta:#be185d;--v6t-head
 .v6b-temas button{min-height:56px;border-radius:10px;border:2px solid transparent;color:#fff;font-size:.72rem;font-weight:700;cursor:pointer;padding:4px 2px;overflow-wrap:anywhere}
 .v6b-temas button.on{border-color:#0f172a;box-shadow:0 0 0 2px #fff inset}
 /* v6b B15: descripción (2 líneas en la tarjeta, completa en el detalle y en el bloqueo). */
+.v6b-freq{display:none}.v3-modo .v6b-freq{display:inline}
 .v6b-solo{display:none}.v3-modo .v6b-solo{display:block}
 .v6b-cont{display:block;text-align:right;font-size:.75rem;color:#64748b}
 .v6b-dtxt{font-size:.85rem;color:#334155;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
@@ -4511,6 +4549,9 @@ window.FamiliaV3=(function(){
       const row={titulo:p.titulo,puntos:deber?0:(Number(p.puntos)||0),recurrencia:'once',icono:'🙋',asignada_a:u.id,
         tipo:deber?'deber':'tarea',clase:deber?'deber':'tarea',inmediata:false,estado:'pendiente',creada_por:u.id,puntos_sumados:false,
         habilita_en:now.toISOString(),fecha_limite:limite.toISOString(),ventana_horas:2,client_req_id:reqId(k)};
+      // v6b B18: si es una plantilla guardada se envía plantilla_id y se revisa el cupo antes de preguntar.
+      const pid=state.plantillas.some(x=>x.id===p.id)?p.id:null;
+      if(pid){const b=await cupoBloqueo(pid,u.id); if(b) return showToast(b);}
       // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
       if(!confirm('¿Solicitar «'+p.titulo+'»'+(row.puntos?' por '+row.puntos+' pts':'')+'? Papá o mamá deben aprobarla; luego tendrás 2 h.')) return;
       /* v6 A5: la solicitud nace en estado 'solicitada' (sin habilita/fecha límite: no corre la ventana ni hay descuento).
@@ -4518,8 +4559,9 @@ window.FamiliaV3=(function(){
          tiene CHECK sobre estado según f2_README:137). Se pide solo el id y se relee la fila; si no está, error. */
       const ins={titulo:row.titulo,puntos:row.puntos,recurrencia:'once',icono:row.icono,asignada_a:u.id,tipo:row.tipo,clase:row.clase,
         inmediata:false,estado:'solicitada',creada_por:u.id,puntos_sumados:false,habilita_en:null,fecha_limite:null,ventana_horas:2,client_req_id:row.client_req_id};
-      const r1=await supabase.from('familia_tareas').insert(ins).select('id').maybeSingle();
-      if(r1.error) return showToast('No se pudo: '+r1.error.message);
+      if(pid) ins.plantilla_id=pid;
+      const r1=await escribirV6b(f=>supabase.from('familia_tareas').insert(f).select('id').maybeSingle(),ins,['plantilla_id']);
+      if(r1.error) return showToast(msgErrorBD(r1.error));
       if(!r1.data) return showToast('No se pudo: la solicitud no quedó guardada. Intenta de nuevo.');
       const {data,error}=await supabase.from('familia_tareas').select(V3_COLS_TAREAS).eq('id',r1.data.id).maybeSingle();
       if(error) return showToast('No se pudo comprobar la solicitud: '+error.message);
@@ -4807,7 +4849,7 @@ window.FamiliaV3=(function(){
     // v4 · ajuste 3: nombre, tipo, abre/cierra/cerrada (windowBlock + closedAt de la v1) y franja con el color del hijo.
     abrirHoja(`<div style="border-left:6px solid ${esc((quien&&quien.color)||'#9ca3af')};padding-left:10px"><h3>${esc(t.titulo)}</h3>
       <p class="v3-sub" style="margin:6px 0"><span class="v3-chip ${esObligatoria(t)?'obl':esDeber(t)?'deber':''}">${esObligatoria(t)?'Obligatoria':esDeber(t)?'Deber':'Tarea'}</span> <span class="${e.cls}">${esc(e.txt)}</span></p>
-      ${descVisible(t)?`<p class="v6b-dfull">${esc(descVisible(t))}</p>`:''}
+      ${descVisible(t)?`<p class="v6b-dfull">${esc(descVisible(t))}</p>`:''}${t.plantilla_id&&t.max_por_dia!=null?`<p class="v3-sub">Límite: ${esc(freqTxt(t.max_por_dia,t.intervalo_min_min))}</p>`:''}
       <p class="v3-sub">${quien?'Para: '+esc(quien.nombre):''}${junto?' · junto con '+esc(junto.nombre):''}${' · '+(Number(t.puntos)||0)+' pts'}${descuentoDe(t)>0?' · <span class="v3-st-err">Descuento −'+descuentoDe(t)+' pts</span>':''}</p>
       ${modeloVentana(t)?`<div style="margin-top:4px">${renglonHora(t)}</div>`:`<p class="v3-sub" style="margin-top:4px">${windowBlock(t)||'Sin ventana definida'}</p>`}</div>
       ${isAdmin(currentUser())&&!soloLectura()?`<button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.abrirV1(()=>openTaskCard(${t.id}))">Editar / eliminar (ficha completa)</button>`:''}
