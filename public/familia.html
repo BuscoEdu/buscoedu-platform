@@ -3497,6 +3497,15 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 /* v6b B4: «Devuelta» en la ventana de bloqueo de obligatoria. */
 .v6b-obl-dev{display:inline-block;background:#fb923c;color:#431407;font-weight:700;border-radius:8px;padding:2px 10px;margin:6px 0}
 .v6b-obl-nota{font-style:italic;margin-bottom:6px}
+/* v6b B3: obligatoria en rojo desde que se crea (gana a verde/naranja de ventana; devuelta conserva su borde naranja). */
+.v3-card.v6b-obl{border-color:#b91c1c;border-left:6px solid #b91c1c;background:#fef2f2}
+.v3-card.dev.v6b-obl{border-left-color:#fb923c}
+.v3-chip.obl{background:#b91c1c;color:#fff}
+/* v6b B12: hora elegida grande; abre/cierra como dato secundario. */
+.v6b-hora{margin-top:4px;font-size:.85rem;color:#334155}.v6b-hora b{font-size:1.25rem;font-variant-numeric:tabular-nums;color:#0f172a}
+/* v6b B6: aviso de solo lectura en «Ver como». */
+.v6b-ro{margin-top:10px;background:#f1f5f9;border-radius:8px;padding:8px;color:#334155;font-size:.85rem}
+.v3-modo button[disabled]{opacity:.55;cursor:not-allowed}
 /* v6 Mesada: filas por hijo (caben en 360) y badge de estado en el historial. */
 .v6-mfila{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}.v6-mfila input[type=number]{width:96px}.v6-mp{display:flex!important;gap:4px;align-items:center;margin:0!important;color:#1e293b!important}
 .v6-mb{font-size:.72rem;font-weight:700;border-radius:6px;padding:1px 6px;white-space:nowrap;color:#fff;background:#6b7280}.v6-mb.cargada{background:#b45309}.v6-mb.liberada{background:#15803d}.v6-mb.anulada{background:#b91c1c}.v6-vtag.err{background:#b91c1c}
@@ -3688,16 +3697,29 @@ window.FamiliaV3=(function(){
     const mv=modeloVentana(t); if(!mv||now<mv.a) return '';
     return now<mv.naranja?'dentro':'poco';
   }
+  /* v6b B12: «Hora 11:00» primero y grande; debajo, como dato secundario, «Se puede hacer de 9:00 a 13:00».
+     Si la ventana no es de hoy se agrega el día. Sin modelo de ventana se usa el renglón anterior (Abre/Cierra). */
+  function renglonHora(t){
+    const mv=modeloVentana(t); if(!mv) return renglonVentana(t);
+    const hh=x=>new Date(x).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+    const dia=x=>new Date(x).toLocaleDateString('es-CO',{weekday:'short',day:'numeric',month:'short'});
+    const {ini,fin}=limitesHoy(), esHoy=x=>x>=ini.getTime()&&x<fin.getTime();
+    const ya=(t.inmediata||t.tipo==='inmediata')&&Date.now()>=mv.a&&Date.now()<mv.c;
+    const rango=ya?'Empieza ahora · hasta las '+hh(mv.c):'Se puede hacer de '+hh(mv.a)+' a '+hh(mv.c)+(esHoy(mv.c)||new Date(mv.a).toDateString()===new Date(mv.c).toDateString()?'':' del '+dia(mv.c));
+    return `<div class="v6b-hora">Hora <b>${esc(hh(mv.hora))}</b>${esHoy(mv.hora)?'':' <span class="v3-sub">'+esc(dia(mv.hora))+'</span>'}</div><div class="v3-sub">${esc(rango)}</div>`;
+  }
+  // v6b B3: obligatoria (inmediata) abierta → tarjeta roja desde que se crea.
+  function esObligatoria(t){return !!(t&&(t.inmediata||t.tipo==='inmediata')&&!cerrada(t));}
   function ficha(t,acciones){
     const e=estadoDe(t), who=memberById(t.asignada_a);
     // v6 A3: clase y etiqueta de ventana (verde «En su hora» / rojo «Se pasó la hora»).
     const vv=enVentana(t), vcls=vv?' v6-'+vv:'', vtxt=vv==='dentro'?'<span class="v6-vtag ok">En su hora</span>':vv==='poco'?'<span class="v6-vtag warn">Queda poco</span>':vv==='fuera'?'<span class="v6-vtag err">Se pasó la hora</span>':'';
-    const hv=horaVentana(t);
-    return `<div class="v3-card ${e.c}${vcls}" data-id="${t.id}" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.detalle(${t.id})">
+    const obl=esObligatoria(t);
+    return `<div class="v3-card ${e.c}${vcls}${obl?' v6b-obl':''}" data-id="${t.id}" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.detalle(${t.id})">
       <div class="v3-grow"><div class="v3-t">${esc(t.titulo)}</div>
-      <div class="v3-sub"><span class="v3-chip ${esDeber(t)?'deber':''}">${esDeber(t)?'Deber':'Tarea'}</span>
+      <div class="v3-sub"><span class="v3-chip ${obl?'obl':esDeber(t)?'deber':''}">${obl?'Obligatoria':esDeber(t)?'Deber':'Tarea'}</span>
       ${who?esc(who.nombre)+' · ':''}<span class="${e.cls}">${esc(e.txt)}</span>${t.puntos?' · '+t.puntos+' pts':''}</div>
-      ${renglonVentana(t)}${hv||vtxt?`<div class="v3-sub" style="margin-top:2px">${vtxt}${hv?esc(hv):''}</div>`:''}</div>
+      ${renglonHora(t)}${vtxt?`<div class="v3-sub" style="margin-top:2px">${vtxt}</div>`:''}</div>
       ${acciones||''}</div>`;
   }
 
@@ -4602,9 +4624,9 @@ window.FamiliaV3=(function(){
     const e=estadoDe(t), quien=memberById(t.asignada_a), junto=memberById(t.conjunto_con);
     // v4 · ajuste 3: nombre, tipo, abre/cierra/cerrada (windowBlock + closedAt de la v1) y franja con el color del hijo.
     abrirHoja(`<div style="border-left:6px solid ${esc((quien&&quien.color)||'#9ca3af')};padding-left:10px"><h3>${esc(t.titulo)}</h3>
-      <p class="v3-sub" style="margin:6px 0"><span class="v3-chip ${esDeber(t)?'deber':''}">${esDeber(t)?'Deber':'Tarea'}</span> <span class="${e.cls}">${esc(e.txt)}</span></p>
+      <p class="v3-sub" style="margin:6px 0"><span class="v3-chip ${esObligatoria(t)?'obl':esDeber(t)?'deber':''}">${esObligatoria(t)?'Obligatoria':esDeber(t)?'Deber':'Tarea'}</span> <span class="${e.cls}">${esc(e.txt)}</span></p>
       <p class="v3-sub">${quien?'Para: '+esc(quien.nombre):''}${junto?' · junto con '+esc(junto.nombre):''}${' · '+(Number(t.puntos)||0)+' pts'}${descuentoDe(t)>0?' · <span class="v3-st-err">Descuento −'+descuentoDe(t)+' pts</span>':''}</p>
-      <p class="v3-sub" style="margin-top:4px">${windowBlock(t)||'Sin ventana definida'}</p>${horaVentana(t)?`<p class="v3-sub" style="margin-top:2px"><strong>${esc(horaVentana(t))}</strong></p>`:''}</div>
+      ${modeloVentana(t)?`<div style="margin-top:4px">${renglonHora(t)}</div>`:`<p class="v3-sub" style="margin-top:4px">${windowBlock(t)||'Sin ventana definida'}</p>`}</div>
       ${isAdmin(currentUser())&&!soloLectura()?`<button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.abrirV1(()=>openTaskCard(${t.id}))">Editar / eliminar (ficha completa)</button>`:''}
       ${t.comentario_completado?`<p class="v3-sub">«${esc(t.comentario_completado)}»</p>`:''}${comentAprob(t)&&/aprob|complet/.test(t.estado)?`<p class="v3-sub v3-st-ok">Papá/mamá: «${esc(comentAprob(t))}»</p>`:''}<div id="v3Foto" class="v3-sub">Cargando evidencia…</div>
       ${accionesHijo(t)}${accionesPadre(t)}
@@ -4624,21 +4646,42 @@ window.FamiliaV3=(function(){
     if(!(t.estado==='pendiente'||t.estado==='aviso_rechazada')) return false;
     return !(typeof taskTiming==='function'&&taskTiming(t)!=='ready');   // misma ventana que la v1
   }
+  /* v6b B6: casos que antes no mostraban nada:
+     · «Ver como»: botón deshabilitado + «Solo lectura: entra como el hijo».
+     · Ventana cerrada (taskTiming 'late') y aún sin enviar: «Se pasó la hora» + «Enviar tarde» / «Pedir más tiempo». */
+  function camposEnvio(){
+    return `<label class="v3-sub" style="display:block;margin-top:10px">Comentario (opcional)</label><input id="v3eCom" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px">
+      <label class="v3-sub" style="display:block;margin-top:8px">Foto de evidencia (opcional)</label><input id="v3eFoto" type="file" accept="image/*" capture="environment">`;
+  }
+  function puedeEnviarTarde(t,u){
+    if(!u||isAdmin(u)||soloLectura()||!t) return false;
+    if(!(t.asignada_a===u.id||t.conjunto_con===u.id)) return false;
+    if(!(t.estado==='pendiente'||t.estado==='aviso_rechazada')) return false;
+    return typeof taskTiming==='function'&&taskTiming(t)==='late';
+  }
   function accionesHijo(t){
-    const u=currentUser(); if(!puedeEnviar(t,u)) return '';
+    const u=currentUser();
+    const mia=u&&(t.asignada_a===u.id||t.conjunto_con===u.id), abierta=t.estado==='pendiente'||t.estado==='aviso_rechazada';
+    if(soloLectura()&&u&&isKid(u)&&mia&&abierta)
+      return `<p class="v6b-ro">Solo lectura: entra como ${esc(u.nombre||'el hijo')} para enviarla.</p><button class="v3-cta v3-full" disabled aria-disabled="true">Ya la hice</button>`;
+    if(puedeEnviarTarde(t,u))
+      return `<p class="v3-st-err" style="margin-top:10px;font-weight:700">Se pasó la hora.</p><p class="v3-sub">Puedes enviarla tarde (papá o mamá deciden si cuenta) o pedir más tiempo.</p>${camposEnvio()}
+      <div class="v6b-acc"><button class="v3-cta" onclick="FamiliaV3.enviar(${t.id},true)">Enviar tarde</button><button class="v3-btn2" onclick="FamiliaV3.pedirTiempo(${t.id})">Pedir más tiempo</button></div>`;
+    if(!puedeEnviar(t,u)) return '';
     // v4 · pasar a un hermano (solo el dueño, tarea pendiente).
     const herm=state.members.filter(m=>isKid(m)&&m.id!==u.id);
     // Paridad exacta con v1: pendiente, hijo dueño, no es transferencia y ventana 'ready' (puedeEnviar ya exige ready).
     const pase=t.asignada_a===u.id&&t.estado==='pendiente'&&!t.es_transferencia&&herm.length?`<details style="margin-top:10px"><summary class="v3-sub">Pasar a un hermano</summary>
       <select id="v4Herm" style="width:100%;padding:9px;margin-top:6px">${herm.map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('')}</select>
       <button class="v3-btn2 v3-full" style="margin-top:6px" onclick="FamiliaV3.traspaso('pasar',${t.id})">Pasar</button></details>`:'';
-    return pase+`<label class="v3-sub" style="display:block;margin-top:10px">Comentario (opcional)</label><input id="v3eCom" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px">
-      <label class="v3-sub" style="display:block;margin-top:8px">Foto de evidencia (opcional)</label><input id="v3eFoto" type="file" accept="image/*" capture="environment">
+    return pase+camposEnvio()+`
       <button class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.enviar(${t.id})">Ya la hice</button>`;
   }
-  async function enviar(id){
+  async function enviar(id,tarde){
     const k='e'+id; if(enCurso.has(k)) return;
-    const t=state.tasks.find(x=>x.id===id), u=currentUser(); if(!t||!puedeEnviar(t,u)) return;
+    const t=state.tasks.find(x=>x.id===id), u=currentUser();
+    // v6b B6: «Enviar tarde» usa su propia regla (ventana cerrada); nunca falla en silencio.
+    if(!t||!(tarde?puedeEnviarTarde(t,u):puedeEnviar(t,u))) return showToast(soloLectura()?'Solo lectura: entra como el hijo':'Esta tarea ya no se puede enviar. Recarga para ver su estado.');
     enCurso.add(k);
     try{
       // URGENTE prod 335: si la hoja ya no tiene los campos (re-pintada), se avisa en vez de fallar en silencio.
@@ -4654,7 +4697,7 @@ window.FamiliaV3=(function(){
       if(!t.marcada_en) payload.marcada_en=new Date().toISOString();
       // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
       // URGENTE prod 335: si el navegador bloquea los diálogos, confirm() devuelve false al instante (<50 ms) → se avisa.
-      const t0=Date.now(), okEnv=confirm('¿Enviar «'+t.titulo+'» para que papá o mamá la revisen?');
+      const t0=Date.now(), okEnv=confirm(tarde?'¿Enviar «'+t.titulo+'» tarde? Papá o mamá deciden si cuenta.':'¿Enviar «'+t.titulo+'» para que papá o mamá la revisen?');
       if(!okEnv){ if(Date.now()-t0<50) showToast('Tu navegador bloqueó la confirmación. Cierra la pestaña, ábrela de nuevo e inténtalo.'); return; }
       const {error}=await supabase.from('familia_tareas').update(payload).eq('id',id);
       if(error) return showToast('No se pudo: '+error.message);
@@ -4695,6 +4738,22 @@ window.FamiliaV3=(function(){
     delete reqIds[k];
     ocultas.add(id); cerrarHoja(); pintar();
     showToast(d.idempotente?'Ya estaba aplicado':'Rechazada · 0 pts'); scheduleReload();
+  }
+  /* v6b B6: «Pedir más tiempo»: UN aviso a cada padre (familia_notificaciones, mismo patrón que la v1). No cambia
+     la tarea; el padre decide desde la ficha (editar la hora). */
+  async function pedirTiempo(id){
+    const t=state.tasks.find(x=>x.id===id), u=currentUser();
+    if(!t||!u||soloLectura()) return showToast('Solo lectura: entra como el hijo');
+    const padres=state.members.filter(isAdmin);
+    if(!padres.length) return showToast('No hay papá o mamá registrados para avisar');
+    if(!confirm('¿Pedir más tiempo a papá o mamá para «'+t.titulo+'»?')) return;
+    const k='pt'+id; if(enCurso.has(k)) return; enCurso.add(k);
+    try{
+      const {error}=await supabase.from('familia_notificaciones').insert(padres.map(p=>({para_id:p.id,tipo:'tarea',tarea_id:id,texto:(u.nombre||'Tu hijo')+' pide más tiempo para «'+t.titulo+'»'})));
+      if(error) return showToast('No se pudo pedir: '+error.message);
+      cerrarHoja(); showToast('Listo: le avisamos a papá y mamá');
+    }catch(e){showToast('No se pudo pedir: '+((e&&e.message)||e));}
+    finally{enCurso.delete(k);}
   }
   // V16: reintento manual de la carga.
   function reintentar(){state._tareasError=null; ['v3Hoy','v3Bandeja'].forEach(i=>{const e=document.getElementById(i); if(e) e.innerHTML='<p class="v3-sub">Cargando…</p>';}); loadAll();}
@@ -4925,7 +4984,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {activo,ir,pedirTiempo,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
