@@ -4673,8 +4673,9 @@ window.FamiliaV3=(function(){
     try{
       const now=new Date(), lim=new Date(now.getTime()+2*3600000);
       const {data,error}=await supabase.from('familia_tareas').update({estado:'pendiente',habilita_en:now.toISOString(),fecha_limite:lim.toISOString(),ventana_horas:2,ventana_min:120}).eq('id',id).eq('estado','solicitada').select('id');   // v6 A3b: ventana_min marca el modelo «después». QA v6a: filtro fuera del comentario (antes PATCH sin id).
+      // QA v6a: id es PK → como máximo 1 fila; ≠1 = error (0 = ya no estaba por aprobar).
       if(error) return showToast('No se pudo: '+error.message);
-      if(!data||!data.length) return showToast('No se pudo: la solicitud ya no estaba por aprobar.');
+      if(!data||data.length!==1) return showToast('No se pudo: la solicitud ya no estaba por aprobar.');
       await supabase.from('familia_notificaciones').insert({para_id:t.asignada_a,tipo:'tarea',tarea_id:id,texto:'Te aprobaron «'+t.titulo+'». Tienes 2 h para hacerla.'});
       showToast('Aprobada: '+t.titulo); scheduleReload();
     }finally{enCurso.delete(ck);}
@@ -4687,7 +4688,7 @@ window.FamiliaV3=(function(){
     try{
       const {data,error}=await supabase.from('familia_tareas').update({estado:'rechazada',comentario_aprobacion:m.trim()||null,cerrado_en:new Date().toISOString()}).eq('id',id).eq('estado','solicitada').select('id');
       if(error) return showToast('No se pudo: '+error.message);
-      if(!data||!data.length) return showToast('No se pudo: la solicitud ya no estaba por aprobar.');
+      if(!data||data.length!==1) return showToast('No se pudo: la solicitud ya no estaba por aprobar.');
       await supabase.from('familia_notificaciones').insert({para_id:t.asignada_a,tipo:'tarea',tarea_id:id,texto:papaMama()+' no aprobó «'+t.titulo+'»'+(m.trim()?': '+m.trim():'')});
       showToast('Solicitud negada'); scheduleReload();
     }finally{enCurso.delete(ck);}

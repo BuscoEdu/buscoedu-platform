@@ -571,3 +571,4 @@ Bitácora: 2026-10-24 — F0 v3: aprobar, cerrar y rechazar una tarea ya no pone
 - 2026-10-24 · Frontend BuscoEdu (bot) · Familia v6a Mesada: «Mesada mensual» deja solo «Fecha de liberación» (común, editable); se quita el campo de día 1–28 y p_dia_liberacion se deriva del día de la fecha con tope 28 (aviso si 29–31); fecha vacía → no se envía día ni fecha; la confirmación nombra la fecha. · por qué: decisión de Jhon (una sola fecha).
 
 - 2026-10-24 · QA v6a fix (Frontend BuscoEdu): aprobarSolicitud con .eq(id) fuera del comentario (PATCH sin id); borde naranja de devuelta sobre colores de ventana. Por qué: QA PR #75.
+- 2026-10-24 · QA v6a fix 2 (Frontend BuscoEdu): aprobar/negar solicitud exigen exactamente 1 fila; barrido .update( sin otros filtros comentados.
