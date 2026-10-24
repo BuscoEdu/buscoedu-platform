@@ -1844,7 +1844,8 @@ async function createTask(){
     const base={
       titulo,puntos,recurrencia,icono,lote,
       fecha_limite:limite.toISOString(),habilita_en:abre.toISOString(),
-      ventana_horas:Math.max(0.25, minutos/60),
+      // ventana_horas es integer en BD (confirmado): se redondea hacia arriba, mínimo 1 h.
+      ventana_horas:Math.max(1, Math.ceil(minutos/60)),
       max_negativo:0,resta_por_minuto:0,puntos_penalizacion_dia:penal,
       creada_por:state.currentUserId,puntos_sumados:false
     };
@@ -2068,7 +2069,8 @@ function openTaskCard(id, fromBalance){
   const centroMs=(abreMs&&cierraMs)?(abreMs+cierraMs)/2:(cierraMs||abreMs||0);
   document.getElementById('fichaDue').value=centroMs?toLocalInput(new Date(centroMs).toISOString()):'';
   const fichaWin=document.getElementById('fichaVentana');
-  if(fichaWin) fichaWin.value=(abreMs&&cierraMs)?Math.max(0.25, (cierraMs-abreMs)/2/3600000):(t.ventana_horas||1);
+  // ventana_horas es integer en BD: el formulario muestra horas enteras (mínimo 1).
+  if(fichaWin) fichaWin.value=(abreMs&&cierraMs)?Math.max(1, Math.ceil((cierraMs-abreMs)/2/3600000)):(t.ventana_horas||1);
   document.getElementById('fichaPen').value=t.puntos_penalizacion_dia||0;
   const scored=t.estado==='completada'||!!t.puntos_sumados;
   const closed=isClosedTask(t);
@@ -2178,7 +2180,8 @@ async function saveTaskFicha(id){
   const raw=document.getElementById('fichaTipo')?document.getElementById('fichaTipo').value:'tarea';
   const inmediata=!parentTask&&raw==='inmediata';
   const tipo=raw==='deber'?'deber':'tarea';
-  const ventana=Math.max(0.25,+document.getElementById('fichaVentana').value||t.ventana_horas||1);
+  // ventana_horas es integer en BD: horas enteras hacia arriba, mínimo 1 (antes 0.25 fallaba al guardar).
+  const ventana=Math.max(1, Math.ceil(+document.getElementById('fichaVentana').value||t.ventana_horas||1));
   const centro=fromLocalInput(document.getElementById('fichaDue').value);
   const centroMs=centro?new Date(centro).getTime():0;
   const half=ventana*3600000;
