@@ -3471,7 +3471,9 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 /* v6 A3: ventana en la tarjeta. Verde #15803d y rojo #b91c1c (estándar UX; texto blanco sobre el color ≥ 4.5:1). */
 .v3-card.v6-dentro{border-color:#15803d;border-left:6px solid #15803d;background:#f0fdf4}.v3-card.v6-fuera{border-color:#b91c1c;border-left:6px solid #b91c1c;background:#fef2f2}
 .v6-vtag{display:inline-block;font-size:.75rem;font-weight:700;color:#fff;border-radius:6px;padding:1px 6px;margin-right:6px;white-space:nowrap}/* v6 A3b: naranja «Queda poco» (#b45309 sobre #fffbeb; etiqueta blanca sobre #b45309). */
-.v3-card.v6-poco{border-color:#b45309;border-left:6px solid #b45309;background:#fffbeb}.v6-vtag.warn{background:#b45309}
+.v3-card.v6-poco{border-color:#b45309;border-left:6px solid #b45309;background:#fffbeb}
+/* QA v6a: devuelta manda sobre el color de ventana (borde izquierdo naranja suave). */
+.v3-card.dev.v6-dentro,.v3-card.dev.v6-fuera,.v3-card.dev.v6-poco{border-left-color:#fb923c}.v6-vtag.warn{background:#b45309}
 .v6-vtag.ok{background:#15803d}
 /* v6 Mesada: filas por hijo (caben en 360) y badge de estado en el historial. */
 .v6-mfila{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}.v6-mfila input[type=number]{width:96px}.v6-mp{display:flex!important;gap:4px;align-items:center;margin:0!important;color:#1e293b!important}
@@ -4670,7 +4672,7 @@ window.FamiliaV3=(function(){
     const ck='as'+id; if(enCurso.has(ck)) return; enCurso.add(ck);
     try{
       const now=new Date(), lim=new Date(now.getTime()+2*3600000);
-      const {data,error}=await supabase.from('familia_tareas').update({estado:'pendiente',habilita_en:now.toISOString(),fecha_limite:lim.toISOString(),ventana_horas:2,ventana_min:120})   // v6 A3b: ventana_min marca el modelo «después».eq('id',id).eq('estado','solicitada').select('id');
+      const {data,error}=await supabase.from('familia_tareas').update({estado:'pendiente',habilita_en:now.toISOString(),fecha_limite:lim.toISOString(),ventana_horas:2,ventana_min:120}).eq('id',id).eq('estado','solicitada').select('id');   // v6 A3b: ventana_min marca el modelo «después». QA v6a: filtro fuera del comentario (antes PATCH sin id).
       if(error) return showToast('No se pudo: '+error.message);
       if(!data||!data.length) return showToast('No se pudo: la solicitud ya no estaba por aprobar.');
       await supabase.from('familia_notificaciones').insert({para_id:t.asignada_a,tipo:'tarea',tarea_id:id,texto:'Te aprobaron «'+t.titulo+'». Tienes 2 h para hacerla.'});
