@@ -263,6 +263,8 @@ h3{margin-bottom:12px}
   <input type="hidden" id="taskRecurrent">
   <input type="hidden" id="taskMaxNeg" value="0">
   <input type="hidden" id="taskPerMin" value="0">
+  <!-- v6c C3: «Exige foto» por tarea (default no). Solo modo v3–v6. -->
+  <div class="form-group v6b-solo"><label style="display:flex;align-items:center;gap:8px;margin:0"><input type="checkbox" id="taskExigeFoto"> Exige foto</label></div>
   <div class="form-group" id="taskSaveWrap"><label style="display:flex;align-items:center;gap:8px;margin:0"><input type="checkbox" id="taskSaveTemplate"> Plantilla</label></div>
   <small id="taskCountHelp" style="color:var(--muted);display:block;margin-bottom:8px"></small>
   <button class="btn" id="btnCreateTask" style="width:100%" onclick="reviewTask()">Crear</button>
@@ -317,6 +319,8 @@ h3{margin-bottom:12px}
   <!-- v6b B18: límite de veces por día e intervalo mínimo (solo modo v3–v6). -->
   <div class="form-group v6b-solo"><label for="elemMaxDia">Máx. veces por día</label><select id="elemMaxDia"></select></div>
   <div class="form-group v6b-solo"><label for="elemIntervalo">Tiempo mínimo entre una y otra</label><select id="elemIntervalo"></select></div>
+  <!-- v6c C3: «Exige foto» en la plantilla (las tareas creadas con ella lo heredan en la BD). -->
+  <div class="form-group v6b-solo"><label style="display:flex;align-items:center;gap:8px;margin:0"><input type="checkbox" id="elemExigeFoto"> Exige foto</label></div>
   <button class="btn" style="width:100%" onclick="savePlantilla()">Guardar</button>
   <button class="btn danger" style="width:100%;margin-top:8px" onclick="deletePlantilla()">Eliminar</button>
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-elemento')">Cerrar</button>
@@ -1233,6 +1237,7 @@ function openPlantilla(id){
   document.getElementById('elemIcon').value=plantillaIcon(p);
   ponerDesc('elemDescripcion',p.descripcion);   // v6b B15
   llenarFreq(p.max_por_dia,p.intervalo_min_min);   // v6b B18
+  {const ef=document.getElementById('elemExigeFoto'); if(ef) ef.checked=!!p.exige_foto;}   // v6c C3
   fillEmojiGrid('elemIconGrid','elemIcon');
   syncElemTipo();
   openModal('modal-elemento');
@@ -1262,7 +1267,9 @@ async function savePlantilla(){
   if(v6bOn()){const d=descripcionDe((document.getElementById('elemDescripcion')||{}).value); if(descReservada(d)) return showToast('Escribe una descripción distinta de «META»'); row.descripcion=d; claves.push('descripcion');
     // v6b B18: máx. por día (1–10) e intervalo mínimo (lista cerrada del contrato).
     const mx=parseInt((document.getElementById('elemMaxDia')||{}).value,10), iv=parseInt((document.getElementById('elemIntervalo')||{}).value,10);
-    row.max_por_dia=Math.min(10,Math.max(1,mx||1)); row.intervalo_min_min=V6B_INTERVALOS.includes(iv)?iv:0; claves.push('max_por_dia','intervalo_min_min');}
+    row.max_por_dia=Math.min(10,Math.max(1,mx||1)); row.intervalo_min_min=V6B_INTERVALOS.includes(iv)?iv:0; claves.push('max_por_dia','intervalo_min_min');
+    // v6c C3: exige_foto de la plantilla (si falta en la BD, escribirV6b guarda sin él).
+    row.exige_foto=!!(document.getElementById('elemExigeFoto')||{}).checked; claves.push('exige_foto');}
   // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
   if(!confirm('¿Guardar «'+titulo+'» en el catálogo?')) return;
   const r=await escribirV6b(f=>supabase.from('familia_plantillas_tareas').update(f).eq('id',id),row,claves);
@@ -1642,6 +1649,7 @@ function prepareTaskForm(audiencia){
   document.getElementById('taskCount').value='1';
   document.getElementById('taskPenalty').value=state.config.puntos_penalizacion_dia_default||2;
   document.getElementById('taskSaveTemplate').checked=false;
+  {const ef=document.getElementById('taskExigeFoto'); if(ef) ef.checked=false;}   // v6c C3: default no exige
   ponerDesc('taskDescripcion','');   // v6b B15
   const plant=document.getElementById('taskPlantilla');
   if(plant) plant.value='';
@@ -1931,6 +1939,8 @@ async function createTask(){
     };
     if(desc) base.descripcion=desc;
     if(plantillaId) base.plantilla_id=plantillaId;
+    // v6c C3: exige foto (solo si se marcó; sin marcar, la BD hereda el de la plantilla o deja false).
+    if(v6bOn()&&(document.getElementById('taskExigeFoto')||{}).checked) base.exige_foto=true;
     if(taskCreateMode==='hermano'){
       rows.push({...base,asignada_a:state.currentUserId,para_quien:String(slot.asignada_a),es_transferencia:true,aceptada_receptor:false,transferencia_aprobada:false,estado:'pendiente_transferencia',tipo:'tarea',clase:'tarea',inmediata:false});
     }else if(validateMode){
@@ -1947,7 +1957,7 @@ async function createTask(){
     for(const k of [...new Set(rows.map(r=>r.asignada_a))]){const b=await cupoBloqueo(plantillaId,k); if(b) return showToast(((memberById(k)||{}).nombre||'')+': '+b);}
   }
   // v6b: mensajes de BD (B16 «Los padres no tienen deberes», B18 cupo/intervalo) y respaldo sin columnas nuevas.
-  const ins=await escribirV6b(f=>supabase.from('familia_tareas').insert(f),rows,['descripcion','plantilla_id']);
+  const ins=await escribirV6b(f=>supabase.from('familia_tareas').insert(f),rows,['descripcion','plantilla_id','exige_foto']);   // v6c C3: exige_foto
   if(ins.error) return showToast(msgErrorBD(ins.error));
   if(ins.sinV6b) showToast('Se guardó sin descripción (falta en la BD)');
   // v6c C6: obligatoria creada → «¿Enviar también por WhatsApp?». Sí abre wa.me con título + hora + descripción; no guarda números ni llama APIs.
@@ -4930,7 +4940,7 @@ window.FamiliaV3=(function(){
     const e=estadoDe(t), quien=memberById(t.asignada_a), junto=memberById(t.conjunto_con);
     // v4 · ajuste 3: nombre, tipo, abre/cierra/cerrada (windowBlock + closedAt de la v1) y franja con el color del hijo.
     abrirHoja(`<div style="border-left:6px solid ${esc((quien&&quien.color)||'#9ca3af')};padding-left:10px"><h3>${esc(t.titulo)}</h3>
-      <p class="v3-sub" style="margin:6px 0"><span class="v3-chip ${esObligatoria(t)?'obl':esDeber(t)?'deber':''}">${esObligatoria(t)?'Obligatoria':esDeber(t)?'Deber':'Tarea'}</span> <span class="${e.cls}">${esc(e.txt)}</span></p>
+      <p class="v3-sub" style="margin:6px 0"><span class="v3-chip ${esObligatoria(t)?'obl':esDeber(t)?'deber':''}">${esObligatoria(t)?'Obligatoria':esDeber(t)?'Deber':'Tarea'}</span> <span class="${e.cls}">${esc(e.txt)}</span>${t.exige_foto?' <span class="v3-chip">📷 Exige foto</span>':''/* v6c C3: chip «Exige foto» */}</p>
       ${descVisible(t)?`<p class="v6b-dfull">${esc(descVisible(t))}</p>`:''}${t.plantilla_id&&t.max_por_dia!=null?`<p class="v3-sub">Límite: ${esc(freqTxt(t.max_por_dia,t.intervalo_min_min))}</p>`:''}
       <p class="v3-sub">${quien?'Para: '+esc(quien.nombre):''}${junto?' · junto con '+esc(junto.nombre):''}${' · '+(Number(t.puntos)||0)+' pts'}${descuentoDe(t)>0?' · <span class="v3-st-err">Descuento −'+descuentoDe(t)+' pts</span>':''}</p>
       ${modeloVentana(t)?`<div style="margin-top:4px">${renglonHora(t)}</div>`:`<p class="v3-sub" style="margin-top:4px">${windowBlock(t)||'Sin ventana definida'}</p>`}</div>
@@ -4961,9 +4971,11 @@ window.FamiliaV3=(function(){
   /* v6b B6: casos que antes no mostraban nada:
      · «Ver como»: botón deshabilitado + «Solo lectura: entra como el hijo».
      · Ventana cerrada (taskTiming 'late') y aún sin enviar: «Se pasó la hora» + «Enviar tarde» / «Pedir más tiempo». */
-  function camposEnvio(){
+  // v6c C3: con exige_foto la foto deja de ser opcional (etiqueta «obligatoria»).
+  function camposEnvio(t){
+    const obl=!!(t&&t.exige_foto);
     return `<label class="v3-sub" style="display:block;margin-top:10px">Comentario (opcional)</label><input id="v3eCom" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px">
-      <label class="v3-sub" style="display:block;margin-top:8px" for="v3eFoto">Fotos de evidencia (opcional, hasta 3)</label><input id="v3eFoto" type="file" accept="image/*" multiple onchange="FamiliaV3.agregarFotos(this)">
+      <label class="v3-sub" style="display:block;margin-top:8px${obl?';font-weight:700;color:#b91c1c':''}" for="v3eFoto">${obl?'📷 Foto obligatoria (hasta 3)':'Fotos de evidencia (opcional, hasta 3)'}</label><input id="v3eFoto" type="file" accept="image/*" multiple onchange="FamiliaV3.agregarFotos(this)">
       <div id="v6bFotos" class="v6b-fotos"></div>`;
   }
   /* v6b B19: hasta 3 fotos por envío. Se eligen (una o varias veces), se ven en miniatura y se pueden quitar antes de
@@ -5020,7 +5032,7 @@ window.FamiliaV3=(function(){
     if(soloLectura()&&u&&isKid(u)&&mia&&abierta)
       return `<p class="v6b-ro">Solo lectura: entra como ${esc(u.nombre||'el hijo')} para enviarla.</p><button class="v3-cta v3-full" disabled aria-disabled="true">Ya la hice</button>`;
     if(puedeEnviarTarde(t,u))
-      return `<p class="v3-st-err" style="margin-top:10px;font-weight:700">Se pasó la hora.</p><p class="v3-sub">Puedes enviarla tarde (papá o mamá deciden si cuenta) o pedir más tiempo.</p>${camposEnvio()}
+      return `<p class="v3-st-err" style="margin-top:10px;font-weight:700">Se pasó la hora.</p><p class="v3-sub">Puedes enviarla tarde (papá o mamá deciden si cuenta) o pedir más tiempo.</p>${camposEnvio(t)}
       <div class="v6b-acc"><button class="v3-cta" onclick="FamiliaV3.enviar(${t.id},true)">Enviar tarde</button><button class="v3-btn2" onclick="FamiliaV3.pedirTiempo(${t.id})">Pedir más tiempo</button></div>`;
     if(!puedeEnviar(t,u)) return '';
     // v4 · pasar a un hermano (solo el dueño, tarea pendiente).
@@ -5029,7 +5041,7 @@ window.FamiliaV3=(function(){
     const pase=t.asignada_a===u.id&&t.estado==='pendiente'&&!t.es_transferencia&&herm.length?`<details style="margin-top:10px"><summary class="v3-sub">Pasar a un hermano</summary>
       <select id="v4Herm" style="width:100%;padding:9px;margin-top:6px">${herm.map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('')}</select>
       <button class="v3-btn2 v3-full" style="margin-top:6px" onclick="FamiliaV3.traspaso('pasar',${t.id})">Pasar</button></details>`:'';
-    return pase+camposEnvio()+`
+    return pase+camposEnvio(t)+`
       <button class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.enviar(${t.id})">Ya la hice</button>`;
   }
   async function enviar(id,tarde){
@@ -5049,6 +5061,8 @@ window.FamiliaV3=(function(){
         try{fotos.push(await comprimirFoto(fotosSel[i].file));}
         catch(e){return showToast(e&&e.message==='grande'?'La foto '+(i+1)+' es muy pesada y no se pudo achicar. Quítala o toma otra. No se envió nada.':'No se pudo leer la foto '+(i+1)+'. No se envió nada.');}
       }
+      // v6c C3: tarea con exige_foto y sin foto → no se envía (el servidor también lo valida con HINT c3_exige_foto).
+      if(t.exige_foto&&u.tiene_movil!==false&&!fotos.length) return showToast('Esta tarea necesita foto');
       const companero=!!(t.conjunto_con&&u.id===t.conjunto_con);
       const colF=companero?'fotos_2':'fotos', colAnt=companero?'fotos_2_anterior':'fotos_anterior', colLegado=companero?'foto_2':'foto_url';
       const payload={};
@@ -5210,6 +5224,7 @@ window.FamiliaV3=(function(){
       <label>Tiempo para hacerlo (minutos)</label><input id="v3cMin" type="number" min="1" value="${d?60:1440}">
       ${d?'<label>Descuento si se pasa la hora (pts)</label><input id="v3cPierde" type="number" min="0" value="3">':''}
       ${campoDescV3('v3cDesc',crear.desc)}
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v3cFoto" style="width:auto"> Exige foto</label>${''/* v6c C3: casilla «Exige foto» */}
       <div class="v3-row" style="margin-top:14px"><button class="v3-btn2" onclick="FamiliaV3.crearPaso1()">Atrás</button><button class="v3-cta" style="flex:1" onclick="FamiliaV3.crearGuardar()">Crear</button></div>`);
   }
   async function crearGuardar(){
@@ -5224,7 +5239,11 @@ window.FamiliaV3=(function(){
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     if(!confirm('¿Crear '+(d?'el deber':'la tarea')+' «'+crear.titulo+'» para '+((memberById(Number(crear.asignada))||{}).nombre||'este hijo')+(d?'':' ('+(args.p_puntos||0)+' pts)')+'?')) return;
     if(enCurso.has('crear')) return; enCurso.add('crear');
+    const exigeFoto=!!(document.getElementById('v3cFoto')||{}).checked;   // v6c C3: se lee antes de cerrar la hoja
     const id=await rpc('familia_rpc_crear_tarea',args); enCurso.delete('crear'); if(id==null) return;   // error: se conserva crear.req
+    // v6c C3: crear_tarea no recibe exige_foto; se marca en la fila recién creada. Si falla, la tarea queda creada y se avisa.
+    if(exigeFoto){const tid=typeof id==='object'?(id.id||id.tarea_id):id; const {error:ef}=tid?await supabase.from('familia_tareas').update({exige_foto:true}).eq('id',tid):{error:{message:'sin id'}};
+      if(ef) setTimeout(()=>showToast('La tarea quedó creada, pero sin «Exige foto»: '+msgErrorBD(ef)),2600);}
     const who=(memberById(crear.asignada)||{}).nombre||'';
     const texto=`${d?'Deber':'Tarea'} para ${who}: ${crear.titulo}`;
     crear={};
