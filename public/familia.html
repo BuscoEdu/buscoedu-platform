@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<title>FamiliaTareas</title>
+<title>FAMLY</title><!-- v6d D8: marca visible FAMLY (rutas, BD y RPC no cambian) -->
 <!-- familia-v44 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <style>
@@ -111,6 +111,7 @@ h3{margin-bottom:12px}
 </head>
 <body>
 <div class="login-screen" id="loginScreen">
+  <div style="font-weight:800;letter-spacing:.08em;color:#4338ca;margin-bottom:4px">FAMLY</div><!-- v6d D8: marca en la entrada -->
   <h2 style="margin-bottom:16px">Entrar</h2>
   <div class="form-group" style="width:100%;max-width:320px"><label>Soy</label><select id="loginMember"><option value="">Cargando...</option></select></div>
   <div class="form-group" style="width:100%;max-width:320px"><label>PIN</label><input id="loginPin" type="password" placeholder="oooo" maxlength="8" inputmode="numeric"></div>
@@ -121,7 +122,7 @@ h3{margin-bottom:12px}
 <div class="app" id="mainApp" style="display:none">
   <header>
     <div class="header-top">
-      <div id="familyTitle">Familia</div>
+      <div id="familyTitle">FAMLY · Familia</div><!-- v6d D8 -->
       <div style="display:flex;align-items:center;gap:8px">
         <button type="button" class="bell-btn" id="btnBell" onclick="openNotifs()" aria-label="Notificaciones"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="bellCount" class="badge" style="display:none">0</span></button>
         <div class="points-badge" id="headerPoints">0 pts</div>
@@ -231,7 +232,7 @@ h3{margin-bottom:12px}
 
 <div class="modal" id="modal-tarea"><div class="modal-content"><h3 id="taskModalTitle">Nueva</h3>
   <p id="taskModalHint" style="font-size:.8rem;color:var(--muted);margin-bottom:12px"></p>
-  <div class="form-group" id="nuevaKindWrap"><label>Qué vas a crear</label><select id="nuevaKind" onchange="syncNuevaKind()"><option value="hijo">Tarea de un hijo</option><option value="padres">Tarea entre padres</option><option value="penalizacion">Penalización</option></select></div>
+  <div class="form-group" id="nuevaKindWrap"><label>Qué vas a crear</label><select id="nuevaKind" onchange="syncNuevaKind()"><option value="hijo">Tarea de un hijo</option><option value="padres">Tarea entre padres</option><option value="penalizacion">Multa</option><!-- v6d D9 --></select></div>
   <div id="nuevaPenalty" style="display:none">
     <div class="form-group"><label>Hijo</label><select id="penaltyMember"></select></div>
     <div class="form-group"><label>Puntos a restar</label><input type="number" id="penaltyPoints" value="5" min="1"></div>
@@ -253,7 +254,7 @@ h3{margin-bottom:12px}
   <div class="form-group v6b-solo"><label for="taskDescripcion">Descripción (opcional)</label><textarea id="taskDescripcion" maxlength="280" rows="3" oninput="contarDesc(this)"></textarea><small class="v6b-cont" id="taskDescripcionCont">0/280</small></div>
   <div class="form-group"><label>Ícono</label><div class="emoji-grid" id="taskIconGrid"></div><input type="hidden" id="taskIcon" value="📋"></div>
   <div class="form-group" id="taskPointsWrap"><label>Puntos</label><input type="number" id="taskPoints" value="10"></div>
-  <div class="form-group"><label>Penalización por no hacerlo</label><input type="number" id="taskPenalty" min="0" value="0"></div>
+  <div class="form-group"><label>Multa por no hacerlo</label><!-- v6d D9 --><input type="number" id="taskPenalty" min="0" value="0"></div>
   <!-- v5 ítem 20: id para ocultar la hora cuando es Inmediata (abre en el momento de crearla). -->
   <div class="form-group" id="taskDueWrap"><label>Hora de la tarea</label><input type="datetime-local" id="taskDue" onchange="paintDueHint()"></div>
   <div class="form-group"><!-- v6 A4: etiqueta aclarada (la ventana va antes y después de la hora). -->
@@ -727,7 +728,7 @@ function taskOutcome(t){
   const hist=(state.history||[]).filter(h=>Number(h.tarea_id)===Number(t.id));
   // v6c C14b: «Descuento: …» (v6c) también es penalización y «Realizada: …» cuenta como hecha; un deber dice «Penalización · deber».
   const deshecho=hist.some(h=>/^Deshecho/.test(h.texto||''));
-  if(hist.some(h=>/^(Penalizaci[oó]n|Descuento)/.test(h.texto||''))||(applied!=null&&applied<0)) return {kind:'penalizacion',label:esDeberTareaC14(t)?'Penalización · deber':'Penalización'};
+  if(hist.some(h=>/^(Penalizaci[oó]n|Descuento)/.test(h.texto||''))||(applied!=null&&applied<0)) return {kind:'penalizacion',label:esDeberTareaC14(t)?'Multa · deber':'Multa'}/* v6d D9 */;
   const ok=hist.some(h=>/^(Aprobada|Cumplida|Recibi[oó])/.test(h.texto||''))||(!deshecho&&hist.some(h=>/^Realizada/.test(h.texto||'')));
   if(ok||t.comentario_completado||(applied!=null&&applied>0)||(t.estado==='completada'&&t.puntos_sumados&&(applied==null||applied>=0))) return {kind:'completada',label:'Completada'};
   return {kind:'cerrada',label:'Cerrada'};
@@ -950,7 +951,7 @@ function render(){
   const u=currentUser();
   if(!u) return;
   const admin=isAdmin(u);
-  document.getElementById('familyTitle').textContent=familyTitleText();
+  document.getElementById('familyTitle').textContent='FAMLY · '+familyTitleText();   // v6d D8: marca FAMLY delante del nombre de la familia
   paintAvatar(document.getElementById('currentAvatar'), u);
   document.getElementById('currentName').textContent=u.nombre;
   const age=ageOf(u);
@@ -1082,7 +1083,7 @@ function pointsLine(t){
   const tipo=t&&t.tipo==='deber'?'Deber':'Tarea';
   const gan=Number(t&&t.puntos)||0;
   const pen=Math.max(0, Number(t&&t.puntos_penalizacion_dia)||0);
-  return `${esc(tipo)} - ${gan} pts - <span class="tipo-pen">Penalización -${pen} pts</span>`;
+  return `${esc(tipo)} - ${gan} pts - <span class="tipo-pen">Multa -${pen} pts</span>`;   // v6d D9
 }
 function taskCard(t){
   const who=memberById(t.asignada_a);
@@ -1320,6 +1321,11 @@ function openNueva(){
   if(wrap) wrap.style.display='';
   if(kind) kind.value=taskView==='padres'?'padres':'hijo';
   syncNuevaKind();
+  // v6d D4: en modo v1 (sin .v3-modo) «Nueva» no muestra Deber ni Deberes base; «Realizada» sigue en la ficha.
+  if(!document.body.classList.contains('v3-modo')){
+    const o=document.querySelector('#taskTipo option[value="deber"]'); if(o) o.remove();
+    const dw=document.getElementById('taskDeberModoWrap'); if(dw) dw.style.display='none';
+  }
   openModal('modal-tarea');
 }
 function syncNuevaKind(){
@@ -1329,7 +1335,7 @@ function syncNuevaKind(){
   if(kind==='penalizacion'){
     if(pen) pen.style.display='';
     if(fields) fields.style.display='none';
-    document.getElementById('taskModalTitle').textContent='Penalización';
+    document.getElementById('taskModalTitle').textContent='Multa';   // v6d D9
     document.getElementById('taskModalHint').textContent='Resta puntos y queda en el historial. No es una tarea.';
     const sel=document.getElementById('penaltyMember');
     if(sel) sel.innerHTML=state.members.filter(isKid).slice().sort(byName).map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('');
@@ -1461,7 +1467,7 @@ function etiquetaMovC14(tipo,h){
   if(!esDeberMovC14(h)) return tipo;
   if(tipo==='Tarea') return 'Deber';
   // v6c C14b: descuento/penalización de un deber → «Penalización · deber»; perdón de un deber → «Deber».
-  if(tipo==='Penalización'||tipo==='Descuento') return 'Penalización · deber';
+  if(tipo==='Penalización'||tipo==='Descuento') return 'Multa · deber';   // v6d D9: etiqueta visible
   if(tipo==='Perdonada') return 'Deber';
   if(tipo==='Realizada'||tipo==='Deshecho') return tipo+' · deber';
   return tipo;
@@ -1469,7 +1475,8 @@ function etiquetaMovC14(tipo,h){
 /* v6c C1b: el historial del hijo con celular queda «Aprobada: X (+N pts)» (lo escribe la BD al Aceptar). Solo para mostrar:
    si la tarea ligada es enviada_tarde y N < sus puntos, se lee «Aprobada tarde: X (N de M pts)». No cambia la fila. */
 function textoMovC1b(h){
-  const tx=(h&&h.texto)||''; const m=tx.match(/^Aprobada:\s*(.*?)\s*\(\+?(\d+)\s*pts\)(.*)$/);
+  // v6d D9: el historial guardado puede decir «Penalización: …»; en pantalla se lee «Multa: …» (la BD no cambia).
+  const tx=((h&&h.texto)||'').replace(/^Penalizaci[oó]n/,'Multa'); const m=tx.match(/^Aprobada:\s*(.*?)\s*\(\+?(\d+)\s*pts\)(.*)$/);
   if(!m||h.tarea_id==null) return tx;
   const t=(state.tasks||[]).find(x=>Number(x.id)===Number(h.tarea_id)); const M=t?Number(t.puntos)||0:0;
   if(!t||!t.enviada_tarde||!(Number(m[2])<M)) return tx;
@@ -1500,6 +1507,7 @@ function movementOf(h){
   // v6c C1b: «Aprobada: X (+N pts)» de una tarea enviada tarde con puntos parciales se lee «Aprobada tarde: X (N de M pts)».
   if(/^Aprobada:/.test(t)){const t2=textoMovC1b(h); if(t2!==t) row.detalle=t2;}
   row.tareaId=h.tarea_id||null;
+  if(row.detalle) row.detalle=String(row.detalle).replace(/^Penalizaci[oó]n/,'Multa');   // v6d D9: texto visible «Multa»
   // v6c C14: row.tipo se deja igual (cuentas del saldo y ranking); la etiqueta visible va aparte en row.etiqueta.
   row.etiqueta=etiquetaMovC14(row.etq||row.tipo,h);   // v6c C14b: etiqueta propia (Descuento/Realizada/Deshecho) antes de la de deber
   row.h=h;   // v5 ítem 15: fila original (tipo/pts) para el ícono por tipo en v3/v4
@@ -1566,7 +1574,7 @@ function openBalance(id){
   const quedan=Number(k.puntos)||0;
   const generado=led.generado;
   document.getElementById('balanceTitle').textContent='Histórico de '+k.nombre;
-  document.getElementById('balanceSummary').textContent=`${quedan}/${generado} · generó ${generado} · canjeó ${led.canjeado} · penalización ${led.penalizado} · le quedan ${quedan}`;
+  document.getElementById('balanceSummary').textContent=`${quedan}/${generado} · generó ${generado} · canjeó ${led.canjeado} · multas ${led.penalizado} · le quedan ${quedan}`;
   const rows=led.moves.slice().reverse();
   const linked=new Set(rows.map(m=>Number(m.tareaId)).filter(Boolean));
   const closed=state.tasks.filter(t=>isClosedTask(t)&&!isGoal(t)&&t.tipo!=='mesada'&&(t.asignada_a===id||t.conjunto_con===id)&&!linked.has(t.id));
@@ -1584,11 +1592,11 @@ function openBalance(id){
       const o=taskOutcome(task);
       const bad=o.kind==='penalizacion'||o.kind==='cerrada';
       const when=m.fecha?fmtDate(m.fecha):'';
-      return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${task.id})">${iconoMovV3(m.h)}<strong>${esc(m.etiqueta||m.tipo)/* v6c C14 */}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}${fotoMovHtml(m.h)?'<br>'+fotoMovHtml(m.h):''}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
+      return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${task.id})">${iconoMovV3(m.h)}<strong>${esc((m.etiqueta||m.tipo)==='Penalización'?'Multa':(m.etiqueta||m.tipo))/* v6c C14 · v6d D9 */}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}${fotoMovHtml(m.h)?'<br>'+fotoMovHtml(m.h):''}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
     }
     const when=m.fecha?fmtDate(m.fecha):'';
     const open=tid?` onclick="openTaskFromBalance(${id},${tid})" class="hist-ok"`:` class="hist-ok" style="cursor:default"`;
-    return `<div${open}>${iconoMovV3(m.h)}<strong>${esc(m.etiqueta||m.tipo)/* v6c C14 */}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}${fotoMovHtml(m.h)?'<br>'+fotoMovHtml(m.h):''}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
+    return `<div${open}>${iconoMovV3(m.h)}<strong>${esc((m.etiqueta||m.tipo)==='Penalización'?'Multa':(m.etiqueta||m.tipo))/* v6c C14 · v6d D9 */}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}${fotoMovHtml(m.h)?'<br>'+fotoMovHtml(m.h):''}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
   }).join('')+closedHtml):'<div class="empty">Sin movimientos</div>';
   openModal('modal-balance');
 }
@@ -1951,7 +1959,7 @@ function reviewTask(){
     '<p>'+esc(document.getElementById('taskTitle').value.trim())+'</p>'+
     '<p>Puntos: '+puntos+'</p>'+
     (raw==='deber'?'<p>'+(modo==='entre'?'Entre hermanos, orden distinto cada vez':'Individual')+' · '+esc(REC_LABEL[rec]||rec)+'</p>':'')+
-    '<p>Penalización por no hacerlo: '+(+document.getElementById('taskPenalty').value||0)+' pts</p>'+
+    '<p>Multa por no hacerlo: '/* v6d D9 */+(+document.getElementById('taskPenalty').value||0)+' pts</p>'+
     '<div style="max-height:220px;overflow:auto">'+(lineas||'<p>No hay fechas en lo que queda del mes.</p>')+'</div>'+
     // Hotfix v5: en «Validar hecha» la tarea se guarda YA HECHA (esperando_aprobacion); antes este resumen decía
     // «No se activa sola…» y el padre creía estar creando una tarea normal que el hijo debía marcar.
@@ -2347,7 +2355,7 @@ function openTaskCard(id, fromBalance){
     acts.push(`<button class="btn secondary" onclick="returnTask(${t.id})">Pedir que la rehaga</button>`);
   }
   if(kidTurn){
-    acts.push(`<button class="btn success" onclick="confirmApproval(${t.id})">Aprobar</button>`);
+    acts.push(`<button class="btn success" onclick="confirmApproval(${t.id})">✅ Aprobar${Number(t.puntos)?' · +'+Number(t.puntos)+' pts':''}</button>`);   // v6d D17
     acts.push(`<button class="btn secondary" onclick="rejectTask(${t.id})">No contarla</button>`);
     acts.push(`<button class="btn secondary" onclick="returnTask(${t.id})">Devolver para rehacer</button>`);
   }
@@ -2853,6 +2861,7 @@ async function applyPenalty(){
   // v5 ítem 14: la fila nace tipada (tipo 'descuento', pts negativos) para que ranking y saldo la clasifiquen bien.
   // v6 A1: los puntos se restan UNA sola vez (arriba); solo el historial se reintenta, y solo sin la foto.
   // v6 Mesada: actor_id = el padre que descuenta (columna de F1).
+  // v6d D9: el texto guardado sigue «Penalización: …» (compatibilidad con la v1 y los filtros); en pantalla se muestra «Multa».
   const fila={miembro_id:mid,texto:`Penalización: ${motivo} (-${pts} pts)`,tipo:'descuento',pts:-pts,actor_id:state.currentUserId};
   const inicio=new Date(Date.now()-60000).toISOString();
   let r=await supabase.from('familia_historial').insert(foto?{...fila,foto_url:foto}:fila);
@@ -2862,7 +2871,7 @@ async function applyPenalty(){
     if(!ya.error&&ya.data&&ya.data.length) r={error:null};
     else r=await supabase.from('familia_historial').insert(fila);
     if(!r.error) showToast('Descuento aplicado. La foto no se pudo guardar (falta la columna en la BD).');
-  }else if(!r.error) showToast('Penalización aplicada');
+  }else if(!r.error) showToast('Multa aplicada');   // v6d D9
   if(r.error) showToast('Puntos descontados, pero el historial falló: '+r.error.message);
   if(pf) pf.value='';
   closeModal('modal-tarea');
@@ -3061,7 +3070,7 @@ async function redeemReward(id){
 function openRewardHistory(){
   const u=currentUser();
   const canjes=(isAdmin(u)?state.history:state.history.filter(h=>h.miembro_id===u.id)).filter(h=>/canje/i.test(h.texto||''));
-  document.getElementById('rewardHistoryModal').innerHTML=canjes.length?canjes.map(h=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">${esc(h.texto)}</div>`).join(''):'<div class="empty">Sin canjes</div>';
+  document.getElementById('rewardHistoryModal').innerHTML=canjes.length?canjes.map(h=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">${esc(textoMovC1b(h))/* v6d D9 */}</div>`).join(''):'<div class="empty">Sin canjes</div>';
   openModal('modal-historial-premios');
 }
 
@@ -3812,13 +3821,23 @@ details.v3-admin summary{cursor:pointer;font-weight:600}
 /* Web primero: en pantallas anchas la misma columna, más aire. */
 @media (min-width:900px){.v3-main{padding:20px 28px}}
 @media (max-width:360px){.v3-nav button{padding:4px 6px}.v3-cta,.v3-btn2{font-size:.84rem}}
+/* v6d D15: encabezados Hoy / Más adelante fijos y plegables + botón flotante «↑ Arriba».
+   v6d D17: «Me comprometo» del hijo en índigo; «Aprobar · +N pts» del padre en verde (nunca el mismo color).
+   v6d D19: par de botones de foto (cámara / galería). */
+.v6d-sticky{position:sticky;top:0;z-index:3;background:#fff;padding:8px 4px;font-weight:700;cursor:pointer;border-bottom:1px solid #e2e8f0}
+#v6dArriba{position:fixed;right:16px;bottom:84px;z-index:2500;display:none;background:#1e293b;color:#fff;border:0;border-radius:999px;padding:10px 14px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.25);cursor:pointer}
+#v6dArriba.on{display:block}
+.v3-cta.v6d-comp{background:#4338ca;color:#fff}
+.v3-cta.v6d-aprob{background:#15803d;color:#fff}
+.v6d-foto{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}.v6d-foto button{flex:1;min-height:44px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;cursor:pointer;font-size:.9rem}
+.v6d-foto small{flex-basis:100%;color:#64748b}
 </style>
 
 <div id="v3App" aria-live="polite">
   <!-- Cabecera: familia, saldo, bandeja (padres) y salir. -->
   <div class="v3-head">
     <div class="v4-av" id="v4Av" aria-hidden="true">👤</div>
-    <div class="v4-who"><span class="v4-fam" id="v3Fam">Familia</span><b id="v4Nom"></b><small id="v4Rol"></small><small id="v4Frase"></small></div>
+    <div class="v4-who"><span class="v4-fam" id="v3Fam">FAMLY · Familia</span><!-- v6d D8 --><b id="v4Nom"></b><small id="v4Rol"></small><small id="v4Frase"></small></div>
     <span class="v3-pts" id="v3Pts"></span>
     <!-- Campana de avisos de la v1 (openNotifs) con ícono de línea. -->
     <button class="v3-icobtn" id="v4Bell" aria-label="Avisos" onclick="FamiliaV3.abrirV1(()=>openNotifs())"></button>
@@ -4071,7 +4090,7 @@ window.FamiliaV3=(function(){
         act=`<button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.verVencida(${t.id})">Ver</button>`;
       // v6c C10: «Aceptar» visible en la tarjeta (sin abrirla); la acción sigue siendo aceptarAprobada.
       if(!admin&&t.estado==='aviso_aprobada')
-        act=`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aceptarAprobada(${t.id})">Aceptar</button>`;
+        act=`<button class="v3-cta v6d-comp" onclick="event.stopPropagation();FamiliaV3.aceptarAprobada(${t.id})">👍 Me comprometo</button>`;   // v6d D17: hijo, índigo
       // v6c C10: insignia llamativa encima de la tarjeta cuando espera acción del hijo.
       const av=!admin&&!soloLectura()?avisoHijo(t):'';
       if(av) return `<div class="v6c-aviso"><div class="v6c-aviso-b">${esc(av)}</div>${ficha(t,act)}</div>`;
@@ -4095,9 +4114,10 @@ window.FamiliaV3=(function(){
     // v6c C10b: «Vencidos» va ANTES de «Hoy» (primero en la pantalla). El hijo los ve aquí; el padre también los ve
     // con su acción (v6c C7c) y además siguen en «Revisar».
     if(venc.length) h+=`<h2 style="margin-top:4px">Vencidos</h2>`+venc.map(fila).join('')+(admin?`<p class="v3-sub">${venc.length} en «Revisar».</p>`:'');
-    h+=(venc.length?'<h2 style="margin-top:14px">Hoy</h2>':'')+(hoy.length?hoy.map(fila).join(''):'<p class="v3-sub">Nada para hoy.</p>');
+    // v6d D15: «Hoy» va en un bloque plegable con encabezado fijo (sticky); abierto por defecto.
+    h+=`<details class="v6d-sec" open style="margin-top:${venc.length?14:0}px"><summary class="v6d-sticky">Hoy (${hoy.length})</summary>`+(hoy.length?hoy.map(fila).join(''):'<p class="v3-sub">Nada para hoy.</p>')+'</details>';
     // v6b B8+B10: «Más adelante» en orden cronológico (más próxima primero) dentro de una caja que muestra 5 y hace scroll.
-    if(luego.length) h+=`<details style="margin-top:12px" ontoggle="FamiliaV3._cajas()"><summary class="v3-sub">Más adelante (${luego.length})</summary><div class="v6b-caja">${luego.slice().sort(porCuando).map(fila).join('')}</div></details>`;
+    if(luego.length) h+=`<details class="v6d-sec" style="margin-top:12px" ontoggle="FamiliaV3._cajas()"><summary class="v3-sub v6d-sticky">Más adelante (${luego.length})</summary><div class="v6b-caja">${luego.slice().sort(porCuando).map(fila).join('')}</div></details>`;
     if(misSol.length) h+=`<h2 style="margin-top:14px">Mis solicitudes</h2>`+misSol.map(t=>ficha(t,'')).join('');
     document.getElementById('v3Hoy').innerHTML=h;
     ajustarCajasLuego();
@@ -4139,7 +4159,7 @@ window.FamiliaV3=(function(){
     if(sq.length) h0+='<h2>Solicitudes de tareas</h2>'+sq.map(t=>ficha(t,soloLectura()?'':`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aprobarSolicitud(${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.negarSolicitud(${t.id})">Negar</button></div>`)).join('');
     // v6 Mesada final: ya no se muestran «Mesadas por cargar» (RPC v4 retirada del FE).
     if(false&&mp.length) h0+='<h2>Mesadas por cargar</h2>'+mp.map(t=>ficha(t,soloLectura()?'':`<button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.mesadaPendiente(${t.id})">Cargar</button>`)).join('');
-    let h=h0+a.map(t=>ficha(t,`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aprobar(${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.detalle(${t.id})">Devolver</button></div>`)).join('');
+    let h=h0+a.map(t=>ficha(t,`<div class="v3-row"><button class="v3-cta v6d-aprob" onclick="event.stopPropagation();FamiliaV3.aprobar(${t.id})">✅ Aprobar${Number(t.puntos)?' · +'+Number(t.puntos)+' pts':''}</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.detalle(${t.id})">Devolver</button></div>`)).join('');
     if(v.length){
       h+='<h2 style="margin-top:16px">Vencidos</h2>';
       // F2c: se decide en cualquier estado vencido (por_decidir, pendiente_hijo o formato viejo).
@@ -4376,7 +4396,7 @@ window.FamiliaV3=(function(){
     const mio=(state.history||[]).filter(x=>x.miembro_id===u.id).slice().sort((a,b)=>(ms(b)-ms(a))||((b.id||0)-(a.id||0)));
     const esCanje=x=>{const r=claseMov(x); return !!(r&&r.k==='c');};
     // v6c C14: en «Mi historial» los deberes muestran el chip «Deber» o «Penalización · deber» (antes no se distinguían de tareas).
-    const chipC14=x=>{const k=tipoIcono(x); return k==='deber'?'<span class="v3-chip deber">Deber</span> ':k==='deberPen'?'<span class="v3-chip deber">Penalización · deber</span> ':'';};
+    const chipC14=x=>{const k=tipoIcono(x); return k==='deber'?'<span class="v3-chip deber">Deber</span> ':k==='deberPen'?'<span class="v3-chip deber">Multa · deber</span> '/* v6d D9 */:'';};
     const filaMov=x=>`<div class="v3-rk">${iconoMov(x)}<span class="v3-grow">${chipC14(x)}${esc(textoMovC1b(x))/* v6c C1b */}${badgeMesada(x)}${fotoMovHtml(x)?'<br>'+fotoMovHtml(x):''}<br><span class="v3-sub">${x.creado_en?new Date(x.creado_en).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></span>${x.pts!=null?`<strong class="${x.pts>0?'v3-st-ok':x.pts<0?'v3-st-err':''}">${x.pts>0?'+':''}${x.pts}</strong>`:''}</div>`;
     const caja=(tit,l,vacio)=>`<h2 style="margin-top:14px">${tit} <span class="v3-sub">(${l.length})</span></h2><div class="v3-card" style="display:block">${l.length?`<div class="v6b-caja">${l.slice(0,100).map(filaMov).join('')}</div>`:`<p class="v3-sub">${vacio}</p>`}</div>`;
     h+=caja('Canjes',mio.filter(esCanje),'Todavía no hay canjes.');
@@ -4423,7 +4443,7 @@ window.FamiliaV3=(function(){
   const ICO_MOV={
     tarea:['Tarea','<path d="M5 12l4 4 10-10"/>'],
     deber:['Deber','<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/>'],
-    deberPen:['Penalización · deber','<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12h6"/>'],   // v6c C14
+    deberPen:['Multa · deber',/* v6d D9 */'<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12h6"/>'],   // v6c C14
     desc:['Descuento','<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>'],
     premio:['Premio','<path d="M4 10h16v10H4z"/><path d="M12 10v10M3 7h18v3H3z"/>'],
     mesada:['Mesada','<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/>'],
@@ -4954,7 +4974,7 @@ window.FamiliaV3=(function(){
   function pintar(){
     const u=currentUser(); if(!u) return;
     const admin=isAdmin(u);
-    document.getElementById('v3Fam').textContent=familyTitleText();
+    document.getElementById('v3Fam').textContent='FAMLY · '+familyTitleText();   // v6d D8
     // v4 · ajuste 5: datos de quien usa la app (mismo avatar que la v1 con paintAvatar).
     paintAvatar(document.getElementById('v4Av'),u);
     document.getElementById('v4Nom').textContent=u.nombre||'';
@@ -5049,7 +5069,8 @@ window.FamiliaV3=(function(){
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     if(!confirm('¿Aprobar «'+t.titulo+'» de '+((memberById(t.asignada_a)||{}).nombre||'este integrante')+(Number(t.puntos)?' (+'+t.puntos+' pts)':'')+'?')) return;
     ocultas.add(id); pintar(); cerrarHoja();
-    avisoDeshacer('Aprobada: '+t.titulo,
+    // v6d D17: toast del padre «Aprobada · +N pts para {hijo}» (verde en el botón; distinto del hijo).
+    avisoDeshacer('Aprobada · +'+(Number(t.puntos)||0)+' pts para '+((memberById(t.asignada_a)||{}).nombre||'el hijo'),
       async()=>{const d=await rpc('familia_rpc_aprobar_tarea',{p_tarea_id:id,p_actor_id:state.currentUserId,p_comentario:comentario||null});
         ocultas.delete(id); if(!d){pintar();return;} if(d.idempotente) showToast('Ya estaba aplicado'); scheduleReload();},
       ()=>{ocultas.delete(id);pintar();},
@@ -5112,7 +5133,8 @@ window.FamiliaV3=(function(){
     const d=await rpc('familia_rpc_aceptar_aprobada',{p_tarea_id:id,p_actor_id:state.currentUserId});
     enCurso.delete(k); if(!d) return;
     ocultas.add(id); pintar();
-    showToast(d.idempotente?'Ya estaba aplicado':('+'+(d.pts||0)+' ✓ guardado en tu historial')); scheduleReload();
+    // v6d D17: toast propio del hijo (nunca comparte texto con el «Aprobada» del padre).
+    {const tt=state.tasks.find(x=>x.id===id); showToast(d.idempotente?'Ya estaba aplicado':('¡Listo! Te comprometiste con '+((tt&&tt.titulo)||'la tarea')));} scheduleReload();
   }
   /* v6b B1: «Devolver» ya no envía sin preguntar. Desde la bandeja abre la ficha de revisión (B2); desde la ficha
      toma la nota, pide UNA confirmación y, si la RPC responde bien, cierra la ventana y avisa. Si falla, la ficha
@@ -5163,10 +5185,19 @@ window.FamiliaV3=(function(){
     }finally{enCurso.delete(ck);}
   }
   // v5 ítem 11: una sola confirmación con nombre del hijo y tarea.
+  // v6d D18: cierra la hoja + toast «Perdonado: {tarea} sin descuento»; guarda contra doble toque (una sola llamada/escritura).
   async function perdonar(id){
+    const ck='p'+id; if(enCurso.has(ck)) return;
     const t=state.tasks.find(x=>x.id===id), k=t&&memberById(t.asignada_a);
     if(!confirm('¿Perdonar a '+((k&&k.nombre)||'este hijo')+': '+((t&&t.titulo)||'esta tarea')+'?')) return;
-    await rpc('familia_rpc_perdonar_vencida',{p_tarea_id:id,p_actor_id:state.currentUserId}); scheduleReload();
+    if(enCurso.has(ck)) return; enCurso.add(ck);
+    try{
+      const d=await rpc('familia_rpc_perdonar_vencida',{p_tarea_id:id,p_actor_id:state.currentUserId});
+      if(!d) return;
+      cerrarHoja(); ocultas.add(id); pintar();
+      showToast(d.idempotente?'Ya estaba aplicado':'Perdonado: '+((t&&t.titulo)||'la tarea')+' sin descuento');
+      scheduleReload();
+    }finally{enCurso.delete(ck);}
   }
 
   /* --- Premios por RPC. Un client_req_id por intención del usuario: se crea en el
@@ -5528,7 +5559,7 @@ window.FamiliaV3=(function(){
     return `<div class="v6b-rev"><div class="v6b-rev-t">Revisar la tarea</div>${t.enviada_tarde?'<p class="v3-st-err" style="font-weight:700;margin:4px 0">Enviada tarde · tú decides los puntos</p>':''}
       <label for="v6bCom" class="v3-sub">Comentario para ${nom} (opcional al aprobar; recomendado al devolver)</label>
       <textarea id="v6bCom" maxlength="200" rows="3" placeholder="Ej.: Te faltó tender la cama"></textarea>
-      <div class="v6b-acc"><button class="v3-cta" onclick="FamiliaV3.aprobar(${t.id},document.getElementById('v6bCom').value.trim())">Aprobar${Number(t.puntos)?' · +'+Number(t.puntos)+' pts':''}</button>
+      <div class="v6b-acc"><button class="v3-cta v6d-aprob" onclick="FamiliaV3.aprobar(${t.id},document.getElementById('v6bCom').value.trim())">✅ Aprobar${Number(t.puntos)?' · +'+Number(t.puntos)+' pts':''}</button>
       <button class="v3-btn2 v6b-dev" onclick="FamiliaV3.devolver(${t.id})">Devolver</button></div>
       <details style="margin-top:10px"><summary class="v3-sub" aria-label="Más acciones">⋯ Más acciones</summary>
       <label class="v3-sub" style="display:block;margin-top:10px">Motivo del rechazo (obligatorio, lo verá el hijo)</label><input id="v3rMot" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px">
@@ -5849,6 +5880,46 @@ window.FamiliaV3=(function(){
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
   return {hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+})();
+</script>
+<script>
+/* v6d D15: botón flotante «↑ Arriba». Aparece al bajar (ventana o cualquier contenedor con scroll) y un toque vuelve arriba. */
+(function(){
+  let ultimo=null;
+  function btn(){let b=document.getElementById('v6dArriba'); if(!b){b=document.createElement('button'); b.id='v6dArriba'; b.type='button'; b.textContent='↑ Arriba'; b.setAttribute('aria-label','Volver arriba');
+    b.onclick=function(){try{if(ultimo&&ultimo!==document&&ultimo.scrollTo) ultimo.scrollTo({top:0,behavior:'smooth'});}catch(e){} window.scrollTo({top:0,behavior:'smooth'}); document.querySelectorAll('.v6b-caja').forEach(c=>{c.scrollTop=0;});};
+    document.body.appendChild(b);} return b;}
+  document.addEventListener('scroll',function(e){
+    const el=e.target===document?document.scrollingElement||document.documentElement:e.target;
+    const y=(el&&el.scrollTop)||window.scrollY||0; if(y>300) ultimo=e.target===document?null:el;
+    const algo=(window.scrollY||0)>300||(ultimo&&ultimo.scrollTop>300);
+    btn().classList.toggle('on',!!algo);
+  },true);
+})();
+/* v6d D19: donde se pide una foto hay dos botones: «📷 Tomar foto» (capture=environment) y «🖼️ Subir de galería» (sin capture).
+   No cambia los ids ni la lógica existente: la cámara usa un input auxiliar y copia los archivos al input original
+   (DataTransfer) y dispara su «change»; la galería abre el input original sin capture. */
+(function(){
+  function armar(inp){
+    if(inp.dataset.v6d||!/image/.test(inp.accept||'')) return; inp.dataset.v6d='1';
+    inp.removeAttribute('capture'); inp.style.display='none';
+    const cam=document.createElement('input'); cam.type='file'; cam.accept='image/*'; cam.setAttribute('capture','environment'); cam.style.display='none'; cam.dataset.v6d='aux';
+    const caja=document.createElement('div'); caja.className='v6d-foto';
+    const b1=document.createElement('button'); b1.type='button'; b1.textContent='📷 Tomar foto'; b1.onclick=()=>cam.click();
+    const b2=document.createElement('button'); b2.type='button'; b2.textContent='🖼️ Subir de galería'; b2.onclick=()=>inp.click();
+    const info=document.createElement('small');
+    const pintarInfo=()=>{const n=inp.files?inp.files.length:0; info.textContent=n?(n===1?'1 foto elegida':n+' fotos elegidas'):'';};
+    cam.addEventListener('change',()=>{
+      if(!cam.files||!cam.files.length) return;
+      try{const dt=new DataTransfer(); if(inp.multiple&&inp.files) Array.from(inp.files).forEach(f=>dt.items.add(f)); Array.from(cam.files).forEach(f=>dt.items.add(f)); inp.files=dt.files;}catch(e){return;}
+      cam.value=''; inp.dispatchEvent(new Event('change',{bubbles:true})); pintarInfo();
+    });
+    inp.addEventListener('change',pintarInfo);
+    caja.append(b1,b2,info,cam); inp.insertAdjacentElement('afterend',caja);
+  }
+  function barrer(r){(r||document).querySelectorAll('input[type=file]:not([data-v6d])').forEach(armar);}
+  function iniciar(){barrer(); new MutationObserver(m=>m.forEach(x=>x.addedNodes.forEach(n=>{if(n.nodeType!==1) return; if(n.matches&&n.matches('input[type=file]')) armar(n); else barrer(n);}))).observe(document.body,{childList:true,subtree:true});}
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',iniciar); else iniciar();
 })();
 </script>
 </body>
