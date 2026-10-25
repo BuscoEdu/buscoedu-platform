@@ -835,8 +835,10 @@ function memberOptions(selected, opts){
 // QA v5 fix 2: se quitó «comentario» (no existe en prod: «column familia_tareas.comentario does not exist»); el resto
 // está en las SQL v3/v4 o lo escribe la v1 en prod. comentAprob() ya tolera t.comentario indefinido.
 const V3_COLS_TAREAS='id,titulo,descripcion,puntos,recurrencia,icono,asignada_a,conjunto_con,para_quien,tipo,clase,inmediata,estado,estado_vencida,creada_por,puntos_sumados,puntos_aplicados,puntos_penalizacion_dia,resta_por_minuto,max_negativo,pierde_pts,habilita_en,fecha_limite,ventana_horas,ventana_min,marcada_en,cerrado_en,creado_en,comentario_completado,comentario_aprobacion,evidencia_2,es_transferencia,duplicada_de,client_req_id,plantilla_id,max_por_dia,intervalo_min_min';
+// v6c C1/C3/C7/C11: columnas del contrato v6c (enviada_tarde, exige_foto, marcada_por, pagado_a, serie_id, dias_semana); si faltan, loadAll reintenta con '*'.
+const V6C_COLS_TAREAS=V3_COLS_TAREAS+',enviada_tarde,exige_foto,marcada_por,pagado_a,serie_id,dias_semana';
 // v6b B18: plantilla_id, max_por_dia e intervalo_min_min (contrato v6b). Si faltan en la BD, loadAll reintenta con '*'.
-function columnasTareas(){return localStorage.getItem('familia_v3_on')==='1'?V3_COLS_TAREAS:'*';}
+function columnasTareas(){return localStorage.getItem('familia_v3_on')==='1'?V6C_COLS_TAREAS:'*';}   // v6c: lee las columnas nuevas
 /* v4 Ola 2: «Resetear todo» archiva (archivada_en) en vez de borrar. En modo v3/v4 toda lectura de
    tareas e historial filtra archivada_en IS NULL; en modo v1 la consulta queda igual que antes. */
 function sinArchivadas(q){return localStorage.getItem('familia_v3_on')==='1'?q.is('archivada_en',null):q;}
@@ -4745,6 +4747,8 @@ window.FamiliaV3=(function(){
   // p_comentario = comentario_aprobacion (opcional, desde el detalle). Si la RPC falla, la ficha vuelve y sale el error.
   function aprobar(id,comentario){
     const t=state.tasks.find(x=>x.id===id); if(!t) return;
+    // v6c C1: enviada después de su Fin (enviada_tarde) → ventana de puntos 0..M (sugerido M) antes de aprobar.
+    if(t.enviada_tarde&&Number(t.puntos)>0) return hojaAprobarTarde(id,comentario);
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     if(!confirm('¿Aprobar «'+t.titulo+'» de '+((memberById(t.asignada_a)||{}).nombre||'este integrante')+(Number(t.puntos)?' (+'+t.puntos+' pts)':'')+'?')) return;
     ocultas.add(id); pintar(); cerrarHoja();
@@ -4753,6 +4757,37 @@ window.FamiliaV3=(function(){
         ocultas.delete(id); if(!d){pintar();return;} if(d.idempotente) showToast('Ya estaba aplicado'); scheduleReload();},
       ()=>{ocultas.delete(id);pintar();},
       ()=>{rpcKeepalive('familia_rpc_aprobar_tarea',{p_tarea_id:id,p_actor_id:state.currentUserId,p_comentario:comentario||null});});
+  }
+  /* v6c C1: ventana «¿Cuántos puntos das?» para una tarea enviada tarde. Valor entero 0..M; vacío o fuera de rango
+     deja el botón apagado. Confirma con familia_rpc_aprobar_tarea_v6c (p_pts, p_client_req_id → 1 solo movimiento). */
+  function hojaAprobarTarde(id,comentario){
+    const t=state.tasks.find(x=>x.id===id); if(!t) return;
+    const M=Math.max(0,Number(t.puntos)||0), nom=((memberById(t.asignada_a)||{}).nombre)||'el hijo';
+    aprobTardeCom=comentario||'';
+    abrirHoja(`<h3>Aprobar tarea enviada tarde</h3><p class="v3-sub" style="margin:6px 0">${esc(nom)} envió «${esc(t.titulo)}» después de la hora. Tú decides cuántos puntos le das.</p>
+      <label for="v6cPts">Puntos (0 a ${M})</label><input id="v6cPts" type="number" inputmode="numeric" min="0" max="${M}" step="1" value="${M}" style="width:100%" oninput="FamiliaV3._ptsTarde(${M})">
+      <p id="v6cPtsErr" class="v3-sub v3-st-err" style="min-height:1.2em"></p>
+      <div class="v6b-acc"><button id="v6cPtsOk" class="v3-cta" onclick="FamiliaV3.aprobarTarde(${id})">Aprobar · ${M} pts</button><button class="v3-btn2" onclick="FamiliaV3.detalle(${id})">Volver</button></div>`);
+  }
+  let aprobTardeCom='';
+  function ptsTardeValidos(M){
+    const el=document.getElementById('v6cPts'), b=document.getElementById('v6cPtsOk'), er=document.getElementById('v6cPtsErr'); if(!el||!b) return null;
+    const raw=String(el.value).trim(), n=Number(raw), ok=raw!==''&&Number.isInteger(n)&&n>=0&&n<=M;
+    b.disabled=!ok; b.textContent=ok?'Aprobar · '+n+' pts':'Aprobar'; if(er) er.textContent=ok?'':'Escribe un número entero entre 0 y '+M+'.';
+    return ok?n:null;
+  }
+  async function aprobarTarde(id){
+    const t=state.tasks.find(x=>x.id===id); if(!t) return;
+    const M=Math.max(0,Number(t.puntos)||0), n=ptsTardeValidos(M); if(n==null) return;
+    if(!confirm('¿Aprobar «'+t.titulo+'» con '+n+' de '+M+' pts?')) return;
+    const k='at'+id; if(enCurso.has(k)) return; enCurso.add(k);
+    const b=document.getElementById('v6cPtsOk'); if(b) b.disabled=true;
+    try{
+      const d=await rpc('familia_rpc_aprobar_tarea_v6c',{p_tarea_id:id,p_actor_id:state.currentUserId,p_comentario:aprobTardeCom||null,p_pts:n,p_client_req_id:reqId(k)});
+      if(!d){if(b) b.disabled=false; return;}   // error: rpc() ya mostró el mensaje (p.ej. HINT c1_rango); se conserva el req id
+      delete reqIds[k]; ocultas.add(id); cerrarHoja(); pintar();
+      showToast(d.idempotente?'Ya estaba aplicado':'Aprobada tarde: '+(d.pts!=null?d.pts:n)+' de '+M+' pts'); scheduleReload();
+    }finally{enCurso.delete(k);}
   }
   // Si la página se cierra o se oculta dentro de los 5 s, se dispara la aprobación de una vez.
   // B3: se usa la versión keepalive (si existe) porque el cliente supabase no garantiza el envío al cerrar.
@@ -5057,7 +5092,8 @@ window.FamiliaV3=(function(){
   function accionesPadre(t){
     if(!isAdmin(currentUser())||soloLectura()||t.estado!=='esperando_aprobacion') return '';
     const nom=esc(((memberById(t.asignada_a)||{}).nombre)||'el hijo');
-    return `<div class="v6b-rev"><div class="v6b-rev-t">Revisar la tarea</div>
+    // v6c C1: aviso «Enviada tarde» en la ficha de revisión; Aprobar abre la ventana de puntos.
+    return `<div class="v6b-rev"><div class="v6b-rev-t">Revisar la tarea</div>${t.enviada_tarde?'<p class="v3-st-err" style="font-weight:700;margin:4px 0">Enviada tarde · tú decides los puntos</p>':''}
       <label for="v6bCom" class="v3-sub">Comentario para ${nom} (opcional al aprobar; recomendado al devolver)</label>
       <textarea id="v6bCom" maxlength="200" rows="3" placeholder="Ej.: Te faltó tender la cama"></textarea>
       <div class="v6b-acc"><button class="v3-cta" onclick="FamiliaV3.aprobar(${t.id},document.getElementById('v6bCom').value.trim())">Aprobar${Number(t.puntos)?' · +'+Number(t.puntos)+' pts':''}</button>
@@ -5330,7 +5366,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
