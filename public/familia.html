@@ -5333,7 +5333,7 @@ window.FamiliaV3=(function(){
       ${isAdmin(currentUser())&&!soloLectura()?`<button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.abrirV1(()=>openTaskCard(${t.id}))">Editar / eliminar (ficha completa)</button>`:''}
       ${t.comentario_completado?`<p class="v3-sub">«${esc(t.comentario_completado)}»</p>`:''}${comentAprob(t)&&/aprob|complet/.test(t.estado)?`<p class="v3-sub v3-st-ok">Papá/mamá: «${esc(comentAprob(t))}»</p>`:''}<div id="v3Foto" class="v3-sub">Cargando evidencia…</div>
       ${t.serie_id?'<div id="v6sFicha" class="v3-sub" style="margin-top:6px">Cargando serie…</div>':''/* v6c C11 */}
-      ${accionesHijo(t)}${accionesPadre(t)}${accionVencidaPadre(t)}${accionActivar(t)}${accionRealizada(t)}
+      ${accionesHijo(t)}${accionesPadre(t)}${accionVencidaPadre(t)}${accionActivar(t)}${accionRealizada(t)}${accionNoHizo(t)}
       <button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.cerrarHoja()">Cerrar</button>`);
     // v6b B19: se piden fotos/fotos_2 (hasta 3 cada uno); si la BD aún no los tiene, se vuelve a las columnas viejas.
     let {data,error}=await supabase.from('familia_tareas').select('foto_url,foto_2,foto_path,foto_2_path,fotos,fotos_2').eq('id',id).is('archivada_en',null).maybeSingle();   // v4: sin archivadas
@@ -5553,6 +5553,52 @@ window.FamiliaV3=(function(){
     const nota=sinMovil(k)?'Sin celular: suma al instante.':'Con celular: le llega para aceptar.';
     return `<button id="v6cReal" class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.realizada(${t.id})">✅ Realizada${Number(t.puntos)?' · +'+Number(t.puntos)+' pts':''}</button>
       <p class="v3-sub" style="margin-top:4px">${esc(nota)}${j?' '+esc(j.nombre)+': '+(sinMovil(j)?'sin celular, al instante.':'con celular, acepta.'):''}</p>`;
+  }
+  /* v6d D2: «No hizo» (solo hijo sin celular, tarea pendiente o vencida, padre con permiso). La BD cierra la tarea como no
+     hecha y aplica el descuento real si es obligatoria (si no, 0). Deshacer 10 s en pantalla (servidor 15 s). */
+  function puedeNoHizo(t){
+    const u=currentUser(), k=memberById(t&&t.asignada_a);
+    if(!t||!u||!isAdmin(u)||soloLectura()||!k||!isKid(k)||!sinMovil(k)) return false;
+    if(!puede('realizada_descontar_perdonar',u)) return false;
+    return t.estado==='pendiente'||t.estado==='aviso_vencida'||t.estado_vencida==='por_decidir'||t.estado_vencida==='pendiente_hijo'||vencidaServidor(t);
+  }
+  function accionNoHizo(t){
+    if(!puedeNoHizo(t)) return '';
+    return `<button class="v3-btn2 err v3-full" style="margin-top:8px" data-nohizo="${t.id}" onclick="FamiliaV3.noHizo(${t.id})">✖ No hizo</button>`;
+  }
+  async function noHizo(id){
+    const t=state.tasks.find(x=>x.id===id); if(!t||!puedeNoHizo(t)) return showToast('Esta tarea ya no se puede marcar. Recarga para ver su estado.');
+    const nom=((memberById(t.asignada_a)||{}).nombre)||'el hijo';
+    if(!confirm('¿'+nom+' NO hizo «'+t.titulo+'»?'+(esObligatoria(t)||esDeber(t)?' Se aplica el descuento.':''))) return;
+    const k='nh'+id; if(enCurso.has(k)) return; enCurso.add(k);   // v6d D2: antidoble toque
+    document.querySelectorAll('[data-nohizo="'+id+'"]').forEach(x=>{x.disabled=true;x.textContent='Guardando…';});
+    try{
+      const {data:d,error}=await supabase.rpc('familia_rpc_no_hizo',{p_tarea_id:id,p_actor_id:originalAdminId||state.currentUserId,p_client_req_id:reqId(k)});
+      if(error){ document.querySelectorAll('[data-nohizo="'+id+'"]').forEach(x=>{x.disabled=false;x.textContent='✖ No hizo';});
+        return showToast(faltaEnBD(error)?'«No hizo» aún no está en la BD (v6d_03)':msgErrorBD(error)); }
+      if(d==null) return showToast('No se pudo: respuesta vacía');
+      delete reqIds[k]; ocultas.add(id); cerrarHoja(); pintar();
+      const pts=Math.abs(Number(d.pts||d.descuento||0));
+      avisoDeshacerRpc('No hizo: '+t.titulo+(pts?' (−'+pts+' pts)':''),'familia_rpc_deshacer_no_hizo',{p_tarea_id:id,p_actor_id:originalAdminId||state.currentUserId},id,d.deshacer_hasta);
+      scheduleReload();
+    }finally{enCurso.delete(k);}
+  }
+  /* v6d D3: toast con «Deshacer» genérico: 10 s (o hasta deshacer_hasta si llega antes); fuera de plazo el servidor
+     responde HINT d3_deshacer_vencido → «Ya no se puede deshacer». */
+  let deshacerRpc=null;
+  function avisoDeshacerRpc(txt,nombre,args,id,hasta){
+    if(deshacerRpc) clearTimeout(deshacerRpc.timer);
+    const box=document.getElementById('v3Toast'), btn=document.getElementById('v3ToastUndo');
+    document.getElementById('v3ToastTxt').textContent=txt; box.classList.add('on');
+    const fin=()=>{box.classList.remove('on'); deshacerRpc=null; btn.onclick=null;};
+    let ms=10000; if(hasta){const x=new Date(hasta).getTime()-Date.now(); if(x>0&&x<ms) ms=x;}
+    deshacerRpc={timer:setTimeout(fin,ms)};
+    btn.onclick=async()=>{
+      if(!deshacerRpc) return; clearTimeout(deshacerRpc.timer); fin();
+      const k='dh'+nombre+(id||''); if(enCurso.has(k)) return; enCurso.add(k);
+      try{const d=await rpc(nombre,args); if(!d) return; if(id!=null) ocultas.delete(id); showToast('Se deshizo'); scheduleReload();}
+      finally{enCurso.delete(k);}
+    };
   }
   let deshacerReal=null;
   async function realizada(id){
@@ -5940,7 +5986,7 @@ window.FamiliaV3=(function(){
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
   // v6d D4/D20: se exponen puedeRealizada (ficha v1) y limitesHoy (filtro «Hoy» de la v1).
-  return {_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 <script>
