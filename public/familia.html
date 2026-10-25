@@ -1948,6 +1948,13 @@ async function createTask(){
   const ins=await escribirV6b(f=>supabase.from('familia_tareas').insert(f),rows,['descripcion','plantilla_id']);
   if(ins.error) return showToast(msgErrorBD(ins.error));
   if(ins.sinV6b) showToast('Se guardó sin descripción (falta en la BD)');
+  // v6c C6: obligatoria creada → «¿Enviar también por WhatsApp?». Sí abre wa.me con título + hora + descripción; no guarda números ni llama APIs.
+  if(inmediata&&!validateMode&&taskCreateMode!=='hermano'&&confirm('¿Enviar también por WhatsApp?')){
+    const r0=rows[0], hh=new Date(r0.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false}), hf=new Date(r0.fecha_limite).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+    const msg='Tarea obligatoria: '+titulo+'\nHora: '+hh+' a '+hf+(desc?'\n'+desc:'');
+    const w=window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank','noopener');
+    if(!w) showToast('No se abrió WhatsApp. La tarea ya quedó creada.');
+  }
   if(saveTpl&&taskCreateMode!=='hermano'&&!inmediata){
     const audiencia=taskCreateMode==='padres'?'padre':'hijo';
     const exists=state.plantillas.some(p=>plantillaAudiencia(p)===audiencia&&String(p.titulo||'').trim().toLowerCase()===titulo.toLowerCase());
