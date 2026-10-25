@@ -826,6 +826,20 @@ function selectFigure(n){
   fillFigureGrid();
   fillEmojiGrid('profileEmojiGrid','profEmoji');
 }
+/* v6d D21: etiqueta del nombre con el color de perfil (familia_miembros.color, el que se elige en «Perfil»).
+   Fondo = color mezclado con 85 % de blanco; texto = el color oscurecido hasta contraste AA ≥ 4.5:1 con ese fondo
+   (si no llega, #1f2937). Sin color válido → gris neutro. */
+function v6dRgb(h){const m=/^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(String(h||'').trim()); if(!m) return null; let x=m[1]; if(x.length===3) x=x.split('').map(c=>c+c).join(''); return [0,2,4].map(i=>parseInt(x.substr(i,2),16));}
+function v6dLum(c){const f=v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);}; return 0.2126*f(c[0])+0.7152*f(c[1])+0.0722*f(c[2]);}
+function v6dContraste(a,b){const x=v6dLum(a),y=v6dLum(b); return (Math.max(x,y)+0.05)/(Math.min(x,y)+0.05);}
+function v6dHex(c){return '#'+c.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}
+function estiloMiembro(m){
+  const c=v6dRgb(m&&m.color); if(!c) return 'background:#f3f4f6;color:#374151';   // v6d D21: sin color → gris (contraste ≈ 9:1)
+  const bg=c.map(v=>v+(255-v)*0.85);
+  let tx=c.slice(), k=0; while(v6dContraste(tx,bg)<4.5&&k<20){tx=tx.map(v=>v*0.85);k++;}
+  return 'background:'+v6dHex(bg)+';color:'+(v6dContraste(tx,bg)>=4.5?v6dHex(tx):'#1f2937');
+}
+function etiquetaMiembro(m,txt){return `<span class="who-tag v6d-who" style="${estiloMiembro(m)}">${esc(txt!=null?txt:((m&&m.nombre)||'Sin asignar'))}</span>`;}   // v6d D21
 function fillColorGrid(containerId,hiddenId){
   const c=document.getElementById(containerId);
   const current=document.getElementById(hiddenId).value;
@@ -1134,7 +1148,7 @@ function taskCard(t){
     <div style="flex:1">
       <strong>${icon}${esc(t.titulo||'Tarea')}</strong><br>
       <span class="who-tag">${esc(audience)}</span><span class="who-tag">${esc(rec)}</span><br>
-      <span class="who-tag">${esc(who?.nombre||'Sin asignar')}</span>${creador?'<span style="font-weight:400;font-size:.85rem"> - por '+esc(creador.nombre)+'</span>':''}${targetTag}<br>
+      ${etiquetaMiembro(who)/* v6d D21 */}${creador?'<span style="font-weight:400;font-size:.85rem"> - por '+esc(creador.nombre)+'</span>':''}${targetTag}<br>
       <small>${pointsLine(t)}</small><br>
       ${start?`<small>Inicio: ${esc(start)}</small><br>`:''}
       ${end?`<small>Fin: ${esc(end)}</small>`:''}
@@ -2307,7 +2321,7 @@ function openTaskCard(id, fromBalance){
     if(t.habilita_en) win.push('Inicio: '+fmtDate(t.habilita_en));
     if(t.fecha_limite) win.push('Fin: '+fmtDate(t.fecha_limite));
     const mark=t.marcada_en||closedAt(t);
-    document.getElementById('fichaStatus').innerHTML=`<div style="font-size:.95rem">${pointsLine(t)}</div><div style="margin-top:6px;font-size:.9rem">${win.map(esc).join('<br>')}</div><div style="margin-top:8px"><strong>${esc(whoName?.nombre||'Sin asignar')} - ${esc(outcome.label||'Cerrada')}</strong></div>${mark?`<div style="margin-top:4px;font-size:.9rem">${esc(fmtDate(mark))}</div>`:''}`;
+    document.getElementById('fichaStatus').innerHTML=`<div style="font-size:.95rem">${pointsLine(t)}</div><div style="margin-top:6px;font-size:.9rem">${win.map(esc).join('<br>')}</div><div style="margin-top:8px">${etiquetaMiembro(whoName)/* v6d D21 */}<strong> ${esc(outcome.label||'Cerrada')}</strong></div>${mark?`<div style="margin-top:4px;font-size:.9rem">${esc(fmtDate(mark))}</div>`:''}`;
   }else{
     document.getElementById('fichaStatus').innerHTML=`<div style="font-size:.95rem">${pointsLine(t)}</div><div style="margin-top:6px;font-size:.9rem">${t.habilita_en?'Inicio: '+esc(fmtDate(t.habilita_en))+'<br>':''}${t.fecha_limite?'Fin: '+esc(fmtDate(t.fecha_limite)):''}</div>`;
   }
@@ -2350,7 +2364,7 @@ function openTaskCard(id, fromBalance){
         read.style.display='none';
       }else{
       const whoName=memberById(t.asignada_a);
-      read.innerHTML=`<p style="margin:0 0 6px"><strong>${esc(t.titulo||'Tarea')}</strong></p><p style="color:var(--muted);font-size:.9rem">${esc(whoName?.nombre||'Sin asignar')} · ${esc(statusLabel(t))}</p><p style="font-size:.9rem">${pointsLine(t)}</p><p style="font-size:.9rem">${windowBlock(t)}</p>`;
+      read.innerHTML=`<p style="margin:0 0 6px"><strong>${esc(t.titulo||'Tarea')}</strong></p><p style="color:var(--muted);font-size:.9rem">${etiquetaMiembro(whoName)/* v6d D21 */} · ${esc(statusLabel(t))}</p><p style="font-size:.9rem">${pointsLine(t)}</p><p style="font-size:.9rem">${windowBlock(t)}</p>`;
       }
     }
   }
@@ -4126,7 +4140,7 @@ window.FamiliaV3=(function(){
     return `<div class="v3-card ${e.c}${vcls}${obl?' v6b-obl':''}" data-id="${t.id}" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.detalle(${t.id})">
       <div class="v3-grow"><div class="v3-t">${esc(t.titulo)}</div>${descVisible(t)?`<div class="v6b-dtxt">${esc(descVisible(t))}</div>${descVisible(t).length>70?'<span class="v6b-mas">ver más</span>':''}`:''}
       <div class="v3-sub"><span class="v3-chip ${obl?'obl':esDeber(t)?'deber':''}">${obl?'Obligatoria':esDeber(t)?'Deber':'Tarea'}</span>
-      ${who?esc(who.nombre)+' · ':''}<span class="${e.cls}">${esc(e.txt)}</span>${t.puntos?' · '+t.puntos+' pts':''}</div>
+      ${who?etiquetaMiembro(who)+' ':''/* v6d D21 */}<span class="${e.cls}">${esc(e.txt)}</span>${t.puntos?' · '+t.puntos+' pts':''}</div>
       ${renglonHora(t)}${vtxt?`<div class="v3-sub" style="margin-top:2px">${vtxt}</div>`:''}</div>
       ${acciones||''}</div>`;
   }
@@ -5401,7 +5415,7 @@ window.FamiliaV3=(function(){
     abrirHoja(`<div style="border-left:6px solid ${esc((quien&&quien.color)||'#9ca3af')};padding-left:10px"><h3>${esc(t.titulo)}</h3>
       <p class="v3-sub" style="margin:6px 0"><span class="v3-chip ${esObligatoria(t)?'obl':esDeber(t)?'deber':''}">${esObligatoria(t)?'Obligatoria':esDeber(t)?'Deber':'Tarea'}</span> <span class="${e.cls}">${esc(e.txt)}</span>${t.exige_foto?' <span class="v3-chip">📷 Exige foto</span>':''/* v6c C3: chip «Exige foto» */}</p>
       ${descVisible(t)?`<p class="v6b-dfull">${esc(descVisible(t))}</p>`:''}${t.plantilla_id&&t.max_por_dia!=null?`<p class="v3-sub">Límite: ${esc(freqTxt(t.max_por_dia,t.intervalo_min_min))}</p>`:''}
-      <p class="v3-sub">${quien?'Para: '+esc(quien.nombre):''}${junto?' · junto con '+esc(junto.nombre):''}${' · '+(Number(t.puntos)||0)+' pts'}${descuentoDe(t)>0?' · <span class="v3-st-err">Descuento −'+descuentoDe(t)+' pts</span>':''}</p>
+      <p class="v3-sub">${quien?'Para: '+etiquetaMiembro(quien):''}${junto?' · junto con '+etiquetaMiembro(junto):''/* v6d D21 */}${' · '+(Number(t.puntos)||0)+' pts'}${descuentoDe(t)>0?' · <span class="v3-st-err">Descuento −'+descuentoDe(t)+' pts</span>':''}</p>
       ${modeloVentana(t)?`<div style="margin-top:4px">${renglonHora(t)}</div>`:`<p class="v3-sub" style="margin-top:4px">${windowBlock(t)||'Sin ventana definida'}</p>`}</div>
       ${esPadre(currentUser())&&!soloLectura()?`<button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.abrirV1(()=>openTaskCard(${t.id}))">Editar / eliminar (ficha completa)</button>`:''}
       ${t.comentario_completado?`<p class="v3-sub">«${esc(t.comentario_completado)}»</p>`:''}${comentAprob(t)&&/aprob|complet/.test(t.estado)?`<p class="v3-sub v3-st-ok">Papá/mamá: «${esc(comentAprob(t))}»</p>`:''}<div id="v3Foto" class="v3-sub">Cargando evidencia…</div>
