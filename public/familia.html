@@ -4178,6 +4178,9 @@ window.FamiliaV3=(function(){
 
   /* --- Botón de canje: el hijo PIDE (solicitud que aprueba un padre); el padre canjea el suyo. --- */
   function botonPremio(u,r){
+    // v6c C7: en «Ver como» de un hijo sin celular, el padre canjea por él (familia_rpc_canjear_premio_por_hijo).
+    if(soloLectura()&&sinMovil(u)&&isAdmin(memberById(originalAdminId)))
+      return faltaDisponible(u.id,Math.max(1,Number(r.costo)||0))?'<span class="v3-sub">Aún no le alcanza (mesada por liberar)</span>':`<button class="v3-cta" onclick="FamiliaV3.canjearPorHijo(${r.id})">Canjear</button>`;
     if(soloLectura()) return '<span class="v3-sub">Solo lectura</span>';
     if(!isAdmin(u)){
       if((state.solicitudes||[]).some(x=>x.estado==='pendiente'&&x.miembro_id===u.id&&x.premio_id===r.id)||enCurso.has('p'+r.id))
@@ -4230,7 +4233,7 @@ window.FamiliaV3=(function(){
         <button class="v3-btn2" onclick="FamiliaV3.hojaMesadaV6()">Mesada mensual</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openPenalty())">Descuento</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNewMember())">Integrante</button>
-        <button class="v3-btn2" onclick="FamiliaV3.hojaPin()">PINs</button>
+        <button class="v3-btn2" onclick="FamiliaV3.hojaPin()">PINs</button><button class="v3-btn2" onclick="FamiliaV3.hojaMovil()">📵 Celulares</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaVerComo()">Ver como</button>
         <button class="v3-btn2 err v5-ancho" onclick="FamiliaV3.hojaReset()">Resetear</button></div></details>`;
     }
@@ -4920,6 +4923,18 @@ window.FamiliaV3=(function(){
     if(!d){ocultas.delete(k);pintar();return;}
     showToast(d.idempotente?'Ya estaba aplicado':'Premio aprobado'); loadAll();
   }
+  // v6c C7: canje directo por un hijo sin celular (actor = padre real; idempotente con p_client_req_id).
+  async function canjearPorHijo(pid){
+    const u=currentUser(), r=state.rewards.find(x=>x.id===pid); if(!u||!r||!sinMovil(u)||!originalAdminId) return;
+    const C=Math.max(1,Number(r.costo)||0), S=Number(u.puntos)||0;
+    if(!confirm('¿Canjear «'+r.nombre+'» para '+u.nombre+' (−'+C+' pts)? Le quedan '+(S-C)+'.')) return;
+    const k='ch'+pid+'-'+u.id; if(enCurso.has(k)) return; enCurso.add(k); pintar();
+    try{
+      const d=await rpc('familia_rpc_canjear_premio_por_hijo',{p_premio_id:pid,p_miembro_id:u.id,p_actor_id:originalAdminId,p_client_req_id:reqId(k)});
+      if(!d) return; delete reqIds[k];
+      showToast(d.idempotente?'Ya estaba aplicado':'Canjeado: '+r.nombre+(d.saldo!=null?' · saldo '+d.saldo:'')); scheduleReload();
+    }finally{enCurso.delete(k); pintar();}
+  }
   // Padre: canjea su propio premio → familia_rpc_canjear_premio_padre (p_client_req_id obligatorio).
   async function canjearPadre(id){
     const k='c'+id; if(enCurso.has(k)) return;
@@ -4946,7 +4961,7 @@ window.FamiliaV3=(function(){
       ${modeloVentana(t)?`<div style="margin-top:4px">${renglonHora(t)}</div>`:`<p class="v3-sub" style="margin-top:4px">${windowBlock(t)||'Sin ventana definida'}</p>`}</div>
       ${isAdmin(currentUser())&&!soloLectura()?`<button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.abrirV1(()=>openTaskCard(${t.id}))">Editar / eliminar (ficha completa)</button>`:''}
       ${t.comentario_completado?`<p class="v3-sub">«${esc(t.comentario_completado)}»</p>`:''}${comentAprob(t)&&/aprob|complet/.test(t.estado)?`<p class="v3-sub v3-st-ok">Papá/mamá: «${esc(comentAprob(t))}»</p>`:''}<div id="v3Foto" class="v3-sub">Cargando evidencia…</div>
-      ${accionesHijo(t)}${accionesPadre(t)}
+      ${accionesHijo(t)}${accionesPadre(t)}${accionRealizada(t)}
       <button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.cerrarHoja()">Cerrar</button>`);
     // v6b B19: se piden fotos/fotos_2 (hasta 3 cada uno); si la BD aún no los tiene, se vuelve a las columnas viejas.
     let {data,error}=await supabase.from('familia_tareas').select('foto_url,foto_2,foto_path,foto_2_path,fotos,fotos_2').eq('id',id).is('archivada_en',null).maybeSingle();   // v4: sin archivadas
@@ -5103,6 +5118,55 @@ window.FamiliaV3=(function(){
          aún no la publica en la carpeta sql). Cierra con 0 pts y no vuelve a la vista del hijo. --- */
   /* v6b B2: ficha de revisión del padre en un solo bloque: un comentario para el hijo y dos botones del mismo
      tamaño (Aprobar / Devolver), que en 360–390 px quedan lado a lado sin cortarse; «Rechazar» sigue en ⋯. */
+  /* v6c C7: «✅ Realizada» del padre para cualquier hijo (pendiente, enviada, vencida). Puntos completos, también en vencida.
+     Sin celular → completada al instante + «Deshacer» 10 s; con celular → aviso_aprobada (el hijo acepta). Actor = padre real. */
+  const REALIZADA_OK=['pendiente','esperando_aprobacion','aviso_vencida'];
+  function puedeRealizada(t){
+    const u=currentUser(), k=memberById(t.asignada_a);
+    if(!u||!isAdmin(u)||soloLectura()||!k||!isKid(k)) return false;
+    return REALIZADA_OK.includes(t.estado)||t.estado_vencida==='pendiente_hijo'||t.estado_vencida==='por_decidir';
+  }
+  function accionRealizada(t){
+    if(!puedeRealizada(t)) return '';
+    const k=memberById(t.asignada_a), j=memberById(t.conjunto_con);
+    const nota=sinMovil(k)?'Sin celular: suma al instante.':'Con celular: le llega para aceptar.';
+    return `<button id="v6cReal" class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.realizada(${t.id})">✅ Realizada${Number(t.puntos)?' · +'+Number(t.puntos)+' pts':''}</button>
+      <p class="v3-sub" style="margin-top:4px">${esc(nota)}${j?' '+esc(j.nombre)+': '+(sinMovil(j)?'sin celular, al instante.':'con celular, acepta.'):''}</p>`;
+  }
+  let deshacerReal=null;
+  async function realizada(id){
+    const t=state.tasks.find(x=>x.id===id); if(!t||!puedeRealizada(t)) return showToast('Esta tarea ya no se puede marcar. Recarga para ver su estado.');
+    const nom=((memberById(t.asignada_a)||{}).nombre)||'el hijo';
+    if(!confirm('¿'+nom+' hizo «'+t.titulo+'»?'+(Number(t.puntos)?' (+'+t.puntos+' pts)':''))) return;
+    const k='rz'+id; if(enCurso.has(k)) return; enCurso.add(k);
+    const b=document.getElementById('v6cReal'); if(b){b.disabled=true;b.textContent='Guardando…';}   // antidoble toque
+    try{
+      const d=await rpc('familia_rpc_realizada',{p_tarea_id:id,p_actor_id:originalAdminId||state.currentUserId,p_client_req_id:reqId(k)});
+      if(!d){if(b){b.disabled=false;b.textContent='✅ Realizada';} return;}
+      delete reqIds[k]; ocultas.add(id); cerrarHoja(); pintar();
+      if(d.idempotente){showToast('Ya estaba aplicado');}
+      else if(d.instantaneo&&sinMovil(memberById(t.asignada_a))) avisoDeshacerReal(id,'Realizada: '+t.titulo+' (+'+(d.pts||0)+' pts)');
+      else showToast(d.estado==='aviso_aprobada'?'Listo: '+nom+' debe aceptar sus '+(d.pts||0)+' pts':'Realizada: '+t.titulo);
+      scheduleReload();
+    }finally{enCurso.delete(k);}
+  }
+  // v6c C7: «Deshacer» 10 s solo para hijo sin celular (el servidor da 15 s de margen; fuera de plazo → HINT c7_deshacer_vencido).
+  function avisoDeshacerReal(id,txt){
+    if(deshacer){clearTimeout(deshacer.timer);deshacer.fn();}
+    if(deshacerReal) clearTimeout(deshacerReal.timer);
+    const box=document.getElementById('v3Toast'), btn=document.getElementById('v3ToastUndo');
+    document.getElementById('v3ToastTxt').textContent=txt; box.classList.add('on');
+    const fin=()=>{box.classList.remove('on'); deshacerReal=null; btn.onclick=null;};
+    deshacerReal={timer:setTimeout(fin,10000)};
+    btn.onclick=async()=>{
+      if(!deshacerReal) return; clearTimeout(deshacerReal.timer); fin();
+      const k='dz'+id; if(enCurso.has(k)) return; enCurso.add(k);
+      try{
+        const d=await rpc('familia_rpc_deshacer_realizada',{p_tarea_id:id,p_actor_id:originalAdminId||state.currentUserId,p_client_req_id:reqId(k)});
+        if(!d) return; delete reqIds[k]; ocultas.delete(id); showToast('Se deshizo: '+(d.revertidos!=null?d.revertidos+' pts revertidos':'listo')); scheduleReload();
+      }finally{enCurso.delete(k);}
+    };
+  }
   function accionesPadre(t){
     if(!isAdmin(currentUser())||soloLectura()||t.estado!=='esperando_aprobacion') return '';
     const nom=esc(((memberById(t.asignada_a)||{}).nombre)||'el hijo');
@@ -5267,6 +5331,7 @@ window.FamiliaV3=(function(){
     abrirHoja(`<h3>Nuevo integrante</h3><label>Nombre</label><input id="v3mNom" maxlength="40">
       <label>Tipo</label><select id="v3mTipo"><option value="hijo">Hijo / hija</option><option value="adulto">Padre / madre / tutor</option></select>
       <label>Rol (cómo se ve)</label><input id="v3mRol" placeholder="Hijo, Hija, Mamá…" maxlength="20">
+      <label>¿Tiene celular? (solo hijos)</label><select id="v3mMovil"><option value="1">Sí</option><option value="0">No</option></select>
       <button class="v3-cta v3-full" style="margin-top:14px" onclick="FamiliaV3.guardarIntegrante()">Crear</button>`);
   }
   async function guardarIntegrante(){
@@ -5274,7 +5339,10 @@ window.FamiliaV3=(function(){
     if(!nombre) return showToast('Escribe el nombre');
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     if(!confirm('¿Crear a '+nombre+' ('+rol+') con PIN oooo?')) return;
-    const {error}=await supabase.from('familia_miembros').insert({nombre,rol,es_admin:tipo==='adulto',pin:'oooo',puntos:0,puntos_historicos:0,emoji:'👤',color:'#6366f1'});
+    // v6c C7: tiene_movil solo se envía para un hijo marcado «No» (default true en la BD).
+    const fila={nombre,rol,es_admin:tipo==='adulto',pin:'oooo',puntos:0,puntos_historicos:0,emoji:'👤',color:'#6366f1'};
+    if(tipo!=='adulto'&&(document.getElementById('v3mMovil')||{}).value==='0') fila.tiene_movil=false;
+    const {error}=await supabase.from('familia_miembros').insert(fila);
     if(error) return showToast('No se pudo: '+error.message);
     cerrarHoja(); showToast(nombre+' ya puede entrar con el PIN oooo'); loadAll();
   }
@@ -5305,7 +5373,28 @@ window.FamiliaV3=(function(){
     cerrarHoja(); showToast('PIN reseteado a oooo');
   }
   function hojaVerComo(){
-    abrirHoja(`<h3>Ver como otro</h3>${state.members.slice().sort(byName).map(m=>`<button class="v3-btn2 v3-full" style="margin-top:6px;text-align:left" onclick="FamiliaV3.verComo(${m.id})">${esc(m.nombre)}</button>`).join('')}`);
+    // v6c C7: 📵 junto a los hijos sin celular (ahí sí se puede canjear por el hijo).
+    abrirHoja(`<h3>Ver como otro</h3>${state.members.slice().sort(byName).map(m=>`<button class="v3-btn2 v3-full" style="margin-top:6px;text-align:left" onclick="FamiliaV3.verComo(${m.id})">${esc(m.nombre)}${sinMovil(m)?' 📵':''}</button>`).join('')}`);
+  }
+  /* v6c C7: hijo sin celular (tiene_movil=false; default true). Recibe puntos y descuentos al instante, sin «Aceptar». */
+  function sinMovil(m){return !!(m&&isKid(m)&&m.tiene_movil===false);}
+  function hojaMovil(){
+    if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
+    const hijos=state.members.filter(isKid).slice().sort(byName);
+    abrirHoja(`<h3>¿Tiene celular?</h3><p class="v3-sub" style="margin:6px 0">Sin celular: lo que marques como Realizada o apruebes le suma al instante, sin «Aceptar». Al pasarlo a «No», sus avisos abiertos se cierran una sola vez.</p>
+      ${hijos.map(m=>`<div class="v3-row" style="justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:6px"><span class="v3-t">${esc(m.nombre)}</span>
+        <div class="v3-row" style="gap:6px"><button class="${m.tiene_movil!==false?'v3-cta':'v3-btn2'}" onclick="FamiliaV3.cambiarMovil(${m.id},true)">Sí</button><button class="${m.tiene_movil===false?'v3-cta':'v3-btn2'}" onclick="FamiliaV3.cambiarMovil(${m.id},false)">No 📵</button></div></div>`).join('')||'<p class="v3-sub">Sin hijos</p>'}`);
+  }
+  async function cambiarMovil(id,v){
+    const m=memberById(id); if(!m||soloLectura()) return;
+    if((m.tiene_movil!==false)===v) return;
+    if(!confirm(v?'¿'+m.nombre+' ya tiene celular? Volverá a aceptar sus puntos.':'¿'+m.nombre+' no tiene celular? Sus avisos abiertos se cierran y los puntos se suman una sola vez.')) return;
+    const k='mv'+id; if(enCurso.has(k)) return; enCurso.add(k);
+    try{
+      const {error}=await supabase.from('familia_miembros').update({tiene_movil:v}).eq('id',id);
+      if(error) return showToast(msgErrorBD(error));
+      m.tiene_movil=v; hojaMovil(); showToast(m.nombre+(v?': con celular':': sin celular')); scheduleReload();
+    }finally{enCurso.delete(k);}
   }
   // Usa las mismas variables de sesión de la v1 (originalAdminId) para que «Volver» funcione igual.
   function verComo(id){if(!originalAdminId&&isAdmin(currentUser())) originalAdminId=state.currentUserId; state.currentUserId=id; seccion='hoy'; cerrarHoja(); render(); showToast('Viendo como '+((memberById(id)||{}).nombre||''));}
@@ -5385,7 +5474,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {hojaMovil,cambiarMovil,realizada,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
