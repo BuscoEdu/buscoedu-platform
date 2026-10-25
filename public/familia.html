@@ -241,7 +241,7 @@ h3{margin-bottom:12px}
     <button class="btn danger" id="btnApplyPenalty" style="width:100%" onclick="applyPenalty()">Aplicar</button>
   </div>
   <div id="nuevaTaskFields">
-  <div class="form-group" id="taskTipoWrap"><label>Tipo</label><select id="taskTipo" onchange="syncTaskType()"><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Obligatoria</option></select><small id="taskTipoHelp" style="color:var(--muted)"></small></div>
+  <div class="form-group" id="taskTipoWrap"><label>Tipo</label><select id="taskTipo" onchange="syncTaskType()"><option value="tarea">Tarea</option><option value="inmediata">Obligatoria</option></select><!-- v6c C11b: crear en la v1 ya no ofrece «Deber» --><small id="taskTipoHelp" style="color:var(--muted)"></small></div>
   <div class="form-group" id="taskDeberModoWrap" style="display:none"><label>Deber</label><select id="taskDeberModo" onchange="syncTaskType()"><option value="entre">Entre hermanos</option><option value="individual" selected>Individual</option></select></div>
   <div class="form-group" id="taskRecurrenceWrap" style="display:none"><label>Periodicidad</label><select id="taskRecurrence" onchange="syncTaskType()"><option value="daily">Diario</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option></select></div>
   <div class="form-group" id="taskFreqWrap" style="display:none"><label>Frecuencia diaria</label><select id="taskFreq" onchange="paintDueHint()"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
@@ -263,6 +263,8 @@ h3{margin-bottom:12px}
   <input type="hidden" id="taskRecurrent">
   <input type="hidden" id="taskMaxNeg" value="0">
   <input type="hidden" id="taskPerMin" value="0">
+  <!-- v6c C3: «Exige foto» por tarea (default no). Solo modo v3–v6. -->
+  <div class="form-group v6b-solo"><label style="display:flex;align-items:center;gap:8px;margin:0"><input type="checkbox" id="taskExigeFoto"> Exige foto</label></div>
   <div class="form-group" id="taskSaveWrap"><label style="display:flex;align-items:center;gap:8px;margin:0"><input type="checkbox" id="taskSaveTemplate"> Plantilla</label></div>
   <small id="taskCountHelp" style="color:var(--muted);display:block;margin-bottom:8px"></small>
   <button class="btn" id="btnCreateTask" style="width:100%" onclick="reviewTask()">Crear</button>
@@ -317,6 +319,8 @@ h3{margin-bottom:12px}
   <!-- v6b B18: límite de veces por día e intervalo mínimo (solo modo v3–v6). -->
   <div class="form-group v6b-solo"><label for="elemMaxDia">Máx. veces por día</label><select id="elemMaxDia"></select></div>
   <div class="form-group v6b-solo"><label for="elemIntervalo">Tiempo mínimo entre una y otra</label><select id="elemIntervalo"></select></div>
+  <!-- v6c C3: «Exige foto» en la plantilla (las tareas creadas con ella lo heredan en la BD). -->
+  <div class="form-group v6b-solo"><label style="display:flex;align-items:center;gap:8px;margin:0"><input type="checkbox" id="elemExigeFoto"> Exige foto</label></div>
   <button class="btn" style="width:100%" onclick="savePlantilla()">Guardar</button>
   <button class="btn danger" style="width:100%;margin-top:8px" onclick="deletePlantilla()">Eliminar</button>
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-elemento')">Cerrar</button>
@@ -721,8 +725,10 @@ function taskOutcome(t){
   if(!t||!isClosedTask(t)) return {kind:'',label:''};
   const applied=t.puntos_aplicados==null?null:Number(t.puntos_aplicados);
   const hist=(state.history||[]).filter(h=>Number(h.tarea_id)===Number(t.id));
-  if(hist.some(h=>/^Penalizaci[oó]n/.test(h.texto||''))||(applied!=null&&applied<0)) return {kind:'penalizacion',label:'Penalización'};
-  const ok=hist.some(h=>/^(Aprobada|Cumplida|Recibi[oó])/.test(h.texto||''));
+  // v6c C14b: «Descuento: …» (v6c) también es penalización y «Realizada: …» cuenta como hecha; un deber dice «Penalización · deber».
+  const deshecho=hist.some(h=>/^Deshecho/.test(h.texto||''));
+  if(hist.some(h=>/^(Penalizaci[oó]n|Descuento)/.test(h.texto||''))||(applied!=null&&applied<0)) return {kind:'penalizacion',label:esDeberTareaC14(t)?'Penalización · deber':'Penalización'};
+  const ok=hist.some(h=>/^(Aprobada|Cumplida|Recibi[oó])/.test(h.texto||''))||(!deshecho&&hist.some(h=>/^Realizada/.test(h.texto||'')));
   if(ok||t.comentario_completado||(applied!=null&&applied>0)||(t.estado==='completada'&&t.puntos_sumados&&(applied==null||applied>=0))) return {kind:'completada',label:'Completada'};
   return {kind:'cerrada',label:'Cerrada'};
 }
@@ -835,8 +841,15 @@ function memberOptions(selected, opts){
 // QA v5 fix 2: se quitó «comentario» (no existe en prod: «column familia_tareas.comentario does not exist»); el resto
 // está en las SQL v3/v4 o lo escribe la v1 en prod. comentAprob() ya tolera t.comentario indefinido.
 const V3_COLS_TAREAS='id,titulo,descripcion,puntos,recurrencia,icono,asignada_a,conjunto_con,para_quien,tipo,clase,inmediata,estado,estado_vencida,creada_por,puntos_sumados,puntos_aplicados,puntos_penalizacion_dia,resta_por_minuto,max_negativo,pierde_pts,habilita_en,fecha_limite,ventana_horas,ventana_min,marcada_en,cerrado_en,creado_en,comentario_completado,comentario_aprobacion,evidencia_2,es_transferencia,duplicada_de,client_req_id,plantilla_id,max_por_dia,intervalo_min_min';
+// v6c C1/C3/C7/C11: columnas del contrato v6c (enviada_tarde, exige_foto, marcada_por, pagado_a, serie_id, dias_semana); si faltan, loadAll reintenta con '*'.
+const V6C_COLS_TAREAS=V3_COLS_TAREAS+',enviada_tarde,exige_foto,marcada_por,pagado_a,serie_id,dias_semana';
 // v6b B18: plantilla_id, max_por_dia e intervalo_min_min (contrato v6b). Si faltan en la BD, loadAll reintenta con '*'.
-function columnasTareas(){return localStorage.getItem('familia_v3_on')==='1'?V3_COLS_TAREAS:'*';}
+/* v6c fix4 N2: columnas de v6c_08 (entendida_en, vencida_origen). Hasta que la migración llegue a prod se prueban una vez por
+   carga de página: si la BD responde «columna no existe» (faltaEnBD), se marca window._v6c08Cols=false y se repite al
+   instante con V6C_COLS_TAREAS (sin la espera ni el '*' del reintento general). */
+const V6C08_COLS_TAREAS=V6C_COLS_TAREAS+',entendida_en,vencida_origen';
+window._v6c08Cols=window._v6c08Cols!==false;
+function columnasTareas(){return localStorage.getItem('familia_v3_on')==='1'?(window._v6c08Cols?V6C08_COLS_TAREAS:V6C_COLS_TAREAS):'*';}   // v6c: lee las columnas nuevas
 /* v4 Ola 2: «Resetear todo» archiva (archivada_en) en vez de borrar. En modo v3/v4 toda lectura de
    tareas e historial filtra archivada_en IS NULL; en modo v1 la consulta queda igual que antes. */
 function sinArchivadas(q){return localStorage.getItem('familia_v3_on')==='1'?q.is('archivada_en',null):q;}
@@ -874,6 +887,11 @@ async function loadAll(opts){
       state.members=m.data||[];
       state._membersWarned=false;
     }
+    // v6c fix4 N2: sin v6c_08 en la BD → se reintenta sin entendida_en/vencida_origen y se recuerda para esta página.
+    if(t.error&&window._v6c08Cols&&localStorage.getItem('familia_v3_on')==='1'&&faltaEnBD(t.error,['entendida_en','vencida_origen'])){
+      window._v6c08Cols=false;
+      t=await sinArchivadas(supabase.from('familia_tareas').select(V6C_COLS_TAREAS)).order('creado_en',{ascending:false});
+    }
     if(t.error){
       await new Promise(r=>setTimeout(r,800));
       // v3: si alguna columna explícita no existe, el reintento usa '*' y la v3 quita las fotos en memoria.
@@ -903,7 +921,7 @@ async function loadAll(opts){
     try{ await expireWindows(); }catch(e){}
     if(sol.error&&!state._solWarned){state._solWarned=true;showToast('Solicitudes: '+sol.error.message);}
     if(nt.error&&!state._ntWarned){state._ntWarned=true;showToast('Avisos: '+nt.error.message);}
-    if(penalize){
+    if(penalize&&!familiaEnPausa()){   // v6c C11: en pausa no se penaliza
       try{ await applyLateness(); }catch(e){}
     }
     render();
@@ -1092,6 +1110,8 @@ function taskCard(t){
 }
 function taskTone(t){
   if(t&&t.estado==='borrador') return 'tone-draft';
+  // v6c C9: rojo solo si sigue pendiente sin hacer (o no_terminada) y pasó su Fin; enviada/aprobada/aviso_aprobada → neutro aunque haya vencido.
+  if(t&&!['pendiente','no_terminada','aviso_vencida'].includes(t.estado)) return 'tone-ontime';
   if(taskTiming(t)==='late'||(t&&lateDays(t)>0)) return 'tone-late';
   return 'tone-ontime';
 }
@@ -1229,6 +1249,7 @@ function openPlantilla(id){
   document.getElementById('elemIcon').value=plantillaIcon(p);
   ponerDesc('elemDescripcion',p.descripcion);   // v6b B15
   llenarFreq(p.max_por_dia,p.intervalo_min_min);   // v6b B18
+  {const ef=document.getElementById('elemExigeFoto'); if(ef) ef.checked=!!p.exige_foto;}   // v6c C3
   fillEmojiGrid('elemIconGrid','elemIcon');
   syncElemTipo();
   openModal('modal-elemento');
@@ -1258,7 +1279,9 @@ async function savePlantilla(){
   if(v6bOn()){const d=descripcionDe((document.getElementById('elemDescripcion')||{}).value); if(descReservada(d)) return showToast('Escribe una descripción distinta de «META»'); row.descripcion=d; claves.push('descripcion');
     // v6b B18: máx. por día (1–10) e intervalo mínimo (lista cerrada del contrato).
     const mx=parseInt((document.getElementById('elemMaxDia')||{}).value,10), iv=parseInt((document.getElementById('elemIntervalo')||{}).value,10);
-    row.max_por_dia=Math.min(10,Math.max(1,mx||1)); row.intervalo_min_min=V6B_INTERVALOS.includes(iv)?iv:0; claves.push('max_por_dia','intervalo_min_min');}
+    row.max_por_dia=Math.min(10,Math.max(1,mx||1)); row.intervalo_min_min=V6B_INTERVALOS.includes(iv)?iv:0; claves.push('max_por_dia','intervalo_min_min');
+    // v6c C3: exige_foto de la plantilla (si falta en la BD, escribirV6b guarda sin él).
+    row.exige_foto=!!(document.getElementById('elemExigeFoto')||{}).checked; claves.push('exige_foto');}
   // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
   if(!confirm('¿Guardar «'+titulo+'» en el catálogo?')) return;
   const r=await escribirV6b(f=>supabase.from('familia_plantillas_tareas').update(f).eq('id',id),row,claves);
@@ -1416,6 +1439,42 @@ async function dismissNotif(id){
   if(error) return showToast(error.message);
   await loadAll();
 }
+/* v6c C14: ¿el movimiento del historial es de un DEBER? Orden: 1) columna tipo de la fila ('deber', la escriben las RPC
+   con CASE WHEN clase='deber'); 2) la tarea ligada por tarea_id ya cargada en state.tasks (clase manda; sin clase, tipo
+   'deber'/'obligacion', igual que esDeber de la v3); 3) filas viejas sin tarea_id: tarea del mismo miembro cuyo título
+   aparece en el texto, solo si todas las coincidencias más largas son deberes (si hay duda, queda como Tarea). Solo FE. */
+function esDeberTareaC14(t){return !!t&&(t.clase?t.clase==='deber':(t.tipo==='deber'||t.tipo==='obligacion'));}
+function esDeberMovC14(h){
+  if(!h) return false;
+  if(h.tipo==='deber') return true;
+  const tasks=state.tasks||[];
+  if(h.tarea_id!=null){const t=tasks.find(x=>Number(x.id)===Number(h.tarea_id)); if(t) return esDeberTareaC14(t);}
+  const tx=h.texto||''; if(!/^(Cumplida|Aprobada|Penalizaci[oó]n|Atraso|Se anul|Devuelta|Rechazada)/.test(tx)) return false;
+  const hits=tasks.filter(t=>t.titulo&&tx.includes(t.titulo)&&(t.asignada_a===h.miembro_id||t.conjunto_con===h.miembro_id));
+  if(!hits.length) return false;
+  const best=Math.max(...hits.map(t=>t.titulo.length));
+  const top=hits.filter(t=>t.titulo.length===best);
+  return top.every(esDeberTareaC14);
+}
+// v6c C14: etiqueta visible del movimiento: «Deber» en vez de «Tarea» y «Penalización · deber» para descuentos de un deber.
+function etiquetaMovC14(tipo,h){
+  if(!esDeberMovC14(h)) return tipo;
+  if(tipo==='Tarea') return 'Deber';
+  // v6c C14b: descuento/penalización de un deber → «Penalización · deber»; perdón de un deber → «Deber».
+  if(tipo==='Penalización'||tipo==='Descuento') return 'Penalización · deber';
+  if(tipo==='Perdonada') return 'Deber';
+  if(tipo==='Realizada'||tipo==='Deshecho') return tipo+' · deber';
+  return tipo;
+}
+/* v6c C1b: el historial del hijo con celular queda «Aprobada: X (+N pts)» (lo escribe la BD al Aceptar). Solo para mostrar:
+   si la tarea ligada es enviada_tarde y N < sus puntos, se lee «Aprobada tarde: X (N de M pts)». No cambia la fila. */
+function textoMovC1b(h){
+  const tx=(h&&h.texto)||''; const m=tx.match(/^Aprobada:\s*(.*?)\s*\(\+?(\d+)\s*pts\)(.*)$/);
+  if(!m||h.tarea_id==null) return tx;
+  const t=(state.tasks||[]).find(x=>Number(x.id)===Number(h.tarea_id)); const M=t?Number(t.puntos)||0:0;
+  if(!t||!t.enviada_tarde||!(Number(m[2])<M)) return tx;
+  return 'Aprobada tarde: '+m[1]+' ('+m[2]+' de '+M+' pts)'+m[3];
+}
 function movementOf(h){
   const t=h.texto||'';
   const num=(re)=>{const m=t.match(re);return m?Number(m[1]):0;};
@@ -1429,8 +1488,20 @@ function movementOf(h){
   else if(/^Canjeó/i.test(t)) row={tipo:'Premio',pts:-num(/\(-(\d+)\s*pts\)/),detalle:t.replace(/^Canjeó:\s*/i,'').replace(/\s*\(-\d+\s*pts\).*$/,''),fecha:h.creado_en};
   else if(/^Penalización/.test(t)||/^Atraso/.test(t)) row={tipo:'Penalización',pts:-num(/\(-(\d+)\s*pts\)/),detalle:t,fecha:h.creado_en};
   else if(/^Cumplida|^Se anuló|^Devuelta|^Traspaso/.test(t)) row={tipo:'Tarea',pts:num(/\(([+-]?\d+)\s*pts\)/),detalle:t,fecha:h.creado_en};
+  /* v6c C14b: textos que escriben las RPC v6c. Los puntos salen de la columna pts y, en filas sin ella, del texto
+     (acepta «−» tipográfico). «Descuento» cuenta como penalización; «Realizada» suma como tarea; «Deshecho» revierte. */
+  else if(/^(Descuento|Realizada|Deshecho)/.test(t)){
+    const n=h.pts!=null&&!isNaN(Number(h.pts))?Number(h.pts):(()=>{const m=t.replace(/\u2212/g,'-').match(/\(([+-]?\d+)(?:\s*pts)?\)/);return m?Number(m[1]):0;})();
+    if(/^Descuento/.test(t)) row={tipo:'Penalización',pts:-Math.abs(n),detalle:t,fecha:h.creado_en,etq:'Descuento'};
+    else if(/^Realizada/.test(t)) row={tipo:'Tarea',pts:n,detalle:t,fecha:h.creado_en,sumaRanking:n>0,etq:'Realizada'};
+    else row={tipo:'Tarea',pts:-Math.abs(n),detalle:t,fecha:h.creado_en,etq:'Deshecho'};
+  }
   if(!row) return null;
+  // v6c C1b: «Aprobada: X (+N pts)» de una tarea enviada tarde con puntos parciales se lee «Aprobada tarde: X (N de M pts)».
+  if(/^Aprobada:/.test(t)){const t2=textoMovC1b(h); if(t2!==t) row.detalle=t2;}
   row.tareaId=h.tarea_id||null;
+  // v6c C14: row.tipo se deja igual (cuentas del saldo y ranking); la etiqueta visible va aparte en row.etiqueta.
+  row.etiqueta=etiquetaMovC14(row.etq||row.tipo,h);   // v6c C14b: etiqueta propia (Descuento/Realizada/Deshecho) antes de la de deber
   row.h=h;   // v5 ítem 15: fila original (tipo/pts) para el ícono por tipo en v3/v4
   return row;
 }
@@ -1513,11 +1584,11 @@ function openBalance(id){
       const o=taskOutcome(task);
       const bad=o.kind==='penalizacion'||o.kind==='cerrada';
       const when=m.fecha?fmtDate(m.fecha):'';
-      return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${task.id})">${iconoMovV3(m.h)}<strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}${fotoMovHtml(m.h)?'<br>'+fotoMovHtml(m.h):''}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
+      return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${task.id})">${iconoMovV3(m.h)}<strong>${esc(m.etiqueta||m.tipo)/* v6c C14 */}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}${fotoMovHtml(m.h)?'<br>'+fotoMovHtml(m.h):''}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
     }
     const when=m.fecha?fmtDate(m.fecha):'';
     const open=tid?` onclick="openTaskFromBalance(${id},${tid})" class="hist-ok"`:` class="hist-ok" style="cursor:default"`;
-    return `<div${open}>${iconoMovV3(m.h)}<strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}${fotoMovHtml(m.h)?'<br>'+fotoMovHtml(m.h):''}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
+    return `<div${open}>${iconoMovV3(m.h)}<strong>${esc(m.etiqueta||m.tipo)/* v6c C14 */}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}${fotoMovHtml(m.h)?'<br>'+fotoMovHtml(m.h):''}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
   }).join('')+closedHtml):'<div class="empty">Sin movimientos</div>';
   openModal('modal-balance');
 }
@@ -1527,7 +1598,10 @@ function renderHistory(){
   const u=currentUser();
   const items=isAdmin(u)?state.history:state.history.filter(h=>h.miembro_id===u.id);
   const el=document.getElementById('historyList');
-  el.innerHTML=items.length?items.map(h=>`<div style="font-size:.85rem;padding:6px 0;border-bottom:1px solid var(--border)">${esc(h.texto||'')}${fotoMovHtml(h)?'<br>'+fotoMovHtml(h):''}</div>`).join(''):'<div class="empty">Sin historial</div>';
+  // v6c C14: los movimientos de deberes llevan la etiqueta «Deber» / «Penalización · deber» delante del texto.
+  // v6c C14b: la etiqueta solo se antepone a movimientos de deber (los demás textos ya dicen Descuento/Realizada/Deshecho).
+  const etqC14=h=>{const m=movementOf(h); const e=m&&esDeberMovC14(h)?m.etiqueta:''; return e?iconoMovV3(h)+'<strong class="tipo-deber" style="padding:0 6px;border-radius:6px">'+esc(e)+'</strong> ':'';};   // ícono de deber (escudo SVG de ICO_MOV) cuando la v3 está activa
+  el.innerHTML=items.length?items.map(h=>`<div style="font-size:.85rem;padding:6px 0;border-bottom:1px solid var(--border)">${etqC14(h)}${esc(textoMovC1b(h))/* v6c C1b */}${fotoMovHtml(h)?'<br>'+fotoMovHtml(h):''}</div>`).join(''):'<div class="empty">Sin historial</div>';
 }
 function fillChatTo(){
   const sel=document.getElementById('chatTo');
@@ -1638,6 +1712,7 @@ function prepareTaskForm(audiencia){
   document.getElementById('taskCount').value='1';
   document.getElementById('taskPenalty').value=state.config.puntos_penalizacion_dia_default||2;
   document.getElementById('taskSaveTemplate').checked=false;
+  {const ef=document.getElementById('taskExigeFoto'); if(ef) ef.checked=false;}   // v6c C3: default no exige
   ponerDesc('taskDescripcion','');   // v6b B15
   const plant=document.getElementById('taskPlantilla');
   if(plant) plant.value='';
@@ -1667,14 +1742,14 @@ function openNewTask(audiencia){
   document.getElementById('taskAssignLabel').textContent=padres?'Para':'Hijo';
   document.getElementById('taskModalHint').textContent=padres
     ?'Esta tarea es solo entre ustedes. Los hijos no la ven. Los padres solo tienen tareas.'
-    :'Elige si es tarea, deber u obligatoria. Una que no es obligatoria queda por activar.';
+    :'Elige si es tarea u obligatoria. Los deberes se crean en «Deber repetitivo».';   // v6c C11b
   document.getElementById('taskAssignTo').innerHTML=padres?memberOptions(null,{onlyParents:true,excludeSelf:true}):memberOptions(null,{onlyKids:true,allowEmpty:true});
   const tipo=document.getElementById('taskTipo');
   if(tipo){
     // v6b B16: los padres solo tienen tareas (la BD también lo rechaza).
     tipo.innerHTML=padres
       ?'<option value="tarea">Tarea</option>'
-      :'<option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Obligatoria</option>';
+      :'<option value="tarea">Tarea</option><option value="inmediata">Obligatoria</option>';   // v6c C11b: sin «Deber»; los deberes se crean por «Deber repetitivo» / Deberes
     tipo.value='tarea';
     // v5 ítem 20: «Crear completo» de la v3/v4/v5 crea solo tareas; los deberes van por la sección Deberes.
     if(window._v5SoloTareas){const o=tipo.querySelector('option[value="deber"]'); if(o) o.remove();}
@@ -1881,7 +1956,7 @@ function reviewTask(){
     // Hotfix v5: en «Validar hecha» la tarea se guarda YA HECHA (esperando_aprobacion); antes este resumen decía
     // «No se activa sola…» y el padre creía estar creando una tarea normal que el hijo debía marcar.
     (validateMode?'<p><strong>Se registra como YA HECHA.</strong> Queda esperando tu aprobación y '+esc((memberById(assigned[0]&&assigned[0].asignada_a)||{}).nombre||'el hijo')+' no verá «Ya la hice». Para una tarea normal, cierra y usa «Nueva».</p>':
-    (inmediata?'<p>Empieza ahora. No se guarda como plantilla.</p>':'<p>No se activa sola. Después hay que pulsar Activar.</p>'));
+    (inmediata?'<p>Empieza ahora. No se guarda como plantilla.</p>':'<p>Queda activa al crearla y le llega al hijo.</p>'));   // v6c C8: sin paso «Activar»
   openModal('modal-tarea-revisar');
 }
 async function createTask(){
@@ -1927,6 +2002,8 @@ async function createTask(){
     };
     if(desc) base.descripcion=desc;
     if(plantillaId) base.plantilla_id=plantillaId;
+    // v6c C3: exige foto (solo si se marcó; sin marcar, la BD hereda el de la plantilla o deja false).
+    if(v6bOn()&&(document.getElementById('taskExigeFoto')||{}).checked) base.exige_foto=true;
     if(taskCreateMode==='hermano'){
       rows.push({...base,asignada_a:state.currentUserId,para_quien:String(slot.asignada_a),es_transferencia:true,aceptada_receptor:false,transferencia_aprobada:false,estado:'pendiente_transferencia',tipo:'tarea',clase:'tarea',inmediata:false});
     }else if(validateMode){
@@ -1934,7 +2011,8 @@ async function createTask(){
       rows.push({...base,asignada_a:slot.asignada_a,tipo,clase:tipo==='deber'?'deber':'tarea',inmediata:false,estado:'esperando_aprobacion',comentario_completado:'Registrada como hecha'});
     }else{
       // v6 A2b: clase explícita (la app y las RPC deciden deber por clase; sin ella la BD pone 'tarea').
-      rows.push({...base,asignada_a:slot.asignada_a,tipo,clase:tipo==='deber'?'deber':'tarea',inmediata,estado:inmediata?'pendiente':'borrador'});
+      // v6c C8: crear = activar. Tras «¿Crear?» nace pendiente y le llega al hijo (antes: borrador salvo obligatoria).
+      rows.push({...base,asignada_a:slot.asignada_a,tipo,clase:tipo==='deber'?'deber':'tarea',inmediata,estado:'pendiente'});
     }
   }
   if(!rows.length) return showToast('No quedó ninguna fecha. Revisa el hijo o el mes.');
@@ -1942,9 +2020,16 @@ async function createTask(){
     for(const k of [...new Set(rows.map(r=>r.asignada_a))]){const b=await cupoBloqueo(plantillaId,k); if(b) return showToast(((memberById(k)||{}).nombre||'')+': '+b);}
   }
   // v6b: mensajes de BD (B16 «Los padres no tienen deberes», B18 cupo/intervalo) y respaldo sin columnas nuevas.
-  const ins=await escribirV6b(f=>supabase.from('familia_tareas').insert(f),rows,['descripcion','plantilla_id']);
+  const ins=await escribirV6b(f=>supabase.from('familia_tareas').insert(f),rows,['descripcion','plantilla_id','exige_foto']);   // v6c C3: exige_foto
   if(ins.error) return showToast(msgErrorBD(ins.error));
   if(ins.sinV6b) showToast('Se guardó sin descripción (falta en la BD)');
+  // v6c C6: obligatoria creada → «¿Enviar también por WhatsApp?». Sí abre wa.me con título + hora + descripción; no guarda números ni llama APIs.
+  if(inmediata&&!validateMode&&taskCreateMode!=='hermano'&&confirm('¿Enviar también por WhatsApp?')){
+    const r0=rows[0], hh=new Date(r0.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false}), hf=new Date(r0.fecha_limite).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+    const msg='Tarea obligatoria: '+titulo+'\nHora: '+hh+' a '+hf+(desc?'\n'+desc:'');
+    const w=window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank','noopener');
+    if(!w) showToast('No se abrió WhatsApp. La tarea ya quedó creada.');
+  }
   if(saveTpl&&taskCreateMode!=='hermano'&&!inmediata){
     const audiencia=taskCreateMode==='padres'?'padre':'hijo';
     const exists=state.plantillas.some(p=>plantillaAudiencia(p)===audiencia&&String(p.titulo||'').trim().toLowerCase()===titulo.toLowerCase());
@@ -1960,7 +2045,8 @@ async function createTask(){
     }
   }
   // v5: en modo v3/v4, «guardar como plantilla» no genera el aviso «Por activar» (antes llegaba a un miembro real).
-  if(taskCreateMode==='hijo'&&!validateMode&&!inmediata&&!(saveTpl&&window.FamiliaV3&&FamiliaV3.activo())){
+  // v6c C8: el aviso «Por activar» solo aplica si quedó algún borrador (ya no ocurre al crear).
+  if(rows.some(r=>r.estado==='borrador')&&taskCreateMode==='hijo'&&!validateMode&&!inmediata&&!(saveTpl&&window.FamiliaV3&&FamiliaV3.activo())){
     const notes=state.members.filter(isAdmin).map(k=>({para_id:k.id,tipo:'tarea',texto:'Por activar: '+titulo+' ('+rows.length+')'}));
     if(notes.length) await supabase.from('familia_notificaciones').insert(notes);
   }
@@ -2056,12 +2142,35 @@ function ackMiss(id){
   try{sessionStorage.setItem('ackMiss'+id,'1');}catch(e){}
   renderImmediateBlock();
 }
+/* v6c C11: familia en pausa (un mes sin movimiento). Fuente: familia_rpc_entrada().estado al entrar y, de respaldo,
+   familia_config.estado. En pausa NO se penaliza ni se hacen acciones automáticas desde el cliente. */
+let v6cEstadoFamilia=null;
+function familiaEnPausa(){return (v6cEstadoFamilia||(state.config&&state.config.estado)||'activa')==='pausada';}
+async function entradaV6c(id){
+  try{
+    const {data,error}=await supabase.rpc('familia_rpc_entrada',{p_actor_id:id});
+    if(error||!data) return;   // sin la RPC se sigue como antes (activa)
+    v6cEstadoFamilia=data.estado||'activa';
+    if(data.estado==='pausada'&&data.puede_reactivar){
+      // Decisión Jhon: al entrar un padre se reactiva; sin retroactivos (la RPC genera solo desde ahora).
+      const rr=await supabase.rpc('familia_rpc_reactivar',{p_actor_id:id});
+      if(rr.error){showToast('Tu familia está en pausa y no se pudo reactivar: '+msgErrorBD(rr.error)); return;}
+      v6cEstadoFamilia='activa'; if(state.config) state.config.estado='activa';
+      showToast('Tu familia estaba en pausa. Ya está activa de nuevo'+(rr.data&&rr.data.creadas?' ('+rr.data.creadas+' fechas nuevas)':'')+'.');
+      loadAll();
+    }else if(data.estado==='pausada') showToast('La familia está en pausa. Se activa cuando entre papá o mamá.');
+  }catch(e){}
+}
 async function expireWindows(){
+  if(familiaEnPausa()) return;   // v6c C11: en pausa no se vence nada desde el cliente
   const now=Date.now();
   const late=state.tasks.filter(t=>t.estado==='pendiente'&&!isGoal(t)&&t.fecha_limite&&new Date(t.fecha_limite).getTime()<now);
   for(const t of late){
-    const {error}=await supabase.from('familia_tareas').update({estado:'aviso_vencida'}).eq('id',t.id).eq('estado','pendiente');
+    // v6c (avisos duplicados): solo la sesión que de verdad cambió la fila (devuelve 1 fila) crea el aviso; con dos
+    // sesiones abiertas la segunda recibe 0 filas y no inserta otro «Tarea vencida».
+    const {data:cambio,error}=await supabase.from('familia_tareas').update({estado:'aviso_vencida'}).eq('id',t.id).eq('estado','pendiente').select('id');
     if(error) continue;
+    if(Array.isArray(cambio)&&!cambio.length){t.estado='aviso_vencida'; continue;}
     t.estado='aviso_vencida';
     const who=t.asignada_a;
     if(who){
@@ -2088,6 +2197,7 @@ function applyPlantilla(){
   const rec=p.recurrencia||'once';
   const tipoEl=document.getElementById('taskTipo');
   if(tipoEl) tipoEl.value=(p.tipo==='deber'||(rec!=='once'&&p.tipo!=='tarea'))?'deber':'tarea';
+  if(tipoEl&&!tipoEl.value) tipoEl.value='tarea';   // v6c C11b: sin opción «Deber» en crear, una plantilla de deber entra como tarea
   const recEl=document.getElementById('taskRecurrence');
   if(recEl) recEl.value=['daily','weekly','monthly'].includes(rec)?rec:'daily';
   syncTaskType();
@@ -3183,6 +3293,7 @@ function enterAs(id){
   render();
   consumeDeepLink();
   maybeAskCycle();
+  entradaV6c(id);   // v6c C11: estado de la familia (pausa / reactivar)
 }
 
 function fillLoginMembers(){
@@ -3408,7 +3519,7 @@ function dutyRow(item,kidId,by,lote){
   // v6 A2b: clase explícita (la app y las RPC deciden deber por clase; sin ella la BD pone 'tarea').
   return {
     titulo:item.titulo,puntos:0,tipo:'deber',clase:'deber',asignada_a:kidId,creada_por:by,
-    recurrencia:item.rec,estado:'borrador',icono:'📚',lote,
+    recurrencia:item.rec,estado:'pendiente',icono:'📚',lote,   // v6c C8: deberes base repartidos nacen activos
     habilita_en:item.when.toISOString(),fecha_limite:limite.toISOString(),
     ventana_horas:item.ventana,puntos_sumados:false,inmediata:false
   };
@@ -3451,7 +3562,7 @@ async function repartirDeberes(){
   if(!confirm('¿Repartir '+rows.length+' deber(es) entre '+kids.length+' hijo(s)?')) return;
   const {error}=await supabase.from('familia_tareas').insert(rows);
   if(error) return showToast(error.message);
-  showToast(rows.length+' deberes quedaron por activar');
+  showToast(rows.length+' deberes quedaron activos');   // v6c C8
   closeModal('modal-deberes');
   loadAll();
 }
@@ -3606,6 +3717,11 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 .v6b-obl-dev{display:inline-block;background:#fb923c;color:#431407;font-weight:700;border-radius:8px;padding:2px 10px;margin:6px 0}
 .v6b-obl-nota{font-style:italic;margin-bottom:6px}
 /* v6b B3: obligatoria en rojo desde que se crea (gana a verde/naranja de ventana; devuelta conserva su borde naranja). */
+.v6c-dias{display:flex;gap:4px;flex-wrap:wrap}.v6c-dia{position:relative;margin:0}.v6c-dia input{position:absolute;opacity:0;width:1px;height:1px}
+.v6c-dia span{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;border:2px solid #cbd5e1;font-weight:700;color:#334155;cursor:pointer}
+.v6c-dia input:checked+span{background:#4f46e5;border-color:#4f46e5;color:#fff}.v6c-dia input:focus-visible+span{outline:2px solid #1e1b4b}/* v6c C11: 7 casillas en 360 px (7×44 px) */
+.v6c-aviso{border:2px solid #7c3aed;border-radius:14px;background:#f5f3ff;padding:6px;margin-bottom:10px}.v6c-aviso>.v3-card{margin-bottom:0}
+.v6c-aviso-b{font-weight:800;color:#5b21b6;font-size:1rem;padding:2px 6px 6px;overflow-wrap:anywhere}/* v6c C10: aviso destacado, ancho fluido (360/390 px) */
 .v3-card.v6b-obl{border-color:#b91c1c;border-left:6px solid #b91c1c;background:#fef2f2}
 .v3-card.dev.v6b-obl{border-left-color:#fb923c}
 .v3-chip.obl{background:#b91c1c;color:#fff}
@@ -3780,7 +3896,8 @@ window.FamiliaV3=(function(){
   /* v4 · ajuste 5: un color por estado. Rojo SOLO para vencida sin enviar; amarillo = esperando
      aprobación (o decisión del padre); naranja suave = devuelta (con su motivo); verde = hecha; gris = pendiente. */
   function estadoDe(t){
-    if(t.estado_vencida==='pendiente_hijo'||(t.estado==='aviso_vencida'&&!t.estado_vencida)) return {c:'err',txt:'Se pasó la hora',cls:'v3-st-err'};
+    if(t.estado_vencida==='pendiente_hijo'||(t.estado==='aviso_vencida'&&!t.estado_vencida)||vencidaServidor(t)||vencidaTrigger(t)) return {c:'err',txt:'Se pasó la hora',cls:'v3-st-err'};   // v6c C7c
+    if(t.estado==='borrador') return {c:'',txt:'Borrador · sin activar',cls:'v3-sub'};   // v6c C8b
     if(t.estado_vencida==='por_decidir') return {c:'esp',txt:'Esperando a papá/mamá',cls:'v3-st-esp'};
     if(t.estado==='esperando_aprobacion'||t.estado==='transferencia_por_aprobar') return {c:'esp',txt:t.estado==='transferencia_por_aprobar'?'Traspaso por aprobar':'Esperando aprobación',cls:'v3-st-esp'};
     // v6 A5: solicitud del hijo sin aprobar: sin «Ya la hice», sin reloj y sin descuento.
@@ -3795,7 +3912,40 @@ window.FamiliaV3=(function(){
     return {c:'',txt:'Pendiente',cls:''};
   }
   // aviso_aprobada NO es cerrada: el hijo debe tocar «Entendido» para que la RPC sume los puntos.
-  function cerrada(t){return t.estado==='rechazada'||t.estado==='completada'||t.estado==='no_terminada'||t.estado==='borrador';}
+  /* v6c C7c: el job del servidor pasa una vencida a 'no_terminada' SIN estado_vencida ni puntos (nadie decidió). Eso no es
+     cerrada: se trata como vencida por decidir para que el padre vea Descontar / Perdonar / Realizada y el hijo «Enviar tarde».
+     Se excluye si ya hay un movimiento que la resolvió (penalización, descuento, perdón, realizada, aprobada). La BD
+     corrige el job aparte; esto solo evita que la tarea desaparezca. */
+  function vencidaServidor(t){
+    if(!t||t.estado!=='no_terminada'||t.estado_vencida||t.puntos_sumados) return false;
+    return !(state.history||[]).some(h=>Number(h.tarea_id)===Number(t.id)&&/^(Penalizaci[oó]n|Descuento|Perdonada|Realizada|Aprobada|Cumplida|Atraso)/.test(h.texto||''));
+  }
+  /* v6c fix2 N2: desde v6c_07 el trigger zz_familia_tareas_v6c07_c7c convierte el paso automático pendiente → no_terminada en
+     estado='pendiente' + estado_vencida='por_decidir' (nombres exactos de v6c_07_c7c_vencida.sql, Bloque 3). Esa tarea es una
+     vencida accionable: el padre decide (Descontar / Perdonar / Realizada) y el hijo puede «Enviar tarde»
+     (familia_rpc_enviar_tarde acepta por_decidir). Supuesto: con solo el estado no se distingue del 'por_decidir' que deja
+     «Entendido» del hijo (aceptar_vencida); en ambos casos se muestra igual de accionable. vencidaServidor (C7c) queda
+     como respaldo para filas viejas en no_terminada. */
+  /* v6c fix3 N1: en prod el job deja estado='no_terminada' + estado_vencida='por_decidir' (qa-r t533/t534), no 'pendiente'.
+     Ambos estados son la misma vencida accionable. Si el hijo ya tocó «Entendido» en este dispositivo (fix3 N2), deja de
+     verla como accionable (el padre la sigue decidiendo en Revisar por vencidos()). */
+  function vencidaTrigger(t){return !!t&&(t.estado==='pendiente'||t.estado==='no_terminada')&&t.estado_vencida==='por_decidir'&&!t.puntos_sumados&&!entendidaHijo(t);}
+  // v6c fix3 N2: ids que el hijo ya dio por «Entendido» (localStorage; si falla, solo en memoria).
+  const entendidasMem=new Set();
+  function entendidaHijo(t){
+    const u=currentUser(); if(!t||!u||isAdmin(u)) return false;
+    // v6c fix4 N2: con v6c_08 la fila trae entendida_en (la escribe aceptar_vencida) y manda la BD; localStorage solo si
+    // la columna no vino en la carga (BD sin v6c_08). entendidasMem cubre el instante entre «Entendido» y la recarga.
+    if(entendidasMem.has(t.id)) return true;
+    if(Object.prototype.hasOwnProperty.call(t,'entendida_en')) return !!t.entendida_en;
+    try{return JSON.parse(localStorage.getItem('familiaV6cEntendidas')||'[]').includes(t.id);}catch(e){return false;}
+  }
+  function marcarEntendida(id){
+    entendidasMem.add(id);
+    try{const l=JSON.parse(localStorage.getItem('familiaV6cEntendidas')||'[]'); if(!l.includes(id)){l.push(id); localStorage.setItem('familiaV6cEntendidas',JSON.stringify(l.slice(-200)));}}catch(e){}
+  }
+  // v6c C8b: el borrador ya no se oculta al padre (necesita «Activar»); al hijo se le sigue ocultando en pintarHoy.
+  function cerrada(t){return t.estado==='rechazada'||t.estado==='completada'||(t.estado==='no_terminada'&&!vencidaServidor(t)&&!(t.estado_vencida==='por_decidir'&&!t.puntos_sumados));}   // v6c fix3 N1: no_terminada+por_decidir no es cerrada (ni para el padre aunque el hijo diera «Entendido»)
 
   /* --- Inicio de semana: domingo 00:00 en la hora local del dispositivo (datos en UTC). --- */
   function inicioSemana(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-d.getDay());return d;}
@@ -3832,7 +3982,7 @@ window.FamiliaV3=(function(){
   /* v6 A3/A3b: verde dentro de la ventana antes de hora + V/2; naranja «Queda poco» desde ahí hasta el cierre;
      rojo cuando ya cerró sin hacerse. Solo para lo que aún depende del hijo. */
   function enVentana(t){
-    const sinHacer=t.estado==='pendiente'||t.estado==='aviso_rechazada'||t.estado==='aviso_vencida'||t.estado_vencida==='pendiente_hijo';
+    const sinHacer=t.estado==='pendiente'||t.estado==='aviso_rechazada'||t.estado==='aviso_vencida'||t.estado_vencida==='pendiente_hijo'||vencidaServidor(t);   // v6c fix2 N2: legado no_terminada también en rojo; pendiente+por_decidir ya entra por 'pendiente'
     if(!sinHacer) return '';
     const now=Date.now(), c=t.fecha_limite?new Date(t.fecha_limite).getTime():0;
     if(c&&now>=c) return 'fuera';
@@ -3850,6 +4000,14 @@ window.FamiliaV3=(function(){
     const ya=(t.inmediata||t.tipo==='inmediata')&&Date.now()>=mv.a&&Date.now()<mv.c;
     const rango=ya?'Empieza ahora · hasta las '+hh(mv.c):'Se puede hacer de '+hh(mv.a)+' a '+hh(mv.c)+(esHoy(mv.c)||new Date(mv.a).toDateString()===new Date(mv.c).toDateString()?'':' del '+dia(mv.c));
     return `<div class="v6b-hora">Hora <b>${esc(hh(mv.hora))}</b>${esHoy(mv.hora)?'':' <span class="v3-sub">'+esc(dia(mv.hora))+'</span>'}</div><div class="v3-sub">${esc(rango)}</div>`;
+  }
+  /* v6c C10: texto del aviso que espera acción del hijo ('' si no aplica).
+     aviso_aprobada → «👉 Toca para aceptar tus N pts»; aviso_vencida / devuelta → «👉 Toca para ver». */
+  function avisoHijo(t){
+    if(t.estado==='aviso_aprobada'){const n=Math.max(0,Number(t.puntos_aplicados!=null?t.puntos_aplicados:t.puntos)||0); return '👉 Toca para aceptar tus '+n+' pts';}
+    if((t.estado==='aviso_vencida'&&!t.estado_vencida)||t.estado_vencida==='pendiente_hijo'||t.estado==='aviso_rechazada'||vencidaServidor(t)||vencidaTrigger(t)) return '👉 Toca para ver';   // v6c fix2 N2   // v6c C7c
+    if(t.estado==='pendiente'&&motivoDevuelta(t)!==null) return '👉 Toca para ver';
+    return '';
   }
   // v6b B3: obligatoria (inmediata) abierta → tarjeta roja desde que se crea.
   function esObligatoria(t){return !!(t&&(t.inmediata||t.tipo==='inmediata')&&!cerrada(t));}
@@ -3881,7 +4039,7 @@ window.FamiliaV3=(function(){
     const lim=t.fecha_limite?new Date(t.fecha_limite):null, hab=t.habilita_en?new Date(t.habilita_en):null;
     // M2: «Vencidos» solo si el estado ya está marcado (estado_vencida o aviso_vencida tras expireWindows/job);
     // un pendiente con fecha pasada pero sin marcar sigue en «Hoy» (aún no hay acción posible sobre él).
-    if(t.estado_vencida||t.estado==='aviso_vencida') return 'vencido';
+    if(t.estado_vencida||t.estado==='aviso_vencida'||vencidaServidor(t)) return 'vencido';   // v6c C7c
     if(t.estado==='esperando_aprobacion'||t.estado==='aviso_rechazada'||t.estado==='aviso_aprobada') return 'hoy';
     if(hab&&hab>=fin) return 'luego';
     if(!lim||(lim>=ini&&lim<fin)) return 'hoy';
@@ -3893,20 +4051,30 @@ window.FamiliaV3=(function(){
     const admin=isAdmin(u);
     let lista=state.tasks.filter(t=>!ocultas.has(t.id)&&!cerrada(t));
     // v4: el hijo también ve las tareas que un hermano le pasa (pendiente_transferencia, para_quien = su id).
-    if(!admin) lista=lista.filter(t=>t.asignada_a===u.id||t.conjunto_con===u.id||(t.estado==='pendiente_transferencia'&&String(t.para_quien)===String(u.id))).filter(t=>t.estado_vencida!=='por_decidir');
+    if(!admin) lista=lista.filter(t=>t.asignada_a===u.id||t.conjunto_con===u.id||(t.estado==='pendiente_transferencia'&&String(t.para_quien)===String(u.id))).filter(t=>t.estado_vencida!=='por_decidir'||vencidaTrigger(t));   // v6c fix2 N2: la del trigger sí la ve el hijo
     else lista=lista.filter(t=>t.estado!=='aviso_aprobada');
+    // v6c C8b: el borrador solo lo ve el padre.
+    if(!admin) lista=lista.filter(t=>t.estado!=='borrador');
     // v6 A5b: estado 'solicitada' (pedido del hijo sin aprobar): fuera de Hoy/Vencidos/Más adelante y de sus contadores; el hijo las ve aparte en «Mis solicitudes».
     const misSol=admin?[]:lista.filter(t=>t.estado==='solicitada');
     lista=lista.filter(t=>t.estado!=='solicitada');
-    lista.sort((a,b)=>(esDeber(b)-esDeber(a))||String(a.titulo).localeCompare(b.titulo));
+    // v6c C5 + C10: primero los avisos que esperan acción del hijo; luego por hora (fecha_limite asc, sin fecha al final); empate → título.
+    const limMs=t=>{const n=t.fecha_limite?new Date(t.fecha_limite).getTime():NaN; return isNaN(n)?Infinity:n;};
+    // v6c C10b: las vencidas van primero (antes que el resto de avisos); luego los avisos; luego por hora.
+    const pri=t=>grupoFecha(t)==='vencido'?0:(!admin&&avisoHijo(t)?1:2);
+    lista.sort((a,b)=>(pri(a)-pri(b))||((limMs(a)-limMs(b))||0)||String(a.titulo).localeCompare(b.titulo));
     const hoy=lista.filter(t=>grupoFecha(t)==='hoy'), venc=lista.filter(t=>grupoFecha(t)==='vencido'), luego=lista.filter(t=>grupoFecha(t)==='luego');
     const fila=t=>{
       const st=estadoDe(t);
       let act='';
       if(!admin&&(t.estado_vencida==='pendiente_hijo'||(t.estado==='aviso_vencida'&&!t.estado_vencida)))
         act=`<button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.verVencida(${t.id})">Ver</button>`;
+      // v6c C10: «Aceptar» visible en la tarjeta (sin abrirla); la acción sigue siendo aceptarAprobada.
       if(!admin&&t.estado==='aviso_aprobada')
-        act=`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aceptarAprobada(${t.id})">Entendido</button>`;
+        act=`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aceptarAprobada(${t.id})">Aceptar</button>`;
+      // v6c C10: insignia llamativa encima de la tarjeta cuando espera acción del hijo.
+      const av=!admin&&!soloLectura()?avisoHijo(t):'';
+      if(av) return `<div class="v6c-aviso"><div class="v6c-aviso-b">${esc(av)}</div>${ficha(t,act)}</div>`;
       // v4 · traspaso: el hermano destino acepta o rechaza.
       if(!admin&&t.estado==='pendiente_transferencia'&&String(t.para_quien)===String(u.id))
         act=`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.traspaso('aceptar',${t.id})">Aceptar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.traspaso('rechazar',${t.id})">Rechazar</button></div>`;
@@ -3924,9 +4092,10 @@ window.FamiliaV3=(function(){
     // v5 ítem 1: el hijo solicita tareas (y pasa a un hermano) desde Hoy, no desde «Yo → Más».
     let hHijo=!admin&&!soloLectura()?`<div class="v3-row" style="margin-bottom:12px"><button class="v3-cta" style="flex:1" onclick="FamiliaV3.hojaSolicitar()">Solicitar tarea</button><button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openSiblingTask())">Para un hermano</button></div>`:'';
     let h=hHijo+(admin&&!soloLectura()?`<div class="v3-row" style="margin-bottom:12px"><button class="v3-cta" style="flex:1" onclick="FamiliaV3.crearTarea()">${svg('mas').replace('v3-ico','v3-ico" style="vertical-align:-5px')} Crear</button><button class="v3-btn2" onclick="FamiliaV3.crearCompleto()">Crear completo</button><button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Tareas: filtros, plantillas y borradores')">Filtros</button></div>`:'');
-    h+=hoy.length?hoy.map(fila).join(''):'<p class="v3-sub">Nada para hoy.</p>';
-    // Vencidos: el hijo los ve aquí; el padre los decide en «Revisar».
-    if(venc.length) h+=`<h2 style="margin-top:14px">Vencidos</h2>`+(admin?`<p class="v3-sub">${venc.length} en «Revisar».</p>`:venc.map(fila).join(''));
+    // v6c C10b: «Vencidos» va ANTES de «Hoy» (primero en la pantalla). El hijo los ve aquí; el padre también los ve
+    // con su acción (v6c C7c) y además siguen en «Revisar».
+    if(venc.length) h+=`<h2 style="margin-top:4px">Vencidos</h2>`+venc.map(fila).join('')+(admin?`<p class="v3-sub">${venc.length} en «Revisar».</p>`:'');
+    h+=(venc.length?'<h2 style="margin-top:14px">Hoy</h2>':'')+(hoy.length?hoy.map(fila).join(''):'<p class="v3-sub">Nada para hoy.</p>');
     // v6b B8+B10: «Más adelante» en orden cronológico (más próxima primero) dentro de una caja que muestra 5 y hace scroll.
     if(luego.length) h+=`<details style="margin-top:12px" ontoggle="FamiliaV3._cajas()"><summary class="v3-sub">Más adelante (${luego.length})</summary><div class="v6b-caja">${luego.slice().sort(porCuando).map(fila).join('')}</div></details>`;
     if(misSol.length) h+=`<h2 style="margin-top:14px">Mis solicitudes</h2>`+misSol.map(t=>ficha(t,'')).join('');
@@ -3951,7 +4120,7 @@ window.FamiliaV3=(function(){
   /* --- BANDEJA (padres): por aprobar + vencidos (Descontar / Perdonar). --- */
   function solicitudesPendientes(){return (state.solicitudes||[]).filter(x=>x.estado==='pendiente'&&!ocultas.has('s'+x.id));}
   function porAprobar(){return state.tasks.filter(t=>t.estado==='esperando_aprobacion'&&!ocultas.has(t.id));}
-  function vencidos(){return state.tasks.filter(t=>!ocultas.has(t.id)&&!t.puntos_sumados&&(t.estado_vencida==='por_decidir'||t.estado_vencida==='pendiente_hijo'||(t.estado==='aviso_vencida'&&!t.estado_vencida)));}
+  function vencidos(){return state.tasks.filter(t=>!ocultas.has(t.id)&&!t.puntos_sumados&&(t.estado_vencida==='por_decidir'||t.estado_vencida==='pendiente_hijo'||(t.estado==='aviso_vencida'&&!t.estado_vencida)||vencidaServidor(t)));}   // v6c C7c
   function pintarBandeja(){
     // V16 también en «Revisar»: con error de carga se muestra el mensaje y «Reintentar», no el vacío.
     if(state._tareasError){
@@ -4138,6 +4307,9 @@ window.FamiliaV3=(function(){
 
   /* --- Botón de canje: el hijo PIDE (solicitud que aprueba un padre); el padre canjea el suyo. --- */
   function botonPremio(u,r){
+    // v6c C7: en «Ver como» de un hijo sin celular, el padre canjea por él (familia_rpc_canjear_premio_por_hijo).
+    if(soloLectura()&&sinMovil(u)&&isAdmin(memberById(originalAdminId)))
+      return faltaDisponible(u.id,Math.max(1,Number(r.costo)||0))?'<span class="v3-sub">Aún no le alcanza (mesada por liberar)</span>':`<button class="v3-cta" onclick="FamiliaV3.canjearPorHijo(${r.id})">Canjear</button>`;
     if(soloLectura()) return '<span class="v3-sub">Solo lectura</span>';
     if(!isAdmin(u)){
       if((state.solicitudes||[]).some(x=>x.estado==='pendiente'&&x.miembro_id===u.id&&x.premio_id===r.id)||enCurso.has('p'+r.id))
@@ -4190,7 +4362,7 @@ window.FamiliaV3=(function(){
         <button class="v3-btn2" onclick="FamiliaV3.hojaMesadaV6()">Mesada mensual</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openPenalty())">Descuento</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNewMember())">Integrante</button>
-        <button class="v3-btn2" onclick="FamiliaV3.hojaPin()">PINs</button>
+        <button class="v3-btn2" onclick="FamiliaV3.hojaPin()">PINs</button><button class="v3-btn2" onclick="FamiliaV3.hojaMovil()">📵 Celulares</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaVerComo()">Ver como</button>
         <button class="v3-btn2 err v5-ancho" onclick="FamiliaV3.hojaReset()">Resetear</button></div></details>`;
     }
@@ -4203,7 +4375,9 @@ window.FamiliaV3=(function(){
     const ms=x=>{const n=x&&x.creado_en?new Date(x.creado_en).getTime():NaN; return isNaN(n)?-Infinity:n;};
     const mio=(state.history||[]).filter(x=>x.miembro_id===u.id).slice().sort((a,b)=>(ms(b)-ms(a))||((b.id||0)-(a.id||0)));
     const esCanje=x=>{const r=claseMov(x); return !!(r&&r.k==='c');};
-    const filaMov=x=>`<div class="v3-rk">${iconoMov(x)}<span class="v3-grow">${esc(x.texto||'')}${badgeMesada(x)}${fotoMovHtml(x)?'<br>'+fotoMovHtml(x):''}<br><span class="v3-sub">${x.creado_en?new Date(x.creado_en).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></span>${x.pts!=null?`<strong class="${x.pts>0?'v3-st-ok':x.pts<0?'v3-st-err':''}">${x.pts>0?'+':''}${x.pts}</strong>`:''}</div>`;
+    // v6c C14: en «Mi historial» los deberes muestran el chip «Deber» o «Penalización · deber» (antes no se distinguían de tareas).
+    const chipC14=x=>{const k=tipoIcono(x); return k==='deber'?'<span class="v3-chip deber">Deber</span> ':k==='deberPen'?'<span class="v3-chip deber">Penalización · deber</span> ':'';};
+    const filaMov=x=>`<div class="v3-rk">${iconoMov(x)}<span class="v3-grow">${chipC14(x)}${esc(textoMovC1b(x))/* v6c C1b */}${badgeMesada(x)}${fotoMovHtml(x)?'<br>'+fotoMovHtml(x):''}<br><span class="v3-sub">${x.creado_en?new Date(x.creado_en).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></span>${x.pts!=null?`<strong class="${x.pts>0?'v3-st-ok':x.pts<0?'v3-st-err':''}">${x.pts>0?'+':''}${x.pts}</strong>`:''}</div>`;
     const caja=(tit,l,vacio)=>`<h2 style="margin-top:14px">${tit} <span class="v3-sub">(${l.length})</span></h2><div class="v3-card" style="display:block">${l.length?`<div class="v6b-caja">${l.slice(0,100).map(filaMov).join('')}</div>`:`<p class="v3-sub">${vacio}</p>`}</div>`;
     h+=caja('Canjes',mio.filter(esCanje),'Todavía no hay canjes.');
     h+=caja('Tareas',mio.filter(x=>!esCanje(x)),'Todavía no hay movimientos de tareas.');
@@ -4249,6 +4423,7 @@ window.FamiliaV3=(function(){
   const ICO_MOV={
     tarea:['Tarea','<path d="M5 12l4 4 10-10"/>'],
     deber:['Deber','<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/>'],
+    deberPen:['Penalización · deber','<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12h6"/>'],   // v6c C14
     desc:['Descuento','<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>'],
     premio:['Premio','<path d="M4 10h16v10H4z"/><path d="M12 10v10M3 7h18v3H3z"/>'],
     mesada:['Mesada','<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/>'],
@@ -4257,12 +4432,15 @@ window.FamiliaV3=(function(){
   function tipoIcono(h){
     const r=claseMov(h);
     if(!r) return 'neutro';
-    if(r.k==='g'){const t=h.tarea_id?state.tasks.find(x=>Number(x.id)===Number(h.tarea_id)):null; return (h.tipo==='deber'||(t&&esDeber(t)))?'deber':'tarea';}
+    // v6c C14: deber detectado con esDeberMovC14 (tipo de la fila, tarea ligada o, en filas viejas, título).
+    if(r.k==='g') return esDeberMovC14(h)?'deber':'tarea';
     // v5 ítem 19: un deber cumplido suma 0 pts (k 'o'); se muestra con el ícono de deber, no neutro.
-    if(r.k==='o'&&!r.pts){const t=h.tarea_id?state.tasks.find(x=>Number(x.id)===Number(h.tarea_id)):null; if(h.tipo==='deber'||(t&&esDeber(t))) return 'deber';}
+    if(r.k==='o'&&!r.pts&&esDeberMovC14(h)) return 'deber';
+    // v6c C14: descuento de un deber → ícono de deber con etiqueta «Penalización · deber».
+    if(r.k==='d'&&esDeberMovC14(h)) return 'deberPen';
     return {d:'desc',c:'premio',me:'mesada'}[r.k]||'neutro';
   }
-  function iconoMov(h){const k=tipoIcono(h),[l,p]=ICO_MOV[k]; return `<span class="v5-mi ${k}" role="img" aria-label="${l}" title="${l}"><svg viewBox="0 0 24 24">${p}</svg></span>`;}
+  function iconoMov(h){const k=tipoIcono(h),[l,p]=ICO_MOV[k]; return `<span class="v5-mi ${k==='deberPen'?'deber':k}" role="img" aria-label="${l}" title="${l}"><svg viewBox="0 0 24 24">${p}</svg></span>`;}
   /* v6b B5: fecha desde la que hay datos para «Total» = el movimiento más antiguo del historial cargado
      (histTotal sin tope o, si falta, state.history). No hay columna «fecha de habilitación»: no se inventa. */
   function fechaInicioApp(){
@@ -4270,13 +4448,38 @@ window.FamiliaV3=(function(){
     let min=null; src.forEach(h=>{const d=h&&h.creado_en?new Date(h.creado_en):null; if(d&&!isNaN(d)&&(!min||d<min)) min=d;});
     return min;
   }
+  // v6c C13: fecha con la que el ranking ubica un movimiento del historial.
+  function fechaMovRanking(h){
+    const t=h&&h.tarea_id!=null?(state.tasks||[]).find(x=>Number(x.id)===Number(h.tarea_id)):null;
+    const f=t&&(t.fecha_limite||t.creado_en);
+    const d=f?new Date(f):null;
+    return d&&!isNaN(d)?d:new Date(h.creado_en);
+  }
+  // v6c C13: día calendario (AAAA-MM-DD) de una fecha en la zona de la familia.
+  function diaEnZona(d,z){
+    try{return new Intl.DateTimeFormat('en-CA',{timeZone:z,year:'numeric',month:'2-digit',day:'2-digit'}).format(d);}
+    catch(e){return new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);}
+  }
+  // v6c C13: ¿la fecha cae en la semana actual (domingo 00:00 → sábado 24:00) de la zona de la familia?
+  function enSemanaActual(d,u){
+    const z=(u&&u.zona_horaria)||'Europe/Madrid';
+    const hoy=diaEnZona(new Date(),z), base=new Date(hoy+'T12:00:00Z'), dow=base.getUTCDay();
+    const ini=new Date(base); ini.setUTCDate(base.getUTCDate()-dow);
+    const fin=new Date(ini); fin.setUTCDate(ini.getUTCDate()+6);
+    const iso=x=>x.toISOString().slice(0,10), dia=diaEnZona(d,z);
+    return dia>=iso(ini)&&dia<=iso(fin);
+  }
   function pintarRanking(u){
     const desde=rkModo==='semana'?inicioSemana():null;
     const MED=['🥇','🥈','🥉','🍬','⭐','🎈','🍪','🍎','⚽','🎯'];
     const filas=state.members.filter(isKid).map(k=>{
       // Columnas: g ganados (tareas/deberes) · me mesada · c canjeados · d descuentos · o otros (anulaciones, traspasos, ajustes).
       let g=0,me=0,c=0,d=0,o=0;
-      (state.history||[]).filter(h=>h.miembro_id===k.id&&(!desde||new Date(h.creado_en)>=desde)).forEach(h=>{
+      // v6c C13: el movimiento cuenta en la FECHA DE LA TAREA (fecha_limite; sin ella, creado_en de la tarea), vía historial.tarea_id.
+      // Si la fila no tiene tarea o la tarea no está cargada, se usa creado_en del movimiento (como antes). El saldo no cambia.
+      // v6c C13 (bordes Orq): el día se corta a las 00:00 en la zona de la familia (Europe/Madrid por defecto), no la del
+      // equipo; la semana va de domingo a sábado y lo de semanas futuras (tarea futura aprobada antes) cuenta en su semana.
+      (state.history||[]).filter(h=>h.miembro_id===k.id&&(!desde||enSemanaActual(fechaMovRanking(h),u))).forEach(h=>{
         const r=claseMov(h); if(!r) return;
         if(r.k==='g')g+=r.pts; else if(r.k==='me')me+=r.pts; else if(r.k==='c')c+=-r.pts; else if(r.k==='d')d+=-r.pts; else o+=r.pts;
       });
@@ -4289,8 +4492,9 @@ window.FamiliaV3=(function(){
     const ini=inicioSemana();
     // v5 ítem 7: solo Saldo y Ganado, nombres grandes; medallas emoji se quedan (D6). El desglose y la
     // conciliación siguen en el saldo detallado (openBalance) al tocar el nombre.
+    // v6c C12: en «Total» solo la fecha («Desde el {fecha}»); sin fecha → «Desde el inicio» (sin la frase de uso de la app).
     document.getElementById('v4Ranking').innerHTML=`<div class="v3-seg"><button class="${rkModo==='semana'?'on':''}" onclick="FamiliaV3.ranking('semana')">Semana</button><button class="${rkModo==='total'?'on':''}" onclick="FamiliaV3.ranking('total')">Total</button></div>
-      ${desde?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · hora local (${esc((u&&u.zona_horaria)||zonaHoraria())})</p>`:(()=>{const f=fechaInicioApp(); return `<p class="v3-sub">${f?'Desde el '+esc(f.toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'}))+', cuando se empezó a usar la app':'Desde que se empezó a usar la app'}</p>`;})()}
+      ${desde?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · hora local (${esc((u&&u.zona_horaria)||zonaHoraria())})</p>`:(()=>{const f=fechaInicioApp(); return `<p class="v3-sub">${f?'Desde el '+esc(f.toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'})):'Desde el inicio'}</p>`;})()}
       <div class="v3-card" style="display:block"><div class="v5-rk h"><span></span><span>Hijo</span><span class="n">Ganado</span><span class="n">Saldo</span></div>
       ${filas.map((x,i)=>`<div class="v5-rk" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.abrirV1(()=>openBalance(${x.k.id}))" title="Ver saldo detallado"><span>${MED[i]||(i+1)+'.'}</span><span class="nom">${esc(x.k.nombre)}</span><strong class="n v3-st-ok">${x.g}</strong><span class="n">${x.saldo}</span></div>`).join('')||'<p class="v3-sub">Sin hijos</p>'}
       <p class="v3-sub" style="margin-top:6px">Orden por Ganado${desde?' de esta semana':''}. Saldo = puntos de hoy. Toca un nombre para ver el detalle.</p></div>`;
@@ -4407,7 +4611,8 @@ window.FamiliaV3=(function(){
       <label>Para</label><div>${hijos.map(m=>`<label style="display:flex;gap:6px;align-items:center;margin:4px 0;color:#1e293b"><input type="checkbox" class="v4lHijo" value="${m.id}" style="width:auto">${esc(m.nombre)}</label>`).join('')}</div>
       <label>Reparto</label><select id="v4lModo"><option value="uno">Un solo hijo</option><option value="entre">Turnar entre los marcados (al azar)</option><option value="cada_uno">Cada uno la suya</option></select>
       ${campoDescV3('v4lDesc','')}
-      <label>Estado inicial</label><select id="v4lEst"><option value="pendiente">Activa</option><option value="borrador">Borrador</option></select>
+      <!-- v6c C8: crear = activar; sin selector «Estado inicial» (siempre pendiente). -->
+      <input type="hidden" id="v4lEst" value="pendiente">
       <p class="v3-sub" style="margin-top:8px">Las fechas llegan hasta el último día del mes. La BD reparte y omite duplicados a menos de 12 h.</p>
       <button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.previaLote()">Ver fechas (estimado)</button>
       <div id="v4lPrev" class="v3-sub" style="margin-top:8px"></div>
@@ -4456,10 +4661,144 @@ window.FamiliaV3=(function(){
     if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
     abrirHoja(`<h3>Deberes</h3><p class="v3-sub">Un deber no suma puntos; si se vence aplica el descuento.</p>
       <button class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.crearDeber()">1. Nuevo deber (una vez)</button>
-      <button class="v3-btn2 v3-full" style="margin-top:8px" onclick="FamiliaV3.hojaLote('deber')">2. Deber repetitivo (hasta fin de mes)</button>
-      <button class="v3-btn2 v3-full" style="margin-top:8px" onclick="FamiliaV3.abrirV1(()=>openDeberes())">3. Deberes base y repartir ciclo</button>`);
+      <button class="v3-btn2 v3-full" style="margin-top:8px" onclick="FamiliaV3.hojaSerie()">2. Deber repetitivo (por días)</button>`);
+    // v6c C11: un solo camino para deberes repetitivos (series L–D con hora por día); «Deberes base y repartir ciclo» ya no se ofrece para nuevas creaciones.
   }
   function crearDeber(){crear={clase:'deber'};crearPaso1();}
+  /* =================== v6c C11 · Deber repetitivo por días (familia_series) ===================
+     Casillas L M X J V S D (+ Todos / Entre semana / Fin de semana), hora general editable por día, «Mensual» aparte,
+     «Ver fechas» (familia_rpc_serie_previa) y Crear (familia_rpc_serie_crear). La BD renueva cada mes y no duplica. */
+  const DIAS=['L','M','X','J','V','S','D'];
+  function diasSel(){return DIAS.map((_,i)=>(document.getElementById('v6sD'+i)||{}).checked?'1':'0').join('');}
+  function horasSel(){
+    const g=(document.getElementById('v6sHora')||{}).value||'', o={};
+    DIAS.forEach((_,i)=>{const v=(document.getElementById('v6sH'+i)||{}).value; if(v&&v!==g) o[String(i+1)]=v;});
+    return Object.keys(o).length?o:null;
+  }
+  function mensualSel(){const on=(document.getElementById('v6sMen')||{}).checked; const n=parseInt((document.getElementById('v6sMenDia')||{}).value,10); return on&&n>=1&&n<=28?n:null;}
+  function resumenSerie(dias,horas,mensual){
+    if(mensual) return 'Mensual, el día '+mensual+(horas&&horas['1']?' · '+horas['1']:'');
+    const out=[]; let i=0;
+    while(i<7){ if(dias[i]!=='1'){i++;continue;} const h=horas?horas[String(i+1)]:''; let j=i;
+      while(j+1<7&&dias[j+1]==='1'&&(horas?horas[String(j+2)]:'')===h) j++;
+      out.push((j>i?DIAS[i]+'–'+DIAS[j]:DIAS[i])+(h?' '+h:'')); i=j+1; }
+    return out.join(' · ')||'Sin días';
+  }
+  function serieRefrescar(){
+    const g=(document.getElementById('v6sHora')||{}).value||'';
+    DIAS.forEach((_,i)=>{const on=(document.getElementById('v6sD'+i)||{}).checked, f=document.getElementById('v6sF'+i), h=document.getElementById('v6sH'+i);
+      if(f) f.style.display=on?'flex':'none'; if(h&&!h.dataset.tocado) h.value=g;});
+    const ok=diasSel()!=='0000000'||mensualSel()!=null, b=document.getElementById('v6sOk'), e=document.getElementById('v6sErr');
+    if(b) b.disabled=!ok; if(e) e.textContent=ok?'':'Marca al menos un día (o «Mensual»).';
+  }
+  function serieAtajo(k){
+    DIAS.forEach((_,i)=>{const c=document.getElementById('v6sD'+i); if(c) c.checked=k==='todos'||(k==='semana'?i<5:i>=5);});
+    serieRefrescar();
+  }
+  function camposDias(dias,horas,hora){
+    return `<label>Días</label><div class="v6c-dias">${DIAS.map((d,i)=>`<label class="v6c-dia"><input type="checkbox" id="v6sD${i}" ${dias[i]==='1'?'checked':''} onchange="FamiliaV3._serieRef()"><span>${d}</span></label>`).join('')}</div>
+      <div class="v3-row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" class="v3-btn2" onclick="FamiliaV3._serieAtajo('todos')">Todos</button><button type="button" class="v3-btn2" onclick="FamiliaV3._serieAtajo('semana')">Entre semana</button><button type="button" class="v3-btn2" onclick="FamiliaV3._serieAtajo('finde')">Fin de semana</button></div>
+      <label for="v6sHora">Hora general</label><input id="v6sHora" type="time" value="${esc(hora||'07:00')}" oninput="FamiliaV3._serieRef()">
+      <details style="margin-top:6px"><summary class="v3-sub">Otra hora en algún día</summary>${DIAS.map((d,i)=>`<div id="v6sF${i}" class="v3-row" style="align-items:center;gap:8px;margin-top:4px"><span style="width:1.5em;font-weight:700">${d}</span><input id="v6sH${i}" type="time" value="${esc((horas&&horas[String(i+1)])||hora||'07:00')}" ${horas&&horas[String(i+1)]&&horas[String(i+1)]!==hora?'data-tocado="1"':''} oninput="this.dataset.tocado='1'" style="flex:1"></div>`).join('')}</details>`;
+  }
+  function hojaSerie(){
+    if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
+    reqId('serie');
+    const hijos=state.members.filter(isKid).slice().sort(byName);
+    abrirHoja(`<h3>Deber repetitivo</h3><p class="v3-sub">Un deber no suma puntos; si se vence aplica el descuento. Se renueva solo cada mes.</p>
+      <label>Título</label><input id="v6sTit" maxlength="120">
+      <label>Para</label><div>${hijos.map(m=>`<label style="display:flex;gap:6px;align-items:center;margin:4px 0;color:#1e293b"><input type="checkbox" class="v6sHijo" value="${m.id}" style="width:auto">${esc(m.nombre)}</label>`).join('')||'<p class="v3-sub">Sin hijos</p>'}</div>
+      <label>Reparto</label><select id="v6sModo"><option value="cada_uno">Cada uno la suya</option><option value="uno">Un solo hijo</option><option value="entre">Turnar entre los marcados</option></select>
+      ${camposDias('1111100',null,'07:00')}
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v6sMen" style="width:auto" onchange="FamiliaV3._serieRef()"> Mensual (un día fijo del mes)</label>
+      <input id="v6sMenDia" type="number" min="1" max="28" value="1" oninput="FamiliaV3._serieRef()" aria-label="Día del mes (1 a 28)">
+      <label>Tiempo para hacerlo (min)</label><input id="v6sVen" type="number" min="1" value="60">
+      <label>Descuento si se pasa (pts)</label><input id="v6sPen" type="number" min="0" value="3">
+      ${campoDescV3('v6sDesc','')}
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v6sFoto" style="width:auto"> Exige foto</label>
+      <p id="v6sErr" class="v3-sub v3-st-err" style="min-height:1.2em"></p>
+      <button class="v3-btn2 v3-full" onclick="FamiliaV3.previaSerie()">Ver fechas</button>
+      <div id="v6sPrev" class="v3-sub" style="margin-top:8px"></div>
+      <button id="v6sOk" class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.guardarSerie()">Crear</button>`);
+    serieRefrescar();
+  }
+  function pintarPrevia(box,d){
+    const l=Array.isArray(d)?d:[];
+    const f=x=>new Date(x).toLocaleString('es-CO',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false});
+    box.innerHTML=l.length?`<b>${l.length} fecha(s) este mes:</b><div class="v6b-caja" style="max-height:180px">${l.map(x=>`<div>${esc(f(x.inicio))}</div>`).join('')}</div>`:'<span>No quedan fechas este mes con esos días.</span>';
+  }
+  async function previaSerie(){
+    const box=document.getElementById('v6sPrev'); if(!box) return;
+    const dias=diasSel(), men=mensualSel(); if(dias==='0000000'&&men==null) return serieRefrescar();
+    box.textContent='Calculando…';
+    const {data,error}=await supabase.rpc('familia_rpc_serie_previa',{p_actor_id:originalAdminId||state.currentUserId,p_dias:dias,p_hora_general:(document.getElementById('v6sHora')||{}).value||'07:00',p_horas:horasSel(),p_mensual_dia:men});
+    if(error){box.innerHTML=`<span class="v3-st-err">No se pudieron calcular las fechas: ${esc(msgErrorBD(error))}</span>`;return;}   // error ≠ vacío
+    pintarPrevia(box,data);
+  }
+  async function guardarSerie(){
+    const v=id=>(document.getElementById(id)||{}).value||'', n=(id,def)=>{const x=parseInt(v(id),10);return isNaN(x)?def:x;};
+    const tit=v('v6sTit').trim(); if(!tit) return showToast('Escribe el título');
+    const hijos=[...document.querySelectorAll('.v6sHijo:checked')].map(c=>+c.value); if(!hijos.length) return showToast('Marca al menos un hijo');
+    const dias=diasSel(), men=mensualSel(); if(dias==='0000000'&&men==null) return showToast('Marca al menos un día');
+    const desc=descripcionDe(v('v6sDesc')); if(descReservada(desc)) return showToast('Escribe una descripción distinta de «META»');
+    const horas=horasSel(), hora=v('v6sHora')||'07:00';
+    if(!confirm('¿Crear el deber repetitivo «'+tit+'» ('+resumenSerie(men?'0000000':dias,Object.assign({},...DIAS.map((_,i)=>({[i+1]:hora})),horas||{}),men)+') para '+hijos.length+' hijo(s)?')) return;
+    const k='serie'; if(enCurso.has(k)) return; enCurso.add(k);
+    const b=document.getElementById('v6sOk'); if(b) b.disabled=true;
+    try{
+      const args={p_actor_id:originalAdminId||state.currentUserId,p_client_req_id:reqId(k),p_titulo:tit,p_hijos:hijos,p_dias:dias,p_hora_general:hora,p_horas:horas,
+        p_modo:v('v6sModo')||'cada_uno',p_clase:'deber',p_puntos:0,p_ventana_min:Math.max(1,n('v6sVen',60)),p_penal:Math.max(0,n('v6sPen',0)),
+        p_exige_foto:!!(document.getElementById('v6sFoto')||{}).checked,p_mensual_dia:men};
+      if(desc) args.p_descripcion=desc;
+      const d=await rpc('familia_rpc_serie_crear',args);
+      if(!d){if(b) b.disabled=false; return;}   // error (p.ej. HINT c11_sin_dias): se conserva el req id
+      delete reqIds[k];
+      abrirHoja(`<h3 class="v3-st-ok">${d.idempotente?'Ya estaba creada':'Creadas '+(Number(d.creadas)||0)}</h3><p class="v3-sub">${esc(tit)} · ${esc(resumenSerie(men?'0000000':dias,d.horas||null,men))}. Se renueva cada mes.</p><button class="v3-cta v3-full" style="margin-top:12px" onclick="FamiliaV3.cerrarHoja()">Listo</button>`);
+      loadAll();
+    }finally{enCurso.delete(k);}
+  }
+  /* v6c C11: en la ficha, «Parte de la serie: L–V 06:30» + «Cambiar / borrar las próximas». Lo pasado no se toca (soft). */
+  async function bloqueSerie(t){
+    const box=document.getElementById('v6sFicha'); if(!box||!t.serie_id) return;
+    const {data,error}=await supabase.from('familia_series').select('id,titulo,dias_semana,horas,mensual_dia,activa').eq('id',t.serie_id).maybeSingle();
+    if(error){box.innerHTML=`<span class="v3-st-err">No se pudo leer la serie: ${esc(msgErrorBD(error))}</span>`;return;}
+    const sd=data||{dias_semana:t.dias_semana||'0000000',horas:null};
+    serieAbierta=data;
+    const adm=isAdmin(currentUser())&&!soloLectura()&&data&&data.activa!==false;
+    box.innerHTML=`<p class="v3-sub"><b>Parte de la serie:</b> ${esc(resumenSerie(sd.dias_semana||'0000000',sd.horas,sd.mensual_dia))}${data&&data.activa===false?' (ya no se repite)':''}</p>`+
+      (adm?`<div class="v6b-acc"><button class="v3-btn2" onclick="FamiliaV3.hojaSerieCambiar()">Cambiar las próximas</button><button class="v3-btn2 err" onclick="FamiliaV3.serieBorrar()">Borrar las próximas</button></div>`:'');
+  }
+  let serieAbierta=null;
+  function hojaSerieCambiar(){
+    const sr=serieAbierta; if(!sr||soloLectura()) return;
+    const hora=(sr.horas&&sr.horas['1'])||'07:00';
+    abrirHoja(`<h3>Cambiar las próximas</h3><p class="v3-sub">«${esc(sr.titulo||'')}». Solo cambian las fechas que vienen; lo ya pasado queda igual.</p>
+      ${camposDias(sr.dias_semana||'0000000',sr.horas,hora)}
+      <p id="v6sErr" class="v3-sub v3-st-err" style="min-height:1.2em"></p>
+      <button id="v6sOk" class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.serieCambiar()">Guardar cambios</button>`);
+    serieRefrescar();
+  }
+  async function serieCambiar(){
+    const sr=serieAbierta; if(!sr) return;
+    const dias=diasSel(); if(dias==='0000000'&&sr.mensual_dia==null) return showToast('Marca al menos un día');
+    const hora=(document.getElementById('v6sHora')||{}).value||'07:00', horas={};
+    DIAS.forEach((_,i)=>{horas[String(i+1)]=(document.getElementById('v6sH'+i)||{}).value||hora;});
+    if(!confirm('¿Cambiar las próximas a '+resumenSerie(dias,horas,sr.mensual_dia)+'?')) return;
+    const k='sc'+sr.id; if(enCurso.has(k)) return; enCurso.add(k);
+    try{
+      const d=await rpc('familia_rpc_serie_cambiar',{p_actor_id:originalAdminId||state.currentUserId,p_serie:sr.id,p_dias:dias,p_horas:horas});
+      if(!d) return; cerrarHoja(); showToast('Listo: '+(Number(d.archivadas)||0)+' quitadas, '+(Number(d.creadas)||0)+' nuevas'); loadAll();
+    }finally{enCurso.delete(k);}
+  }
+  async function serieBorrar(){
+    const sr=serieAbierta; if(!sr||soloLectura()) return;
+    if(!confirm('¿Borrar las próximas fechas de «'+(sr.titulo||'esta serie')+'»? Lo ya pasado queda igual.')) return;
+    const k='sb'+sr.id; if(enCurso.has(k)) return; enCurso.add(k);
+    try{
+      const d=await rpc('familia_rpc_serie_borrar_futuras',{p_actor_id:originalAdminId||state.currentUserId,p_serie:sr.id});
+      if(!d) return; cerrarHoja(); showToast('Se quitaron '+(Number(d.archivadas)||0)+' fechas próximas'); loadAll();
+    }finally{enCurso.delete(k);}
+  }
   // v5 ítem 20: «Crear» siempre abre como tarea; si quedó un deber a medias desde Deberes, se descarta.
   function crearTarea(){if(crear.clase==='deber') crear={}; crearPaso1();}
   // v5 ítem 20: «Crear completo» desde la v3 sin la opción Deber (la v1 directa la conserva).
@@ -4705,6 +5044,8 @@ window.FamiliaV3=(function(){
   // p_comentario = comentario_aprobacion (opcional, desde el detalle). Si la RPC falla, la ficha vuelve y sale el error.
   function aprobar(id,comentario){
     const t=state.tasks.find(x=>x.id===id); if(!t) return;
+    // v6c C1: enviada después de su Fin (enviada_tarde) → ventana de puntos 0..M (sugerido M) antes de aprobar.
+    if(t.enviada_tarde&&Number(t.puntos)>0) return hojaAprobarTarde(id,comentario);
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     if(!confirm('¿Aprobar «'+t.titulo+'» de '+((memberById(t.asignada_a)||{}).nombre||'este integrante')+(Number(t.puntos)?' (+'+t.puntos+' pts)':'')+'?')) return;
     ocultas.add(id); pintar(); cerrarHoja();
@@ -4713,6 +5054,37 @@ window.FamiliaV3=(function(){
         ocultas.delete(id); if(!d){pintar();return;} if(d.idempotente) showToast('Ya estaba aplicado'); scheduleReload();},
       ()=>{ocultas.delete(id);pintar();},
       ()=>{rpcKeepalive('familia_rpc_aprobar_tarea',{p_tarea_id:id,p_actor_id:state.currentUserId,p_comentario:comentario||null});});
+  }
+  /* v6c C1: ventana «¿Cuántos puntos das?» para una tarea enviada tarde. Valor entero 0..M; vacío o fuera de rango
+     deja el botón apagado. Confirma con familia_rpc_aprobar_tarea_v6c (p_pts, p_client_req_id → 1 solo movimiento). */
+  function hojaAprobarTarde(id,comentario){
+    const t=state.tasks.find(x=>x.id===id); if(!t) return;
+    const M=Math.max(0,Number(t.puntos)||0), nom=((memberById(t.asignada_a)||{}).nombre)||'el hijo';
+    aprobTardeCom=comentario||'';
+    abrirHoja(`<h3>Aprobar tarea enviada tarde</h3><p class="v3-sub" style="margin:6px 0">${esc(nom)} envió «${esc(t.titulo)}» después de la hora. Tú decides cuántos puntos le das.</p>
+      <label for="v6cPts">Puntos (0 a ${M})</label><input id="v6cPts" type="number" inputmode="numeric" min="0" max="${M}" step="1" value="${M}" style="width:100%" oninput="FamiliaV3._ptsTarde(${M})">
+      <p id="v6cPtsErr" class="v3-sub v3-st-err" style="min-height:1.2em"></p>
+      <div class="v6b-acc"><button id="v6cPtsOk" class="v3-cta" onclick="FamiliaV3.aprobarTarde(${id})">Aprobar · ${M} pts</button><button class="v3-btn2" onclick="FamiliaV3.detalle(${id})">Volver</button></div>`);
+  }
+  let aprobTardeCom='';
+  function ptsTardeValidos(M){
+    const el=document.getElementById('v6cPts'), b=document.getElementById('v6cPtsOk'), er=document.getElementById('v6cPtsErr'); if(!el||!b) return null;
+    const raw=String(el.value).trim(), n=Number(raw), ok=raw!==''&&Number.isInteger(n)&&n>=0&&n<=M;
+    b.disabled=!ok; b.textContent=ok?'Aprobar · '+n+' pts':'Aprobar'; if(er) er.textContent=ok?'':'Escribe un número entero entre 0 y '+M+'.';
+    return ok?n:null;
+  }
+  async function aprobarTarde(id){
+    const t=state.tasks.find(x=>x.id===id); if(!t) return;
+    const M=Math.max(0,Number(t.puntos)||0), n=ptsTardeValidos(M); if(n==null) return;
+    if(!confirm('¿Aprobar «'+t.titulo+'» con '+n+' de '+M+' pts?')) return;
+    const k='at'+id; if(enCurso.has(k)) return; enCurso.add(k);
+    const b=document.getElementById('v6cPtsOk'); if(b) b.disabled=true;
+    try{
+      const d=await rpc('familia_rpc_aprobar_tarea_v6c',{p_tarea_id:id,p_actor_id:state.currentUserId,p_comentario:aprobTardeCom||null,p_pts:n,p_client_req_id:reqId(k)});
+      if(!d){if(b) b.disabled=false; return;}   // error: rpc() ya mostró el mensaje (p.ej. HINT c1_rango); se conserva el req id
+      delete reqIds[k]; ocultas.add(id); cerrarHoja(); pintar();
+      showToast(d.idempotente?'Ya estaba aplicado':'Aprobada tarde: '+(d.pts!=null?d.pts:n)+' de '+M+' pts'); scheduleReload();
+    }finally{enCurso.delete(k);}
   }
   // Si la página se cierra o se oculta dentro de los 5 s, se dispara la aprobación de una vez.
   // B3: se usa la versión keepalive (si existe) porque el cliente supabase no garantiza el envío al cerrar.
@@ -4835,6 +5207,18 @@ window.FamiliaV3=(function(){
     if(!d){ocultas.delete(k);pintar();return;}
     showToast(d.idempotente?'Ya estaba aplicado':'Premio aprobado'); loadAll();
   }
+  // v6c C7: canje directo por un hijo sin celular (actor = padre real; idempotente con p_client_req_id).
+  async function canjearPorHijo(pid){
+    const u=currentUser(), r=state.rewards.find(x=>x.id===pid); if(!u||!r||!sinMovil(u)||!originalAdminId) return;
+    const C=Math.max(1,Number(r.costo)||0), S=Number(u.puntos)||0;
+    if(!confirm('¿Canjear «'+r.nombre+'» para '+u.nombre+' (−'+C+' pts)? Le quedan '+(S-C)+'.')) return;
+    const k='ch'+pid+'-'+u.id; if(enCurso.has(k)) return; enCurso.add(k); pintar();
+    try{
+      const d=await rpc('familia_rpc_canjear_premio_por_hijo',{p_premio_id:pid,p_miembro_id:u.id,p_actor_id:originalAdminId,p_client_req_id:reqId(k)});
+      if(!d) return; delete reqIds[k];
+      showToast(d.idempotente?'Ya estaba aplicado':'Canjeado: '+r.nombre+(d.saldo!=null?' · saldo '+d.saldo:'')); scheduleReload();
+    }finally{enCurso.delete(k); pintar();}
+  }
   // Padre: canjea su propio premio → familia_rpc_canjear_premio_padre (p_client_req_id obligatorio).
   async function canjearPadre(id){
     const k='c'+id; if(enCurso.has(k)) return;
@@ -4855,17 +5239,19 @@ window.FamiliaV3=(function(){
     const e=estadoDe(t), quien=memberById(t.asignada_a), junto=memberById(t.conjunto_con);
     // v4 · ajuste 3: nombre, tipo, abre/cierra/cerrada (windowBlock + closedAt de la v1) y franja con el color del hijo.
     abrirHoja(`<div style="border-left:6px solid ${esc((quien&&quien.color)||'#9ca3af')};padding-left:10px"><h3>${esc(t.titulo)}</h3>
-      <p class="v3-sub" style="margin:6px 0"><span class="v3-chip ${esObligatoria(t)?'obl':esDeber(t)?'deber':''}">${esObligatoria(t)?'Obligatoria':esDeber(t)?'Deber':'Tarea'}</span> <span class="${e.cls}">${esc(e.txt)}</span></p>
+      <p class="v3-sub" style="margin:6px 0"><span class="v3-chip ${esObligatoria(t)?'obl':esDeber(t)?'deber':''}">${esObligatoria(t)?'Obligatoria':esDeber(t)?'Deber':'Tarea'}</span> <span class="${e.cls}">${esc(e.txt)}</span>${t.exige_foto?' <span class="v3-chip">📷 Exige foto</span>':''/* v6c C3: chip «Exige foto» */}</p>
       ${descVisible(t)?`<p class="v6b-dfull">${esc(descVisible(t))}</p>`:''}${t.plantilla_id&&t.max_por_dia!=null?`<p class="v3-sub">Límite: ${esc(freqTxt(t.max_por_dia,t.intervalo_min_min))}</p>`:''}
       <p class="v3-sub">${quien?'Para: '+esc(quien.nombre):''}${junto?' · junto con '+esc(junto.nombre):''}${' · '+(Number(t.puntos)||0)+' pts'}${descuentoDe(t)>0?' · <span class="v3-st-err">Descuento −'+descuentoDe(t)+' pts</span>':''}</p>
       ${modeloVentana(t)?`<div style="margin-top:4px">${renglonHora(t)}</div>`:`<p class="v3-sub" style="margin-top:4px">${windowBlock(t)||'Sin ventana definida'}</p>`}</div>
       ${isAdmin(currentUser())&&!soloLectura()?`<button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.abrirV1(()=>openTaskCard(${t.id}))">Editar / eliminar (ficha completa)</button>`:''}
       ${t.comentario_completado?`<p class="v3-sub">«${esc(t.comentario_completado)}»</p>`:''}${comentAprob(t)&&/aprob|complet/.test(t.estado)?`<p class="v3-sub v3-st-ok">Papá/mamá: «${esc(comentAprob(t))}»</p>`:''}<div id="v3Foto" class="v3-sub">Cargando evidencia…</div>
-      ${accionesHijo(t)}${accionesPadre(t)}
+      ${t.serie_id?'<div id="v6sFicha" class="v3-sub" style="margin-top:6px">Cargando serie…</div>':''/* v6c C11 */}
+      ${accionesHijo(t)}${accionesPadre(t)}${accionVencidaPadre(t)}${accionActivar(t)}${accionRealizada(t)}
       <button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.cerrarHoja()">Cerrar</button>`);
     // v6b B19: se piden fotos/fotos_2 (hasta 3 cada uno); si la BD aún no los tiene, se vuelve a las columnas viejas.
     let {data,error}=await supabase.from('familia_tareas').select('foto_url,foto_2,foto_path,foto_2_path,fotos,fotos_2').eq('id',id).is('archivada_en',null).maybeSingle();   // v4: sin archivadas
     if(error&&faltaEnBD(error,['fotos','fotos_2'])) ({data,error}=await supabase.from('familia_tareas').select('foto_url,foto_2,foto_path,foto_2_path').eq('id',id).is('archivada_en',null).maybeSingle());
+    if(t.serie_id) bloqueSerie(t);   // v6c C11
     const box=document.getElementById('v3Foto'); if(!box) return;
     const ok=f=>typeof f==='string'&&/^(data:image\/|https:)/.test(f);
     const grupo=(arr,uno)=>(Array.isArray(arr)&&arr.length?arr:[uno]).filter(ok);
@@ -4886,9 +5272,11 @@ window.FamiliaV3=(function(){
   /* v6b B6: casos que antes no mostraban nada:
      · «Ver como»: botón deshabilitado + «Solo lectura: entra como el hijo».
      · Ventana cerrada (taskTiming 'late') y aún sin enviar: «Se pasó la hora» + «Enviar tarde» / «Pedir más tiempo». */
-  function camposEnvio(){
+  // v6c C3: con exige_foto la foto deja de ser opcional (etiqueta «obligatoria»).
+  function camposEnvio(t){
+    const obl=!!(t&&t.exige_foto);
     return `<label class="v3-sub" style="display:block;margin-top:10px">Comentario (opcional)</label><input id="v3eCom" maxlength="200" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px">
-      <label class="v3-sub" style="display:block;margin-top:8px" for="v3eFoto">Fotos de evidencia (opcional, hasta 3)</label><input id="v3eFoto" type="file" accept="image/*" multiple onchange="FamiliaV3.agregarFotos(this)">
+      <label class="v3-sub" style="display:block;margin-top:8px${obl?';font-weight:700;color:#b91c1c':''}" for="v3eFoto">${obl?'📷 Foto obligatoria (hasta 3)':'Fotos de evidencia (opcional, hasta 3)'}</label><input id="v3eFoto" type="file" accept="image/*" multiple onchange="FamiliaV3.agregarFotos(this)">
       <div id="v6bFotos" class="v6b-fotos"></div>`;
   }
   /* v6b B19: hasta 3 fotos por envío. Se eligen (una o varias veces), se ven en miniatura y se pueden quitar antes de
@@ -4935,7 +5323,9 @@ window.FamiliaV3=(function(){
     if(!(t.asignada_a===u.id||t.conjunto_con===u.id)) return false;
     // v6b B6 fix QA: expireWindows() pasa la tarea a aviso_vencida justo al vencer; mientras no tenga
     // puntos sumados ni decisión de vencida, el hijo aún puede enviarla tarde o pedir más tiempo.
-    if(t.estado==='aviso_vencida') return !t.puntos_sumados&&!t.estado_vencida;
+    // v6c C7c: también la que el job dejó en no_terminada (filas viejas)
+    if(t.estado==='aviso_vencida'||vencidaServidor(t)) return !t.puntos_sumados&&!t.estado_vencida;
+    if(vencidaTrigger(t)) return true;   // v6c fix2 N2: pendiente + por_decidir del trigger → «Enviar tarde»
     if(!(t.estado==='pendiente'||t.estado==='aviso_rechazada')) return false;
     return typeof taskTiming==='function'&&taskTiming(t)==='late';
   }
@@ -4945,8 +5335,8 @@ window.FamiliaV3=(function(){
     if(soloLectura()&&u&&isKid(u)&&mia&&abierta)
       return `<p class="v6b-ro">Solo lectura: entra como ${esc(u.nombre||'el hijo')} para enviarla.</p><button class="v3-cta v3-full" disabled aria-disabled="true">Ya la hice</button>`;
     if(puedeEnviarTarde(t,u))
-      return `<p class="v3-st-err" style="margin-top:10px;font-weight:700">Se pasó la hora.</p><p class="v3-sub">Puedes enviarla tarde (papá o mamá deciden si cuenta) o pedir más tiempo.</p>${camposEnvio()}
-      <div class="v6b-acc"><button class="v3-cta" onclick="FamiliaV3.enviar(${t.id},true)">Enviar tarde</button><button class="v3-btn2" onclick="FamiliaV3.pedirTiempo(${t.id})">Pedir más tiempo</button></div>`;
+      return `<p class="v3-st-err" style="margin-top:10px;font-weight:700">Se pasó la hora.</p><p class="v3-sub">Puedes enviarla tarde (papá o mamá deciden si cuenta) o pedir más tiempo.</p>${camposEnvio(t)}
+      <div class="v6b-acc"><button class="v3-cta" onclick="FamiliaV3.enviar(${t.id},true)">Enviar tarde</button><button class="v3-btn2" onclick="FamiliaV3.pedirTiempo(${t.id})">Pedir más tiempo</button>${''/* v6c fix3 N2: «Entendido» en la ficha de la vencida */}<button class="v3-btn2" onclick="FamiliaV3.entendido(${t.id})">Entendido, se me pasó</button></div>`;
     if(!puedeEnviar(t,u)) return '';
     // v4 · pasar a un hermano (solo el dueño, tarea pendiente).
     const herm=state.members.filter(m=>isKid(m)&&m.id!==u.id);
@@ -4954,7 +5344,7 @@ window.FamiliaV3=(function(){
     const pase=t.asignada_a===u.id&&t.estado==='pendiente'&&!t.es_transferencia&&herm.length?`<details style="margin-top:10px"><summary class="v3-sub">Pasar a un hermano</summary>
       <select id="v4Herm" style="width:100%;padding:9px;margin-top:6px">${herm.map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('')}</select>
       <button class="v3-btn2 v3-full" style="margin-top:6px" onclick="FamiliaV3.traspaso('pasar',${t.id})">Pasar</button></details>`:'';
-    return pase+camposEnvio()+`
+    return pase+camposEnvio(t)+`
       <button class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.enviar(${t.id})">Ya la hice</button>`;
   }
   async function enviar(id,tarde){
@@ -4974,6 +5364,8 @@ window.FamiliaV3=(function(){
         try{fotos.push(await comprimirFoto(fotosSel[i].file));}
         catch(e){return showToast(e&&e.message==='grande'?'La foto '+(i+1)+' es muy pesada y no se pudo achicar. Quítala o toma otra. No se envió nada.':'No se pudo leer la foto '+(i+1)+'. No se envió nada.');}
       }
+      // v6c C3: tarea con exige_foto y sin foto → no se envía (el servidor también lo valida con HINT c3_exige_foto).
+      if(t.exige_foto&&u.tiene_movil!==false&&!fotos.length) return showToast('Esta tarea necesita foto');
       const companero=!!(t.conjunto_con&&u.id===t.conjunto_con);
       const colF=companero?'fotos_2':'fotos', colAnt=companero?'fotos_2_anterior':'fotos_anterior', colLegado=companero?'foto_2':'foto_url';
       const payload={};
@@ -4992,6 +5384,51 @@ window.FamiliaV3=(function(){
       const nf=fotos.length?' ('+fotos.length+' foto'+(fotos.length>1?'s':'')+')':'';
       const t0=Date.now(), okEnv=confirm(tarde?'¿Enviar «'+t.titulo+'»'+nf+' tarde? Papá o mamá deciden si cuenta.':'¿Enviar «'+t.titulo+'»'+nf+' para que papá o mamá la revisen?');
       if(!okEnv){ if(Date.now()-t0<50) showToast('Tu navegador bloqueó la confirmación. Cierra la pestaña, ábrela de nuevo e inténtalo.'); return; }
+      /* v6c fix2 N1: «Enviar tarde» va por familia_rpc_enviar_tarde(p_tarea_id, p_actor_id, p_foto) (v6c_07): valida estado y
+         actor en el servidor y deja esperando_aprobacion. p_foto = primera foto. Error y respuesta vacía son fallos distintos.
+         Después, sin tocar el estado, se guardan el comentario y el juego completo de fotos (si hay más de una). */
+      if(tarde){
+        /* v6c fix4 N1: con v6c_08, UNA llamada atómica familia_rpc_enviar_tarde(p_tarea_id, p_actor_id, p_foto, p_comentario,
+           p_fotos text[]); el servidor pone cada parte en su lugar (dueño → comentario_completado/foto_url/fotos; compañero →
+           evidencia_2/foto_2/fotos_2). Respaldo para prod sin v6c_08: si la BD responde «firma no encontrada» (PGRST202/42883,
+           faltaEnBD con p_comentario/p_fotos), no se ejecutó nada; se llama la firma de 3 parámetros y se hace la 2.ª escritura
+           (comentario + fotos, sin estado) como en fix2. El resultado se recuerda en window._v6c08Tarde para esta página. */
+        let rr=null, v08=window._v6c08Tarde!==false;
+        if(v08){
+          rr=await supabase.rpc('familia_rpc_enviar_tarde',{p_tarea_id:id,p_actor_id:u.id,p_foto:fotos[0]||null,p_comentario:comment||null,p_fotos:fotos.length?fotos:null});
+          if(rr.error&&faltaEnBD(rr.error,['p_comentario','p_fotos','familia_rpc_enviar_tarde'])){window._v6c08Tarde=false; v08=false;}
+        }
+        if(!v08) rr=await supabase.rpc('familia_rpc_enviar_tarde',{p_tarea_id:id,p_actor_id:u.id,p_foto:fotos[0]||null});
+        if(rr.error){
+          // v6c fix4: HINT c7d_entendida (v6c_08) → el hijo ya dijo «Entendido»; mensaje claro y se oculta la tarea.
+          if(String(rr.error.hint||'')==='c7d_entendida'){marcarEntendida(id); cerrarHoja(); pintar(); return showToast('Ya dijiste «Entendido»: ahora deciden papá o mamá.');}
+          return showToast(msgErrorBD(rr.error));
+        }
+        if(rr.data==null) return showToast('No se pudo: respuesta vacía del servidor. Recarga y revisa si quedó enviada.');
+        const extra={};
+        if(!v08){   // respaldo sin v6c_08: 2.ª escritura (no toca el estado)
+          if(companero) extra.evidencia_2=comment||'Listo'; else if(comment) extra.comentario_completado=comment;
+          if(fotos.length>1){extra[colF]=fotos; if(payload[colAnt]) extra[colAnt]=payload[colAnt];}
+          if(Object.keys(extra).length){const {error:e2}=await supabase.from('familia_tareas').update(extra).eq('id',id);
+            if(e2) setTimeout(()=>showToast('Se envió, pero sin '+(fotos.length>1?'todas las fotos':'el comentario')+': '+msgErrorBD(e2)),2600);}
+        }else{ if(companero) extra.evidencia_2=comment||'Listo'; else extra.comentario_completado=comment||t.comentario_completado||(t.conjunto_con?'Listo':null); }
+        limpiarFotosSel();
+        /* v6c fix4 N3: tarea en pareja y falta la otra parte → respuesta {ok, estado, falta:'companero'|'dueno'}. La tarea
+           queda en el estado que devuelve el servidor (no pasa a revisión) y el hijo ve quién falta. */
+        if(rr.data.falta){
+          const otro=memberById(rr.data.falta==='companero'?t.conjunto_con:t.asignada_a);
+          Object.assign(t,extra,rr.data.estado?{estado:rr.data.estado}:{}); COLS_FOTO.forEach(c=>{delete t[c];});
+          cerrarHoja(); pintar();
+          showToast('Tu parte quedó guardada. Falta la parte de '+((otro&&otro.nombre)||'tu compañero')+' para que papá o mamá la revisen.');
+          scheduleReload();
+          return;
+        }
+        Object.assign(t,extra,{estado:rr.data.estado||'esperando_aprobacion',estado_vencida:null}); COLS_FOTO.forEach(c=>{delete t[c];});
+        cerrarHoja(); pintar();
+        showToast(rr.data.idempotente?'Ya estaba enviada':'Quedó en revisión (enviada tarde)');
+        scheduleReload();
+        return;
+      }
       let {error}=await supabase.from('familia_tareas').update(payload).eq('id',id);
       // v6b B19 respaldo: si la BD aún no tiene la columna de varias fotos, con 1 foto se usa la columna vieja; con más, no se envía nada.
       if(error&&fotos.length&&faltaEnBD(error,[colF,colAnt])){
@@ -5014,10 +5451,81 @@ window.FamiliaV3=(function(){
          aún no la publica en la carpeta sql). Cierra con 0 pts y no vuelve a la vista del hijo. --- */
   /* v6b B2: ficha de revisión del padre en un solo bloque: un comentario para el hijo y dos botones del mismo
      tamaño (Aprobar / Devolver), que en 360–390 px quedan lado a lado sin cortarse; «Rechazar» sigue en ⋯. */
+  /* v6c C7: «✅ Realizada» del padre para cualquier hijo (pendiente, enviada, vencida). Puntos completos, también en vencida.
+     Sin celular → completada al instante + «Deshacer» 15 s (v6c); con celular → aviso_aprobada (el hijo acepta). Actor = padre real. */
+  const REALIZADA_OK=['pendiente','esperando_aprobacion','aviso_vencida'];
+  function puedeRealizada(t){
+    const u=currentUser(), k=memberById(t.asignada_a);
+    if(!u||!isAdmin(u)||soloLectura()||!k||!isKid(k)) return false;
+    return REALIZADA_OK.includes(t.estado)||t.estado_vencida==='pendiente_hijo'||t.estado_vencida==='por_decidir'||vencidaServidor(t);   // v6c C7c
+  }
+  function accionRealizada(t){
+    if(!puedeRealizada(t)) return '';
+    const k=memberById(t.asignada_a), j=memberById(t.conjunto_con);
+    const nota=sinMovil(k)?'Sin celular: suma al instante.':'Con celular: le llega para aceptar.';
+    return `<button id="v6cReal" class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.realizada(${t.id})">✅ Realizada${Number(t.puntos)?' · +'+Number(t.puntos)+' pts':''}</button>
+      <p class="v3-sub" style="margin-top:4px">${esc(nota)}${j?' '+esc(j.nombre)+': '+(sinMovil(j)?'sin celular, al instante.':'con celular, acepta.'):''}</p>`;
+  }
+  let deshacerReal=null;
+  async function realizada(id){
+    const t=state.tasks.find(x=>x.id===id); if(!t||!puedeRealizada(t)) return showToast('Esta tarea ya no se puede marcar. Recarga para ver su estado.');
+    const nom=((memberById(t.asignada_a)||{}).nombre)||'el hijo';
+    if(!confirm('¿'+nom+' hizo «'+t.titulo+'»?'+(Number(t.puntos)?' (+'+t.puntos+' pts)':''))) return;
+    const k='rz'+id; if(enCurso.has(k)) return; enCurso.add(k);
+    const b=document.getElementById('v6cReal'); if(b){b.disabled=true;b.textContent='Guardando…';}   // antidoble toque
+    try{
+      const d=await rpc('familia_rpc_realizada',{p_tarea_id:id,p_actor_id:originalAdminId||state.currentUserId,p_client_req_id:reqId(k)});
+      if(!d){if(b){b.disabled=false;b.textContent='✅ Realizada';} return;}
+      delete reqIds[k]; ocultas.add(id); cerrarHoja(); pintar();
+      if(d.idempotente){showToast('Ya estaba aplicado');}
+      else if(d.instantaneo&&sinMovil(memberById(t.asignada_a))) avisoDeshacerReal(id,'Realizada: '+t.titulo+' (+'+(d.pts||0)+' pts)',Number(d.pts)||0,t.conjunto_con&&sinMovil(memberById(t.conjunto_con))?2:1);   // v6c C7b: pts para el toast
+      else showToast(d.estado==='aviso_aprobada'?'Listo: '+nom+' debe aceptar sus '+(d.pts||0)+' pts':'Realizada: '+t.titulo);
+      scheduleReload();
+    }finally{enCurso.delete(k);}
+  }
+  // v6c C7: «Deshacer» 15 s solo para hijo sin celular (el servidor da 15 s de margen; fuera de plazo → HINT c7_deshacer_vencido).
+  // v6c C7b/C7 15 s: la ventana de «Deshacer» en pantalla es 15 s (igual que el margen del servidor).
+  function avisoDeshacerReal(id,txt,ptsC7b,nMovC7b){
+    if(deshacer){clearTimeout(deshacer.timer);deshacer.fn();}
+    if(deshacerReal) clearTimeout(deshacerReal.timer);
+    const box=document.getElementById('v3Toast'), btn=document.getElementById('v3ToastUndo');
+    document.getElementById('v3ToastTxt').textContent=txt; box.classList.add('on');
+    const fin=()=>{box.classList.remove('on'); deshacerReal=null; btn.onclick=null;};
+    deshacerReal={timer:setTimeout(fin,15000)};   // v6c: 15 s
+    btn.onclick=async()=>{
+      if(!deshacerReal) return; clearTimeout(deshacerReal.timer); fin();
+      const k='dz'+id; if(enCurso.has(k)) return; enCurso.add(k);
+      try{
+        const d=await rpc('familia_rpc_deshacer_realizada',{p_tarea_id:id,p_actor_id:originalAdminId||state.currentUserId,p_client_req_id:reqId(k)});
+        if(!d) return; delete reqIds[k]; ocultas.delete(id); // v6c C7b: «revertidos» es un CONTEO de movimientos, no puntos. Se usan los pts de la respuesta (pts / pts_revertidos)
+        // o, si no vienen, los pts de la Realizada × movimientos revertidos.
+        const ptsR=d.pts_revertidos!=null?Math.abs(Number(d.pts_revertidos)):d.pts!=null?Math.abs(Number(d.pts)):(ptsC7b||0)*(d.revertidos!=null?Number(d.revertidos)||1:(nMovC7b||1));
+        showToast('Se deshizo: '+ptsR+' pts revertidos'); scheduleReload();
+      }finally{enCurso.delete(k);}
+    };
+  }
+  /* v6c C7c: en la ficha, una vencida por decidir (incluida la que el job pasó a no_terminada) muestra Descontar / Perdonar
+     al padre, igual que en «Revisar». */
+  function accionVencidaPadre(t){
+    if(!isAdmin(currentUser())||soloLectura()||!vencidos().some(x=>x.id===t.id)) return '';
+    return `<div class="v6b-acc" style="margin-top:10px"><button class="v3-btn2 err" onclick="FamiliaV3.descontar(${t.id})">Descontar${t.pierde_pts?' −'+t.pierde_pts:''}</button><button class="v3-btn2" onclick="FamiliaV3.perdonar(${t.id})">Perdonar</button></div>`;
+  }
+  // v6c C8b: borrador viejo → «Activar» en la ficha v3 (usa activateTask de la v1: confirma, valida y recarga).
+  function accionActivar(t){
+    if(!isAdmin(currentUser())||soloLectura()||t.estado!=='borrador') return '';
+    return `<button class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.activarBorrador(${t.id})">Activar</button>`;
+  }
+  async function activarBorrador(id){
+    if(typeof window.activateTask!=='function') return;
+    await window.activateTask(id);
+    const t=state.tasks.find(x=>x.id===id); if(!t||t.estado!=='borrador') cerrarHoja();
+    scheduleReload();
+  }
   function accionesPadre(t){
     if(!isAdmin(currentUser())||soloLectura()||t.estado!=='esperando_aprobacion') return '';
     const nom=esc(((memberById(t.asignada_a)||{}).nombre)||'el hijo');
-    return `<div class="v6b-rev"><div class="v6b-rev-t">Revisar la tarea</div>
+    // v6c C1: aviso «Enviada tarde» en la ficha de revisión; Aprobar abre la ventana de puntos.
+    return `<div class="v6b-rev"><div class="v6b-rev-t">Revisar la tarea</div>${t.enviada_tarde?'<p class="v3-st-err" style="font-weight:700;margin:4px 0">Enviada tarde · tú decides los puntos</p>':''}
       <label for="v6bCom" class="v3-sub">Comentario para ${nom} (opcional al aprobar; recomendado al devolver)</label>
       <textarea id="v6bCom" maxlength="200" rows="3" placeholder="Ej.: Te faltó tender la cama"></textarea>
       <div class="v6b-acc"><button class="v3-cta" onclick="FamiliaV3.aprobar(${t.id},document.getElementById('v6bCom').value.trim())">Aprobar${Number(t.puntos)?' · +'+Number(t.puntos)+' pts':''}</button>
@@ -5103,8 +5611,13 @@ window.FamiliaV3=(function(){
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     {const t=state.tasks.find(x=>x.id===id); if(!confirm('¿Aceptar que «'+((t&&t.titulo)||'esta tarea')+'» se te pasó?')) return;}
     cerrarHoja();
-    const r=await rpc('familia_rpc_aceptar_vencida',{p_tarea_id:id,p_actor_id:state.currentUserId});
-    if(r){const t=state.tasks.find(x=>x.id===id); if(t) t.estado_vencida='por_decidir'; pintar(); scheduleReload();}
+    // v6c fix3 N2: error y respuesta vacía son fallos distintos (rpc() ya avisa el error y devuelve null).
+    const {data:r,error}=await supabase.rpc('familia_rpc_aceptar_vencida',{p_tarea_id:id,p_actor_id:state.currentUserId});
+    if(error) return showToast(msgErrorBD(error));
+    if(r==null) return showToast('No se pudo: respuesta vacía del servidor. Recarga y revisa la tarea.');
+    {const t=state.tasks.find(x=>x.id===id); if(t){t.estado_vencida='por_decidir'; if(r.entendida_en) t.entendida_en=r.entendida_en;}}   // v6c fix4 N2
+    marcarEntendida(id);   // v6c fix4 N2: respaldo local (sin v6c_08 la BD no guarda entendida_en)   // v6c fix3 N2: ya no vuelve «Enviar tarde» en este dispositivo
+    showToast('Listo: papá o mamá deciden'); pintar(); scheduleReload();
   }
 
   /* --- Crear en 2 pasos. Paso 1: deber o tarea, título, para quién. --- */
@@ -5134,7 +5647,20 @@ window.FamiliaV3=(function(){
       <label>Tiempo para hacerlo (minutos)</label><input id="v3cMin" type="number" min="1" value="${d?60:1440}">
       ${d?'<label>Descuento si se pasa la hora (pts)</label><input id="v3cPierde" type="number" min="0" value="3">':''}
       ${campoDescV3('v3cDesc',crear.desc)}
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v3cFoto" style="width:auto"> Exige foto</label>${''/* v6c C3: casilla «Exige foto» */}
       <div class="v3-row" style="margin-top:14px"><button class="v3-btn2" onclick="FamiliaV3.crearPaso1()">Atrás</button><button class="v3-cta" style="flex:1" onclick="FamiliaV3.crearGuardar()">Crear</button></div>`);
+  }
+  // v6c C3b: marca exige_foto con reintentos (crear_tarea aún no recibe p_exige_foto). Devuelve el error o null.
+  async function reExigeFotoIntentos(tid){
+    let ef=null;
+    for(let i=0;i<3;i++){({error:ef}=await supabase.from('familia_tareas').update({exige_foto:true}).eq('id',tid)); if(!ef) return null; await new Promise(r=>setTimeout(r,600*(i+1)));}
+    return ef;
+  }
+  async function reExigeFoto(tid){
+    const ef=await reExigeFotoIntentos(tid);
+    if(ef) return showToast('Sigue sin «Exige foto»: '+msgErrorBD(ef));
+    const n=document.getElementById('v6cFotoFalta'); if(n) n.remove();
+    showToast('Listo: la tarea exige foto'); scheduleReload();
   }
   async function crearGuardar(){
     const d=crear.clase==='deber', num=id=>{const e=document.getElementById(id);return e?Math.max(0,parseInt(e.value,10)||0):null;};
@@ -5148,12 +5674,19 @@ window.FamiliaV3=(function(){
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     if(!confirm('¿Crear '+(d?'el deber':'la tarea')+' «'+crear.titulo+'» para '+((memberById(Number(crear.asignada))||{}).nombre||'este hijo')+(d?'':' ('+(args.p_puntos||0)+' pts)')+'?')) return;
     if(enCurso.has('crear')) return; enCurso.add('crear');
+    const exigeFoto=!!(document.getElementById('v3cFoto')||{}).checked;   // v6c C3: se lee antes de cerrar la hoja
     const id=await rpc('familia_rpc_crear_tarea',args); enCurso.delete('crear'); if(id==null) return;   // error: se conserva crear.req
+    // v6c C3: crear_tarea no recibe exige_foto; se marca en la fila recién creada. Si falla, la tarea queda creada y se avisa.
+    // v6c C3b: hasta 3 intentos; si aun así falla, la hoja «Creada» avisa y ofrece «Reintentar Exige foto» (no se pierde).
+    let faltaFotoC3b=null;
+    if(exigeFoto){const tid=typeof id==='object'?(id.id||id.tarea_id):id; const ef=tid?await reExigeFotoIntentos(tid):{message:'sin id'};
+      if(ef) faltaFotoC3b={tid,msg:msgErrorBD(ef)};}
     const who=(memberById(crear.asignada)||{}).nombre||'';
     const texto=`${d?'Deber':'Tarea'} para ${who}: ${crear.titulo}`;
     crear={};
     // WhatsApp SOLO aquí, al crear (opcional para el padre).
     abrirHoja(`<h3 class="v3-st-ok">Creada</h3><p class="v3-sub" style="margin:8px 0">${esc(texto)}</p>
+      ${faltaFotoC3b?`<p class="v3-st-err" id="v6cFotoFalta">Quedó sin «Exige foto»: ${esc(faltaFotoC3b.msg)}</p>${faltaFotoC3b.tid?`<button class="v3-btn2 v3-full" style="margin-bottom:8px" onclick="FamiliaV3._reExigeFoto(${Number(faltaFotoC3b.tid)})">Reintentar «Exige foto»</button>`:''}`:''/* v6c C3b */}
       <div class="v3-row"><a class="v3-btn2" style="text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(texto)}">Avisar por WhatsApp</a><button class="v3-cta" style="flex:1" onclick="FamiliaV3.cerrarHoja()">Listo</button></div>`);
     scheduleReload();
   }
@@ -5172,6 +5705,7 @@ window.FamiliaV3=(function(){
     abrirHoja(`<h3>Nuevo integrante</h3><label>Nombre</label><input id="v3mNom" maxlength="40">
       <label>Tipo</label><select id="v3mTipo"><option value="hijo">Hijo / hija</option><option value="adulto">Padre / madre / tutor</option></select>
       <label>Rol (cómo se ve)</label><input id="v3mRol" placeholder="Hijo, Hija, Mamá…" maxlength="20">
+      <label>¿Tiene celular? (solo hijos)</label><select id="v3mMovil"><option value="1">Sí</option><option value="0">No</option></select>
       <button class="v3-cta v3-full" style="margin-top:14px" onclick="FamiliaV3.guardarIntegrante()">Crear</button>`);
   }
   async function guardarIntegrante(){
@@ -5179,7 +5713,10 @@ window.FamiliaV3=(function(){
     if(!nombre) return showToast('Escribe el nombre');
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     if(!confirm('¿Crear a '+nombre+' ('+rol+') con PIN oooo?')) return;
-    const {error}=await supabase.from('familia_miembros').insert({nombre,rol,es_admin:tipo==='adulto',pin:'oooo',puntos:0,puntos_historicos:0,emoji:'👤',color:'#6366f1'});
+    // v6c C7: tiene_movil solo se envía para un hijo marcado «No» (default true en la BD).
+    const fila={nombre,rol,es_admin:tipo==='adulto',pin:'oooo',puntos:0,puntos_historicos:0,emoji:'👤',color:'#6366f1'};
+    if(tipo!=='adulto'&&(document.getElementById('v3mMovil')||{}).value==='0') fila.tiene_movil=false;
+    const {error}=await supabase.from('familia_miembros').insert(fila);
     if(error) return showToast('No se pudo: '+error.message);
     cerrarHoja(); showToast(nombre+' ya puede entrar con el PIN oooo'); loadAll();
   }
@@ -5210,7 +5747,28 @@ window.FamiliaV3=(function(){
     cerrarHoja(); showToast('PIN reseteado a oooo');
   }
   function hojaVerComo(){
-    abrirHoja(`<h3>Ver como otro</h3>${state.members.slice().sort(byName).map(m=>`<button class="v3-btn2 v3-full" style="margin-top:6px;text-align:left" onclick="FamiliaV3.verComo(${m.id})">${esc(m.nombre)}</button>`).join('')}`);
+    // v6c C7: 📵 junto a los hijos sin celular (ahí sí se puede canjear por el hijo).
+    abrirHoja(`<h3>Ver como otro</h3>${state.members.slice().sort(byName).map(m=>`<button class="v3-btn2 v3-full" style="margin-top:6px;text-align:left" onclick="FamiliaV3.verComo(${m.id})">${esc(m.nombre)}${sinMovil(m)?' 📵':''}</button>`).join('')}`);
+  }
+  /* v6c C7: hijo sin celular (tiene_movil=false; default true). Recibe puntos y descuentos al instante, sin «Aceptar». */
+  function sinMovil(m){return !!(m&&isKid(m)&&m.tiene_movil===false);}
+  function hojaMovil(){
+    if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
+    const hijos=state.members.filter(isKid).slice().sort(byName);
+    abrirHoja(`<h3>¿Tiene celular?</h3><p class="v3-sub" style="margin:6px 0">Sin celular: lo que marques como Realizada o apruebes le suma al instante, sin «Aceptar». Al pasarlo a «No», sus avisos abiertos se cierran una sola vez.</p>
+      ${hijos.map(m=>`<div class="v3-row" style="justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:6px"><span class="v3-t">${esc(m.nombre)}</span>
+        <div class="v3-row" style="gap:6px"><button class="${m.tiene_movil!==false?'v3-cta':'v3-btn2'}" onclick="FamiliaV3.cambiarMovil(${m.id},true)">Sí</button><button class="${m.tiene_movil===false?'v3-cta':'v3-btn2'}" onclick="FamiliaV3.cambiarMovil(${m.id},false)">No 📵</button></div></div>`).join('')||'<p class="v3-sub">Sin hijos</p>'}`);
+  }
+  async function cambiarMovil(id,v){
+    const m=memberById(id); if(!m||soloLectura()) return;
+    if((m.tiene_movil!==false)===v) return;
+    if(!confirm(v?'¿'+m.nombre+' ya tiene celular? Volverá a aceptar sus puntos.':'¿'+m.nombre+' no tiene celular? Sus avisos abiertos se cierran y los puntos se suman una sola vez.')) return;
+    const k='mv'+id; if(enCurso.has(k)) return; enCurso.add(k);
+    try{
+      const {error}=await supabase.from('familia_miembros').update({tiene_movil:v}).eq('id',id);
+      if(error) return showToast(msgErrorBD(error));
+      m.tiene_movil=v; hojaMovil(); showToast(m.nombre+(v?': con celular':': sin celular')); scheduleReload();
+    }finally{enCurso.delete(k);}
   }
   // Usa las mismas variables de sesión de la v1 (originalAdminId) para que «Volver» funcione igual.
   function verComo(id){if(!originalAdminId&&isAdmin(currentUser())) originalAdminId=state.currentUserId; state.currentUserId=id; seccion='hoy'; cerrarHoja(); render(); showToast('Viendo como '+((memberById(id)||{}).nombre||''));}
@@ -5290,7 +5848,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
