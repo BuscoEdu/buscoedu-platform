@@ -107,7 +107,13 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .block-screen.show{display:flex}
 .block-card{background:#fff;color:var(--text);border-radius:20px;padding:20px;width:100%;max-width:420px}
 h3{margin-bottom:12px}
+/* v6d D7+D20: «aún no abre» = blanco/gris; texto #374151 sobre #f3f4f6 (contraste ≈ 9:1). Al abrir pasa a verde (v6-dentro). */
+.v3-card.v6-antes{background:#fff!important;border-left:4px solid #9ca3af!important}
+.v6d-antes-t{color:#374151;background:#f3f4f6}
+.v6d-tarde-b{display:inline-block;font-size:.8rem;font-weight:700;color:#374151;background:#f3f4f6;border:1px solid #9ca3af;border-radius:999px;padding:2px 8px;margin:4px 0}
 </style>
+<!-- v6d control de versión: la misma etiqueta que FAMILIA_VERSION; el chequeo la compara con la página del servidor. -->
+<meta name="familia-version" content="v6d">
 </head>
 <body>
 <div class="login-screen" id="loginScreen">
@@ -1135,6 +1141,8 @@ function passTaskFilter(t){
   if(taskFilter==='hoy'){
     const ref=t.habilita_en||t.fecha_limite;
     if(!ref) return false;
+    // v6d D20: «Hoy» en v1 usa el mismo día 03:00→03:00 que v3–v6 (incluye lo que abre más tarde hoy).
+    if(window.FamiliaV3&&FamiliaV3._diaHoy){const d=FamiliaV3._diaHoy(),x=new Date(ref);return x>=d.ini&&x<d.fin;}
     return new Date(ref).toDateString()===new Date().toDateString();
   }
   if(taskFilter==='atrasadas') return t.estado==='no_terminada'||t.estado==='aviso_vencida'||lateDays(t)>0;
@@ -2169,6 +2177,7 @@ async function entradaV6c(id){
     }else if(data.estado==='pausada') showToast('La familia está en pausa. Se activa cuando entre papá o mamá.');
   }catch(e){}
 }
+// v6d control de versión: este cliente NUNCA escribe 'no_terminada' (solo pendiente → aviso_vencida); lo hacía 84ba90f.
 async function expireWindows(){
   if(familiaEnPausa()) return;   // v6c C11: en pausa no se vence nada desde el cliente
   const now=Date.now();
@@ -2364,6 +2373,8 @@ function openTaskCard(id, fromBalance){
   }
   if(admin&&!closed&&!(parentTask&&t.asignada_a===u.id)) acts.push(`<button class="btn danger" onclick="deleteTask(${t.id})">Eliminar tarea</button>`);
   if(admin&&closed) acts.push(`<button class="btn danger" onclick="deleteTask(${t.id})">${t.estado==='completada'?'Eliminar del histórico':'Eliminar'}</button>`);
+  // v6d D4: en modo v1 el padre también tiene «✅ Realizada» en la ficha; reutiliza FamiliaV3.realizada (RPC familia_rpc_realizada + antidoble toque).
+  if(window.FamiliaV3&&FamiliaV3._puedeRealizada&&!isClosedTask(t)&&FamiliaV3._puedeRealizada(t)) acts.push(`<button class="btn" data-real="${t.id}" onclick="FamiliaV3.realizada(${t.id})">✅ Realizada${Number(t.puntos)?' · +'+Number(t.puntos)+' pts':''}</button>`);
   document.getElementById('fichaActions').innerHTML=acts.join('');
   openModal('modal-ficha');
 }
@@ -4006,7 +4017,8 @@ window.FamiliaV3=(function(){
     const now=Date.now(), c=t.fecha_limite?new Date(t.fecha_limite).getTime():0;
     if(c&&now>=c) return 'fuera';
     if(t.estado!=='pendiente'&&t.estado!=='aviso_rechazada') return '';
-    const mv=modeloVentana(t); if(!mv||now<mv.a) return '';
+    const mv=modeloVentana(t); if(!mv) return '';
+    if(now<mv.a) return 'antes';   // v6d D7: antes del inicio → «Aún no abre» (blanco/gris)
     return now<mv.naranja?'dentro':'poco';
   }
   /* v6b B12: «Hora 11:00» primero y grande; debajo, como dato secundario, «Se puede hacer de 9:00 a 13:00».
@@ -4033,7 +4045,7 @@ window.FamiliaV3=(function(){
   function ficha(t,acciones){
     const e=estadoDe(t), who=memberById(t.asignada_a);
     // v6 A3: clase y etiqueta de ventana (verde «En su hora» / rojo «Se pasó la hora»).
-    const vv=enVentana(t), vcls=vv?' v6-'+vv:'', vtxt=vv==='dentro'?'<span class="v6-vtag ok">En su hora</span>':vv==='poco'?'<span class="v6-vtag warn">Queda poco</span>':vv==='fuera'?'<span class="v6-vtag err">Se pasó la hora</span>':'';
+    const vv=enVentana(t), vcls=vv?' v6-'+vv:'', vtxt=vv==='dentro'?'<span class="v6-vtag ok">En su hora</span>':vv==='poco'?'<span class="v6-vtag warn">Queda poco</span>':vv==='fuera'?'<span class="v6-vtag err">Se pasó la hora</span>':vv==='antes'?'<span class="v6-vtag v6d-antes-t">Aún no abre</span>':'';   // v6d D7
     const obl=esObligatoria(t);
     return `<div class="v3-card ${e.c}${vcls}${obl?' v6b-obl':''}" data-id="${t.id}" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.detalle(${t.id})">
       <div class="v3-grow"><div class="v3-t">${esc(t.titulo)}</div>${descVisible(t)?`<div class="v6b-dtxt">${esc(descVisible(t))}</div>${descVisible(t).length>70?'<span class="v6b-mas">ver más</span>':''}`:''}
@@ -4052,7 +4064,13 @@ window.FamiliaV3=(function(){
          · MÁS ADELANTE: habilitado pero con fecha límite después de hoy, o que se
            habilita otro día; se muestra solo el conteo plegado.
          · Lo cerrado (aprobado, completado, borrador) nunca sale. --- */
-  function limitesHoy(){const a=new Date();a.setHours(0,0,0,0);const b=new Date(a);b.setDate(b.getDate()+1);return {ini:a,fin:b};}
+  /* v6d D20: el «día» va de 03:00 a 03:00 del día siguiente; antes de las 03:00 sigue siendo el día anterior
+     (lo pendiente a la 01:00 sigue en «Hoy» hasta el corte de las 03:00). */
+  function limitesHoy(){const a=new Date();if(a.getHours()<3)a.setDate(a.getDate()-1);a.setHours(3,0,0,0);const b=new Date(a);b.setDate(b.getDate()+1);return {ini:a,fin:b};}
+  // v6d D20: programada hoy pero aún sin abrir (habilita_en en el futuro, antes del corte de las 03:00).
+  // v6d D20: repinta cada minuto si hay algo que abre hoy, para que pase a verde al llegar su inicio.
+  let v6dTarde=false; setInterval(()=>{try{if(!activo()||!state.tasks) return; const x=state.tasks.some(abreLuegoHoy); if(x||v6dTarde) pintar(); v6dTarde=x;}catch(e){}},60000);
+  function abreLuegoHoy(t){const h=t&&t.habilita_en?new Date(t.habilita_en):null;return !!h&&h>new Date()&&h<limitesHoy().fin;}
   function grupoFecha(t){
     const ahora=new Date(),{ini,fin}=limitesHoy();
     const lim=t.fecha_limite?new Date(t.fecha_limite):null, hab=t.habilita_en?new Date(t.habilita_en):null;
@@ -4061,6 +4079,7 @@ window.FamiliaV3=(function(){
     if(t.estado_vencida||t.estado==='aviso_vencida'||vencidaServidor(t)) return 'vencido';   // v6c C7c
     if(t.estado==='esperando_aprobacion'||t.estado==='aviso_rechazada'||t.estado==='aviso_aprobada') return 'hoy';
     if(hab&&hab>=fin) return 'luego';
+    if(hab&&hab>=ini&&hab<fin) return 'hoy';   // v6d D20: todo lo que abre hoy (aunque cierre mañana) va en «Hoy»
     if(!lim||(lim>=ini&&lim<fin)) return 'hoy';
     return lim>=fin?'luego':'hoy';   // fecha pasada sin marcar → «Hoy» (ver M2)
   }
@@ -4082,6 +4101,7 @@ window.FamiliaV3=(function(){
     // v6c C10b: las vencidas van primero (antes que el resto de avisos); luego los avisos; luego por hora.
     const pri=t=>grupoFecha(t)==='vencido'?0:(!admin&&avisoHijo(t)?1:2);
     lista.sort((a,b)=>(pri(a)-pri(b))||((limMs(a)-limMs(b))||0)||String(a.titulo).localeCompare(b.titulo));
+    // v6d D20 (final): una sola lista «Hoy» ordenada por hora (orden de arriba: vencidas/avisos y luego hora); lo que aún no abre se ve gris + «Abre HH:MM».
     const hoy=lista.filter(t=>grupoFecha(t)==='hoy'), venc=lista.filter(t=>grupoFecha(t)==='vencido'), luego=lista.filter(t=>grupoFecha(t)==='luego');
     const fila=t=>{
       const st=estadoDe(t);
@@ -4098,6 +4118,9 @@ window.FamiliaV3=(function(){
       if(!admin&&t.estado==='pendiente_transferencia'&&String(t.para_quien)===String(u.id))
         act=`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.traspaso('aceptar',${t.id})">Aceptar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.traspaso('rechazar',${t.id})">Rechazar</button></div>`;
       if(soloLectura()) act='';
+      // v6d D20: lo que aún no abre va en la misma lista, solo distinguido por color (estado D7 «aún no abre») + «Abre HH:MM».
+      if(abreLuegoHoy(t)){const hh=new Date(t.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+        return `<div class="v6d-tarde"><span class="v6d-tarde-b">Abre ${esc(hh)}</span>${ficha(t,act)}</div>`;}
       return ficha(t,act);
     };
     // V16: si la carga falló, se muestra el error con «Reintentar» (nunca «Nada para hoy.»).
@@ -5504,10 +5527,12 @@ window.FamiliaV3=(function(){
     if(!confirm('¿'+nom+' hizo «'+t.titulo+'»?'+(Number(t.puntos)?' (+'+t.puntos+' pts)':''))) return;
     const k='rz'+id; if(enCurso.has(k)) return; enCurso.add(k);
     const b=document.getElementById('v6cReal'); if(b){b.disabled=true;b.textContent='Guardando…';}   // antidoble toque
+    // v6d D4: el botón de la ficha v1 (data-real) también se bloquea mientras la RPC está en vuelo.
+    const bs=[...document.querySelectorAll('[data-real="'+id+'"]')]; bs.forEach(x=>{x.disabled=true;x.textContent='Guardando…';});
     try{
       const d=await rpc('familia_rpc_realizada',{p_tarea_id:id,p_actor_id:originalAdminId||state.currentUserId,p_client_req_id:reqId(k)});
-      if(!d){if(b){b.disabled=false;b.textContent='✅ Realizada';} return;}
-      delete reqIds[k]; ocultas.add(id); cerrarHoja(); pintar();
+      if(!d){if(b){b.disabled=false;b.textContent='✅ Realizada';} bs.forEach(x=>{x.disabled=false;x.textContent='✅ Realizada';}); return;}
+      delete reqIds[k]; ocultas.add(id); cerrarHoja(); try{closeModal('modal-ficha');}catch(e){} pintar(); if(!activo()&&typeof renderTasks==='function') renderTasks();   // v6d D4: cierra también la ficha v1
       if(d.idempotente){showToast('Ya estaba aplicado');}
       else if(d.instantaneo&&sinMovil(memberById(t.asignada_a))) avisoDeshacerReal(id,'Realizada: '+t.titulo+' (+'+(d.pts||0)+' pts)',Number(d.pts)||0,t.conjunto_con&&sinMovil(memberById(t.conjunto_con))?2:1);   // v6c C7b: pts para el toast
       else showToast(d.estado==='aviso_aprobada'?'Listo: '+nom+' debe aceptar sus '+(d.pts||0)+' pts':'Realizada: '+t.titulo);
@@ -5879,7 +5904,8 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  // v6d D4/D20: se exponen puedeRealizada (ficha v1) y limitesHoy (filtro «Hoy» de la v1).
+  return {_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 <script>
@@ -5920,6 +5946,33 @@ window.FamiliaV3=(function(){
   function barrer(r){(r||document).querySelectorAll('input[type=file]:not([data-v6d])').forEach(armar);}
   function iniciar(){barrer(); new MutationObserver(m=>m.forEach(x=>x.addedNodes.forEach(n=>{if(n.nodeType!==1) return; if(n.matches&&n.matches('input[type=file]')) armar(n); else barrer(n);}))).observe(document.body,{childList:true,subtree:true});}
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',iniciar); else iniciar();
+})();
+</script>
+<script>
+/* v6d control de versión: una pestaña o PWA vieja (p. ej. expireWindows de 84ba90f, que escribía no_terminada) debe
+   recargarse sola. Cada 5 min y al volver a la pestaña se pide familia.html con no-store y se compara la meta
+   familia-version con FAMILIA_VERSION. Si difiere → recarga una sola vez por versión remota (sessionStorage evita bucles). */
+const FAMILIA_VERSION='v6d';
+(function(){
+  const CLAVE='familia_recarga_version';
+  let enVuelo=false;
+  async function revisarVersion(){
+    if(enVuelo||!navigator.onLine) return; enVuelo=true;
+    try{
+      const r=await fetch(location.pathname+'?vchk='+Date.now(),{cache:'no-store'});
+      if(!r.ok) return;
+      const m=(await r.text()).match(/<meta\s+name="familia-version"\s+content="([^"]+)"/i);
+      const remota=m&&m[1]; if(!remota||remota===FAMILIA_VERSION) {try{sessionStorage.removeItem(CLAVE);}catch(e){} return;}
+      let ya=null; try{ya=sessionStorage.getItem(CLAVE);}catch(e){}
+      if(ya===remota) return;   // ya se recargó por esta versión y sigue igual: no entrar en bucle
+      try{sessionStorage.setItem(CLAVE,remota);}catch(e){}
+      location.replace(location.pathname+'?fv='+encodeURIComponent(remota)+location.hash);
+    }catch(e){}finally{enVuelo=false;}
+  }
+  window.FamiliaVersion={actual:FAMILIA_VERSION,revisar:revisarVersion};
+  setInterval(revisarVersion,5*60*1000);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible') revisarVersion();});
+  setTimeout(revisarVersion,15000);
 })();
 </script>
 </body>
