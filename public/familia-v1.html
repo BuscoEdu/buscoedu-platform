@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<title>FamiliaTareas</title>
+<title>FAMLY</title><!-- v6d QA-fix D8: misma marca que la v3 -->
 <!-- familia-v44 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <style>
@@ -121,7 +121,7 @@ h3{margin-bottom:12px}
 <div class="app" id="mainApp" style="display:none">
   <header>
     <div class="header-top">
-      <div id="familyTitle">Familia</div>
+      <div id="familyTitle">FAMLY · Familia</div><!-- v6d QA-fix D8 -->
       <div style="display:flex;align-items:center;gap:8px">
         <button type="button" class="bell-btn" id="btnBell" onclick="openNotifs()" aria-label="Notificaciones"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="bellCount" class="badge" style="display:none">0</span></button>
         <div class="points-badge" id="headerPoints">0 pts</div>
@@ -537,6 +537,38 @@ function showSection(n,btn){
 }
 function openModal(id){document.getElementById(id).classList.add('show');}
 function closeModal(id){document.getElementById(id).classList.remove('show');}
+/* v6d QA-fix D4: «Realizada» en la v1 con la misma RPC que la v3 (familia_rpc_realizada) y su deshacer
+   (familia_rpc_deshacer_realizada). Antidoble toque con un Set de llamadas en vuelo; el mismo client_req_id en reintentos. */
+const v6dEnCurso=new Set(), v6dReq={};
+async function v6dRealizada(id){
+  const t=state.tasks.find(x=>x.id===id); if(!t) return;
+  const nom=(memberById(t.asignada_a)||{}).nombre||'el hijo';
+  if(!confirm('¿'+nom+' hizo «'+t.titulo+'»?'+(Number(t.puntos)?' (+'+t.puntos+' pts)':''))) return;
+  const k='rz'+id; if(v6dEnCurso.has(k)) return; v6dEnCurso.add(k);
+  const bs=[...document.querySelectorAll('[data-real="'+id+'"]')]; bs.forEach(b=>{b.disabled=true;b.textContent='Guardando…';});
+  try{
+    v6dReq[k]=v6dReq[k]||('v1rz-'+id+'-'+Date.now());
+    const actor=state.currentUserId;
+    const {data:d,error}=await supabase.rpc('familia_rpc_realizada',{p_tarea_id:id,p_actor_id:actor,p_client_req_id:v6dReq[k]});
+    if(error||d==null){bs.forEach(b=>{b.disabled=false;b.textContent='✅ Realizada';}); return showToast(error&&String(error.hint||'')==='d3_deshacer_vencido'?'Ya no se puede deshacer':'No se pudo: '+((error&&error.message)||'respuesta vacía'));}
+    delete v6dReq[k]; closeModal('modal-ficha');
+    if(d.idempotente){showToast('Ya estaba aplicado');}
+    else v6dDeshacer('Realizada: '+t.titulo+(d.pts?' (+'+d.pts+' pts)':''),{p_tarea_id:id,p_actor_id:actor},d.deshacer_hasta);
+    scheduleReload();
+  }finally{v6dEnCurso.delete(k);}
+}
+function v6dDeshacer(txt,args,hasta){
+  let box=document.getElementById('v6dUndo');
+  if(!box){box=document.createElement('div');box.id='v6dUndo';box.style.cssText='position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 14px;border-radius:12px;z-index:450;display:flex;gap:10px;align-items:center;max-width:92%';document.body.appendChild(box);}
+  box.innerHTML='<span></span><button class="btn small secondary" type="button">Deshacer</button>'; box.firstChild.textContent=txt; box.style.display='flex';
+  let ms=10000; if(hasta){const x=new Date(hasta).getTime()-Date.now(); if(x>0&&x<ms) ms=x;}
+  const tm=setTimeout(()=>{box.style.display='none';},ms);
+  box.lastChild.onclick=async()=>{clearTimeout(tm); box.style.display='none';
+    if(v6dEnCurso.has('dz')) return; v6dEnCurso.add('dz');
+    try{const {error}=await supabase.rpc('familia_rpc_deshacer_realizada',Object.assign({p_client_req_id:'v1dz-'+args.p_tarea_id+'-'+Date.now()},args));
+      showToast(error?(String(error.hint||'').indexOf('deshacer_vencido')>=0?'Ya no se puede deshacer':'No se pudo deshacer: '+error.message):'Se deshizo'); scheduleReload();}
+    finally{v6dEnCurso.delete('dz');}};
+}
 let returnBalanceId=null;
 function openTaskFromBalance(kidId,taskId){
   returnBalanceId=kidId;
@@ -893,7 +925,7 @@ function render(){
   const u=currentUser();
   if(!u) return;
   const admin=isAdmin(u);
-  document.getElementById('familyTitle').textContent=familyTitleText();
+  document.getElementById('familyTitle').textContent='FAMLY · '+familyTitleText();   // v6d QA-fix D8
   paintAvatar(document.getElementById('currentAvatar'), u);
   document.getElementById('currentName').textContent=u.nombre;
   const age=ageOf(u);
@@ -1235,6 +1267,8 @@ function openNueva(){
   if(wrap) wrap.style.display='';
   if(kind) kind.value=taskView==='padres'?'padres':'hijo';
   syncNuevaKind();
+  // v6d QA-fix D4: «Nueva» de la v1 sin Deber (ni su modo).
+  {const o=document.querySelector('#taskTipo option[value="deber"]'); if(o) o.remove(); const dw=document.getElementById('taskDeberModoWrap'); if(dw) dw.style.display='none';}
   openModal('modal-tarea');
 }
 function syncNuevaKind(){
@@ -2124,6 +2158,9 @@ function openTaskCard(id, fromBalance){
   }
   if(admin&&!closed&&!(parentTask&&t.asignada_a===u.id)) acts.push(`<button class="btn danger" onclick="deleteTask(${t.id})">Eliminar tarea</button>`);
   if(admin&&closed) acts.push(`<button class="btn danger" onclick="deleteTask(${t.id})">${t.estado==='completada'?'Eliminar del histórico':'Eliminar'}</button>`);
+  // v6d QA-fix D4: «✅ Realizada» del padre en la ficha (RPC familia_rpc_realizada, antidoble toque y Deshacer 10 s).
+  if(admin&&!closed&&isKid(memberById(t.asignada_a))&&['pendiente','esperando_aprobacion','aviso_vencida'].includes(t.estado))
+    acts.push(`<button class="btn success" data-real="${t.id}" onclick="v6dRealizada(${t.id})">✅ Realizada${Number(t.puntos)?' · +'+Number(t.puntos)+' pts':''}</button>`);
   document.getElementById('fichaActions').innerHTML=acts.join('');
   openModal('modal-ficha');
 }
