@@ -4166,7 +4166,7 @@ window.FamiliaV3=(function(){
     // «Junto con», entre padres, inmediata, penalización, repetición de deberes).
     // v5 ítem 1: el hijo solicita tareas (y pasa a un hermano) desde Hoy, no desde «Yo → Más».
     let hHijo=!admin&&!soloLectura()?`<div class="v3-row" style="margin-bottom:12px"><button class="v3-cta" style="flex:1" onclick="FamiliaV3.hojaSolicitar()">Solicitar tarea</button><button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openSiblingTask())">Para un hermano</button></div>`:'';
-    let h=hHijo+(admin&&!soloLectura()?`<div class="v3-row" style="margin-bottom:12px"><button class="v3-cta" style="flex:1" onclick="FamiliaV3.crearTarea()">${svg('mas').replace('v3-ico','v3-ico" style="vertical-align:-5px')} Crear</button><button class="v3-btn2" onclick="FamiliaV3.crearCompleto()">Crear completo</button><button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Tareas: filtros, plantillas y borradores')">Filtros</button></div>`:'');
+    let h=hHijo+(admin&&!soloLectura()?`<div class="v3-row" style="margin-bottom:12px"><button class="v3-cta" style="flex:1" onclick="FamiliaV3.crearTarea()">${svg('mas').replace('v3-ico','v3-ico" style="vertical-align:-5px')} Crear</button><button class="v3-btn2" onclick="FamiliaV3.crearCompleto()">Crear completo</button><button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Tareas: filtros, plantillas y borradores')">Filtros</button>${puede('aplicar_multa')||puede('administrar_multas')?'<button class="v3-btn2" onclick="FamiliaV3.hojaMultas()">⚖️ Multas</button>':''/* v6d D9 */}</div>`:'');
     // v6c C10b: «Vencidos» va ANTES de «Hoy» (primero en la pantalla). El hijo los ve aquí; el padre también los ve
     // con su acción (v6c C7c) y además siguen en «Revisar».
     if(venc.length) h+=`<h2 style="margin-top:4px">Vencidos</h2>`+venc.map(fila).join('')+(admin?`<p class="v3-sub">${venc.length} en «Revisar».</p>`:'');
@@ -5600,6 +5600,77 @@ window.FamiliaV3=(function(){
       finally{enCurso.delete(k);}
     };
   }
+  /* v6d D9 Multas: aplicar (padre o admin, según matriz) y administrar (solo admin): nombre + observación + nivel
+     (Leve/Moderada/Grave = pts del nivel, editable). Las 21 de la semilla vienen de familia_multas. Deshacer 10 s. */
+  function ptsMulta(m){const n=(state.multasNiveles||[]).find(x=>x.nivel===m.nivel); return Number(m.pts)||(n?Number(n.pts):0);}
+  function hojaMultas(verArch){
+    if(!isAdmin(currentUser())||soloLectura()) return;
+    if(state.multas==null) return showToast('Multas aún no está en la BD (v6d_05)');
+    const admin=puede('administrar_multas'), aplica=puede('aplicar_multa');
+    const hijos=state.members.filter(isKid);
+    const orden=x=>((state.multasNiveles||[]).find(n=>n.nivel===x.nivel)||{}).orden||9;
+    const lista=state.multas.filter(m=>verArch?!!m.archivada_en:!m.archivada_en).sort((a,b)=>orden(a)-orden(b)||String(a.nombre).localeCompare(b.nombre));
+    const fila=m=>`<div class="v3-card" style="display:block"><div class="v3-t">${esc(m.nombre)} <span class="v3-chip">${esc(m.nivel)} · −${ptsMulta(m)}</span></div>
+      ${m.descripcion?`<div class="v6b-dtxt">${esc(m.descripcion)}</div>`:''}<div class="v3-row" style="margin-top:6px">
+      ${aplica&&!m.archivada_en?`<button class="v3-cta" data-multa="${m.id}" onclick="FamiliaV3.multaAplicar(${m.id})">Aplicar</button>`:''}
+      ${admin?`<button class="v3-btn2" onclick="FamiliaV3.hojaMultaEditar(${m.id})">Editar</button><button class="v3-btn2" onclick="FamiliaV3.multaArchivar(${m.id},${!m.archivada_en})">${m.archivada_en?'Reactivar':'Archivar'}</button>`:''}</div></div>`;
+    abrirHoja(`<h3>Multas${verArch?' archivadas':''}</h3>
+      ${aplica&&!verArch?`<label class="v3-sub">Hijo</label><select id="v6dMultaHijo" class="v3-in">${hijos.map(k=>`<option value="${k.id}">${esc(k.nombre)}</option>`).join('')}</select>
+      <label class="v3-sub">Nota (opcional)</label><input id="v6dMultaNota" class="v3-in" maxlength="300">`:''}
+      ${admin?`<div class="v3-row" style="margin:8px 0"><button class="v3-btn2" onclick="FamiliaV3.hojaMultaEditar(null)">＋ Nueva multa</button><button class="v3-btn2" onclick="FamiliaV3.hojaMultas(${!verArch})">${verArch?'Ver activas':'Ver archivadas'}</button></div>`:''}
+      ${lista.map(fila).join('')||'<p class="v3-sub">No hay multas.</p>'}
+      <button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.cerrarHoja()">Cerrar</button>`);
+  }
+  async function multaAplicar(mid){
+    const m=(state.multas||[]).find(x=>x.id===mid), sel=document.getElementById('v6dMultaHijo'); if(!m||!sel) return;
+    const kid=memberById(Number(sel.value)); if(!kid) return showToast('Elige un hijo para la multa');
+    const nota=((document.getElementById('v6dMultaNota')||{}).value||'').trim().slice(0,300)||null;
+    if(!confirm('¿Aplicar «'+m.nombre+'» (−'+ptsMulta(m)+' pts) a '+kid.nombre+'?')) return;
+    const k='mu'+mid+'-'+kid.id; if(enCurso.has(k)) return; enCurso.add(k);   // antidoble toque
+    document.querySelectorAll('[data-multa="'+mid+'"]').forEach(x=>x.disabled=true);
+    try{
+      const d=await rpc('familia_rpc_multa_aplicar',{p_actor_id:originalAdminId||state.currentUserId,p_multa_id:mid,p_miembro_id:kid.id,p_client_req_id:reqId(k),p_nota:nota});
+      document.querySelectorAll('[data-multa="'+mid+'"]').forEach(x=>x.disabled=false);
+      if(!d) return; delete reqIds[k]; cerrarHoja();
+      if(d.idempotente) showToast('Ya estaba aplicado');
+      else avisoDeshacerRpc('Multa · '+m.nombre+': −'+Math.abs(Number(d.pts)||ptsMulta(m))+' pts para '+kid.nombre,'familia_rpc_multa_deshacer',{p_actor_id:originalAdminId||state.currentUserId,p_aplicada_id:d.aplicada_id},null,d.deshacer_hasta);
+      scheduleReload();
+    }finally{enCurso.delete(k);}
+  }
+  function hojaMultaEditar(id){
+    if(!puede('administrar_multas')) return showToast('No tienes permiso para administrar multas');
+    const m=id?(state.multas||[]).find(x=>x.id===id):{nombre:'',descripcion:'',nivel:'Leve',pts:null}; if(!m) return;
+    const niv=(state.multasNiveles||[]).slice().sort((a,b)=>a.orden-b.orden);
+    abrirHoja(`<h3>${id?'Editar multa':'Nueva multa'}</h3>
+      <label class="v3-sub">Nombre <span id="v6dMnC">${(m.nombre||'').length}/40</span></label><input id="v6dMn" class="v3-in" maxlength="40" value="${esc(m.nombre||'')}" oninput="document.getElementById('v6dMnC').textContent=this.value.length+'/40'">
+      <label class="v3-sub">Observación (máx. 300)</label><textarea id="v6dMd" class="v3-in" maxlength="300">${esc(m.descripcion||'')}</textarea>
+      <label class="v3-sub">Nivel</label><select id="v6dMl" class="v3-in" onchange="var o=this.options[this.selectedIndex];document.getElementById('v6dMp').value=o.dataset.pts">${niv.map(n=>`<option value="${esc(n.nivel)}" data-pts="${n.pts}" ${n.nivel===m.nivel?'selected':''}>${esc(n.nivel)} (−${n.pts})</option>`).join('')}</select>
+      <label class="v3-sub">Puntos</label><input id="v6dMp" class="v3-in" type="number" min="1" value="${ptsMulta(m)||((niv[0]||{}).pts||3)}">
+      <button class="v3-cta v3-full" id="v6dMok" style="margin-top:10px" onclick="FamiliaV3.multaGuardar(${id||'null'})">Guardar</button>
+      <button class="v3-btn2 v3-full" style="margin-top:6px" onclick="FamiliaV3.hojaMultas()">Volver</button>`);
+  }
+  async function multaGuardar(id){
+    const nom=(document.getElementById('v6dMn').value||'').trim(), des=(document.getElementById('v6dMd').value||'').trim();
+    const niv=document.getElementById('v6dMl').value, pts=Math.round(Number(document.getElementById('v6dMp').value));
+    if(!nom||nom.length>40) return showToast('La multa necesita un nombre (máximo 40)');
+    if(!des||des.length>300) return showToast('La observación es obligatoria (máximo 300)');
+    if(!(pts>0)) return showToast('Los puntos deben ser mayores que 0');
+    const nd=(state.multasNiveles||[]).find(x=>x.nivel===niv);
+    const k='mg'+(id||'n'); if(enCurso.has(k)) return; enCurso.add(k); const b=document.getElementById('v6dMok'); if(b) b.disabled=true;
+    try{
+      const d=await rpc('familia_rpc_multa_guardar',{p_actor_id:originalAdminId||state.currentUserId,p_id:id,p_nombre:nom,p_descripcion:des,p_nivel:niv,p_pts:nd&&Number(nd.pts)===pts?null:pts});
+      if(b) b.disabled=false; if(!d) return;
+      showToast('Multa guardada'); await loadAll(); hojaMultas();
+    }finally{enCurso.delete(k);}
+  }
+  async function multaArchivar(id,archivar){
+    const m=(state.multas||[]).find(x=>x.id===id); if(!m) return;
+    if(archivar&&!confirm('¿Archivar «'+m.nombre+'»? El historial la conserva.')) return;
+    const k='ma'+id; if(enCurso.has(k)) return; enCurso.add(k);
+    try{const d=await rpc('familia_rpc_multa_archivar',{p_actor_id:originalAdminId||state.currentUserId,p_id:id,p_archivar:archivar}); if(!d) return;
+      showToast(archivar?'Multa archivada':'Multa reactivada'); await loadAll(); hojaMultas(!archivar);}
+    finally{enCurso.delete(k);}
+  }
   let deshacerReal=null;
   async function realizada(id){
     const t=state.tasks.find(x=>x.id===id); if(!t||!puedeRealizada(t)) return showToast('Esta tarea ya no se puede marcar. Recarga para ver su estado.');
@@ -5986,7 +6057,7 @@ window.FamiliaV3=(function(){
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
   // v6d D4/D20: se exponen puedeRealizada (ficha v1) y limitesHoy (filtro «Hoy» de la v1).
-  return {noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {hojaMultas,multaAplicar,hojaMultaEditar,multaGuardar,multaArchivar,noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 <script>
