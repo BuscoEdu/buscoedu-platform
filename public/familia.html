@@ -494,6 +494,20 @@ function isAdmin(m){
   return /padre|madre|papá|mamá|abuel|t[ií][oa]|tutor/i.test(m.rol||'');
 }
 function isKid(m){return !!(m&&!isAdmin(m));}
+/* v6d D6: rol tipificado (familia_miembros.rol_v6d: padre_admin | padre | hijo). isAdmin() sigue significando «es papá/mamá»
+   (vista de padre); las acciones solo de admin usan esPadreAdmin() y la matriz familia_permisos (puede()). Sin rol_v6d
+   (BD sin v6d_01) → es_admin=true = padre_admin, otro padre = padre. */
+function rolV6d(m){if(!m) return 'hijo'; if(m.rol_v6d) return m.rol_v6d; return m.es_admin===true?'padre_admin':(isAdmin(m)?'padre':'hijo');}
+function esPadreAdmin(m){return rolV6d(m)==='padre_admin';}
+// v6d D6: respaldo de la matriz (igual a la semilla de v6d_01) si familia_permisos no se pudo leer.
+const V6D_PERMISOS_DEF={padre:['crear_asignar','aprobar_devolver','aplicar_multa'],hijo:['enviar_aceptar_pedir']};
+function puede(permiso,m){
+  m=m||(typeof currentUser==='function'?currentUser():null); const rol=rolV6d(m);
+  const mat=state&&state.permisos;
+  if(Array.isArray(mat)&&mat.length){const f=mat.find(x=>x.permiso===permiso&&x.rol===rol); if(f) return !!f.permitido;}
+  if(rol==='padre_admin') return permiso!=='enviar_aceptar_pedir';
+  return (V6D_PERMISOS_DEF[rol]||[]).includes(permiso);
+}
 function requireAdmin(){
   if(isAdmin(currentUser())) return true;
   showToast('Solo papá o mamá pueden hacer eso');
@@ -924,6 +938,10 @@ async function loadAll(opts){
     state.solicitudes=sol.error?[]:(sol.data||[]);
     state.notifs=nt.error?[]:(nt.data||[]);
     state.deberes=db.error?state.deberes:(db.data||[]);
+    // v6d D6/D9: matriz de permisos y catálogo de multas; si la BD no las tiene (v6d_01/05), se sigue sin ellas.
+    try{const [pm,mu,mn]=await Promise.all([supabase.from('familia_permisos').select('permiso,rol,permitido'),
+      supabase.from('familia_multas').select('*').order('id'),supabase.from('familia_multas_niveles').select('*')]);
+      state.permisos=pm.error?(state.permisos||[]):(pm.data||[]); state.multas=mu.error?(state.multas||null):(mu.data||[]); state.multasNiveles=mn.error?(state.multasNiveles||[]):(mn.data||[]);}catch(e){}
     try{ await ensureBaseRewards(); }catch(e){}
     try{ await expireWindows(); }catch(e){}
     if(sol.error&&!state._solWarned){state._solWarned=true;showToast('Solicitudes: '+sol.error.message);}
@@ -2519,6 +2537,20 @@ function msgErrorBD(err){
   if(h==='b18_intervalo'){try{const d=JSON.parse(err.details||'{}'), x=d.proxima_hora?new Date(d.proxima_hora):null;
     if(x&&!isNaN(x)) return 'Podrás volver a hacerla a las '+x.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});}catch(e){}}
   if(h==='b16_padre_sin_deber'||h==='b18_cupo'||h==='b18_intervalo') return err.message;
+  // v6d HINT d*_ → mensaje de criterios-v6d.md (D2, D3, D5, D6, D9, D11, D13, D14, D16).
+  const V6D_HINT={d3_deshacer_vencido:'Ya no se puede deshacer',c7_deshacer_vencido:'Ya no se puede deshacer',
+    d6_ultimo_admin:'Debe quedar al menos un padre admin',d6_rol:'Ese rol no existe',d6_matriz:'Ese permiso no existe en la matriz',
+    d5_actor:'Tu sesión no coincide con quien hace la acción. Vuelve a entrar.',d5_sesion:'La sesión venció. Vuelve a entrar con tu PIN.',
+    d5_actor_ajeno:'No puedes actuar en nombre de otra persona',d5_sin_sesion:'Entra con tu PIN para hacer esto',d5_pin:'PIN incorrecto',
+    d16_ventana:'La ventana no puede ser 0',d16_fin:'El fin debe ser después del inicio',d16_pasado:'La fecha u hora ya pasó',d16_nombre:'Revisa la hora del nombre',
+    d11_nombre:'El nombre puede tener máximo 40 caracteres',d11_descripcion:'La descripción puede tener máximo 300 caracteres',
+    d14_dia:'El día del mes va de 1 a 30',d14_mensual_dias:'Mensual no lleva días de la semana',
+    d2_tiene_movil:'«No hizo» es solo para hijos sin celular',d2_estado:'Esta tarea ya no está pendiente ni vencida',
+    d9_nombre:'La multa necesita un nombre (máximo 40)',d9_descripcion:'La observación es obligatoria (máximo 300)',d9_pts:'Los puntos deben ser mayores que 0',
+    d9_duplicada:'Ya existe una multa con ese nombre',d9_miembro:'Elige un hijo para la multa',d9_multa:'Esa multa no existe o está archivada',
+    d13_no_deber:'Solo un deber se puede convertir en serie',d13_ya_serie:'Este deber ya es parte de una serie'};
+  if(V6D_HINT[h]) return V6D_HINT[h];
+  if(h.indexOf('d6_permiso:')===0){const pz=h.slice(11), f=(state.permisos||[]).find(x=>x.permiso===pz); return 'No tienes permiso'+(pz?' para '+((f&&f.descripcion)||pz.replace(/_/g,' ')):'');}   // v6d D6
   return 'No se pudo: '+(err.message||String(err));
 }
 /* Escritura con respaldo: si la BD no tiene alguna columna nueva (claves), se reintenta UNA vez sin ellas y se avisa. */
@@ -5065,7 +5097,7 @@ window.FamiliaV3=(function(){
     document.getElementById('v3ToastTxt').textContent=txt;
     box.classList.add('on');
     const fin=()=>{box.classList.remove('on');deshacer=null;};
-    deshacer={fn:()=>{fin();ejecutar();},urgente:urgente?()=>{fin();urgente();}:null,timer:setTimeout(()=>{deshacer&&deshacer.fn();},5000)};
+    deshacer={fn:()=>{fin();ejecutar();},urgente:urgente?()=>{fin();urgente();}:null,timer:setTimeout(()=>{deshacer&&deshacer.fn();},10000)};   // v6d D3: 10 s en pantalla
     document.getElementById('v3ToastUndo').onclick=()=>{if(!deshacer)return;clearTimeout(deshacer.timer);fin();revertir();};
   }
 
@@ -5512,6 +5544,7 @@ window.FamiliaV3=(function(){
   function puedeRealizada(t){
     const u=currentUser(), k=memberById(t.asignada_a);
     if(!u||!isAdmin(u)||soloLectura()||!k||!isKid(k)) return false;
+    if(!puede('realizada_descontar_perdonar',u)) return false;   // v6d D6: «padre» sin admin no marca Realizada
     return REALIZADA_OK.includes(t.estado)||t.estado_vencida==='pendiente_hijo'||t.estado_vencida==='por_decidir'||vencidaServidor(t);   // v6c C7c
   }
   function accionRealizada(t){
@@ -5548,7 +5581,7 @@ window.FamiliaV3=(function(){
     const box=document.getElementById('v3Toast'), btn=document.getElementById('v3ToastUndo');
     document.getElementById('v3ToastTxt').textContent=txt; box.classList.add('on');
     const fin=()=>{box.classList.remove('on'); deshacerReal=null; btn.onclick=null;};
-    deshacerReal={timer:setTimeout(fin,15000)};   // v6c: 15 s
+    deshacerReal={timer:setTimeout(fin,10000)};   // v6d D3: el botón dura 10 s; el servidor acepta hasta 15 s (deshacer_servidor_hasta)
     btn.onclick=async()=>{
       if(!deshacerReal) return; clearTimeout(deshacerReal.timer); fin();
       const k='dz'+id; if(enCurso.has(k)) return; enCurso.add(k);
@@ -5565,6 +5598,7 @@ window.FamiliaV3=(function(){
      al padre, igual que en «Revisar». */
   function accionVencidaPadre(t){
     if(!isAdmin(currentUser())||soloLectura()||!vencidos().some(x=>x.id===t.id)) return '';
+    if(!puede('realizada_descontar_perdonar')) return '';   // v6d D6: Descontar/Perdonar solo con permiso
     return `<div class="v6b-acc" style="margin-top:10px"><button class="v3-btn2 err" onclick="FamiliaV3.descontar(${t.id})">Descontar${t.pierde_pts?' −'+t.pierde_pts:''}</button><button class="v3-btn2" onclick="FamiliaV3.perdonar(${t.id})">Perdonar</button></div>`;
   }
   // v6c C8b: borrador viejo → «Activar» en la ficha v3 (usa activateTask de la v1: confirma, valida y recarga).
