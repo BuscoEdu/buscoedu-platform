@@ -4080,7 +4080,8 @@ window.FamiliaV3=(function(){
     if(t.estado==='esperando_aprobacion'||t.estado==='aviso_rechazada'||t.estado==='aviso_aprobada') return 'hoy';
     if(hab&&hab>=fin) return 'luego';
     if(hab&&hab>=ini&&hab<fin) return 'hoy';   // v6d D20: todo lo que abre hoy (aunque cierre mañana) va en «Hoy»
-    if(!lim||(lim>=ini&&lim<fin)) return 'hoy';
+    // v6d fix-serie: el fin exactamente en el corte cuenta como de hoy (antes lim===fin caía en «Más adelante», plegado).
+    if(!lim||(lim>=ini&&lim<=fin)) return 'hoy';
     return lim>=fin?'luego':'hoy';   // fecha pasada sin marcar → «Hoy» (ver M2)
   }
 
