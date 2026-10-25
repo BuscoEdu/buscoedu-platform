@@ -4344,6 +4344,20 @@ window.FamiliaV3=(function(){
     const d=f?new Date(f):null;
     return d&&!isNaN(d)?d:new Date(h.creado_en);
   }
+  // v6c C13: día calendario (AAAA-MM-DD) de una fecha en la zona de la familia.
+  function diaEnZona(d,z){
+    try{return new Intl.DateTimeFormat('en-CA',{timeZone:z,year:'numeric',month:'2-digit',day:'2-digit'}).format(d);}
+    catch(e){return new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);}
+  }
+  // v6c C13: ¿la fecha cae en la semana actual (domingo 00:00 → sábado 24:00) de la zona de la familia?
+  function enSemanaActual(d,u){
+    const z=(u&&u.zona_horaria)||'Europe/Madrid';
+    const hoy=diaEnZona(new Date(),z), base=new Date(hoy+'T12:00:00Z'), dow=base.getUTCDay();
+    const ini=new Date(base); ini.setUTCDate(base.getUTCDate()-dow);
+    const fin=new Date(ini); fin.setUTCDate(ini.getUTCDate()+6);
+    const iso=x=>x.toISOString().slice(0,10), dia=diaEnZona(d,z);
+    return dia>=iso(ini)&&dia<=iso(fin);
+  }
   function pintarRanking(u){
     const desde=rkModo==='semana'?inicioSemana():null;
     const MED=['🥇','🥈','🥉','🍬','⭐','🎈','🍪','🍎','⚽','🎯'];
@@ -4352,7 +4366,9 @@ window.FamiliaV3=(function(){
       let g=0,me=0,c=0,d=0,o=0;
       // v6c C13: el movimiento cuenta en la FECHA DE LA TAREA (fecha_limite; sin ella, creado_en de la tarea), vía historial.tarea_id.
       // Si la fila no tiene tarea o la tarea no está cargada, se usa creado_en del movimiento (como antes). El saldo no cambia.
-      (state.history||[]).filter(h=>h.miembro_id===k.id&&(!desde||fechaMovRanking(h)>=desde)).forEach(h=>{
+      // v6c C13 (bordes Orq): el día se corta a las 00:00 en la zona de la familia (Europe/Madrid por defecto), no la del
+      // equipo; la semana va de domingo a sábado y lo de semanas futuras (tarea futura aprobada antes) cuenta en su semana.
+      (state.history||[]).filter(h=>h.miembro_id===k.id&&(!desde||enSemanaActual(fechaMovRanking(h),u))).forEach(h=>{
         const r=claseMov(h); if(!r) return;
         if(r.k==='g')g+=r.pts; else if(r.k==='me')me+=r.pts; else if(r.k==='c')c+=-r.pts; else if(r.k==='d')d+=-r.pts; else o+=r.pts;
       });
@@ -4370,8 +4386,7 @@ window.FamiliaV3=(function(){
       ${desde?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · hora local (${esc((u&&u.zona_horaria)||zonaHoraria())})</p>`:(()=>{const f=fechaInicioApp(); return `<p class="v3-sub">${f?'Desde el '+esc(f.toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'})):'Desde el inicio'}</p>`;})()}
       <div class="v3-card" style="display:block"><div class="v5-rk h"><span></span><span>Hijo</span><span class="n">Ganado</span><span class="n">Saldo</span></div>
       ${filas.map((x,i)=>`<div class="v5-rk" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.abrirV1(()=>openBalance(${x.k.id}))" title="Ver saldo detallado"><span>${MED[i]||(i+1)+'.'}</span><span class="nom">${esc(x.k.nombre)}</span><strong class="n v3-st-ok">${x.g}</strong><span class="n">${x.saldo}</span></div>`).join('')||'<p class="v3-sub">Sin hijos</p>'}
-      <!-- v6c C13: copy del pie = «Saldo = puntos acumulados hasta hoy» (el saldo no depende de la semana) -->
-      <p class="v3-sub" style="margin-top:6px">Orden por Ganado${desde?' de esta semana':''}. Saldo = puntos acumulados hasta hoy. Toca un nombre para ver el detalle.</p></div>`;
+      <p class="v3-sub" style="margin-top:6px">Orden por Ganado${desde?' de esta semana':''}. Saldo = puntos de hoy. Toca un nombre para ver el detalle.</p></div>`;
   }
 
   /* --- Zona horaria del navegador: se guarda en el dispositivo (no hay columna en BD; ver bitácora). --- */
