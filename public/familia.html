@@ -909,7 +909,7 @@ async function loadAll(opts){
     try{ await expireWindows(); }catch(e){}
     if(sol.error&&!state._solWarned){state._solWarned=true;showToast('Solicitudes: '+sol.error.message);}
     if(nt.error&&!state._ntWarned){state._ntWarned=true;showToast('Avisos: '+nt.error.message);}
-    if(penalize){
+    if(penalize&&!familiaEnPausa()){   // v6c C11: en pausa no se penaliza
       try{ await applyLateness(); }catch(e){}
     }
     render();
@@ -2079,7 +2079,27 @@ function ackMiss(id){
   try{sessionStorage.setItem('ackMiss'+id,'1');}catch(e){}
   renderImmediateBlock();
 }
+/* v6c C11: familia en pausa (un mes sin movimiento). Fuente: familia_rpc_entrada().estado al entrar y, de respaldo,
+   familia_config.estado. En pausa NO se penaliza ni se hacen acciones automáticas desde el cliente. */
+let v6cEstadoFamilia=null;
+function familiaEnPausa(){return (v6cEstadoFamilia||(state.config&&state.config.estado)||'activa')==='pausada';}
+async function entradaV6c(id){
+  try{
+    const {data,error}=await supabase.rpc('familia_rpc_entrada',{p_actor_id:id});
+    if(error||!data) return;   // sin la RPC se sigue como antes (activa)
+    v6cEstadoFamilia=data.estado||'activa';
+    if(data.estado==='pausada'&&data.puede_reactivar){
+      // Decisión Jhon: al entrar un padre se reactiva; sin retroactivos (la RPC genera solo desde ahora).
+      const rr=await supabase.rpc('familia_rpc_reactivar',{p_actor_id:id});
+      if(rr.error){showToast('Tu familia está en pausa y no se pudo reactivar: '+msgErrorBD(rr.error)); return;}
+      v6cEstadoFamilia='activa'; if(state.config) state.config.estado='activa';
+      showToast('Tu familia estaba en pausa. Ya está activa de nuevo'+(rr.data&&rr.data.creadas?' ('+rr.data.creadas+' fechas nuevas)':'')+'.');
+      loadAll();
+    }else if(data.estado==='pausada') showToast('La familia está en pausa. Se activa cuando entre papá o mamá.');
+  }catch(e){}
+}
 async function expireWindows(){
+  if(familiaEnPausa()) return;   // v6c C11: en pausa no se vence nada desde el cliente
   const now=Date.now();
   const late=state.tasks.filter(t=>t.estado==='pendiente'&&!isGoal(t)&&t.fecha_limite&&new Date(t.fecha_limite).getTime()<now);
   for(const t of late){
@@ -3206,6 +3226,7 @@ function enterAs(id){
   render();
   consumeDeepLink();
   maybeAskCycle();
+  entradaV6c(id);   // v6c C11: estado de la familia (pausa / reactivar)
 }
 
 function fillLoginMembers(){
@@ -3629,6 +3650,9 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 .v6b-obl-dev{display:inline-block;background:#fb923c;color:#431407;font-weight:700;border-radius:8px;padding:2px 10px;margin:6px 0}
 .v6b-obl-nota{font-style:italic;margin-bottom:6px}
 /* v6b B3: obligatoria en rojo desde que se crea (gana a verde/naranja de ventana; devuelta conserva su borde naranja). */
+.v6c-dias{display:flex;gap:4px;flex-wrap:wrap}.v6c-dia{position:relative;margin:0}.v6c-dia input{position:absolute;opacity:0;width:1px;height:1px}
+.v6c-dia span{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;border:2px solid #cbd5e1;font-weight:700;color:#334155;cursor:pointer}
+.v6c-dia input:checked+span{background:#4f46e5;border-color:#4f46e5;color:#fff}.v6c-dia input:focus-visible+span{outline:2px solid #1e1b4b}/* v6c C11: 7 casillas en 360 px (7×44 px) */
 .v6c-aviso{border:2px solid #7c3aed;border-radius:14px;background:#f5f3ff;padding:6px;margin-bottom:10px}.v6c-aviso>.v3-card{margin-bottom:0}
 .v6c-aviso-b{font-weight:800;color:#5b21b6;font-size:1rem;padding:2px 6px 6px;overflow-wrap:anywhere}/* v6c C10: aviso destacado, ancho fluido (360/390 px) */
 .v3-card.v6b-obl{border-color:#b91c1c;border-left:6px solid #b91c1c;background:#fef2f2}
@@ -4511,10 +4535,144 @@ window.FamiliaV3=(function(){
     if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
     abrirHoja(`<h3>Deberes</h3><p class="v3-sub">Un deber no suma puntos; si se vence aplica el descuento.</p>
       <button class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.crearDeber()">1. Nuevo deber (una vez)</button>
-      <button class="v3-btn2 v3-full" style="margin-top:8px" onclick="FamiliaV3.hojaLote('deber')">2. Deber repetitivo (hasta fin de mes)</button>
-      <button class="v3-btn2 v3-full" style="margin-top:8px" onclick="FamiliaV3.abrirV1(()=>openDeberes())">3. Deberes base y repartir ciclo</button>`);
+      <button class="v3-btn2 v3-full" style="margin-top:8px" onclick="FamiliaV3.hojaSerie()">2. Deber repetitivo (por días)</button>`);
+    // v6c C11: un solo camino para deberes repetitivos (series L–D con hora por día); «Deberes base y repartir ciclo» ya no se ofrece para nuevas creaciones.
   }
   function crearDeber(){crear={clase:'deber'};crearPaso1();}
+  /* =================== v6c C11 · Deber repetitivo por días (familia_series) ===================
+     Casillas L M X J V S D (+ Todos / Entre semana / Fin de semana), hora general editable por día, «Mensual» aparte,
+     «Ver fechas» (familia_rpc_serie_previa) y Crear (familia_rpc_serie_crear). La BD renueva cada mes y no duplica. */
+  const DIAS=['L','M','X','J','V','S','D'];
+  function diasSel(){return DIAS.map((_,i)=>(document.getElementById('v6sD'+i)||{}).checked?'1':'0').join('');}
+  function horasSel(){
+    const g=(document.getElementById('v6sHora')||{}).value||'', o={};
+    DIAS.forEach((_,i)=>{const v=(document.getElementById('v6sH'+i)||{}).value; if(v&&v!==g) o[String(i+1)]=v;});
+    return Object.keys(o).length?o:null;
+  }
+  function mensualSel(){const on=(document.getElementById('v6sMen')||{}).checked; const n=parseInt((document.getElementById('v6sMenDia')||{}).value,10); return on&&n>=1&&n<=28?n:null;}
+  function resumenSerie(dias,horas,mensual){
+    if(mensual) return 'Mensual, el día '+mensual+(horas&&horas['1']?' · '+horas['1']:'');
+    const out=[]; let i=0;
+    while(i<7){ if(dias[i]!=='1'){i++;continue;} const h=horas?horas[String(i+1)]:''; let j=i;
+      while(j+1<7&&dias[j+1]==='1'&&(horas?horas[String(j+2)]:'')===h) j++;
+      out.push((j>i?DIAS[i]+'–'+DIAS[j]:DIAS[i])+(h?' '+h:'')); i=j+1; }
+    return out.join(' · ')||'Sin días';
+  }
+  function serieRefrescar(){
+    const g=(document.getElementById('v6sHora')||{}).value||'';
+    DIAS.forEach((_,i)=>{const on=(document.getElementById('v6sD'+i)||{}).checked, f=document.getElementById('v6sF'+i), h=document.getElementById('v6sH'+i);
+      if(f) f.style.display=on?'flex':'none'; if(h&&!h.dataset.tocado) h.value=g;});
+    const ok=diasSel()!=='0000000'||mensualSel()!=null, b=document.getElementById('v6sOk'), e=document.getElementById('v6sErr');
+    if(b) b.disabled=!ok; if(e) e.textContent=ok?'':'Marca al menos un día (o «Mensual»).';
+  }
+  function serieAtajo(k){
+    DIAS.forEach((_,i)=>{const c=document.getElementById('v6sD'+i); if(c) c.checked=k==='todos'||(k==='semana'?i<5:i>=5);});
+    serieRefrescar();
+  }
+  function camposDias(dias,horas,hora){
+    return `<label>Días</label><div class="v6c-dias">${DIAS.map((d,i)=>`<label class="v6c-dia"><input type="checkbox" id="v6sD${i}" ${dias[i]==='1'?'checked':''} onchange="FamiliaV3._serieRef()"><span>${d}</span></label>`).join('')}</div>
+      <div class="v3-row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" class="v3-btn2" onclick="FamiliaV3._serieAtajo('todos')">Todos</button><button type="button" class="v3-btn2" onclick="FamiliaV3._serieAtajo('semana')">Entre semana</button><button type="button" class="v3-btn2" onclick="FamiliaV3._serieAtajo('finde')">Fin de semana</button></div>
+      <label for="v6sHora">Hora general</label><input id="v6sHora" type="time" value="${esc(hora||'07:00')}" oninput="FamiliaV3._serieRef()">
+      <details style="margin-top:6px"><summary class="v3-sub">Otra hora en algún día</summary>${DIAS.map((d,i)=>`<div id="v6sF${i}" class="v3-row" style="align-items:center;gap:8px;margin-top:4px"><span style="width:1.5em;font-weight:700">${d}</span><input id="v6sH${i}" type="time" value="${esc((horas&&horas[String(i+1)])||hora||'07:00')}" ${horas&&horas[String(i+1)]&&horas[String(i+1)]!==hora?'data-tocado="1"':''} oninput="this.dataset.tocado='1'" style="flex:1"></div>`).join('')}</details>`;
+  }
+  function hojaSerie(){
+    if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
+    reqId('serie');
+    const hijos=state.members.filter(isKid).slice().sort(byName);
+    abrirHoja(`<h3>Deber repetitivo</h3><p class="v3-sub">Un deber no suma puntos; si se vence aplica el descuento. Se renueva solo cada mes.</p>
+      <label>Título</label><input id="v6sTit" maxlength="120">
+      <label>Para</label><div>${hijos.map(m=>`<label style="display:flex;gap:6px;align-items:center;margin:4px 0;color:#1e293b"><input type="checkbox" class="v6sHijo" value="${m.id}" style="width:auto">${esc(m.nombre)}</label>`).join('')||'<p class="v3-sub">Sin hijos</p>'}</div>
+      <label>Reparto</label><select id="v6sModo"><option value="cada_uno">Cada uno la suya</option><option value="uno">Un solo hijo</option><option value="entre">Turnar entre los marcados</option></select>
+      ${camposDias('1111100',null,'07:00')}
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v6sMen" style="width:auto" onchange="FamiliaV3._serieRef()"> Mensual (un día fijo del mes)</label>
+      <input id="v6sMenDia" type="number" min="1" max="28" value="1" oninput="FamiliaV3._serieRef()" aria-label="Día del mes (1 a 28)">
+      <label>Tiempo para hacerlo (min)</label><input id="v6sVen" type="number" min="1" value="60">
+      <label>Descuento si se pasa (pts)</label><input id="v6sPen" type="number" min="0" value="3">
+      ${campoDescV3('v6sDesc','')}
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v6sFoto" style="width:auto"> Exige foto</label>
+      <p id="v6sErr" class="v3-sub v3-st-err" style="min-height:1.2em"></p>
+      <button class="v3-btn2 v3-full" onclick="FamiliaV3.previaSerie()">Ver fechas</button>
+      <div id="v6sPrev" class="v3-sub" style="margin-top:8px"></div>
+      <button id="v6sOk" class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.guardarSerie()">Crear</button>`);
+    serieRefrescar();
+  }
+  function pintarPrevia(box,d){
+    const l=Array.isArray(d)?d:[];
+    const f=x=>new Date(x).toLocaleString('es-CO',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false});
+    box.innerHTML=l.length?`<b>${l.length} fecha(s) este mes:</b><div class="v6b-caja" style="max-height:180px">${l.map(x=>`<div>${esc(f(x.inicio))}</div>`).join('')}</div>`:'<span>No quedan fechas este mes con esos días.</span>';
+  }
+  async function previaSerie(){
+    const box=document.getElementById('v6sPrev'); if(!box) return;
+    const dias=diasSel(), men=mensualSel(); if(dias==='0000000'&&men==null) return serieRefrescar();
+    box.textContent='Calculando…';
+    const {data,error}=await supabase.rpc('familia_rpc_serie_previa',{p_actor_id:originalAdminId||state.currentUserId,p_dias:dias,p_hora_general:(document.getElementById('v6sHora')||{}).value||'07:00',p_horas:horasSel(),p_mensual_dia:men});
+    if(error){box.innerHTML=`<span class="v3-st-err">No se pudieron calcular las fechas: ${esc(msgErrorBD(error))}</span>`;return;}   // error ≠ vacío
+    pintarPrevia(box,data);
+  }
+  async function guardarSerie(){
+    const v=id=>(document.getElementById(id)||{}).value||'', n=(id,def)=>{const x=parseInt(v(id),10);return isNaN(x)?def:x;};
+    const tit=v('v6sTit').trim(); if(!tit) return showToast('Escribe el título');
+    const hijos=[...document.querySelectorAll('.v6sHijo:checked')].map(c=>+c.value); if(!hijos.length) return showToast('Marca al menos un hijo');
+    const dias=diasSel(), men=mensualSel(); if(dias==='0000000'&&men==null) return showToast('Marca al menos un día');
+    const desc=descripcionDe(v('v6sDesc')); if(descReservada(desc)) return showToast('Escribe una descripción distinta de «META»');
+    const horas=horasSel(), hora=v('v6sHora')||'07:00';
+    if(!confirm('¿Crear el deber repetitivo «'+tit+'» ('+resumenSerie(men?'0000000':dias,Object.assign({},...DIAS.map((_,i)=>({[i+1]:hora})),horas||{}),men)+') para '+hijos.length+' hijo(s)?')) return;
+    const k='serie'; if(enCurso.has(k)) return; enCurso.add(k);
+    const b=document.getElementById('v6sOk'); if(b) b.disabled=true;
+    try{
+      const args={p_actor_id:originalAdminId||state.currentUserId,p_client_req_id:reqId(k),p_titulo:tit,p_hijos:hijos,p_dias:dias,p_hora_general:hora,p_horas:horas,
+        p_modo:v('v6sModo')||'cada_uno',p_clase:'deber',p_puntos:0,p_ventana_min:Math.max(1,n('v6sVen',60)),p_penal:Math.max(0,n('v6sPen',0)),
+        p_exige_foto:!!(document.getElementById('v6sFoto')||{}).checked,p_mensual_dia:men};
+      if(desc) args.p_descripcion=desc;
+      const d=await rpc('familia_rpc_serie_crear',args);
+      if(!d){if(b) b.disabled=false; return;}   // error (p.ej. HINT c11_sin_dias): se conserva el req id
+      delete reqIds[k];
+      abrirHoja(`<h3 class="v3-st-ok">${d.idempotente?'Ya estaba creada':'Creadas '+(Number(d.creadas)||0)}</h3><p class="v3-sub">${esc(tit)} · ${esc(resumenSerie(men?'0000000':dias,d.horas||null,men))}. Se renueva cada mes.</p><button class="v3-cta v3-full" style="margin-top:12px" onclick="FamiliaV3.cerrarHoja()">Listo</button>`);
+      loadAll();
+    }finally{enCurso.delete(k);}
+  }
+  /* v6c C11: en la ficha, «Parte de la serie: L–V 06:30» + «Cambiar / borrar las próximas». Lo pasado no se toca (soft). */
+  async function bloqueSerie(t){
+    const box=document.getElementById('v6sFicha'); if(!box||!t.serie_id) return;
+    const {data,error}=await supabase.from('familia_series').select('id,titulo,dias_semana,horas,mensual_dia,activa').eq('id',t.serie_id).maybeSingle();
+    if(error){box.innerHTML=`<span class="v3-st-err">No se pudo leer la serie: ${esc(msgErrorBD(error))}</span>`;return;}
+    const sd=data||{dias_semana:t.dias_semana||'0000000',horas:null};
+    serieAbierta=data;
+    const adm=isAdmin(currentUser())&&!soloLectura()&&data&&data.activa!==false;
+    box.innerHTML=`<p class="v3-sub"><b>Parte de la serie:</b> ${esc(resumenSerie(sd.dias_semana||'0000000',sd.horas,sd.mensual_dia))}${data&&data.activa===false?' (ya no se repite)':''}</p>`+
+      (adm?`<div class="v6b-acc"><button class="v3-btn2" onclick="FamiliaV3.hojaSerieCambiar()">Cambiar las próximas</button><button class="v3-btn2 err" onclick="FamiliaV3.serieBorrar()">Borrar las próximas</button></div>`:'');
+  }
+  let serieAbierta=null;
+  function hojaSerieCambiar(){
+    const sr=serieAbierta; if(!sr||soloLectura()) return;
+    const hora=(sr.horas&&sr.horas['1'])||'07:00';
+    abrirHoja(`<h3>Cambiar las próximas</h3><p class="v3-sub">«${esc(sr.titulo||'')}». Solo cambian las fechas que vienen; lo ya pasado queda igual.</p>
+      ${camposDias(sr.dias_semana||'0000000',sr.horas,hora)}
+      <p id="v6sErr" class="v3-sub v3-st-err" style="min-height:1.2em"></p>
+      <button id="v6sOk" class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.serieCambiar()">Guardar cambios</button>`);
+    serieRefrescar();
+  }
+  async function serieCambiar(){
+    const sr=serieAbierta; if(!sr) return;
+    const dias=diasSel(); if(dias==='0000000'&&sr.mensual_dia==null) return showToast('Marca al menos un día');
+    const hora=(document.getElementById('v6sHora')||{}).value||'07:00', horas={};
+    DIAS.forEach((_,i)=>{horas[String(i+1)]=(document.getElementById('v6sH'+i)||{}).value||hora;});
+    if(!confirm('¿Cambiar las próximas a '+resumenSerie(dias,horas,sr.mensual_dia)+'?')) return;
+    const k='sc'+sr.id; if(enCurso.has(k)) return; enCurso.add(k);
+    try{
+      const d=await rpc('familia_rpc_serie_cambiar',{p_actor_id:originalAdminId||state.currentUserId,p_serie:sr.id,p_dias:dias,p_horas:horas});
+      if(!d) return; cerrarHoja(); showToast('Listo: '+(Number(d.archivadas)||0)+' quitadas, '+(Number(d.creadas)||0)+' nuevas'); loadAll();
+    }finally{enCurso.delete(k);}
+  }
+  async function serieBorrar(){
+    const sr=serieAbierta; if(!sr||soloLectura()) return;
+    if(!confirm('¿Borrar las próximas fechas de «'+(sr.titulo||'esta serie')+'»? Lo ya pasado queda igual.')) return;
+    const k='sb'+sr.id; if(enCurso.has(k)) return; enCurso.add(k);
+    try{
+      const d=await rpc('familia_rpc_serie_borrar_futuras',{p_actor_id:originalAdminId||state.currentUserId,p_serie:sr.id});
+      if(!d) return; cerrarHoja(); showToast('Se quitaron '+(Number(d.archivadas)||0)+' fechas próximas'); loadAll();
+    }finally{enCurso.delete(k);}
+  }
   // v5 ítem 20: «Crear» siempre abre como tarea; si quedó un deber a medias desde Deberes, se descarta.
   function crearTarea(){if(crear.clase==='deber') crear={}; crearPaso1();}
   // v5 ítem 20: «Crear completo» desde la v3 sin la opción Deber (la v1 directa la conserva).
@@ -4961,11 +5119,13 @@ window.FamiliaV3=(function(){
       ${modeloVentana(t)?`<div style="margin-top:4px">${renglonHora(t)}</div>`:`<p class="v3-sub" style="margin-top:4px">${windowBlock(t)||'Sin ventana definida'}</p>`}</div>
       ${isAdmin(currentUser())&&!soloLectura()?`<button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.abrirV1(()=>openTaskCard(${t.id}))">Editar / eliminar (ficha completa)</button>`:''}
       ${t.comentario_completado?`<p class="v3-sub">«${esc(t.comentario_completado)}»</p>`:''}${comentAprob(t)&&/aprob|complet/.test(t.estado)?`<p class="v3-sub v3-st-ok">Papá/mamá: «${esc(comentAprob(t))}»</p>`:''}<div id="v3Foto" class="v3-sub">Cargando evidencia…</div>
+      ${t.serie_id?'<div id="v6sFicha" class="v3-sub" style="margin-top:6px">Cargando serie…</div>':''/* v6c C11 */}
       ${accionesHijo(t)}${accionesPadre(t)}${accionRealizada(t)}
       <button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.cerrarHoja()">Cerrar</button>`);
     // v6b B19: se piden fotos/fotos_2 (hasta 3 cada uno); si la BD aún no los tiene, se vuelve a las columnas viejas.
     let {data,error}=await supabase.from('familia_tareas').select('foto_url,foto_2,foto_path,foto_2_path,fotos,fotos_2').eq('id',id).is('archivada_en',null).maybeSingle();   // v4: sin archivadas
     if(error&&faltaEnBD(error,['fotos','fotos_2'])) ({data,error}=await supabase.from('familia_tareas').select('foto_url,foto_2,foto_path,foto_2_path').eq('id',id).is('archivada_en',null).maybeSingle());
+    if(t.serie_id) bloqueSerie(t);   // v6c C11
     const box=document.getElementById('v3Foto'); if(!box) return;
     const ok=f=>typeof f==='string'&&/^(data:image\/|https:)/.test(f);
     const grupo=(arr,uno)=>(Array.isArray(arr)&&arr.length?arr:[uno]).filter(ok);
@@ -5474,7 +5634,7 @@ window.FamiliaV3=(function(){
   setTimeout(repintar,0);
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
-  return {hojaMovil,cambiarMovil,realizada,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 </body>
