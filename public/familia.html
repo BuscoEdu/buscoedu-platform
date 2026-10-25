@@ -844,7 +844,12 @@ const V3_COLS_TAREAS='id,titulo,descripcion,puntos,recurrencia,icono,asignada_a,
 // v6c C1/C3/C7/C11: columnas del contrato v6c (enviada_tarde, exige_foto, marcada_por, pagado_a, serie_id, dias_semana); si faltan, loadAll reintenta con '*'.
 const V6C_COLS_TAREAS=V3_COLS_TAREAS+',enviada_tarde,exige_foto,marcada_por,pagado_a,serie_id,dias_semana';
 // v6b B18: plantilla_id, max_por_dia e intervalo_min_min (contrato v6b). Si faltan en la BD, loadAll reintenta con '*'.
-function columnasTareas(){return localStorage.getItem('familia_v3_on')==='1'?V6C_COLS_TAREAS:'*';}   // v6c: lee las columnas nuevas
+/* v6c fix4 N2: columnas de v6c_08 (entendida_en, vencida_origen). Hasta que la migración llegue a prod se prueban una vez por
+   carga de página: si la BD responde «columna no existe» (faltaEnBD), se marca window._v6c08Cols=false y se repite al
+   instante con V6C_COLS_TAREAS (sin la espera ni el '*' del reintento general). */
+const V6C08_COLS_TAREAS=V6C_COLS_TAREAS+',entendida_en,vencida_origen';
+window._v6c08Cols=window._v6c08Cols!==false;
+function columnasTareas(){return localStorage.getItem('familia_v3_on')==='1'?(window._v6c08Cols?V6C08_COLS_TAREAS:V6C_COLS_TAREAS):'*';}   // v6c: lee las columnas nuevas
 /* v4 Ola 2: «Resetear todo» archiva (archivada_en) en vez de borrar. En modo v3/v4 toda lectura de
    tareas e historial filtra archivada_en IS NULL; en modo v1 la consulta queda igual que antes. */
 function sinArchivadas(q){return localStorage.getItem('familia_v3_on')==='1'?q.is('archivada_en',null):q;}
@@ -881,6 +886,11 @@ async function loadAll(opts){
     }else{
       state.members=m.data||[];
       state._membersWarned=false;
+    }
+    // v6c fix4 N2: sin v6c_08 en la BD → se reintenta sin entendida_en/vencida_origen y se recuerda para esta página.
+    if(t.error&&window._v6c08Cols&&localStorage.getItem('familia_v3_on')==='1'&&faltaEnBD(t.error,['entendida_en','vencida_origen'])){
+      window._v6c08Cols=false;
+      t=await sinArchivadas(supabase.from('familia_tareas').select(V6C_COLS_TAREAS)).order('creado_en',{ascending:false});
     }
     if(t.error){
       await new Promise(r=>setTimeout(r,800));
@@ -3924,7 +3934,10 @@ window.FamiliaV3=(function(){
   const entendidasMem=new Set();
   function entendidaHijo(t){
     const u=currentUser(); if(!t||!u||isAdmin(u)) return false;
+    // v6c fix4 N2: con v6c_08 la fila trae entendida_en (la escribe aceptar_vencida) y manda la BD; localStorage solo si
+    // la columna no vino en la carga (BD sin v6c_08). entendidasMem cubre el instante entre «Entendido» y la recarga.
     if(entendidasMem.has(t.id)) return true;
+    if(Object.prototype.hasOwnProperty.call(t,'entendida_en')) return !!t.entendida_en;
     try{return JSON.parse(localStorage.getItem('familiaV6cEntendidas')||'[]').includes(t.id);}catch(e){return false;}
   }
   function marcarEntendida(id){
@@ -5375,15 +5388,42 @@ window.FamiliaV3=(function(){
          actor en el servidor y deja esperando_aprobacion. p_foto = primera foto. Error y respuesta vacía son fallos distintos.
          Después, sin tocar el estado, se guardan el comentario y el juego completo de fotos (si hay más de una). */
       if(tarde){
-        const rr=await supabase.rpc('familia_rpc_enviar_tarde',{p_tarea_id:id,p_actor_id:u.id,p_foto:fotos[0]||null});
-        if(rr.error) return showToast(msgErrorBD(rr.error));
+        /* v6c fix4 N1: con v6c_08, UNA llamada atómica familia_rpc_enviar_tarde(p_tarea_id, p_actor_id, p_foto, p_comentario,
+           p_fotos text[]); el servidor pone cada parte en su lugar (dueño → comentario_completado/foto_url/fotos; compañero →
+           evidencia_2/foto_2/fotos_2). Respaldo para prod sin v6c_08: si la BD responde «firma no encontrada» (PGRST202/42883,
+           faltaEnBD con p_comentario/p_fotos), no se ejecutó nada; se llama la firma de 3 parámetros y se hace la 2.ª escritura
+           (comentario + fotos, sin estado) como en fix2. El resultado se recuerda en window._v6c08Tarde para esta página. */
+        let rr=null, v08=window._v6c08Tarde!==false;
+        if(v08){
+          rr=await supabase.rpc('familia_rpc_enviar_tarde',{p_tarea_id:id,p_actor_id:u.id,p_foto:fotos[0]||null,p_comentario:comment||null,p_fotos:fotos.length?fotos:null});
+          if(rr.error&&faltaEnBD(rr.error,['p_comentario','p_fotos','familia_rpc_enviar_tarde'])){window._v6c08Tarde=false; v08=false;}
+        }
+        if(!v08) rr=await supabase.rpc('familia_rpc_enviar_tarde',{p_tarea_id:id,p_actor_id:u.id,p_foto:fotos[0]||null});
+        if(rr.error){
+          // v6c fix4: HINT c7d_entendida (v6c_08) → el hijo ya dijo «Entendido»; mensaje claro y se oculta la tarea.
+          if(String(rr.error.hint||'')==='c7d_entendida'){marcarEntendida(id); cerrarHoja(); pintar(); return showToast('Ya dijiste «Entendido»: ahora deciden papá o mamá.');}
+          return showToast(msgErrorBD(rr.error));
+        }
         if(rr.data==null) return showToast('No se pudo: respuesta vacía del servidor. Recarga y revisa si quedó enviada.');
-        const extra={}; if(companero) extra.evidencia_2=comment||'Listo'; else if(comment) extra.comentario_completado=comment;
-        if(fotos.length>1){extra[colF]=fotos; if(payload[colAnt]) extra[colAnt]=payload[colAnt];}
-        if(Object.keys(extra).length){const {error:e2}=await supabase.from('familia_tareas').update(extra).eq('id',id);
-          if(e2) setTimeout(()=>showToast('Se envió, pero sin '+(fotos.length>1?'todas las fotos':'el comentario')+': '+msgErrorBD(e2)),2600);}
+        const extra={};
+        if(!v08){   // respaldo sin v6c_08: 2.ª escritura (no toca el estado)
+          if(companero) extra.evidencia_2=comment||'Listo'; else if(comment) extra.comentario_completado=comment;
+          if(fotos.length>1){extra[colF]=fotos; if(payload[colAnt]) extra[colAnt]=payload[colAnt];}
+          if(Object.keys(extra).length){const {error:e2}=await supabase.from('familia_tareas').update(extra).eq('id',id);
+            if(e2) setTimeout(()=>showToast('Se envió, pero sin '+(fotos.length>1?'todas las fotos':'el comentario')+': '+msgErrorBD(e2)),2600);}
+        }else{ if(companero) extra.evidencia_2=comment||'Listo'; else extra.comentario_completado=comment||t.comentario_completado||(t.conjunto_con?'Listo':null); }
         limpiarFotosSel();
-        Object.assign(t,extra,{estado:'esperando_aprobacion',estado_vencida:null}); COLS_FOTO.forEach(c=>{delete t[c];});
+        /* v6c fix4 N3: tarea en pareja y falta la otra parte → respuesta {ok, estado, falta:'companero'|'dueno'}. La tarea
+           queda en el estado que devuelve el servidor (no pasa a revisión) y el hijo ve quién falta. */
+        if(rr.data.falta){
+          const otro=memberById(rr.data.falta==='companero'?t.conjunto_con:t.asignada_a);
+          Object.assign(t,extra,rr.data.estado?{estado:rr.data.estado}:{}); COLS_FOTO.forEach(c=>{delete t[c];});
+          cerrarHoja(); pintar();
+          showToast('Tu parte quedó guardada. Falta la parte de '+((otro&&otro.nombre)||'tu compañero')+' para que papá o mamá la revisen.');
+          scheduleReload();
+          return;
+        }
+        Object.assign(t,extra,{estado:rr.data.estado||'esperando_aprobacion',estado_vencida:null}); COLS_FOTO.forEach(c=>{delete t[c];});
         cerrarHoja(); pintar();
         showToast(rr.data.idempotente?'Ya estaba enviada':'Quedó en revisión (enviada tarde)');
         scheduleReload();
@@ -5575,8 +5615,8 @@ window.FamiliaV3=(function(){
     const {data:r,error}=await supabase.rpc('familia_rpc_aceptar_vencida',{p_tarea_id:id,p_actor_id:state.currentUserId});
     if(error) return showToast(msgErrorBD(error));
     if(r==null) return showToast('No se pudo: respuesta vacía del servidor. Recarga y revisa la tarea.');
-    {const t=state.tasks.find(x=>x.id===id); if(t) t.estado_vencida='por_decidir';}
-    marcarEntendida(id);   // v6c fix3 N2: ya no vuelve «Enviar tarde» en este dispositivo
+    {const t=state.tasks.find(x=>x.id===id); if(t){t.estado_vencida='por_decidir'; if(r.entendida_en) t.entendida_en=r.entendida_en;}}   // v6c fix4 N2
+    marcarEntendida(id);   // v6c fix4 N2: respaldo local (sin v6c_08 la BD no guarda entendida_en)   // v6c fix3 N2: ya no vuelve «Enviar tarde» en este dispositivo
     showToast('Listo: papá o mamá deciden'); pintar(); scheduleReload();
   }
 
