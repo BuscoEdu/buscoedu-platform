@@ -3886,7 +3886,7 @@ window.FamiliaV3=(function(){
   /* v4 · ajuste 5: un color por estado. Rojo SOLO para vencida sin enviar; amarillo = esperando
      aprobación (o decisión del padre); naranja suave = devuelta (con su motivo); verde = hecha; gris = pendiente. */
   function estadoDe(t){
-    if(t.estado_vencida==='pendiente_hijo'||(t.estado==='aviso_vencida'&&!t.estado_vencida)||vencidaServidor(t)) return {c:'err',txt:'Se pasó la hora',cls:'v3-st-err'};   // v6c C7c
+    if(t.estado_vencida==='pendiente_hijo'||(t.estado==='aviso_vencida'&&!t.estado_vencida)||vencidaServidor(t)||vencidaTrigger(t)) return {c:'err',txt:'Se pasó la hora',cls:'v3-st-err'};   // v6c C7c
     if(t.estado==='borrador') return {c:'',txt:'Borrador · sin activar',cls:'v3-sub'};   // v6c C8b
     if(t.estado_vencida==='por_decidir') return {c:'esp',txt:'Esperando a papá/mamá',cls:'v3-st-esp'};
     if(t.estado==='esperando_aprobacion'||t.estado==='transferencia_por_aprobar') return {c:'esp',txt:t.estado==='transferencia_por_aprobar'?'Traspaso por aprobar':'Esperando aprobación',cls:'v3-st-esp'};
@@ -3910,6 +3910,13 @@ window.FamiliaV3=(function(){
     if(!t||t.estado!=='no_terminada'||t.estado_vencida||t.puntos_sumados) return false;
     return !(state.history||[]).some(h=>Number(h.tarea_id)===Number(t.id)&&/^(Penalizaci[oó]n|Descuento|Perdonada|Realizada|Aprobada|Cumplida|Atraso)/.test(h.texto||''));
   }
+  /* v6c fix2 N2: desde v6c_07 el trigger zz_familia_tareas_v6c07_c7c convierte el paso automático pendiente → no_terminada en
+     estado='pendiente' + estado_vencida='por_decidir' (nombres exactos de v6c_07_c7c_vencida.sql, Bloque 3). Esa tarea es una
+     vencida accionable: el padre decide (Descontar / Perdonar / Realizada) y el hijo puede «Enviar tarde»
+     (familia_rpc_enviar_tarde acepta por_decidir). Supuesto: con solo el estado no se distingue del 'por_decidir' que deja
+     «Entendido» del hijo (aceptar_vencida); en ambos casos se muestra igual de accionable. vencidaServidor (C7c) queda
+     como respaldo para filas viejas en no_terminada. */
+  function vencidaTrigger(t){return !!t&&t.estado==='pendiente'&&t.estado_vencida==='por_decidir'&&!t.puntos_sumados;}
   // v6c C8b: el borrador ya no se oculta al padre (necesita «Activar»); al hijo se le sigue ocultando en pintarHoy.
   function cerrada(t){return t.estado==='rechazada'||t.estado==='completada'||(t.estado==='no_terminada'&&!vencidaServidor(t));}
 
@@ -3948,7 +3955,7 @@ window.FamiliaV3=(function(){
   /* v6 A3/A3b: verde dentro de la ventana antes de hora + V/2; naranja «Queda poco» desde ahí hasta el cierre;
      rojo cuando ya cerró sin hacerse. Solo para lo que aún depende del hijo. */
   function enVentana(t){
-    const sinHacer=t.estado==='pendiente'||t.estado==='aviso_rechazada'||t.estado==='aviso_vencida'||t.estado_vencida==='pendiente_hijo';
+    const sinHacer=t.estado==='pendiente'||t.estado==='aviso_rechazada'||t.estado==='aviso_vencida'||t.estado_vencida==='pendiente_hijo'||vencidaServidor(t);   // v6c fix2 N2: legado no_terminada también en rojo; pendiente+por_decidir ya entra por 'pendiente'
     if(!sinHacer) return '';
     const now=Date.now(), c=t.fecha_limite?new Date(t.fecha_limite).getTime():0;
     if(c&&now>=c) return 'fuera';
@@ -3971,7 +3978,7 @@ window.FamiliaV3=(function(){
      aviso_aprobada → «👉 Toca para aceptar tus N pts»; aviso_vencida / devuelta → «👉 Toca para ver». */
   function avisoHijo(t){
     if(t.estado==='aviso_aprobada'){const n=Math.max(0,Number(t.puntos_aplicados!=null?t.puntos_aplicados:t.puntos)||0); return '👉 Toca para aceptar tus '+n+' pts';}
-    if((t.estado==='aviso_vencida'&&!t.estado_vencida)||t.estado_vencida==='pendiente_hijo'||t.estado==='aviso_rechazada'||vencidaServidor(t)) return '👉 Toca para ver';   // v6c C7c
+    if((t.estado==='aviso_vencida'&&!t.estado_vencida)||t.estado_vencida==='pendiente_hijo'||t.estado==='aviso_rechazada'||vencidaServidor(t)||vencidaTrigger(t)) return '👉 Toca para ver';   // v6c fix2 N2   // v6c C7c
     if(t.estado==='pendiente'&&motivoDevuelta(t)!==null) return '👉 Toca para ver';
     return '';
   }
@@ -4017,7 +4024,7 @@ window.FamiliaV3=(function(){
     const admin=isAdmin(u);
     let lista=state.tasks.filter(t=>!ocultas.has(t.id)&&!cerrada(t));
     // v4: el hijo también ve las tareas que un hermano le pasa (pendiente_transferencia, para_quien = su id).
-    if(!admin) lista=lista.filter(t=>t.asignada_a===u.id||t.conjunto_con===u.id||(t.estado==='pendiente_transferencia'&&String(t.para_quien)===String(u.id))).filter(t=>t.estado_vencida!=='por_decidir');
+    if(!admin) lista=lista.filter(t=>t.asignada_a===u.id||t.conjunto_con===u.id||(t.estado==='pendiente_transferencia'&&String(t.para_quien)===String(u.id))).filter(t=>t.estado_vencida!=='por_decidir'||vencidaTrigger(t));   // v6c fix2 N2: la del trigger sí la ve el hijo
     else lista=lista.filter(t=>t.estado!=='aviso_aprobada');
     // v6c C8b: el borrador solo lo ve el padre.
     if(!admin) lista=lista.filter(t=>t.estado!=='borrador');
@@ -5289,7 +5296,9 @@ window.FamiliaV3=(function(){
     if(!(t.asignada_a===u.id||t.conjunto_con===u.id)) return false;
     // v6b B6 fix QA: expireWindows() pasa la tarea a aviso_vencida justo al vencer; mientras no tenga
     // puntos sumados ni decisión de vencida, el hijo aún puede enviarla tarde o pedir más tiempo.
-    if(t.estado==='aviso_vencida'||vencidaServidor(t)) return !t.puntos_sumados&&!t.estado_vencida;   // v6c C7c: también la que el job dejó en no_terminada
+    // v6c C7c: también la que el job dejó en no_terminada (filas viejas)
+    if(t.estado==='aviso_vencida'||vencidaServidor(t)) return !t.puntos_sumados&&!t.estado_vencida;
+    if(vencidaTrigger(t)) return true;   // v6c fix2 N2: pendiente + por_decidir del trigger → «Enviar tarde»
     if(!(t.estado==='pendiente'||t.estado==='aviso_rechazada')) return false;
     return typeof taskTiming==='function'&&taskTiming(t)==='late';
   }
@@ -5348,6 +5357,24 @@ window.FamiliaV3=(function(){
       const nf=fotos.length?' ('+fotos.length+' foto'+(fotos.length>1?'s':'')+')':'';
       const t0=Date.now(), okEnv=confirm(tarde?'¿Enviar «'+t.titulo+'»'+nf+' tarde? Papá o mamá deciden si cuenta.':'¿Enviar «'+t.titulo+'»'+nf+' para que papá o mamá la revisen?');
       if(!okEnv){ if(Date.now()-t0<50) showToast('Tu navegador bloqueó la confirmación. Cierra la pestaña, ábrela de nuevo e inténtalo.'); return; }
+      /* v6c fix2 N1: «Enviar tarde» va por familia_rpc_enviar_tarde(p_tarea_id, p_actor_id, p_foto) (v6c_07): valida estado y
+         actor en el servidor y deja esperando_aprobacion. p_foto = primera foto. Error y respuesta vacía son fallos distintos.
+         Después, sin tocar el estado, se guardan el comentario y el juego completo de fotos (si hay más de una). */
+      if(tarde){
+        const rr=await supabase.rpc('familia_rpc_enviar_tarde',{p_tarea_id:id,p_actor_id:u.id,p_foto:fotos[0]||null});
+        if(rr.error) return showToast(msgErrorBD(rr.error));
+        if(rr.data==null) return showToast('No se pudo: respuesta vacía del servidor. Recarga y revisa si quedó enviada.');
+        const extra={}; if(companero) extra.evidencia_2=comment||'Listo'; else if(comment) extra.comentario_completado=comment;
+        if(fotos.length>1){extra[colF]=fotos; if(payload[colAnt]) extra[colAnt]=payload[colAnt];}
+        if(Object.keys(extra).length){const {error:e2}=await supabase.from('familia_tareas').update(extra).eq('id',id);
+          if(e2) setTimeout(()=>showToast('Se envió, pero sin '+(fotos.length>1?'todas las fotos':'el comentario')+': '+msgErrorBD(e2)),2600);}
+        limpiarFotosSel();
+        Object.assign(t,extra,{estado:'esperando_aprobacion',estado_vencida:null}); COLS_FOTO.forEach(c=>{delete t[c];});
+        cerrarHoja(); pintar();
+        showToast(rr.data.idempotente?'Ya estaba enviada':'Quedó en revisión (enviada tarde)');
+        scheduleReload();
+        return;
+      }
       let {error}=await supabase.from('familia_tareas').update(payload).eq('id',id);
       // v6b B19 respaldo: si la BD aún no tiene la columna de varias fotos, con 1 foto se usa la columna vieja; con más, no se envía nada.
       if(error&&fotos.length&&faltaEnBD(error,[colF,colAnt])){
