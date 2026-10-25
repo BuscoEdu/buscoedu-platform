@@ -4331,7 +4331,8 @@ window.FamiliaV3=(function(){
       ${desde?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · hora local (${esc((u&&u.zona_horaria)||zonaHoraria())})</p>`:(()=>{const f=fechaInicioApp(); return `<p class="v3-sub">${f?'Desde el '+esc(f.toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'})):'Desde el inicio'}</p>`;})()}
       <div class="v3-card" style="display:block"><div class="v5-rk h"><span></span><span>Hijo</span><span class="n">Ganado</span><span class="n">Saldo</span></div>
       ${filas.map((x,i)=>`<div class="v5-rk" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.abrirV1(()=>openBalance(${x.k.id}))" title="Ver saldo detallado"><span>${MED[i]||(i+1)+'.'}</span><span class="nom">${esc(x.k.nombre)}</span><strong class="n v3-st-ok">${x.g}</strong><span class="n">${x.saldo}</span></div>`).join('')||'<p class="v3-sub">Sin hijos</p>'}
-      <p class="v3-sub" style="margin-top:6px">Orden por Ganado${desde?' de esta semana':''}. Saldo = puntos de hoy. Toca un nombre para ver el detalle.</p></div>`;
+      <!-- v6c C13: copy del pie = «Saldo = puntos acumulados hasta hoy» (el saldo no depende de la semana) -->
+      <p class="v3-sub" style="margin-top:6px">Orden por Ganado${desde?' de esta semana':''}. Saldo = puntos acumulados hasta hoy. Toca un nombre para ver el detalle.</p></div>`;
   }
 
   /* --- Zona horaria del navegador: se guarda en el dispositivo (no hay columna en BD; ver bitácora). --- */
