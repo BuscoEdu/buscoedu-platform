@@ -1092,6 +1092,8 @@ function taskCard(t){
 }
 function taskTone(t){
   if(t&&t.estado==='borrador') return 'tone-draft';
+  // v6c C9: rojo solo si sigue pendiente sin hacer (o no_terminada) y pasó su Fin; enviada/aprobada/aviso_aprobada → neutro aunque haya vencido.
+  if(t&&!['pendiente','no_terminada','aviso_vencida'].includes(t.estado)) return 'tone-ontime';
   if(taskTiming(t)==='late'||(t&&lateDays(t)>0)) return 'tone-late';
   return 'tone-ontime';
 }
