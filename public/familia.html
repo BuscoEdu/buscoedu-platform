@@ -1209,6 +1209,9 @@ function renderTasks(){
   }
   // v6 A5b: estado 'solicitada' (pedido del hijo sin aprobar): no es tarea abierta (no tiene ventana ni «Ya la hice»); se aprueba en Revisar.
   const open=state.tasks.filter(t=>!isGoal(t)&&!isClosedTask(t)&&t.tipo!=='mesada'&&t.estado!=='solicitada').sort(byDue);
+  // v6d D20c: con el filtro «Hoy», primero lo abierto (habilita_en ≤ ahora o null) por fin asc (sin fin al final); luego lo que aún no abre por inicio asc.
+  if(taskFilter==='hoy'){const ahora=Date.now(),hab=t=>t.habilita_en?new Date(t.habilita_en).getTime():-Infinity,na=t=>hab(t)>ahora?1:0;
+    open.sort((a,b)=>(na(a)-na(b))||(na(a)?(hab(a)-hab(b)):byDue(a,b))||(a.id-b.id));}
   if(esPadre(u)){
     const want=taskView==='hijos'?'kid':'parent';
     const rows=open.filter(t=>taskAudience(t)===want).filter(passTaskFilter);
@@ -4139,7 +4142,7 @@ window.FamiliaV3=(function(){
   function ficha(t,acciones){
     const e=estadoDe(t), who=memberById(t.asignada_a);
     // v6 A3: clase y etiqueta de ventana (verde «En su hora» / rojo «Se pasó la hora»).
-    const vv=enVentana(t), vcls=vv?' v6-'+vv:'', vtxt=vv==='dentro'?'<span class="v6-vtag ok">En su hora</span>':vv==='poco'?'<span class="v6-vtag warn">Queda poco</span>':vv==='fuera'?'<span class="v6-vtag err">Se pasó la hora</span>':vv==='antes'?'<span class="v6-vtag v6d-antes-t">Aún no abre</span>':'';   // v6d D7
+    const vv=enVentana(t), vcls=vv?' v6-'+vv:'', vtxt=vv==='dentro'?'<span class="v6-vtag ok">En su hora</span>':vv==='poco'?'<span class="v6-vtag warn">Queda poco</span>':vv==='fuera'?'<span class="v6-vtag err">Se pasó la hora</span>':vv==='antes'?'<span class="v6-vtag v6d-antes-t">Aún no abre'+(t.habilita_en?' · Abre '+esc(new Date(t.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false})):'')+'</span>':'';   // v6d D7 · v6d D20c: «Aún no abre · Abre HH:MM» como texto único
     const obl=esObligatoria(t);
     return `<div class="v3-card ${e.c}${vcls}${obl?' v6b-obl':''}" data-id="${t.id}" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.detalle(${t.id})">
       <div class="v3-grow"><div class="v3-t">${esc(t.titulo)}</div>${''/* v6d QA-fix D11: la tarjeta muestra SOLO el nombre; la descripción va en la ficha (detalle) */}
@@ -4198,7 +4201,10 @@ window.FamiliaV3=(function(){
     const limMs=t=>{const n=t.fecha_limite?new Date(t.fecha_limite).getTime():NaN; return isNaN(n)?Infinity:n;};
     // v6c C10b: las vencidas van primero (antes que el resto de avisos); luego los avisos; luego por hora.
     const pri=t=>grupoFecha(t)==='vencido'?0:(!admin&&avisoHijo(t)?1:2);
-    lista.sort((a,b)=>(pri(a)-pri(b))||((limMs(a)-limMs(b))||0)||String(a.titulo).localeCompare(b.titulo));
+    // v6d D20c: dentro de cada prioridad, primero lo ya abierto (habilita_en ≤ ahora o null) por fin asc; después lo que aún no abre, por inicio (habilita_en) asc.
+    const habMs=t=>{const n=t.habilita_en?new Date(t.habilita_en).getTime():NaN; return isNaN(n)?-Infinity:n;};
+    const noAbre=t=>habMs(t)>Date.now()?1:0;
+    lista.sort((a,b)=>(pri(a)-pri(b))||(noAbre(a)-noAbre(b))||(noAbre(a)?(habMs(a)-habMs(b)):0)||((limMs(a)-limMs(b))||0)||String(a.titulo).localeCompare(b.titulo));
     // v6d D20 (final): una sola lista «Hoy» ordenada por hora (orden de arriba: vencidas/avisos y luego hora); lo que aún no abre se ve gris + «Abre HH:MM».
     const hoy=lista.filter(t=>grupoFecha(t)==='hoy'), venc=lista.filter(t=>grupoFecha(t)==='vencido'), luego=lista.filter(t=>grupoFecha(t)==='luego');
     const fila=t=>{
@@ -4221,7 +4227,8 @@ window.FamiliaV3=(function(){
       if(soloLectura()) act='';
       // v6d D20: lo que aún no abre va en la misma lista, solo distinguido por color (estado D7 «aún no abre») + «Abre HH:MM».
       if(abreLuegoHoy(t)){const hh=new Date(t.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
-        return `<div class="v6d-tarde"><span class="v6d-tarde-b">Abre ${esc(hh)}</span>${ficha(t,act)}</div>`;}
+        // v6d D20c: sin chip «Abre HH:MM» suelto; la etiqueta de la tarjeta dice «Aún no abre · Abre HH:MM» (un solo texto).
+        return `<div class="v6d-tarde">${ficha(t,act)}</div>`;}
       return ficha(t,act);
     };
     // V16: si la carga falló, se muestra el error con «Reintentar» (nunca «Nada para hoy.»).
