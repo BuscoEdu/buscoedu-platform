@@ -628,7 +628,7 @@ function statusLabel(t){
 }
 function childNoticeText(t){
   if(!t) return '';
-  if(t.estado==='aviso_aprobada') return 'Tu papá o tu mamá aprobó esta tarea.';
+  if(t.estado==='aviso_aprobada') return (t.titulo||'Tarea')+' aprobada: +'+Math.max(0,Number(t.puntos_aplicados!=null?t.puntos_aplicados:t.puntos)||0)+' pts';   // v6d QA-fix D17: mismo texto que escribe v6d_10
   if(t.estado==='aviso_rechazada') return 'Tu papá o tu mamá no tuvo en cuenta esta tarea.';
   if(t.estado==='aviso_vencida') return 'Tarea vencida';
   return '';
@@ -1428,7 +1428,9 @@ function myNotifs(){
         const back=t.comentario_aprobacion?'Te la devolvieron: ':'Sin hacer: ';
         items.push({key:'t'+t.id,kind:'tarea',id:t.id,text:back+(t.titulo||'tarea')});
       }
-      if(['aviso_aprobada','aviso_rechazada','aviso_vencida'].includes(t.estado)&&(t.asignada_a===u.id||t.conjunto_con===u.id))
+      // v6d QA-fix D17: si ya hay una fila de familia_notificaciones sin leer para esta tarea (p. ej. la de v6d_10, tipo 'tarea',
+      // texto «{tarea} aprobada: +N pts»), se muestra esa y no se duplica con el texto del FE.
+      if(['aviso_aprobada','aviso_rechazada','aviso_vencida'].includes(t.estado)&&(t.asignada_a===u.id||t.conjunto_con===u.id)&&!(state.notifs||[]).some(n=>n.para_id===u.id&&!n.leida&&Number(n.tarea_id)===Number(t.id)))
         items.push({key:'av'+t.id,kind:'tarea',id:t.id,text:childNoticeText(t)});
       if(t.estado==='pendiente_transferencia'&&Number(t.para_quien)===u.id)
         items.push({key:'p'+t.id,kind:'tarea',id:t.id,text:(memberById(t.asignada_a)?.nombre||'Tu hermano')+' te pasa: '+(t.titulo||'tarea')});
@@ -2288,7 +2290,9 @@ function openTaskCard(id, fromBalance){
   const t=state.tasks.find(x=>x.id===id);
   const u=currentUser();
   if(!t||!u||isGoal(t)) return;
-  if(['aviso_aprobada','aviso_rechazada','aviso_vencida'].includes(t.estado)){
+  // v6d QA-fix D10: la vencida (sin puntos) que abre el padre en v3–v6 va a la ficha completa para editar Inicio/Fin.
+  const v6dEditVenc=t.estado==='aviso_vencida'&&!t.puntos_sumados&&v6bOn()&&esPadre(u);
+  if(['aviso_aprobada','aviso_rechazada','aviso_vencida'].includes(t.estado)&&!v6dEditVenc){
     const msg=childNoticeText(t);
     document.getElementById('fichaTitle').textContent=t.titulo||'Tarea';
     document.getElementById('fichaStatus').innerHTML=`<span class="${pillClass(t)}">${esc(msg)}</span><div style="display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:.9rem">${pointsLine(t)}</div>`;
@@ -2368,7 +2372,7 @@ function openTaskCard(id, fromBalance){
       }
     }
   }
-  ['fichaNombre','fichaPuntos','fichaAsignada','fichaRec','fichaDue','fichaVentana','fichaPen','fichaTipo'].forEach(fid=>{
+  ['fichaNombre','fichaPuntos','fichaAsignada','fichaRec','fichaDue','fichaVentana','fichaPen','fichaTipo','fichaIni','fichaFin'].forEach(fid=>{   // v6d QA-fix D10: Inicio/Fin siguen la misma regla (editables en vencida sin puntos)
     const el=document.getElementById(fid);
     if(el) el.disabled=!canEdit;
   });
@@ -4138,7 +4142,7 @@ window.FamiliaV3=(function(){
     const vv=enVentana(t), vcls=vv?' v6-'+vv:'', vtxt=vv==='dentro'?'<span class="v6-vtag ok">En su hora</span>':vv==='poco'?'<span class="v6-vtag warn">Queda poco</span>':vv==='fuera'?'<span class="v6-vtag err">Se pasó la hora</span>':vv==='antes'?'<span class="v6-vtag v6d-antes-t">Aún no abre</span>':'';   // v6d D7
     const obl=esObligatoria(t);
     return `<div class="v3-card ${e.c}${vcls}${obl?' v6b-obl':''}" data-id="${t.id}" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.detalle(${t.id})">
-      <div class="v3-grow"><div class="v3-t">${esc(t.titulo)}</div>${descVisible(t)?`<div class="v6b-dtxt">${esc(descVisible(t))}</div>${descVisible(t).length>70?'<span class="v6b-mas">ver más</span>':''}`:''}
+      <div class="v3-grow"><div class="v3-t">${esc(t.titulo)}</div>${''/* v6d QA-fix D11: la tarjeta muestra SOLO el nombre; la descripción va en la ficha (detalle) */}
       <div class="v3-sub"><span class="v3-chip ${obl?'obl':esDeber(t)?'deber':''}">${obl?'Obligatoria':esDeber(t)?'Deber':'Tarea'}</span>
       ${who?etiquetaMiembro(who)+' ':''/* v6d D21 */}<span class="${e.cls}">${esc(e.txt)}</span>${t.puntos?' · '+t.puntos+' pts':''}</div>
       ${renglonHora(t)}${vtxt?`<div class="v3-sub" style="margin-top:2px">${vtxt}</div>`:''}</div>
@@ -4204,7 +4208,10 @@ window.FamiliaV3=(function(){
         act=`<button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.verVencida(${t.id})">Ver</button>`;
       // v6c C10: «Aceptar» visible en la tarjeta (sin abrirla); la acción sigue siendo aceptarAprobada.
       if(!admin&&t.estado==='aviso_aprobada')
-        act=`<button class="v3-cta v6d-comp" onclick="event.stopPropagation();FamiliaV3.aceptarAprobada(${t.id})">👍 Me comprometo</button>`;   // v6d D17: hijo, índigo
+        act=`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aceptarAprobada(${t.id})">Aceptar +${Math.max(0,Number(t.puntos_aplicados!=null?t.puntos_aplicados:t.puntos)||0)} pts</button>`;   // v6d QA-fix D17: aviso de puntos → «Aceptar», nunca «Me comprometo»
+      // v6d QA-fix D17: «👍 Me comprometo» SOLO en la tarea nueva que le asignaron (pendiente, creada por otro, aún sin comprometerse).
+      if(!admin&&!soloLectura()&&esNuevaAsignada(t,u))
+        act=`<button class="v3-cta v6d-comp" onclick="event.stopPropagation();FamiliaV3.comprometer(${t.id})">👍 Me comprometo</button>`;
       // v6c C10: insignia llamativa encima de la tarjeta cuando espera acción del hijo.
       const av=!admin&&!soloLectura()?avisoHijo(t):'';
       if(av) return `<div class="v6c-aviso"><div class="v6c-aviso-b">${esc(av)}</div>${ficha(t,act)}</div>`;
@@ -4887,7 +4894,9 @@ window.FamiliaV3=(function(){
     const horas=horasSel(), hora=v('v6sHora')||'07:00';
     // v6d D7+D16: duración = Fin − hora general; fin ≤ inicio no guarda.
     const [hI,mI]=String(hora).split(':').map(Number), [hF,mF]=String(v('v6sFin')||'').split(':').map(Number);
-    const venS=(hF*60+mF)-(hI*60+mI); if(!(venS>0)) return showToast('El fin debe ser después del inicio');
+    // v6d QA-fix D7: Fin ≤ Inicio = día siguiente (22:00→00:00 = 120 min); duración > 0 y ≤ 24 h.
+    let venS=(hF*60+mF)-(hI*60+mI); if(isNaN(venS)) return showToast('Elige el fin'); if(venS<=0) venS+=1440;
+    if(!(venS>0&&venS<=1440)) return showToast('El fin debe ser después del inicio');
     {const a0=new Date(); a0.setHours(hI,mI,0,0); if(!await validarV6d(tit,a0,new Date(a0.getTime()+venS*60000))) return;}
     if(!confirm('¿Crear el deber repetitivo «'+tit+'» ('+resumenSerie(men?'0000000':dias,Object.assign({},...DIAS.map((_,i)=>({[i+1]:hora})),horas||{}),men)+') para '+hijos.length+' hijo(s)?')) return;
     const k='serie'; if(enCurso.has(k)) return; enCurso.add(k);
@@ -5262,6 +5271,20 @@ window.FamiliaV3=(function(){
   }
 
   /* --- Hijo: «Entendido» en una tarea aprobada → familia_rpc_aceptar_aprobada (suma los puntos en BD). --- */
+  /* v6d QA-fix D17: «Me comprometo» = acuse del hijo a una tarea nueva asignada por otro. No hay columna en la BD para el
+     acuse (hueco de contrato): se guarda en este dispositivo y quita el aviso; nunca cambia puntos ni estado. */
+  function comprometidas(){try{return new Set(JSON.parse(localStorage.getItem('familiaV6dComprometidas')||'[]'));}catch(e){return new Set();}}
+  function esNuevaAsignada(t,u){
+    if(!t||!u||t.estado!=='pendiente'||t.estado_vencida||Number(t.creada_por)===Number(u.id)) return false;
+    if(!(t.asignada_a===u.id||t.conjunto_con===u.id)) return false;
+    const c=t.creado_en?new Date(t.creado_en).getTime():0; if(!c||Date.now()-c>7*86400000) return false;
+    return !comprometidas().has(t.id);
+  }
+  function comprometer(id){
+    const t=state.tasks.find(x=>x.id===id); if(!t) return;
+    const c=comprometidas(); c.add(id); try{localStorage.setItem('familiaV6dComprometidas',JSON.stringify([...c].slice(-500)));}catch(e){}
+    showToast('¡Listo! Te comprometiste con '+(t.titulo||'la tarea')); pintar();
+  }
   async function aceptarAprobada(id){
     if(soloLectura()) return;
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
@@ -5271,7 +5294,7 @@ window.FamiliaV3=(function(){
     enCurso.delete(k); if(!d) return;
     ocultas.add(id); pintar();
     // v6d D17: toast propio del hijo (nunca comparte texto con el «Aprobada» del padre).
-    {const tt=state.tasks.find(x=>x.id===id); showToast(d.idempotente?'Ya estaba aplicado':('¡Listo! Te comprometiste con '+((tt&&tt.titulo)||'la tarea')));} scheduleReload();
+    {const tt=state.tasks.find(x=>x.id===id); showToast(d.idempotente?'Ya estaba aplicado':('Guardado: '+((tt&&tt.titulo)||'la tarea')+(tt&&tt.puntos_aplicados?' · +'+tt.puntos_aplicados+' pts':'')));} scheduleReload();   // v6d QA-fix D17: aceptar puntos ≠ comprometerse
   }
   /* v6b B1: «Devolver» ya no envía sin preguntar. Desde la bandeja abre la ficha de revisión (B2); desde la ficha
      toma la nota, pide UNA confirmación y, si la RPC responde bien, cierra la ventana y avisa. Si falla, la ficha
@@ -6185,7 +6208,7 @@ window.FamiliaV3=(function(){
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
   // v6d D4/D20: se exponen puedeRealizada (ficha v1) y limitesHoy (filtro «Hoy» de la v1).
-  return {hojaConvertirSerie,convertirSerie,hojaMultas,multaAplicar,hojaMultaEditar,multaGuardar,multaArchivar,noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {comprometer,hojaConvertirSerie,convertirSerie,hojaMultas,multaAplicar,hojaMultaEditar,multaGuardar,multaArchivar,noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 <script>
