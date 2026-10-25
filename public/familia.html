@@ -3916,9 +3916,23 @@ window.FamiliaV3=(function(){
      (familia_rpc_enviar_tarde acepta por_decidir). Supuesto: con solo el estado no se distingue del 'por_decidir' que deja
      «Entendido» del hijo (aceptar_vencida); en ambos casos se muestra igual de accionable. vencidaServidor (C7c) queda
      como respaldo para filas viejas en no_terminada. */
-  function vencidaTrigger(t){return !!t&&t.estado==='pendiente'&&t.estado_vencida==='por_decidir'&&!t.puntos_sumados;}
+  /* v6c fix3 N1: en prod el job deja estado='no_terminada' + estado_vencida='por_decidir' (qa-r t533/t534), no 'pendiente'.
+     Ambos estados son la misma vencida accionable. Si el hijo ya tocó «Entendido» en este dispositivo (fix3 N2), deja de
+     verla como accionable (el padre la sigue decidiendo en Revisar por vencidos()). */
+  function vencidaTrigger(t){return !!t&&(t.estado==='pendiente'||t.estado==='no_terminada')&&t.estado_vencida==='por_decidir'&&!t.puntos_sumados&&!entendidaHijo(t);}
+  // v6c fix3 N2: ids que el hijo ya dio por «Entendido» (localStorage; si falla, solo en memoria).
+  const entendidasMem=new Set();
+  function entendidaHijo(t){
+    const u=currentUser(); if(!t||!u||isAdmin(u)) return false;
+    if(entendidasMem.has(t.id)) return true;
+    try{return JSON.parse(localStorage.getItem('familiaV6cEntendidas')||'[]').includes(t.id);}catch(e){return false;}
+  }
+  function marcarEntendida(id){
+    entendidasMem.add(id);
+    try{const l=JSON.parse(localStorage.getItem('familiaV6cEntendidas')||'[]'); if(!l.includes(id)){l.push(id); localStorage.setItem('familiaV6cEntendidas',JSON.stringify(l.slice(-200)));}}catch(e){}
+  }
   // v6c C8b: el borrador ya no se oculta al padre (necesita «Activar»); al hijo se le sigue ocultando en pintarHoy.
-  function cerrada(t){return t.estado==='rechazada'||t.estado==='completada'||(t.estado==='no_terminada'&&!vencidaServidor(t));}
+  function cerrada(t){return t.estado==='rechazada'||t.estado==='completada'||(t.estado==='no_terminada'&&!vencidaServidor(t)&&!(t.estado_vencida==='por_decidir'&&!t.puntos_sumados));}   // v6c fix3 N1: no_terminada+por_decidir no es cerrada (ni para el padre aunque el hijo diera «Entendido»)
 
   /* --- Inicio de semana: domingo 00:00 en la hora local del dispositivo (datos en UTC). --- */
   function inicioSemana(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-d.getDay());return d;}
@@ -5309,7 +5323,7 @@ window.FamiliaV3=(function(){
       return `<p class="v6b-ro">Solo lectura: entra como ${esc(u.nombre||'el hijo')} para enviarla.</p><button class="v3-cta v3-full" disabled aria-disabled="true">Ya la hice</button>`;
     if(puedeEnviarTarde(t,u))
       return `<p class="v3-st-err" style="margin-top:10px;font-weight:700">Se pasó la hora.</p><p class="v3-sub">Puedes enviarla tarde (papá o mamá deciden si cuenta) o pedir más tiempo.</p>${camposEnvio(t)}
-      <div class="v6b-acc"><button class="v3-cta" onclick="FamiliaV3.enviar(${t.id},true)">Enviar tarde</button><button class="v3-btn2" onclick="FamiliaV3.pedirTiempo(${t.id})">Pedir más tiempo</button></div>`;
+      <div class="v6b-acc"><button class="v3-cta" onclick="FamiliaV3.enviar(${t.id},true)">Enviar tarde</button><button class="v3-btn2" onclick="FamiliaV3.pedirTiempo(${t.id})">Pedir más tiempo</button>${''/* v6c fix3 N2: «Entendido» en la ficha de la vencida */}<button class="v3-btn2" onclick="FamiliaV3.entendido(${t.id})">Entendido, se me pasó</button></div>`;
     if(!puedeEnviar(t,u)) return '';
     // v4 · pasar a un hermano (solo el dueño, tarea pendiente).
     const herm=state.members.filter(m=>isKid(m)&&m.id!==u.id);
@@ -5557,8 +5571,13 @@ window.FamiliaV3=(function(){
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     {const t=state.tasks.find(x=>x.id===id); if(!confirm('¿Aceptar que «'+((t&&t.titulo)||'esta tarea')+'» se te pasó?')) return;}
     cerrarHoja();
-    const r=await rpc('familia_rpc_aceptar_vencida',{p_tarea_id:id,p_actor_id:state.currentUserId});
-    if(r){const t=state.tasks.find(x=>x.id===id); if(t) t.estado_vencida='por_decidir'; pintar(); scheduleReload();}
+    // v6c fix3 N2: error y respuesta vacía son fallos distintos (rpc() ya avisa el error y devuelve null).
+    const {data:r,error}=await supabase.rpc('familia_rpc_aceptar_vencida',{p_tarea_id:id,p_actor_id:state.currentUserId});
+    if(error) return showToast(msgErrorBD(error));
+    if(r==null) return showToast('No se pudo: respuesta vacía del servidor. Recarga y revisa la tarea.');
+    {const t=state.tasks.find(x=>x.id===id); if(t) t.estado_vencida='por_decidir';}
+    marcarEntendida(id);   // v6c fix3 N2: ya no vuelve «Enviar tarde» en este dispositivo
+    showToast('Listo: papá o mamá deciden'); pintar(); scheduleReload();
   }
 
   /* --- Crear en 2 pasos. Paso 1: deber o tarea, título, para quién. --- */
