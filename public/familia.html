@@ -1168,6 +1168,7 @@ function passTaskFilter(t){
     const ref=t.habilita_en||t.fecha_limite;
     if(!ref) return false;
     // v6d D20: «Hoy» en v1 usa el mismo día 03:00→03:00 que v3–v6 (incluye lo que abre más tarde hoy).
+    // v6d D20b: ref = inicio (habilita_en) si existe; solo sin inicio se usa fecha_limite.
     if(window.FamiliaV3&&FamiliaV3._diaHoy){const d=FamiliaV3._diaHoy(),x=new Date(ref);return x>=d.ini&&x<d.fin;}
     return new Date(ref).toDateString()===new Date().toDateString();
   }
@@ -4153,8 +4154,11 @@ window.FamiliaV3=(function(){
     // un pendiente con fecha pasada pero sin marcar sigue en «Hoy» (aún no hay acción posible sobre él).
     if(t.estado_vencida||t.estado==='aviso_vencida'||vencidaServidor(t)) return 'vencido';   // v6c C7c
     if(t.estado==='esperando_aprobacion'||t.estado==='aviso_rechazada'||t.estado==='aviso_aprobada') return 'hoy';
+    /* v6d D20b: se clasifica por el INICIO (habilita_en) dentro del día 03:00→03:00, no por fecha_limite:
+       inicio hoy → «Hoy» aunque termine mañana o a medianoche; inicio otro día posterior → «Más adelante».
+       Sin inicio (o inicio de un día anterior, aún abierta) → lógica de siempre por fecha_limite. */
     if(hab&&hab>=fin) return 'luego';
-    if(hab&&hab>=ini&&hab<fin) return 'hoy';   // v6d D20: todo lo que abre hoy (aunque cierre mañana) va en «Hoy»
+    if(hab&&hab>=ini) return 'hoy';
     // v6d fix-serie: el fin exactamente en el corte cuenta como de hoy (antes lim===fin caía en «Más adelante», plegado).
     if(!lim||(lim>=ini&&lim<=fin)) return 'hoy';
     return lim>=fin?'luego':'hoy';   // fecha pasada sin marcar → «Hoy» (ver M2)
