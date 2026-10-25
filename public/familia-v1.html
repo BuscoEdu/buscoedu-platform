@@ -463,21 +463,25 @@ function esc(s){
     return '&'+'#39;';
   });
 }
-function isAdmin(m){
+/* v6d QA-fix D6 v1: isAdmin() = solo padre_admin (familia_miembros.rol_v6d), igual que la v3; sin rol_v6d → es_admin.
+   esPadre() = vista de papá/mamá (padre_admin o padre) para las pantallas generales de padres. */
+function esPadre(m){
   if(!m) return false;
+  if(m.rol_v6d) return m.rol_v6d==='padre_admin'||m.rol_v6d==='padre';
   if(m.es_admin===true) return true;
   return /padre|madre|papá|mamá|abuel|t[ií][oa]|tutor/i.test(m.rol||'');
 }
-function isKid(m){return !!(m&&!isAdmin(m));}
+function isAdmin(m){if(!m) return false; if(m.rol_v6d) return m.rol_v6d==='padre_admin'; return m.es_admin===true||(!('es_admin' in m)&&esPadre(m));}
+function isKid(m){return !!(m&&!esPadre(m));}
 function requireAdmin(){
-  if(isAdmin(currentUser())) return true;
+  if(esPadre(currentUser())) return true;
   showToast('Solo papá o mamá pueden hacer eso');
   return false;
 }
 function currentUser(){return state.members.find(m=>m.id===state.currentUserId);}
 function memberById(id){return state.members.find(m=>m.id===Number(id));}
 function isGoal(t){return t&&t.descripcion==='META';}
-function otherParent(id){return state.members.find(m=>isAdmin(m)&&m.id!==Number(id));}
+function otherParent(id){return state.members.find(m=>esPadre(m)&&m.id!==Number(id));}
 function spouseLabel(m){
   if(/madre|mamá|esposa/i.test(m?.rol||'')) return 'esposo';
   if(/padre|papá|esposo/i.test(m?.rol||'')) return 'esposa';
@@ -542,6 +546,7 @@ function closeModal(id){document.getElementById(id).classList.remove('show');}
 const v6dEnCurso=new Set(), v6dReq={};
 async function v6dRealizada(id){
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
+  if(!isAdmin(currentUser())) return showToast('Solo el padre admin puede marcar Realizada');   // v6d QA-fix D6 v1
   const nom=(memberById(t.asignada_a)||{}).nombre||'el hijo';
   if(!confirm('¿'+nom+' hizo «'+t.titulo+'»?'+(Number(t.puntos)?' (+'+t.puntos+' pts)':''))) return;
   const k='rz'+id; if(v6dEnCurso.has(k)) return; v6dEnCurso.add(k);
@@ -634,7 +639,7 @@ function isClosedTask(t){
 }
 function taskAudience(t){
   const m=memberById(t.asignada_a);
-  return m&&isAdmin(m)?'parent':'kid';
+  return m&&esPadre(m)?'parent':'kid';
 }
 function plantillaAudiencia(p){
   if(!p) return 'hijo';
@@ -829,7 +834,7 @@ function memberOptions(selected, opts){
     return empty+state.members.filter(isKid).slice().sort(byName).map(opt).join('')||'<option value="">Sin hijos</option>';
   }
   if(opts.onlyParents){
-    return state.members.filter(m=>isAdmin(m)&&(!opts.excludeSelf||m.id!==me)).slice().sort(byName).map(opt).join('')||'<option value="">Sin el otro padre</option>';
+    return state.members.filter(m=>esPadre(m)&&(!opts.excludeSelf||m.id!==me)).slice().sort(byName).map(opt).join('')||'<option value="">Sin el otro padre</option>';
   }
   let kids=state.members.filter(isKid);
   let parents=state.members.filter(isAdmin);
@@ -924,7 +929,7 @@ function render(){
   fillLoginMembers();
   const u=currentUser();
   if(!u) return;
-  const admin=isAdmin(u);
+  const admin=esPadre(u);
   document.getElementById('familyTitle').textContent='FAMLY · '+familyTitleText();   // v6d QA-fix D8
   paintAvatar(document.getElementById('currentAvatar'), u);
   document.getElementById('currentName').textContent=u.nombre;
@@ -1028,7 +1033,7 @@ function render(){
 }
 function reminderCount(u){
   if(!u) return 0;
-  if(isAdmin(u)) return state.tasks.filter(t=>!isGoal(t)&&['esperando_aprobacion','transferencia_por_aprobar'].includes(t.estado)&&!t.puntos_sumados).length;
+  if(esPadre(u)) return state.tasks.filter(t=>!isGoal(t)&&['esperando_aprobacion','transferencia_por_aprobar'].includes(t.estado)&&!t.puntos_sumados).length;
   return state.tasks.filter(t=>!isGoal(t)&&((t.estado==='pendiente'&&(t.asignada_a===u.id||t.conjunto_con===u.id)&&taskTiming(t)==='ready')||(['aviso_aprobada','aviso_rechazada','aviso_vencida'].includes(t.estado)&&(t.asignada_a===u.id||t.conjunto_con===u.id)))).length;
 }
 function unseenNotifs(){
@@ -1120,14 +1125,14 @@ function renderTasks(){
   const u=currentUser();
   const list=document.getElementById('taskList');
   const parentList=document.getElementById('parentTaskList');
-  if(isAdmin(u)&&taskEditMode){
+  if(esPadre(u)&&taskEditMode){
     const rows=state.plantillas.filter(passDefFilter).sort((a,b)=>String(a.titulo||'').localeCompare(String(b.titulo||''),'es')||(a.id-b.id));
     list.innerHTML=rows.map(plantillaCard).join('')||'<div class="empty">No hay definiciones. Al crear una tarea, guárdala para que aparezca aquí.</div>';
     if(parentList) parentList.innerHTML='';
     return;
   }
   const open=state.tasks.filter(t=>!isGoal(t)&&!isClosedTask(t)&&t.tipo!=='mesada').sort(byDue);
-  if(isAdmin(u)){
+  if(esPadre(u)){
     const want=taskView==='hijos'?'kid':'parent';
     const rows=open.filter(t=>taskAudience(t)===want).filter(passTaskFilter);
     const empty=want==='kid'?'No hay tareas pendientes de los hijos':'No hay tareas entre padres';
@@ -1142,7 +1147,7 @@ function renderTasks(){
 function renderRewards(){
   const list=document.getElementById('rewardList');
   const u=currentUser();
-  const admin=isAdmin(u);
+  const admin=esPadre(u);
   let rows=state.rewards.slice();
   if(!admin||!rewardEditMode) rows=rows.filter(r=>{
     if((r.tipo||'hijo')!==(admin?'padre':'hijo')) return false;
@@ -1297,7 +1302,7 @@ function myNotifs(){
   if(!u) return [];
   const items=[];
   const open=state.tasks.filter(t=>!isGoal(t)&&t.estado!=='completada'&&t.estado!=='borrador');
-  if(isAdmin(u)){
+  if(esPadre(u)){
     open.forEach(t=>{
       if(taskAudience(t)==='parent'&&t.asignada_a===u.id&&t.estado==='pendiente')
         items.push({key:'mine'+t.id,kind:'tarea',id:t.id,text:'Te cargaron: '+(t.titulo||'tarea')});
@@ -1309,7 +1314,7 @@ function myNotifs(){
     state.solicitudes.filter(s=>s.estado==='pendiente').forEach(s=>{
       const kid=memberById(s.miembro_id);
       const r=state.rewards.find(x=>x.id===s.premio_id);
-      if(!kid||isAdmin(kid)||!r||(r.tipo||'hijo')==='padre') return;
+      if(!kid||esPadre(kid)||!r||(r.tipo||'hijo')==='padre') return;
       items.push({key:'s'+s.id,kind:'premio',id:s.id,text:kid.nombre+' pide aprobar: '+(r.nombre||'premio')+' ('+(r.costo||0)+' pts)'});
     });
   }else{
@@ -1341,7 +1346,7 @@ function paintNotifs(){
     return;
   }
   el.innerHTML=items.map(it=>{
-    if(it.kind==='premio'&&u&&isAdmin(u)){
+    if(it.kind==='premio'&&u&&esPadre(u)){
       return `<div class="task-item" style="cursor:default"><div style="flex:1"><strong>${esc(it.text)}</strong><div style="display:flex;gap:6px;margin-top:8px"><button class="btn small success" onclick="approvePrize(${it.id})">Aprobar</button><button class="btn small secondary" onclick="rejectPrize(${it.id})">Rechazar</button></div></div></div>`;
     }
     if(it.kind==='aviso'){
@@ -1468,13 +1473,13 @@ function openBalance(id){
   const closedHtml=closed.map(t=>{
     const o=taskOutcome(t);
     const bad=o.kind==='penalizacion'||o.kind==='cerrada';
-    return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${t.id})"><strong>${esc(o.label||statusLabel(t))}</strong><br>${esc(t.titulo||'Tarea')}<br><small>${windowBlock(t)}</small><br><small>Toca para ver${isAdmin(currentUser())?' o eliminar':''}</small></div>`;
+    return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${t.id})"><strong>${esc(o.label||statusLabel(t))}</strong><br>${esc(t.titulo||'Tarea')}<br><small>${windowBlock(t)}</small><br><small>Toca para ver${esPadre(currentUser())?' o eliminar':''}</small></div>`;
   }).join('');
   document.getElementById('balanceList').innerHTML=(rows.length||closedHtml)?(rows.map(m=>{
     const sign=m.pts>0?'+':'';
     const tid=taskForMove(id,m);
     const task=tid?state.tasks.find(x=>x.id===tid):null;
-    const hint=tid?'<br><small>Toca para ver'+(isAdmin(currentUser())&&task&&isClosedTask(task)?' o eliminar':'')+'</small>':'';
+    const hint=tid?'<br><small>Toca para ver'+(esPadre(currentUser())&&task&&isClosedTask(task)?' o eliminar':'')+'</small>':'';
     if(task&&isClosedTask(task)){
       const o=taskOutcome(task);
       const bad=o.kind==='penalizacion'||o.kind==='cerrada';
@@ -1489,7 +1494,7 @@ function openBalance(id){
 }
 function renderHistory(){
   const u=currentUser();
-  const items=isAdmin(u)?state.history:state.history.filter(h=>h.miembro_id===u.id);
+  const items=esPadre(u)?state.history:state.history.filter(h=>h.miembro_id===u.id);
   const el=document.getElementById('historyList');
   el.innerHTML=items.length?items.map(h=>`<div style="font-size:.85rem;padding:6px 0;border-bottom:1px solid var(--border)">${esc(h.texto||'')}</div>`).join(''):'<div class="empty">Sin historial</div>';
 }
@@ -1671,8 +1676,8 @@ function taskFormError(){
   const entre=tipoNow==='deber'&&taskCreateMode==='hijo'&&document.getElementById('taskDeberModo')&&document.getElementById('taskDeberModo').value==='entre';
   if(!entre&&taskCreateMode==='hijo'&&!asignado) return 'Elige un hijo';
   if(taskCreateMode!=='hijo'&&!asignado) return 'Elige a quién';
-  if(taskCreateMode==='hijo'&&asignado&&isAdmin(memberById(asignado))) return 'Una tarea de hijos no se asigna a un padre';
-  if(taskCreateMode==='padres'&&!isAdmin(memberById(asignado))) return 'Una tarea de padres no se asigna a un hijo';
+  if(taskCreateMode==='hijo'&&asignado&&esPadre(memberById(asignado))) return 'Una tarea de hijos no se asigna a un padre';
+  if(taskCreateMode==='padres'&&!esPadre(memberById(asignado))) return 'Una tarea de padres no se asigna a un hijo';
   if(taskCreateMode==='padres'&&asignado===state.currentUserId) return 'No puedes asignarte una tarea a ti mismo';
   if(taskCreateMode==='hermano'){
     const dest=memberById(asignado);
@@ -1954,7 +1959,7 @@ function renderImmediateBlock(){
   const el=document.getElementById('immediateBlock');
   const card=document.getElementById('immediateCard');
   const u=currentUser();
-  if(!el||!card||!u||isAdmin(u)){ if(el) el.classList.remove('show'); return; }
+  if(!el||!card||!u||esPadre(u)){ if(el) el.classList.remove('show'); return; }
   const t=state.tasks.find(x=>x.inmediata&&(x.asignada_a===u.id||x.conjunto_con===u.id)&&['pendiente','esperando_aprobacion','aviso_vencida'].includes(x.estado)&&!isGoal(x));
   if(!t){ el.classList.remove('show'); return; }
   const end=t.fecha_limite?new Date(t.fecha_limite).getTime():0;
@@ -2057,7 +2062,7 @@ function openTaskCard(id, fromBalance){
     openModal('modal-ficha');
     return;
   }
-  const admin=isAdmin(u);
+  const admin=esPadre(u);
   const parentTask=taskAudience(t)==='parent';
   document.getElementById('fichaTitle').textContent=t.titulo||'Tarea';
   const outcome=taskOutcome(t);
@@ -2158,8 +2163,8 @@ function openTaskCard(id, fromBalance){
   }
   if(admin&&!closed&&!(parentTask&&t.asignada_a===u.id)) acts.push(`<button class="btn danger" onclick="deleteTask(${t.id})">Eliminar tarea</button>`);
   if(admin&&closed) acts.push(`<button class="btn danger" onclick="deleteTask(${t.id})">${t.estado==='completada'?'Eliminar del histórico':'Eliminar'}</button>`);
-  // v6d QA-fix D4: «✅ Realizada» del padre en la ficha (RPC familia_rpc_realizada, antidoble toque y Deshacer 10 s).
-  if(admin&&!closed&&isKid(memberById(t.asignada_a))&&['pendiente','esperando_aprobacion','aviso_vencida'].includes(t.estado))
+  // v6d QA-fix D6 v1: solo padre_admin (isAdmin). v6d QA-fix D4: «✅ Realizada» del padre en la ficha (RPC familia_rpc_realizada, antidoble toque y Deshacer 10 s).
+  if(isAdmin(u)&&!closed&&isKid(memberById(t.asignada_a))&&['pendiente','esperando_aprobacion','aviso_vencida'].includes(t.estado))
     acts.push(`<button class="btn success" data-real="${t.id}" onclick="v6dRealizada(${t.id})">✅ Realizada${Number(t.puntos)?' · +'+Number(t.puntos)+' pts':''}</button>`);
   document.getElementById('fichaActions').innerHTML=acts.join('');
   openModal('modal-ficha');
@@ -2197,8 +2202,8 @@ async function saveTaskFicha(id){
   const dest=memberById(asignada);
   const parentTask=taskAudience(t)==='parent';
   if(!dest) return showToast('Elige a quién va');
-  if(!parentTask&&isAdmin(dest)) return showToast('Una tarea de hijos no se puede pasar a un padre');
-  if(parentTask&&!isAdmin(dest)) return showToast('Una tarea de padres no se puede pasar a un hijo');
+  if(!parentTask&&esPadre(dest)) return showToast('Una tarea de hijos no se puede pasar a un padre');
+  if(parentTask&&!esPadre(dest)) return showToast('Una tarea de padres no se puede pasar a un hijo');
   const raw=document.getElementById('fichaTipo')?document.getElementById('fichaTipo').value:'tarea';
   const inmediata=!parentTask&&raw==='inmediata';
   const tipo=raw==='deber'?'deber':'tarea';
@@ -2365,7 +2370,7 @@ async function confirmApproval(id){
 async function confirmMiss(id){
   const t=state.tasks.find(x=>x.id===id);
   const u=currentUser();
-  if(!t||!u||!isAdmin(u)||t.puntos_sumados) return;
+  if(!t||!u||!esPadre(u)||t.puntos_sumados) return;
   const loss=penaltyAmount(t);
   const {data,error}=await supabase.from('familia_tareas').update({estado:'completada',puntos_sumados:true,puntos_aplicados:-loss,cerrado_en:new Date().toISOString()}).eq('id',id).or('puntos_sumados.is.null,puntos_sumados.eq.false').select('id');
   if(error) return showToast(error.message);
@@ -2541,7 +2546,7 @@ async function applyPenalty(){
 function openNewReward(){
   editingRewardId=null;
   document.getElementById('rewardModalTitle').textContent='Nuevo premio';
-  document.getElementById('rewardTipo').value=(isAdmin(currentUser())&&!rewardEditMode)?'padre':'hijo';
+  document.getElementById('rewardTipo').value=(esPadre(currentUser())&&!rewardEditMode)?'padre':'hijo';
   document.getElementById('rewardName').value='';
   document.getElementById('rewardCost').value='50';
   document.getElementById('rewardStock').value='-1';
@@ -2563,7 +2568,7 @@ function openReward(id){
   const r=state.rewards.find(x=>x.id===id);
   const u=currentUser();
   if(!r||!u) return;
-  if(!(isAdmin(u)&&rewardEditMode)) return openKidReward(r,u);
+  if(!(esPadre(u)&&rewardEditMode)) return openKidReward(r,u);
   editingRewardId=id;
   document.getElementById('rewardModalTitle').textContent=r.nombre||'Premio';
   document.getElementById('rewardTipo').value=(r.tipo||'hijo')==='padre'?'padre':'hijo';
@@ -2578,8 +2583,8 @@ function openReward(id){
   const falta=Math.max(0,(r.costo||0)-(u.puntos||0));
   document.getElementById('rewardFalta').innerHTML=falta>0?`<strong style="color:#ef4444">Faltan ${falta} pts</strong>`:'<strong style="color:#10b981">Tienes puntos suficientes</strong>';
   const acts=['<button class="btn" onclick="saveReward()">Guardar cambios</button>'];
-  const claimMine=(r.tipo||'hijo')===(isAdmin(u)?'padre':'hijo');
-  if(isAdmin(u)&&claimMine&&(u.puntos||0)>=(r.costo||0)&&r.activo!==false&&r.stock!==0) acts.push(`<button class="btn success" onclick="redeemReward(${r.id})">Canjear</button>`);
+  const claimMine=(r.tipo||'hijo')===(esPadre(u)?'padre':'hijo');
+  if(esPadre(u)&&claimMine&&(u.puntos||0)>=(r.costo||0)&&r.activo!==false&&r.stock!==0) acts.push(`<button class="btn success" onclick="redeemReward(${r.id})">Canjear</button>`);
   document.getElementById('rewardActions').innerHTML=acts.join('');
   openModal('modal-premio');
 }
@@ -2590,20 +2595,20 @@ function openKidReward(r,u){
   const costo=r.costo||0;
   const tiene=u.puntos||0;
   const parentPrize=(r.tipo||'hijo')==='padre';
-  if(isAdmin(u)!==parentPrize){
+  if(esPadre(u)!==parentPrize){
     document.getElementById('rewardFalta').innerHTML='<p>Este premio no es para ti.</p>';
     document.getElementById('rewardActions').innerHTML='';
     openModal('modal-premio');
     return;
   }
-  const pending=!isAdmin(u)&&state.solicitudes.some(s=>s.estado==='pendiente'&&s.miembro_id===u.id&&s.premio_id===r.id);
+  const pending=!esPadre(u)&&state.solicitudes.some(s=>s.estado==='pendiente'&&s.miembro_id===u.id&&s.premio_id===r.id);
   const puede=r.activo!==false&&r.stock!==0&&tiene>=costo&&!pending;
   const porque=pending?'Ya está esperando a un padre':r.activo===false?'Este premio no está disponible':r.stock===0?'Ya no queda':('Te faltan '+(costo-tiene)+' pts');
   document.getElementById('rewardFalta').innerHTML='<p>'+(r.icono||'🎁')+' <strong>'+esc(r.nombre)+'</strong><br>Cuesta <strong>'+costo+' pts</strong>. Tú tienes <strong>'+tiene+' pts</strong>.</p>'+(puede?'':'<p>'+esc(porque)+'</p>');
-  const label=isAdmin(u)?'Reclamar premio':'Pedir premio';
+  const label=esPadre(u)?'Reclamar premio':'Pedir premio';
   document.getElementById('rewardActions').innerHTML='<button class="btn success" id="btnReclamar"'+(puede?'':' disabled')+'>'+label+'</button>';
   const btn=document.getElementById('btnReclamar');
-  if(puede) btn.onclick=()=>isAdmin(u)?askRedeem(r):askPrize(r);
+  if(puede) btn.onclick=()=>esPadre(u)?askRedeem(r):askPrize(r);
   openModal('modal-premio');
 }
 function askPrize(r){
@@ -2647,7 +2652,7 @@ async function saveReward(){
 async function requestPrize(id){
   const u=currentUser();
   const r=state.rewards.find(x=>x.id===id);
-  if(!u||!r||isAdmin(u)||(r.tipo||'hijo')==='padre') return showToast('Este premio no es para ti');
+  if(!u||!r||esPadre(u)||(r.tipo||'hijo')==='padre') return showToast('Este premio no es para ti');
   if(r.activo===false) return showToast('Este premio no está disponible');
   if(r.stock===0) return showToast('Sin stock');
   if((u.puntos||0)<(r.costo||0)) return showToast('Puntos insuficientes');
@@ -2660,12 +2665,12 @@ async function requestPrize(id){
 }
 async function approvePrize(solicitudId){
   const u=currentUser();
-  if(!isAdmin(u)) return;
+  if(!esPadre(u)) return;
   const s=state.solicitudes.find(x=>x.id===solicitudId);
   if(!s||s.estado!=='pendiente') return showToast('Esa solicitud ya se resolvió');
   const kid=memberById(s.miembro_id);
   const r=state.rewards.find(x=>x.id===s.premio_id);
-  if(!kid||isAdmin(kid)||!r||(r.tipo||'hijo')==='padre') return showToast('No se puede aprobar este premio');
+  if(!kid||esPadre(kid)||!r||(r.tipo||'hijo')==='padre') return showToast('No se puede aprobar este premio');
   const costo=Number(r.costo)||0;
   if((Number(kid.puntos)||0)<costo) return showToast(kid.nombre+' ya no tiene esos puntos');
   if(r.activo===false||r.stock===0) return showToast('Ese premio ya no está disponible');
@@ -2686,7 +2691,7 @@ async function approvePrize(solicitudId){
 }
 async function rejectPrize(solicitudId){
   const u=currentUser();
-  if(!isAdmin(u)) return;
+  if(!esPadre(u)) return;
   const s=state.solicitudes.find(x=>x.id===solicitudId);
   const r=s?state.rewards.find(x=>x.id===s.premio_id):null;
   const {data,error}=await supabase.from('familia_solicitudes_premios').update({estado:'rechazado'}).eq('id',solicitudId).eq('estado','pendiente').select();
@@ -2700,7 +2705,7 @@ async function rejectPrize(solicitudId){
 async function redeemReward(id){
   const u=currentUser();
   const r=state.rewards.find(x=>x.id===id);
-  if(!r||!u||!isAdmin(u)||(r.tipo||'hijo')!=='padre') return showToast('Este premio no es para ti');
+  if(!r||!u||!esPadre(u)||(r.tipo||'hijo')!=='padre') return showToast('Este premio no es para ti');
   if(r.activo===false||(u.puntos||0)<(r.costo||0)) return showToast('Puntos insuficientes');
   if(r.stock===0) return showToast('Sin stock');
   const {error}=await supabase.from('familia_miembros').update({puntos:u.puntos-r.costo}).eq('id',u.id);
@@ -2715,7 +2720,7 @@ async function redeemReward(id){
 }
 function openRewardHistory(){
   const u=currentUser();
-  const canjes=(isAdmin(u)?state.history:state.history.filter(h=>h.miembro_id===u.id)).filter(h=>/canje/i.test(h.texto||''));
+  const canjes=(esPadre(u)?state.history:state.history.filter(h=>h.miembro_id===u.id)).filter(h=>/canje/i.test(h.texto||''));
   document.getElementById('rewardHistoryModal').innerHTML=canjes.length?canjes.map(h=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">${esc(h.texto)}</div>`).join(''):'<div class="empty">Sin canjes</div>';
   openModal('modal-historial-premios');
 }
@@ -2735,7 +2740,7 @@ function openProfile(){
   fillFigureGrid();
   fillColorGrid('profileColorGrid','profColor');
   const fg=document.getElementById('familyNameGroup');
-  fg.style.display=isAdmin(u)?'':'none';
+  fg.style.display=esPadre(u)?'':'none';
   document.getElementById('profFamilyName').value=(state.config.nombre_familia||'').replace(/^familia\s*/i,'').trim();
   openModal('modal-perfil');
 }
@@ -2758,7 +2763,7 @@ async function saveProfile(){
   }
   const {error}=await supabase.from('familia_miembros').update(upd).eq('id',u.id);
   if(error) return showToast(error.message);
-  if(isAdmin(u)){
+  if(esPadre(u)){
     const extra=document.getElementById('profFamilyName').value.trim().replace(/^familia\s*/i,'');
     const full=extra?('Familia '+extra):'Familia';
     await supabase.from('familia_config').update({nombre_familia:full,actualizado_en:new Date().toISOString()}).eq('id',state.config.id||1);
@@ -2786,12 +2791,12 @@ function renderGoals(){
   const u=currentUser();
   const el=document.getElementById('goalList');
   if(!el||!u) return;
-  const goals=state.tasks.filter(t=>isGoal(t)&&(t.asignada_a===u.id||isAdmin(u))&&t.estado!=='completada');
+  const goals=state.tasks.filter(t=>isGoal(t)&&(t.asignada_a===u.id||esPadre(u))&&t.estado!=='completada');
   el.innerHTML=goals.length?goals.map(g=>{
     const who=memberById(g.asignada_a);
     const have=who?.puntos||0;
     const pct=Math.max(0,Math.min(100,Math.round(have/Math.max(1,g.puntos)*100)));
-    return `<div class="goal-item"><strong>${esc(g.titulo)}</strong>${isAdmin(u)&&g.asignada_a!==u.id?' · '+esc(who?.nombre||''):''}<br><small>${have} / ${g.puntos} pts · ${pct}%</small></div>`;
+    return `<div class="goal-item"><strong>${esc(g.titulo)}</strong>${esPadre(u)&&g.asignada_a!==u.id?' · '+esc(who?.nombre||''):''}<br><small>${have} / ${g.puntos} pts · ${pct}%</small></div>`;
   }).join(''):'<div class="empty">Sin metas todavía</div>';
 }
 async function createGoal(){
@@ -2829,7 +2834,7 @@ function openSwitchUser(){
   openModal('modal-usuario');
 }
 function switchTo(id){
-  if(!originalAdminId&&isAdmin(currentUser())) originalAdminId=state.currentUserId;
+  if(!originalAdminId&&esPadre(currentUser())) originalAdminId=state.currentUserId;
   state.currentUserId=id;
   closeModal('modal-usuario');
   render();
@@ -2910,15 +2915,15 @@ function consumeDeepLink(){
     showSection('tareas', document.querySelector('.nav-btn'));
     const t=state.tasks.find(x=>String(x.id)===String(tarea));
     if(!t) return showToast('Esa tarea ya no está');
-    if(!isAdmin(u)&&taskAudience(t)==='parent') return showToast('Esa tarea es entre padres');
-    if(!isAdmin(u)&&t.asignada_a!==u.id&&Number(t.para_quien)!==u.id) return showToast('Esa tarea no es tuya');
+    if(!esPadre(u)&&taskAudience(t)==='parent') return showToast('Esa tarea es entre padres');
+    if(!esPadre(u)&&t.asignada_a!==u.id&&Number(t.para_quien)!==u.id) return showToast('Esa tarea no es tuya');
     openTaskCard(t.id);
     return;
   }
   showSection('premios', document.querySelectorAll('.nav-btn')[1]);
   const r=state.rewards.find(x=>String(x.id)===String(premio));
   if(!r) return showToast('Ese premio ya no está');
-  if(!isAdmin(u)&&(r.tipo||'hijo')==='padre') return showToast('Ese premio es de los padres');
+  if(!esPadre(u)&&(r.tipo||'hijo')==='padre') return showToast('Ese premio es de los padres');
   openReward(r.id);
 }
 
@@ -2970,7 +2975,7 @@ function openNewMember(){
 }
 async function createMember(){
   const u=currentUser();
-  if(!isAdmin(u)) return showToast('Solo un adulto puede crear integrantes');
+  if(!esPadre(u)) return showToast('Solo un adulto puede crear integrantes');
   const nombre=document.getElementById('newMemberName').value.trim();
   const tipo=document.getElementById('newMemberType').value;
   const rol=document.getElementById('newMemberRole').value;
@@ -3035,7 +3040,7 @@ function paintMesadaCard(){
 function openMesada(){paintMesadaCard();}
 async function cargarMesada(){
   const u=currentUser();
-  if(!isAdmin(u)) return;
+  if(!esPadre(u)) return;
   const pts=Math.max(0,+document.getElementById('mesadaPts').value||0);
   if(!pts) return showToast('Escribe los puntos');
   const sel=document.getElementById('mesadaKid').value;
@@ -3247,7 +3252,7 @@ function syncRewardParent(){
 }
 async function maybeAskCycle(){
   const u=currentUser();
-  if(!u||!isAdmin(u)||state._askedCycle) return;
+  if(!u||!esPadre(u)||state._askedCycle) return;
   const today=new Date();
   const manana=new Date(today.getFullYear(), today.getMonth(), today.getDate()+1);
   if(manana.getMonth()===today.getMonth()) return;
