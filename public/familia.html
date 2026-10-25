@@ -2736,7 +2736,7 @@ async function confirmApproval(id){
   }
   const kids=state.members.filter(isKid);
   if(taskAudience(t)!=='parent'&&kids.length){
-    await supabase.from('familia_notificaciones').insert(kids.map(k=>({para_id:k.id,tipo:'tarea',tarea_id:id,texto:'Aprobada: '+(t.titulo||'tarea')+(who?' de '+who.nombre:'')})));
+    await supabase.from('familia_notificaciones').insert(kids.map(k=>({para_id:k.id,tipo:'tarea',tarea_id:id,texto:(v6bOn()&&who&&k.id===who.id)?(t.titulo||'Tarea')+' aprobada: +'+pts+' pts':'Aprobada: '+(t.titulo||'tarea')+(who?' de '+who.nombre:'')})));   // v6d D17: al hijo «{tarea} aprobada: +N pts»
   }
   showToast('Aprobada');
   closeFicha();
@@ -4808,6 +4808,10 @@ window.FamiliaV3=(function(){
     const g=(document.getElementById('v6sHora')||{}).value||'';
     DIAS.forEach((_,i)=>{const on=(document.getElementById('v6sD'+i)||{}).checked, f=document.getElementById('v6sF'+i), h=document.getElementById('v6sH'+i);
       if(f) f.style.display=on?'flex':'none'; if(h&&!h.dataset.tocado) h.value=g;});
+    // v6d D14: Mensual bloquea y limpia L–D y sus horas; al desmarcar vuelven. Aviso «Sale una vez al mes, el día N».
+    {const men=!!(document.getElementById('v6sMen')||{}).checked;
+      DIAS.forEach((_,i)=>{const c=document.getElementById('v6sD'+i), h=document.getElementById('v6sH'+i); if(c){if(men) c.checked=false; c.disabled=men;} if(h) h.disabled=men; const f=document.getElementById('v6sF'+i); if(f&&men) f.style.display='none';});
+      const nd=mensualSel(); const e2=document.getElementById('v6sErr'); if(men&&e2) setTimeout(()=>{e2.textContent=nd?'Sale una vez al mes, el día '+nd+' (si el mes es más corto, el último día).':'El día del mes va de 1 a 30';},0);}
     const ok=diasSel()!=='0000000'||mensualSel()!=null, b=document.getElementById('v6sOk'), e=document.getElementById('v6sErr');
     if(b) b.disabled=!ok; if(e) e.textContent=ok?'':'Marca al menos un día (o «Mensual»).';
   }
@@ -5266,7 +5270,12 @@ window.FamiliaV3=(function(){
       // Guía F3 (rev. BE): desde la v3 se devuelve con p_con_aviso:false.
       const d=await rpc('familia_rpc_devolver_tarea',{p_tarea_id:id,p_actor_id:state.currentUserId,p_comentario:c||null,p_con_aviso:false});
       if(!d) return;
-      cerrarHoja(); showToast(d.idempotente?'Ya estaba aplicado':'Devuelta a '+nom); scheduleReload();
+      showToast(d.idempotente?'Ya estaba aplicado':'Devuelta a '+nom); scheduleReload();
+      // v6d D12: botón opcional «Enviar por WhatsApp» (la devolución ya quedó hecha; nunca depende de él).
+      {const km=memberById(t.asignada_a)||{}, num=String(km.telefono||km.celular||km.whatsapp||'').replace(/\D/g,'');
+        const txt='Devolví «'+t.titulo+'»'+(c?': '+c:'')+'. Revísala aquí: '+location.origin+location.pathname;
+        const url='https://wa.me/'+(num||'')+'?text='+encodeURIComponent(txt);
+        abrirHoja(`<h3 class="v3-st-ok">Devuelta a ${esc(nom)}</h3><a class="v3-cta v3-full" style="display:block;text-align:center;margin-top:10px" href="${esc(url)}" target="_blank" rel="noopener">Enviar por WhatsApp</a><button class="v3-btn2 v3-full" style="margin-top:8px" onclick="FamiliaV3.cerrarHoja()">Listo</button>`);}
     }catch(e){showToast('No se pudo devolver: '+((e&&e.message)||e));}
     finally{enCurso.delete(k);}
   }
@@ -5393,7 +5402,7 @@ window.FamiliaV3=(function(){
       ${esPadre(currentUser())&&!soloLectura()?`<button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.abrirV1(()=>openTaskCard(${t.id}))">Editar / eliminar (ficha completa)</button>`:''}
       ${t.comentario_completado?`<p class="v3-sub">«${esc(t.comentario_completado)}»</p>`:''}${comentAprob(t)&&/aprob|complet/.test(t.estado)?`<p class="v3-sub v3-st-ok">Papá/mamá: «${esc(comentAprob(t))}»</p>`:''}<div id="v3Foto" class="v3-sub">Cargando evidencia…</div>
       ${t.serie_id?'<div id="v6sFicha" class="v3-sub" style="margin-top:6px">Cargando serie…</div>':''/* v6c C11 */}
-      ${accionesHijo(t)}${accionesPadre(t)}${accionVencidaPadre(t)}${accionActivar(t)}${accionRealizada(t)}${accionNoHizo(t)}
+      ${accionesHijo(t)}${accionesPadre(t)}${accionVencidaPadre(t)}${accionConvertirSerie(t)}${accionActivar(t)}${accionRealizada(t)}${accionNoHizo(t)}
       <button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.cerrarHoja()">Cerrar</button>`);
     // v6b B19: se piden fotos/fotos_2 (hasta 3 cada uno); si la BD aún no los tiene, se vuelve a las columnas viejas.
     let {data,error}=await supabase.from('familia_tareas').select('foto_url,foto_2,foto_path,foto_2_path,fotos,fotos_2').eq('id',id).is('archivada_en',null).maybeSingle();   // v4: sin archivadas
@@ -5733,6 +5742,35 @@ window.FamiliaV3=(function(){
       showToast(archivar?'Multa archivada':'Multa reactivada'); await loadAll(); hojaMultas(!archivar);}
     finally{enCurso.delete(k);}
   }
+  /* v6d D13: deber antiguo (sin serie_id) → «Configurar días y horas» → familia_rpc_deber_convertir_serie (con respaldo en BD;
+     el antiguo se reemplaza). Solo padre_admin (matriz «reglas»). */
+  function accionConvertirSerie(t){
+    if(!t||t.serie_id||!esDeber(t)||soloLectura()||!puede('reglas')||cerrada(t)) return '';
+    return `<button class="v3-btn2 v3-full" style="margin-top:8px" onclick="FamiliaV3.hojaConvertirSerie(${t.id})">Configurar días y horas</button>`;
+  }
+  function hojaConvertirSerie(id){
+    const t=state.tasks.find(x=>x.id===id); if(!t) return;
+    const h0=t.habilita_en?new Date(t.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false}):'07:00';
+    reqId('cs'+id);
+    abrirHoja(`<h3>Configurar días y horas</h3><p class="v3-sub">${esc(t.titulo)} · se crea la serie y este deber se reemplaza.</p>
+      ${camposDias('1111100',null,h0)}
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v6sMen" style="width:auto" onchange="FamiliaV3._serieRef()"> Mensual (un día fijo)</label>
+      <input id="v6sMenDia" type="number" min="1" max="30" value="1" oninput="FamiliaV3._serieRef()" aria-label="Día del mes (1 a 30)">
+      <p class="v3-sub v3-st-err" id="v6sErr"></p>
+      <button class="v3-cta v3-full" id="v6sOk" style="margin-top:10px" onclick="FamiliaV3.convertirSerie(${id})">Guardar</button>`);
+    serieRefrescar();
+  }
+  async function convertirSerie(id){
+    const men=mensualSel(), dias=men!=null?'0000000':diasSel(); if(dias==='0000000'&&men==null) return showToast('Marca al menos un día');
+    const hora=(document.getElementById('v6sHora')||{}).value||'07:00', k='cs'+id; if(enCurso.has(k)) return; enCurso.add(k);
+    const b=document.getElementById('v6sOk'); if(b) b.disabled=true;
+    try{
+      const {data:d,error}=await supabase.rpc('familia_rpc_deber_convertir_serie',{p_actor_id:originalAdminId||state.currentUserId,p_tarea_id:id,p_dias:dias,p_hora:hora,p_client_req_id:reqId(k),p_mensual_dia:men});
+      if(b) b.disabled=false;
+      if(error) return showToast(faltaEnBD(error)?'Convertir en serie aún no está en la BD (v6d_07)':msgErrorBD(error));
+      delete reqIds[k]; cerrarHoja(); showToast('Listo: ahora es un deber repetitivo'); loadAll();
+    }finally{enCurso.delete(k);}
+  }
   let deshacerReal=null;
   async function realizada(id){
     const t=state.tasks.find(x=>x.id===id); if(!t||!puedeRealizada(t)) return showToast('Esta tarea ya no se puede marcar. Recarga para ver su estado.');
@@ -5778,7 +5816,9 @@ window.FamiliaV3=(function(){
   function accionVencidaPadre(t){
     if(!esPadre(currentUser())||soloLectura()||!vencidos().some(x=>x.id===t.id)) return '';
     if(!puede('realizada_descontar_perdonar')) return '';   // v6d D6: Descontar/Perdonar solo con permiso
-    return `<div class="v6b-acc" style="margin-top:10px"><button class="v3-btn2 err" onclick="FamiliaV3.descontar(${t.id})">Descontar${t.pierde_pts?' −'+t.pierde_pts:''}</button><button class="v3-btn2" onclick="FamiliaV3.perdonar(${t.id})">Perdonar</button></div>`;
+    // v6d D10: «Se pasó la hora · decides tú» + «Descontar −N» (N = descuento real: pierde_pts o descuento del deber).
+    const nD10=Math.abs(Number(t.pierde_pts)||Number(t.puntos_penalizacion_dia)||0);
+    return `<p class="v3-sub v3-st-err" style="margin-top:10px">Se pasó la hora · decides tú</p><div class="v6b-acc" style="margin-top:6px"><button class="v3-btn2 err" onclick="FamiliaV3.descontar(${t.id})">Descontar${nD10?' −'+nD10:''}</button><button class="v3-btn2" onclick="FamiliaV3.perdonar(${t.id})">Perdonar</button></div>`;
   }
   // v6c C8b: borrador viejo → «Activar» en la ficha v3 (usa activateTask de la v1: confirma, valida y recarga).
   function accionActivar(t){
@@ -6127,7 +6167,7 @@ window.FamiliaV3=(function(){
   window.addEventListener('load',()=>setTimeout(repintar,50));
 
   // v6d D4/D20: se exponen puedeRealizada (ficha v1) y limitesHoy (filtro «Hoy» de la v1).
-  return {hojaMultas,multaAplicar,hojaMultaEditar,multaGuardar,multaArchivar,noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {hojaConvertirSerie,convertirSerie,hojaMultas,multaAplicar,hojaMultaEditar,multaGuardar,multaArchivar,noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 <script>
