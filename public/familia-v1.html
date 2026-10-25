@@ -1132,6 +1132,9 @@ function renderTasks(){
     return;
   }
   const open=state.tasks.filter(t=>!isGoal(t)&&!isClosedTask(t)&&t.tipo!=='mesada').sort(byDue);
+  // v6d D20c: con el filtro «Hoy», primero lo abierto (habilita_en ≤ ahora o null) por fin asc (sin fin al final); luego lo que aún no abre por inicio asc.
+  if(taskFilter==='hoy'){const ahora=Date.now(),hab=t=>t.habilita_en?new Date(t.habilita_en).getTime():-Infinity,na=t=>hab(t)>ahora?1:0;
+    open.sort((a,b)=>(na(a)-na(b))||(na(a)?(hab(a)-hab(b)):byDue(a,b))||(a.id-b.id));}
   if(esPadre(u)){
     const want=taskView==='hijos'?'kid':'parent';
     const rows=open.filter(t=>taskAudience(t)===want).filter(passTaskFilter);
