@@ -110,6 +110,7 @@ h3{margin-bottom:12px}
 /* v6d D7+D20: «aún no abre» = blanco/gris; texto #374151 sobre #f3f4f6 (contraste ≈ 9:1). Al abrir pasa a verde (v6-dentro). */
 .v3-card.v6-antes{background:#fff!important;border-left:4px solid #9ca3af!important}
 .v6d-antes-t{color:#374151;background:#f3f4f6}
+.v3-modo .v6d-vone,body.v3-modo .form-group.v6d-v1{display:none}   /* v6d D7: en v3–v6 la ficha usa Inicio/Fin */
 .v6d-tarde-b{display:inline-block;font-size:.8rem;font-weight:700;color:#374151;background:#f3f4f6;border:1px solid #9ca3af;border-radius:999px;padding:2px 8px;margin:4px 0}
 </style>
 <!-- v6d control de versión: la misma etiqueta que FAMILIA_VERSION; el chequeo la compara con la página del servidor. -->
@@ -257,7 +258,7 @@ h3{margin-bottom:12px}
   <div class="form-group"><label>Plantilla</label><select id="taskPlantilla" onchange="applyPlantilla()"><option value="">Plantilla</option></select></div>
   <div class="form-group"><label>Título</label><input id="taskTitle"></div>
   <!-- v6b B15: descripción al crear (Crear completo, solo modo v3–v6). -->
-  <div class="form-group v6b-solo"><label for="taskDescripcion">Descripción (opcional)</label><textarea id="taskDescripcion" maxlength="280" rows="3" oninput="contarDesc(this)"></textarea><small class="v6b-cont" id="taskDescripcionCont">0/280</small></div>
+  <div class="form-group v6b-solo"><label for="taskDescripcion">Descripción (opcional)</label><textarea id="taskDescripcion" maxlength="300" rows="3" oninput="contarDesc(this)"></textarea><small class="v6b-cont" id="taskDescripcionCont">0/300</small></div>
   <div class="form-group"><label>Ícono</label><div class="emoji-grid" id="taskIconGrid"></div><input type="hidden" id="taskIcon" value="📋"></div>
   <div class="form-group" id="taskPointsWrap"><label>Puntos</label><input type="number" id="taskPoints" value="10"></div>
   <div class="form-group"><label>Multa por no hacerlo</label><!-- v6d D9 --><input type="number" id="taskPenalty" min="0" value="0"></div>
@@ -315,7 +316,7 @@ h3{margin-bottom:12px}
   <div class="form-group"><label>Para</label><select id="elemAudiencia" onchange="syncElemTipo()"><option value="hijo">Hijos</option><option value="padre">Padres</option></select></div>
   <div class="form-group"><label>Nombre</label><input id="elemNombre"></div>
   <!-- v6b B15: descripción de la plantilla (solo modo v3–v6; la v1 no la ve). -->
-  <div class="form-group v6b-solo"><label for="elemDescripcion">Descripción (opcional)</label><textarea id="elemDescripcion" maxlength="280" rows="3" oninput="contarDesc(this)"></textarea><small class="v6b-cont" id="elemDescripcionCont">0/280</small></div>
+  <div class="form-group v6b-solo"><label for="elemDescripcion">Descripción (opcional)</label><textarea id="elemDescripcion" maxlength="300" rows="3" oninput="contarDesc(this)"></textarea><small class="v6b-cont" id="elemDescripcionCont">0/300</small></div>
   <div class="form-group"><label>Tipo</label><select id="elemTipo" onchange="syncElemTipo()"><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Obligatoria</option></select></div>
   <div class="form-group" id="elemRecWrap"><label>Cada cuánto</label><select id="elemRec"><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
   <div class="form-group"><label>Ícono</label><div class="emoji-grid" id="elemIconGrid"></div><input type="hidden" id="elemIcon" value="📋"></div>
@@ -418,13 +419,16 @@ h3{margin-bottom:12px}
   <div id="fichaFields">
   <div class="form-group"><label>Título</label><input id="fichaNombre"></div>
   <!-- v6b B15: descripción al editar la tarea (solo modo v3–v6). -->
-  <div class="form-group v6b-solo"><label for="fichaDescripcion">Descripción (opcional)</label><textarea id="fichaDescripcion" maxlength="280" rows="3" oninput="contarDesc(this)"></textarea><small class="v6b-cont" id="fichaDescripcionCont">0/280</small></div>
+  <div class="form-group v6b-solo"><label for="fichaDescripcion">Descripción (opcional)</label><textarea id="fichaDescripcion" maxlength="300" rows="3" oninput="contarDesc(this)"></textarea><small class="v6b-cont" id="fichaDescripcionCont">0/300</small></div>
   <div class="form-group"><label>Tipo</label><select id="fichaTipo" onchange="syncFichaTipo()"><option value="tarea">Tarea</option><option value="deber">Deber</option><option value="inmediata">Obligatoria</option></select></div>
   <div class="form-group"><label>Puntos</label><input type="number" id="fichaPuntos"></div>
   <div class="form-group"><label>Asignada a</label><select id="fichaAsignada"></select></div>
   <div class="form-group" id="fichaRecWrap"><label>Cada cuánto</label><select id="fichaRec"><option value="once">Una vez</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
-  <div class="form-group"><label>Hora de la tarea</label><input type="datetime-local" id="fichaDue"></div>
-  <div class="form-group"><label>Ventana (horas antes y después de la hora)</label><input type="number" id="fichaVentana" min="0.25" step="0.25" max="336" value="1"></div>
+  <div class="form-group v6d-v1"><label>Hora de la tarea</label><input type="datetime-local" id="fichaDue"></div>
+  <div class="form-group v6d-v1"><label>Ventana (horas antes y después de la hora)</label><input type="number" id="fichaVentana" min="0.25" step="0.25" max="336" value="1"></div>
+  <!-- v6d D7: en modo v3–v6 la ficha edita Inicio y Fin (fecha y hora); la v1 sigue con hora + ventana. -->
+  <div class="form-group v6b-solo"><label for="fichaIni">Inicio</label><input type="datetime-local" id="fichaIni"></div>
+  <div class="form-group v6b-solo"><label for="fichaFin">Fin</label><input type="datetime-local" id="fichaFin"></div>
   <div class="form-group"><label>Resta por cada día de atraso</label><input type="number" id="fichaPen"></div>
   </div>
   <div id="fichaRead" style="display:none"></div>
@@ -2324,6 +2328,9 @@ function openTaskCard(id, fromBalance){
   const cierraMs=t.fecha_limite?new Date(t.fecha_limite).getTime():0;
   const centroMs=(abreMs&&cierraMs)?(abreMs+cierraMs)/2:(cierraMs||abreMs||0);
   document.getElementById('fichaDue').value=centroMs?toLocalInput(new Date(centroMs).toISOString()):'';
+  // v6d D7: Inicio/Fin reales en la ficha v3–v6.
+  {const fi=document.getElementById('fichaIni'), ff=document.getElementById('fichaFin');
+    if(fi) fi.value=t.habilita_en?toLocalInput(t.habilita_en):''; if(ff) ff.value=t.fecha_limite?toLocalInput(t.fecha_limite):'';}
   const fichaWin=document.getElementById('fichaVentana');
   // ventana_horas es integer en BD: el formulario muestra horas enteras (mínimo 1).
   if(fichaWin) fichaWin.value=(abreMs&&cierraMs)?Math.max(1, Math.ceil((cierraMs-abreMs)/2/3600000)):(t.ventana_horas||1);
@@ -2443,8 +2450,17 @@ async function saveTaskFicha(id){
   const centro=fromLocalInput(document.getElementById('fichaDue').value);
   const centroMs=centro?new Date(centro).getTime():0;
   const half=ventana*3600000;
-  const habilita=centroMs?new Date(centroMs-half).toISOString():null;
-  const limite=centroMs?new Date(centroMs+half).toISOString():null;
+  let habilita=centroMs?new Date(centroMs-half).toISOString():null;
+  let limite=centroMs?new Date(centroMs+half).toISOString():null;
+  // v6d D7+D16: en v3–v6 manda Inicio/Fin de la ficha; fin ≤ inicio no guarda; pasado/00–05 h → «¿Seguro?».
+  let ventanaV6d=null;
+  if(v6bOn()&&document.getElementById('fichaIni')){
+    const ia=document.getElementById('fichaIni').value, fa=document.getElementById('fichaFin').value;
+    if(!ia||!fa) return showToast('Elige inicio y fin');
+    if(!await validarV6d(titulo,new Date(ia),new Date(fa))) return;
+    habilita=new Date(ia).toISOString(); limite=new Date(fa).toISOString();
+    ventanaV6d=Math.max(1,Math.ceil((new Date(fa)-new Date(ia))/3600000));
+  }
   const payload={
     titulo,
     puntos:+document.getElementById('fichaPuntos').value||0,
@@ -2456,11 +2472,13 @@ async function saveTaskFicha(id){
     recurrencia:tipo==='deber'?document.getElementById('fichaRec').value:'once',
     fecha_limite:limite,
     habilita_en:habilita,
-    ventana_horas:ventana,
+    ventana_horas:ventanaV6d||ventana,   // v6d D7
     puntos_penalizacion_dia:+document.getElementById('fichaPen').value||0
   };
   const reabrir=t.estado==='no_terminada'&&!t.puntos_sumados&&centroMs&&(centroMs+half)>Date.now();
   if(reabrir) payload.estado='pendiente';
+  // v6d D10: vencida sin puntos (aviso_vencida o por_decidir) con fin futuro → vuelve a pendiente y estado_vencida=null.
+  if(v6bOn()&&!t.puntos_sumados&&(t.estado==='aviso_vencida'||t.estado_vencida==='por_decidir'||t.estado_vencida==='pendiente_hijo')&&limite&&new Date(limite)>new Date()){payload.estado='pendiente';payload.estado_vencida=null;}
   // v6b B16: deber para un padre → no se escribe.
   if(tipo==='deber'&&esPadre(dest)) return showToast('Los padres no tienen deberes');
   // v6b B15: descripción (solo modo v3–v6).
@@ -2535,6 +2553,24 @@ function faltaEnBD(err,claves){
   if(!['PGRST204','42703','PGRST202','42883'].includes(c)) return false;
   return !claves||claves.some(k=>m.indexOf(k)>=0);
 }
+/* v6d D16: validación al guardar (crear, lote, serie, edición). Bloquea ventana 0 / fin ≤ inicio; pregunta «¿Seguro?» por
+   los avisos de familia_rpc_validar_tarea (hora del nombre ≠ hora elegida, 00–05 h, fin ya pasado). Si la RPC falta
+   (PGRST202/42883) se usa la misma regla en el navegador. Devuelve null si no se debe guardar, o {confirmarPasado}. */
+async function validarV6d(titulo,ini,fin){
+  const a=ini?new Date(ini):null, b=fin?new Date(fin):null;
+  if(a&&b&&!(b>a)){showToast('El fin debe ser después del inicio');return null;}
+  let errores=[], avisos=[];
+  try{
+    const {data,error}=await supabase.rpc('familia_rpc_validar_tarea',{p_titulo:titulo||'',p_inicio:a?a.toISOString():null,p_fin:b?b.toISOString():null,p_zona:'Europe/Madrid'});
+    if(error) throw error; errores=(data&&data.errores)||[]; avisos=(data&&data.avisos)||[];
+  }catch(e){
+    if(b&&b<new Date()) avisos.push('La hora fin ya pasó');
+    const h=a?a.getHours():null; if(h!=null&&h<5) avisos.push('La hora está entre las 00:00 y las 05:00');
+  }
+  if(errores.length){showToast(errores.join(' · '));return null;}
+  if(avisos.length&&!confirm('¿Seguro?\n· '+avisos.join('\n· '))) return null;
+  return {confirmarPasado:!!((b&&b<new Date())||(a&&a<new Date(Date.now()-60000)))};
+}
 function msgErrorBD(err){
   if(!err) return 'No se pudo: error desconocido';
   const h=String(err.hint||'');
@@ -2589,10 +2625,10 @@ async function cupoBloqueo(plantillaId,miembroId){
     return isNaN(x)?null:'Podrás volver a hacerla a las '+x.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
   }catch(e){return null;}
 }
-function descripcionDe(v){const s=String(v==null?'':v).trim().slice(0,280); return s||null;}
+function descripcionDe(v){const s=String(v==null?'':v).trim().slice(0,300); return s||null;}   // v6d D11: máximo 300
 function descReservada(d){return d&&d.toUpperCase()==='META';}
 function descVisible(t){const d=t&&t.descripcion; return d&&d!=='META'?String(d):'';}
-function contarDesc(el){const c=el&&document.getElementById(el.id+'Cont'); if(c) c.textContent=(el.value||'').length+'/280';}
+function contarDesc(el){const c=el&&document.getElementById(el.id+'Cont'); if(c) c.textContent=(el.value||'').length+'/300';}   // v6d D11
 function ponerDesc(id,valor){const el=document.getElementById(id); if(el){el.value=valor||''; contarDesc(el);}}
 // v6 A1: miniatura de la foto de un movimiento; al tocarla se abre grande (con «← Volver»). Las fotos se guardan en
 // una lista y se pasan por índice, para no meter el base64 dentro del HTML del onclick.
@@ -4043,6 +4079,7 @@ window.FamiliaV3=(function(){
     const h=new Date(mv.hora).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
     const m=Math.round(mv.V/60000);
     const v=m%60===0?(m/60)+' h':(m<60?m+' min':(Math.floor(m/60)+' h '+(m%60)+' min'));
+    {const f=x=>new Date(x).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false}); return 'Inicio '+f(mv.a)+' → Fin '+f(mv.c);}   // v6d D7: sin «±»
     return 'Hora: '+h+' · ventana '+(mv.despues?v+' después':'±'+v);
   }
   /* v6 A3/A3b: verde dentro de la ventana antes de hora + V/2; naranja «Queda poco» desde ahí hasta el cierre;
@@ -4066,6 +4103,8 @@ window.FamiliaV3=(function(){
     const {ini,fin}=limitesHoy(), esHoy=x=>x>=ini.getTime()&&x<fin.getTime();
     const ya=(t.inmediata||t.tipo==='inmediata')&&Date.now()>=mv.a&&Date.now()<mv.c;
     const rango=ya?'Empieza ahora · hasta las '+hh(mv.c):'Se puede hacer de '+hh(mv.a)+' a '+hh(mv.c)+(esHoy(mv.c)||new Date(mv.a).toDateString()===new Date(mv.c).toDateString()?'':' del '+dia(mv.c));
+    // v6d D7: se muestra «Inicio HH:MM → Fin HH:MM» (no «Hora + ventana ±», que confundía en 22:00→00:00).
+    return `<div class="v6b-hora">Inicio <b>${esc(hh(mv.a))}</b> → Fin <b>${esc(hh(mv.c))}</b>${esHoy(mv.a)?'':' <span class="v3-sub">'+esc(dia(mv.a))+'</span>'}</div>`;
     return `<div class="v6b-hora">Hora <b>${esc(hh(mv.hora))}</b>${esHoy(mv.hora)?'':' <span class="v3-sub">'+esc(dia(mv.hora))+'</span>'}</div><div class="v3-sub">${esc(rango)}</div>`;
   }
   /* v6c C10: texto del aviso que espera acción del hijo ('' si no aplica).
@@ -4681,13 +4720,13 @@ window.FamiliaV3=(function(){
     const loc=new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
     reqId('lote-'+loteClase);   // la intención nace al abrir el formulario (v5 ítem 20: una por clase)
     abrirHoja(`<h3>${dl?'Deber repetitivo':'Tarea repetitiva'}</h3>
-      <label>Título</label><input id="v4lTit" maxlength="120">
+      <label>Título</label><input id="v4lTit" maxlength="40" oninput="document.getElementById('v4lTitC').textContent=this.value.length+'/40'"><small class="v6b-cont" id="v4lTitC">0/40</small>${''/* v6d D11: nombre n/40 */}
       <!-- v5 ítem 20: sin selector Tarea/Deber (se quitó el de ítem 19). La clase sale de loteClase; deber = 0 pts + descuento. -->
       ${dl?'<p class="v3-sub">Un deber no suma puntos; si se vence aplica el descuento.</p>':'<label>Puntos</label><input id="v4lPts" type="number" min="0" value="10">'}
       <label>Primera vez</label><input id="v4lIni" type="datetime-local" value="${loc}">
       <label>Repetir</label><select id="v4lRec"><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option></select>
       <label>Veces al día (1–4)</label><input id="v4lVeces" type="number" min="1" max="4" value="1">
-      <label>Tiempo para hacerla (min)</label><input id="v4lVen" type="number" min="1" value="60">
+      <label>Fin (de la primera vez)</label><input id="v4lFin" type="datetime-local" value="${new Date(d.getTime()+3600000-d.getTimezoneOffset()*60000).toISOString().slice(0,16)}">${''/* v6d D7: Inicio + Fin; la duración se repite en cada fecha */}<label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v4lFoto" style="width:auto"> Exige foto (todas las del lote)</label>${''/* v6d D1 */}
       <label>Descuento si se pasa (pts)</label><input id="v4lPen" type="number" min="0" value="${dl?3:0}">
       <label>Para</label><div>${hijos.map(m=>`<label style="display:flex;gap:6px;align-items:center;margin:4px 0;color:#1e293b"><input type="checkbox" class="v4lHijo" value="${m.id}" style="width:auto">${esc(m.nombre)}</label>`).join('')}</div>
       <label>Reparto</label><select id="v4lModo"><option value="uno">Un solo hijo</option><option value="entre">Turnar entre los marcados (al azar)</option><option value="cada_uno">Cada uno la suya</option></select>
@@ -4756,7 +4795,7 @@ window.FamiliaV3=(function(){
     DIAS.forEach((_,i)=>{const v=(document.getElementById('v6sH'+i)||{}).value; if(v&&v!==g) o[String(i+1)]=v;});
     return Object.keys(o).length?o:null;
   }
-  function mensualSel(){const on=(document.getElementById('v6sMen')||{}).checked; const n=parseInt((document.getElementById('v6sMenDia')||{}).value,10); return on&&n>=1&&n<=28?n:null;}
+  function mensualSel(){const on=(document.getElementById('v6sMen')||{}).checked; const n=parseInt((document.getElementById('v6sMenDia')||{}).value,10); return on&&n>=1&&n<=30?n:null;}   // v6d D14: 1–30
   function resumenSerie(dias,horas,mensual){
     if(mensual) return 'Mensual, el día '+mensual+(horas&&horas['1']?' · '+horas['1']:'');
     const out=[]; let i=0;
@@ -4788,13 +4827,13 @@ window.FamiliaV3=(function(){
     reqId('serie');
     const hijos=state.members.filter(isKid).slice().sort(byName);
     abrirHoja(`<h3>Deber repetitivo</h3><p class="v3-sub">Un deber no suma puntos; si se vence aplica el descuento. Se renueva solo cada mes.</p>
-      <label>Título</label><input id="v6sTit" maxlength="120">
+      <label>Título</label><input id="v6sTit" maxlength="40" oninput="document.getElementById('v6sTitC').textContent=this.value.length+'/40'"><small class="v6b-cont" id="v6sTitC">0/40</small>${''/* v6d D11: nombre n/40 */}
       <label>Para</label><div>${hijos.map(m=>`<label style="display:flex;gap:6px;align-items:center;margin:4px 0;color:#1e293b"><input type="checkbox" class="v6sHijo" value="${m.id}" style="width:auto">${esc(m.nombre)}</label>`).join('')||'<p class="v3-sub">Sin hijos</p>'}</div>
       <label>Reparto</label><select id="v6sModo"><option value="cada_uno">Cada uno la suya</option><option value="uno">Un solo hijo</option><option value="entre">Turnar entre los marcados</option></select>
       ${camposDias('1111100',null,'07:00')}
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v6sMen" style="width:auto" onchange="FamiliaV3._serieRef()"> Mensual (un día fijo del mes)</label>
-      <input id="v6sMenDia" type="number" min="1" max="28" value="1" oninput="FamiliaV3._serieRef()" aria-label="Día del mes (1 a 28)">
-      <label>Tiempo para hacerlo (min)</label><input id="v6sVen" type="number" min="1" value="60">
+      <input id="v6sMenDia" type="number" min="1" max="30" value="1" oninput="FamiliaV3._serieRef()" aria-label="Día del mes (1 a 30)">${''/* v6d D14 */}
+      <label>Fin (hora; cada día dura lo mismo desde su inicio)</label><input id="v6sFin" type="time" value="08:00">${''/* v6d D7: Inicio = hora del día; Fin en vez de minutos */}
       <label>Descuento si se pasa (pts)</label><input id="v6sPen" type="number" min="0" value="3">
       ${campoDescV3('v6sDesc','')}
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v6sFoto" style="width:auto"> Exige foto</label>
@@ -4824,12 +4863,16 @@ window.FamiliaV3=(function(){
     const dias=diasSel(), men=mensualSel(); if(dias==='0000000'&&men==null) return showToast('Marca al menos un día');
     const desc=descripcionDe(v('v6sDesc')); if(descReservada(desc)) return showToast('Escribe una descripción distinta de «META»');
     const horas=horasSel(), hora=v('v6sHora')||'07:00';
+    // v6d D7+D16: duración = Fin − hora general; fin ≤ inicio no guarda.
+    const [hI,mI]=String(hora).split(':').map(Number), [hF,mF]=String(v('v6sFin')||'').split(':').map(Number);
+    const venS=(hF*60+mF)-(hI*60+mI); if(!(venS>0)) return showToast('El fin debe ser después del inicio');
+    {const a0=new Date(); a0.setHours(hI,mI,0,0); if(!await validarV6d(tit,a0,new Date(a0.getTime()+venS*60000))) return;}
     if(!confirm('¿Crear el deber repetitivo «'+tit+'» ('+resumenSerie(men?'0000000':dias,Object.assign({},...DIAS.map((_,i)=>({[i+1]:hora})),horas||{}),men)+') para '+hijos.length+' hijo(s)?')) return;
     const k='serie'; if(enCurso.has(k)) return; enCurso.add(k);
     const b=document.getElementById('v6sOk'); if(b) b.disabled=true;
     try{
       const args={p_actor_id:originalAdminId||state.currentUserId,p_client_req_id:reqId(k),p_titulo:tit,p_hijos:hijos,p_dias:dias,p_hora_general:hora,p_horas:horas,
-        p_modo:v('v6sModo')||'cada_uno',p_clase:'deber',p_puntos:0,p_ventana_min:Math.max(1,n('v6sVen',60)),p_penal:Math.max(0,n('v6sPen',0)),
+        p_modo:v('v6sModo')||'cada_uno',p_clase:'deber',p_puntos:0,p_ventana_min:venS,p_penal:Math.max(0,n('v6sPen',0)),
         p_exige_foto:!!(document.getElementById('v6sFoto')||{}).checked,p_mensual_dia:men};
       if(desc) args.p_descripcion=desc;
       const d=await rpc('familia_rpc_serie_crear',args);
@@ -4894,10 +4937,14 @@ window.FamiliaV3=(function(){
     const desc=descripcionDe((document.getElementById('v4lDesc')||{}).value); if(descReservada(desc)) return showToast('Escribe una descripción distinta de «META»');
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     // v5 ítem 20: el texto dice deber o tarea según la sección de origen.
+    // v6d D7+D16: fin del primer día → ventana en minutos; validación con «¿Seguro?».
+    const finL=new Date(v('v4lFin')); if(isNaN(finL)) return showToast('Elige el fin');
+    const vvL=await validarV6d(tit,ini,finL); if(!vvL) return;
+    const venL=Math.max(1,Math.round((finL-ini)/60000));
     if(!confirm('¿Crear '+(loteClase==='deber'?'el deber repetitivo':'la tarea repetitiva')+' «'+tit+'» para '+hijos.length+' hijo(s) hasta fin de mes?')) return;
     const d=await rpcIntento('lote-'+loteClase,'familia_rpc_crear_lote',{p_titulo:tit,p_clase:loteClase,p_puntos:loteClase==='deber'?0:Math.max(0,n('v4lPts',0)),   // v5 ítem 20: clase fija según de dónde se abrió
       
-      p_inicio:ini.toISOString(),p_recurrencia:v('v4lRec'),p_veces:Math.min(4,Math.max(1,n('v4lVeces',1))),p_ventana_min:Math.max(1,n('v4lVen',60)),
+      p_inicio:ini.toISOString(),p_recurrencia:v('v4lRec'),p_veces:Math.min(4,Math.max(1,n('v4lVeces',1))),p_ventana_min:venL,p_exige_foto:!!(document.getElementById('v4lFoto')||{}).checked,p_confirmar_pasado:vvL.confirmarPasado,
       p_penal:Math.max(0,n('v4lPen',0)),p_hijos:hijos,p_modo:v('v4lModo'),p_estado:v('v4lEst'),...(desc?{p_descripcion:desc}:{})});   // sin p_icono (default '📋') ni p_zona
     if(!d) return;   // error: se conserva el req id para reintentar
     abrirHoja(`<h3 class="v3-st-ok">Creadas ${Number(d.n)||((d.ids||[]).length)}</h3><p class="v3-sub">${esc(tit)} · hasta fin de mes${d.zona?' (zona '+esc(d.zona)+')':''}.</p><button class="v3-cta v3-full" style="margin-top:12px" onclick="FamiliaV3.cerrarHoja()">Listo</button>`);
@@ -5116,6 +5163,11 @@ window.FamiliaV3=(function(){
       const a=Object.assign({},args); delete a.p_descripcion; delete a.p_plantilla_id;
       ({data,error}=await supabase.rpc(nombre,a));
       if(!error) setTimeout(()=>showToast('Se guardó sin descripción (falta en la BD)'),2600);
+    }
+    // v6d D1/D16: BD sin v6d_02 (firma sin p_exige_foto / p_confirmar_pasado) → un reintento sin ellos; la foto se marca aparte.
+    if(error&&args&&('p_exige_foto' in args||'p_confirmar_pasado' in args)&&faltaEnBD(error,['p_exige_foto','p_confirmar_pasado','function'])){
+      const a=Object.assign({},args); delete a.p_exige_foto; delete a.p_confirmar_pasado;
+      ({data,error}=await supabase.rpc(nombre,a)); if(!error&&data!=null&&data!==false) window._v6dSinFotoRpc=true;
     }
     if(error){showToast(msgErrorBD(error));return null;}
     if(data==null){showToast('No se pudo: respuesta vacía');return null;}   // nulo nunca es éxito
@@ -5446,6 +5498,8 @@ window.FamiliaV3=(function(){
     const k='e'+id; if(enCurso.has(k)) return;
     const t=state.tasks.find(x=>x.id===id), u=currentUser();
     // v6b B6: «Enviar tarde» usa su propia regla (ventana cerrada); nunca falla en silencio.
+    // v6d D7: antes del inicio «Aún no abre»: no se puede enviar.
+    if(t&&!tarde&&t.habilita_en&&new Date(t.habilita_en)>new Date()) return showToast('Aún no abre · abre a las '+new Date(t.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false}));
     if(!t||!(tarde?puedeEnviarTarde(t,u):puedeEnviar(t,u))) return showToast(soloLectura()?'Solo lectura: entra como el hijo':'Esta tarea ya no se puede enviar. Recarga para ver su estado.');
     enCurso.add(k);
     try{
@@ -5838,7 +5892,7 @@ window.FamiliaV3=(function(){
 
   /* --- Crear en 2 pasos. Paso 1: deber o tarea, título, para quién. --- */
   // v6b B15: campo de descripción para las hojas v3 (contador visible, máx. 280).
-  function campoDescV3(id,valor){return `<label for="${id}">Descripción (opcional)</label><textarea id="${id}" maxlength="280" rows="3" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font:inherit" oninput="contarDesc(this)">${esc(valor||'')}</textarea><small class="v6b-cont" id="${id}Cont">${String(valor||'').length}/280</small>`;}
+  function campoDescV3(id,valor){return `<label for="${id}">Descripción (opcional)</label><textarea id="${id}" maxlength="300" rows="3" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font:inherit" oninput="contarDesc(this)">${esc(valor||'')}</textarea><small class="v6b-cont" id="${id}Cont">${String(valor||'').length}/300</small>`;}
   function crearPaso1(){
     // El client_req_id nace al abrir el formulario y se reutiliza en cada reintento hasta que haya éxito.
     crear=Object.assign({clase:'tarea',titulo:'',asignada:'',req:(crypto.randomUUID?crypto.randomUUID():'v3-'+Date.now()+'-'+Math.random().toString(36).slice(2))},crear);
@@ -5847,7 +5901,7 @@ window.FamiliaV3=(function(){
     const hijos=state.members.filter(m=>!esPadre(m)).slice().sort(byName);
     abrirHoja(`<h3>${desdeDeberes?'Nuevo deber':'Nueva tarea'} · paso 1 de 2</h3>
       <p class="v3-sub">${crear.clase==='deber'?'Un deber no suma puntos; si se pasa la hora puede tener Descuento.':'Una tarea suma puntos al aprobarla.'}</p>
-      <label>¿Qué hay que hacer?</label><input id="v3cTit" value="${esc(crear.titulo)}" maxlength="120">
+      <label>¿Qué hay que hacer?</label><input id="v3cTit" value="${esc(crear.titulo)}" maxlength="40" oninput="document.getElementById('v3cTitC').textContent=this.value.length+'/40'"><small class="v6b-cont" id="v3cTitC">${String(crear.titulo||'').length}/40</small>${''/* v6d D11 */}
       <label>¿Para quién?</label><select id="v3cWho">${hijos.map(m=>`<option value="${m.id}" ${String(crear.asignada)===String(m.id)?'selected':''}>${esc(m.nombre)}</option>`).join('')}</select>
       <button class="v3-cta v3-full" style="margin-top:14px" onclick="FamiliaV3.crearPaso2()">Siguiente</button>`);
   }
@@ -5860,7 +5914,7 @@ window.FamiliaV3=(function(){
     const d=crear.clase==='deber';
     abrirHoja(`<h3>Crear · paso 2 de 2</h3><p class="v3-sub">${esc(crear.titulo)} · ${esc((memberById(crear.asignada)||{}).nombre||'')}</p>
       ${d?'':'<label>Puntos que gana</label><input id="v3cPts" type="number" min="0" value="10">'}
-      <label>Tiempo para hacerlo (minutos)</label><input id="v3cMin" type="number" min="1" value="${d?60:1440}">
+      ${(()=>{const L=x=>{const z=new Date(x);return new Date(z-z.getTimezoneOffset()*60000).toISOString().slice(0,16);}, a=Date.now(); return `<label>Inicio</label><input id="v3cIni" type="datetime-local" value="${L(a)}"><label>Fin</label><input id="v3cFin" type="datetime-local" value="${L(a+(d?60:1440)*60000)}">`;})()/* v6d D7: Inicio + Fin en vez de minutos */}
       ${d?'<label>Descuento si se pasa la hora (pts)</label><input id="v3cPierde" type="number" min="0" value="3">':''}
       ${campoDescV3('v3cDesc',crear.desc)}
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v3cFoto" style="width:auto"> Exige foto</label>${''/* v6c C3: casilla «Exige foto» */}
@@ -5884,9 +5938,16 @@ window.FamiliaV3=(function(){
     const desc=descripcionDe((document.getElementById('v3cDesc')||{}).value); if(descReservada(desc)) return showToast('Escribe una descripción distinta de «META»');
     const args={p_titulo:crear.titulo,p_creada_por:state.currentUserId,p_asignada_a:Number(crear.asignada),
       p_client_req_id:crear.req,   // mismo id en reintentos → la RPC devuelve la misma tarea
-      p_puntos:d?0:num('v3cPts'),p_clase:crear.clase,p_tipo:d?'deber':'tarea',p_ventana_min:Math.max(1,num('v3cMin')||1),
+      p_puntos:d?0:num('v3cPts'),p_clase:crear.clase,p_tipo:d?'deber':'tarea',p_ventana_min:1,
       p_pierde_pts:d?num('v3cPierde'):null};
     if(desc) args.p_descripcion=desc;
+    // v6d D7+D16: Inicio/Fin explícitos; fin > inicio; pasado o 00–05 h → «¿Seguro?».
+    {const ia=(document.getElementById('v3cIni')||{}).value, fa=(document.getElementById('v3cFin')||{}).value;
+      if(!ia||!fa) return showToast('Elige inicio y fin');
+      const vv=await validarV6d(crear.titulo,new Date(ia),new Date(fa)); if(!vv) return;
+      args.p_habilita_en=new Date(ia).toISOString(); args.p_fecha_limite=new Date(fa).toISOString();
+      args.p_ventana_min=Math.max(1,Math.round((new Date(fa)-new Date(ia))/60000)); args.p_confirmar_pasado=vv.confirmarPasado;
+      args.p_exige_foto=!!(document.getElementById('v3cFoto')||{}).checked;}   // v6d D1
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     if(!confirm('¿Crear '+(d?'el deber':'la tarea')+' «'+crear.titulo+'» para '+((memberById(Number(crear.asignada))||{}).nombre||'este hijo')+(d?'':' ('+(args.p_puntos||0)+' pts)')+'?')) return;
     if(enCurso.has('crear')) return; enCurso.add('crear');
@@ -5895,7 +5956,7 @@ window.FamiliaV3=(function(){
     // v6c C3: crear_tarea no recibe exige_foto; se marca en la fila recién creada. Si falla, la tarea queda creada y se avisa.
     // v6c C3b: hasta 3 intentos; si aun así falla, la hoja «Creada» avisa y ofrece «Reintentar Exige foto» (no se pierde).
     let faltaFotoC3b=null;
-    if(exigeFoto){const tid=typeof id==='object'?(id.id||id.tarea_id):id; const ef=tid?await reExigeFotoIntentos(tid):{message:'sin id'};
+    if(exigeFoto&&window._v6dSinFotoRpc){const tid=typeof id==='object'?(id.id||id.tarea_id):id; const ef=tid?await reExigeFotoIntentos(tid):{message:'sin id'};
       if(ef) faltaFotoC3b={tid,msg:msgErrorBD(ef)};}
     const who=(memberById(crear.asignada)||{}).nombre||'';
     const texto=`${d?'Deber':'Tarea'} para ${who}: ${crear.titulo}`;
