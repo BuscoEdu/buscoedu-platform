@@ -1883,7 +1883,7 @@ function reviewTask(){
     // Hotfix v5: en «Validar hecha» la tarea se guarda YA HECHA (esperando_aprobacion); antes este resumen decía
     // «No se activa sola…» y el padre creía estar creando una tarea normal que el hijo debía marcar.
     (validateMode?'<p><strong>Se registra como YA HECHA.</strong> Queda esperando tu aprobación y '+esc((memberById(assigned[0]&&assigned[0].asignada_a)||{}).nombre||'el hijo')+' no verá «Ya la hice». Para una tarea normal, cierra y usa «Nueva».</p>':
-    (inmediata?'<p>Empieza ahora. No se guarda como plantilla.</p>':'<p>No se activa sola. Después hay que pulsar Activar.</p>'));
+    (inmediata?'<p>Empieza ahora. No se guarda como plantilla.</p>':'<p>Queda activa al crearla y le llega al hijo.</p>'));   // v6c C8: sin paso «Activar»
   openModal('modal-tarea-revisar');
 }
 async function createTask(){
@@ -1936,7 +1936,8 @@ async function createTask(){
       rows.push({...base,asignada_a:slot.asignada_a,tipo,clase:tipo==='deber'?'deber':'tarea',inmediata:false,estado:'esperando_aprobacion',comentario_completado:'Registrada como hecha'});
     }else{
       // v6 A2b: clase explícita (la app y las RPC deciden deber por clase; sin ella la BD pone 'tarea').
-      rows.push({...base,asignada_a:slot.asignada_a,tipo,clase:tipo==='deber'?'deber':'tarea',inmediata,estado:inmediata?'pendiente':'borrador'});
+      // v6c C8: crear = activar. Tras «¿Crear?» nace pendiente y le llega al hijo (antes: borrador salvo obligatoria).
+      rows.push({...base,asignada_a:slot.asignada_a,tipo,clase:tipo==='deber'?'deber':'tarea',inmediata,estado:'pendiente'});
     }
   }
   if(!rows.length) return showToast('No quedó ninguna fecha. Revisa el hijo o el mes.');
@@ -1962,7 +1963,8 @@ async function createTask(){
     }
   }
   // v5: en modo v3/v4, «guardar como plantilla» no genera el aviso «Por activar» (antes llegaba a un miembro real).
-  if(taskCreateMode==='hijo'&&!validateMode&&!inmediata&&!(saveTpl&&window.FamiliaV3&&FamiliaV3.activo())){
+  // v6c C8: el aviso «Por activar» solo aplica si quedó algún borrador (ya no ocurre al crear).
+  if(rows.some(r=>r.estado==='borrador')&&taskCreateMode==='hijo'&&!validateMode&&!inmediata&&!(saveTpl&&window.FamiliaV3&&FamiliaV3.activo())){
     const notes=state.members.filter(isAdmin).map(k=>({para_id:k.id,tipo:'tarea',texto:'Por activar: '+titulo+' ('+rows.length+')'}));
     if(notes.length) await supabase.from('familia_notificaciones').insert(notes);
   }
@@ -3410,7 +3412,7 @@ function dutyRow(item,kidId,by,lote){
   // v6 A2b: clase explícita (la app y las RPC deciden deber por clase; sin ella la BD pone 'tarea').
   return {
     titulo:item.titulo,puntos:0,tipo:'deber',clase:'deber',asignada_a:kidId,creada_por:by,
-    recurrencia:item.rec,estado:'borrador',icono:'📚',lote,
+    recurrencia:item.rec,estado:'pendiente',icono:'📚',lote,   // v6c C8: deberes base repartidos nacen activos
     habilita_en:item.when.toISOString(),fecha_limite:limite.toISOString(),
     ventana_horas:item.ventana,puntos_sumados:false,inmediata:false
   };
@@ -3453,7 +3455,7 @@ async function repartirDeberes(){
   if(!confirm('¿Repartir '+rows.length+' deber(es) entre '+kids.length+' hijo(s)?')) return;
   const {error}=await supabase.from('familia_tareas').insert(rows);
   if(error) return showToast(error.message);
-  showToast(rows.length+' deberes quedaron por activar');
+  showToast(rows.length+' deberes quedaron activos');   // v6c C8
   closeModal('modal-deberes');
   loadAll();
 }
@@ -4410,7 +4412,8 @@ window.FamiliaV3=(function(){
       <label>Para</label><div>${hijos.map(m=>`<label style="display:flex;gap:6px;align-items:center;margin:4px 0;color:#1e293b"><input type="checkbox" class="v4lHijo" value="${m.id}" style="width:auto">${esc(m.nombre)}</label>`).join('')}</div>
       <label>Reparto</label><select id="v4lModo"><option value="uno">Un solo hijo</option><option value="entre">Turnar entre los marcados (al azar)</option><option value="cada_uno">Cada uno la suya</option></select>
       ${campoDescV3('v4lDesc','')}
-      <label>Estado inicial</label><select id="v4lEst"><option value="pendiente">Activa</option><option value="borrador">Borrador</option></select>
+      <!-- v6c C8: crear = activar; sin selector «Estado inicial» (siempre pendiente). -->
+      <input type="hidden" id="v4lEst" value="pendiente">
       <p class="v3-sub" style="margin-top:8px">Las fechas llegan hasta el último día del mes. La BD reparte y omite duplicados a menos de 12 h.</p>
       <button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.previaLote()">Ver fechas (estimado)</button>
       <div id="v4lPrev" class="v3-sub" style="margin-top:8px"></div>
