@@ -1427,6 +1427,30 @@ async function dismissNotif(id){
   if(error) return showToast(error.message);
   await loadAll();
 }
+/* v6c C14: ¿el movimiento del historial es de un DEBER? Orden: 1) columna tipo de la fila ('deber', la escriben las RPC
+   con CASE WHEN clase='deber'); 2) la tarea ligada por tarea_id ya cargada en state.tasks (clase manda; sin clase, tipo
+   'deber'/'obligacion', igual que esDeber de la v3); 3) filas viejas sin tarea_id: tarea del mismo miembro cuyo título
+   aparece en el texto, solo si todas las coincidencias más largas son deberes (si hay duda, queda como Tarea). Solo FE. */
+function esDeberTareaC14(t){return !!t&&(t.clase?t.clase==='deber':(t.tipo==='deber'||t.tipo==='obligacion'));}
+function esDeberMovC14(h){
+  if(!h) return false;
+  if(h.tipo==='deber') return true;
+  const tasks=state.tasks||[];
+  if(h.tarea_id!=null){const t=tasks.find(x=>Number(x.id)===Number(h.tarea_id)); if(t) return esDeberTareaC14(t);}
+  const tx=h.texto||''; if(!/^(Cumplida|Aprobada|Penalizaci[oó]n|Atraso|Se anul|Devuelta|Rechazada)/.test(tx)) return false;
+  const hits=tasks.filter(t=>t.titulo&&tx.includes(t.titulo)&&(t.asignada_a===h.miembro_id||t.conjunto_con===h.miembro_id));
+  if(!hits.length) return false;
+  const best=Math.max(...hits.map(t=>t.titulo.length));
+  const top=hits.filter(t=>t.titulo.length===best);
+  return top.every(esDeberTareaC14);
+}
+// v6c C14: etiqueta visible del movimiento: «Deber» en vez de «Tarea» y «Penalización · deber» para descuentos de un deber.
+function etiquetaMovC14(tipo,h){
+  if(!esDeberMovC14(h)) return tipo;
+  if(tipo==='Tarea') return 'Deber';
+  if(tipo==='Penalización') return 'Penalización · deber';
+  return tipo;
+}
 function movementOf(h){
   const t=h.texto||'';
   const num=(re)=>{const m=t.match(re);return m?Number(m[1]):0;};
@@ -1442,6 +1466,8 @@ function movementOf(h){
   else if(/^Cumplida|^Se anuló|^Devuelta|^Traspaso/.test(t)) row={tipo:'Tarea',pts:num(/\(([+-]?\d+)\s*pts\)/),detalle:t,fecha:h.creado_en};
   if(!row) return null;
   row.tareaId=h.tarea_id||null;
+  // v6c C14: row.tipo se deja igual (cuentas del saldo y ranking); la etiqueta visible va aparte en row.etiqueta.
+  row.etiqueta=etiquetaMovC14(row.tipo,h);
   row.h=h;   // v5 ítem 15: fila original (tipo/pts) para el ícono por tipo en v3/v4
   return row;
 }
@@ -1524,11 +1550,11 @@ function openBalance(id){
       const o=taskOutcome(task);
       const bad=o.kind==='penalizacion'||o.kind==='cerrada';
       const when=m.fecha?fmtDate(m.fecha):'';
-      return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${task.id})">${iconoMovV3(m.h)}<strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}${fotoMovHtml(m.h)?'<br>'+fotoMovHtml(m.h):''}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
+      return `<div class="${bad?'hist-bad':'hist-ok'}" onclick="openTaskFromBalance(${id},${task.id})">${iconoMovV3(m.h)}<strong>${esc(m.etiqueta||m.tipo)/* v6c C14 */}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}${fotoMovHtml(m.h)?'<br>'+fotoMovHtml(m.h):''}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
     }
     const when=m.fecha?fmtDate(m.fecha):'';
     const open=tid?` onclick="openTaskFromBalance(${id},${tid})" class="hist-ok"`:` class="hist-ok" style="cursor:default"`;
-    return `<div${open}>${iconoMovV3(m.h)}<strong>${esc(m.tipo)}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}${fotoMovHtml(m.h)?'<br>'+fotoMovHtml(m.h):''}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
+    return `<div${open}>${iconoMovV3(m.h)}<strong>${esc(m.etiqueta||m.tipo)/* v6c C14 */}</strong> · ${esc(when)}<br>${esc(stripPts(m.detalle))}${fotoMovHtml(m.h)?'<br>'+fotoMovHtml(m.h):''}<br><span>${sign}${m.pts} pts · saldo ${m.saldo}</span>${hint}</div>`;
   }).join('')+closedHtml):'<div class="empty">Sin movimientos</div>';
   openModal('modal-balance');
 }
@@ -1538,7 +1564,9 @@ function renderHistory(){
   const u=currentUser();
   const items=isAdmin(u)?state.history:state.history.filter(h=>h.miembro_id===u.id);
   const el=document.getElementById('historyList');
-  el.innerHTML=items.length?items.map(h=>`<div style="font-size:.85rem;padding:6px 0;border-bottom:1px solid var(--border)">${esc(h.texto||'')}${fotoMovHtml(h)?'<br>'+fotoMovHtml(h):''}</div>`).join(''):'<div class="empty">Sin historial</div>';
+  // v6c C14: los movimientos de deberes llevan la etiqueta «Deber» / «Penalización · deber» delante del texto.
+  const etqC14=h=>{const m=movementOf(h); const e=m&&m.etiqueta!==m.tipo?m.etiqueta:''; return e?iconoMovV3(h)+'<strong class="tipo-deber" style="padding:0 6px;border-radius:6px">'+esc(e)+'</strong> ':'';};   // ícono de deber (escudo SVG de ICO_MOV) cuando la v3 está activa
+  el.innerHTML=items.length?items.map(h=>`<div style="font-size:.85rem;padding:6px 0;border-bottom:1px solid var(--border)">${etqC14(h)}${esc(h.texto||'')}${fotoMovHtml(h)?'<br>'+fotoMovHtml(h):''}</div>`).join(''):'<div class="empty">Sin historial</div>';
 }
 function fillChatTo(){
   const sel=document.getElementById('chatTo');
@@ -4270,7 +4298,9 @@ window.FamiliaV3=(function(){
     const ms=x=>{const n=x&&x.creado_en?new Date(x.creado_en).getTime():NaN; return isNaN(n)?-Infinity:n;};
     const mio=(state.history||[]).filter(x=>x.miembro_id===u.id).slice().sort((a,b)=>(ms(b)-ms(a))||((b.id||0)-(a.id||0)));
     const esCanje=x=>{const r=claseMov(x); return !!(r&&r.k==='c');};
-    const filaMov=x=>`<div class="v3-rk">${iconoMov(x)}<span class="v3-grow">${esc(x.texto||'')}${badgeMesada(x)}${fotoMovHtml(x)?'<br>'+fotoMovHtml(x):''}<br><span class="v3-sub">${x.creado_en?new Date(x.creado_en).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></span>${x.pts!=null?`<strong class="${x.pts>0?'v3-st-ok':x.pts<0?'v3-st-err':''}">${x.pts>0?'+':''}${x.pts}</strong>`:''}</div>`;
+    // v6c C14: en «Mi historial» los deberes muestran el chip «Deber» o «Penalización · deber» (antes no se distinguían de tareas).
+    const chipC14=x=>{const k=tipoIcono(x); return k==='deber'?'<span class="v3-chip deber">Deber</span> ':k==='deberPen'?'<span class="v3-chip deber">Penalización · deber</span> ':'';};
+    const filaMov=x=>`<div class="v3-rk">${iconoMov(x)}<span class="v3-grow">${chipC14(x)}${esc(x.texto||'')}${badgeMesada(x)}${fotoMovHtml(x)?'<br>'+fotoMovHtml(x):''}<br><span class="v3-sub">${x.creado_en?new Date(x.creado_en).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></span>${x.pts!=null?`<strong class="${x.pts>0?'v3-st-ok':x.pts<0?'v3-st-err':''}">${x.pts>0?'+':''}${x.pts}</strong>`:''}</div>`;
     const caja=(tit,l,vacio)=>`<h2 style="margin-top:14px">${tit} <span class="v3-sub">(${l.length})</span></h2><div class="v3-card" style="display:block">${l.length?`<div class="v6b-caja">${l.slice(0,100).map(filaMov).join('')}</div>`:`<p class="v3-sub">${vacio}</p>`}</div>`;
     h+=caja('Canjes',mio.filter(esCanje),'Todavía no hay canjes.');
     h+=caja('Tareas',mio.filter(x=>!esCanje(x)),'Todavía no hay movimientos de tareas.');
@@ -4316,6 +4346,7 @@ window.FamiliaV3=(function(){
   const ICO_MOV={
     tarea:['Tarea','<path d="M5 12l4 4 10-10"/>'],
     deber:['Deber','<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/>'],
+    deberPen:['Penalización · deber','<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12h6"/>'],   // v6c C14
     desc:['Descuento','<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>'],
     premio:['Premio','<path d="M4 10h16v10H4z"/><path d="M12 10v10M3 7h18v3H3z"/>'],
     mesada:['Mesada','<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/>'],
@@ -4324,12 +4355,15 @@ window.FamiliaV3=(function(){
   function tipoIcono(h){
     const r=claseMov(h);
     if(!r) return 'neutro';
-    if(r.k==='g'){const t=h.tarea_id?state.tasks.find(x=>Number(x.id)===Number(h.tarea_id)):null; return (h.tipo==='deber'||(t&&esDeber(t)))?'deber':'tarea';}
+    // v6c C14: deber detectado con esDeberMovC14 (tipo de la fila, tarea ligada o, en filas viejas, título).
+    if(r.k==='g') return esDeberMovC14(h)?'deber':'tarea';
     // v5 ítem 19: un deber cumplido suma 0 pts (k 'o'); se muestra con el ícono de deber, no neutro.
-    if(r.k==='o'&&!r.pts){const t=h.tarea_id?state.tasks.find(x=>Number(x.id)===Number(h.tarea_id)):null; if(h.tipo==='deber'||(t&&esDeber(t))) return 'deber';}
+    if(r.k==='o'&&!r.pts&&esDeberMovC14(h)) return 'deber';
+    // v6c C14: descuento de un deber → ícono de deber con etiqueta «Penalización · deber».
+    if(r.k==='d'&&esDeberMovC14(h)) return 'deberPen';
     return {d:'desc',c:'premio',me:'mesada'}[r.k]||'neutro';
   }
-  function iconoMov(h){const k=tipoIcono(h),[l,p]=ICO_MOV[k]; return `<span class="v5-mi ${k}" role="img" aria-label="${l}" title="${l}"><svg viewBox="0 0 24 24">${p}</svg></span>`;}
+  function iconoMov(h){const k=tipoIcono(h),[l,p]=ICO_MOV[k]; return `<span class="v5-mi ${k==='deberPen'?'deber':k}" role="img" aria-label="${l}" title="${l}"><svg viewBox="0 0 24 24">${p}</svg></span>`;}
   /* v6b B5: fecha desde la que hay datos para «Total» = el movimiento más antiguo del historial cargado
      (histTotal sin tope o, si falta, state.history). No hay columna «fecha de habilitación»: no se inventa. */
   function fechaInicioApp(){
