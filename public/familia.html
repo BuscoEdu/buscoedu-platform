@@ -3617,6 +3617,8 @@ body.v3-modo .modal{z-index:2600}body.v3-modo .toast{z-index:2700}
 .v6b-obl-dev{display:inline-block;background:#fb923c;color:#431407;font-weight:700;border-radius:8px;padding:2px 10px;margin:6px 0}
 .v6b-obl-nota{font-style:italic;margin-bottom:6px}
 /* v6b B3: obligatoria en rojo desde que se crea (gana a verde/naranja de ventana; devuelta conserva su borde naranja). */
+.v6c-aviso{border:2px solid #7c3aed;border-radius:14px;background:#f5f3ff;padding:6px;margin-bottom:10px}.v6c-aviso>.v3-card{margin-bottom:0}
+.v6c-aviso-b{font-weight:800;color:#5b21b6;font-size:1rem;padding:2px 6px 6px;overflow-wrap:anywhere}/* v6c C10: aviso destacado, ancho fluido (360/390 px) */
 .v3-card.v6b-obl{border-color:#b91c1c;border-left:6px solid #b91c1c;background:#fef2f2}
 .v3-card.dev.v6b-obl{border-left-color:#fb923c}
 .v3-chip.obl{background:#b91c1c;color:#fff}
@@ -3862,6 +3864,14 @@ window.FamiliaV3=(function(){
     const rango=ya?'Empieza ahora · hasta las '+hh(mv.c):'Se puede hacer de '+hh(mv.a)+' a '+hh(mv.c)+(esHoy(mv.c)||new Date(mv.a).toDateString()===new Date(mv.c).toDateString()?'':' del '+dia(mv.c));
     return `<div class="v6b-hora">Hora <b>${esc(hh(mv.hora))}</b>${esHoy(mv.hora)?'':' <span class="v3-sub">'+esc(dia(mv.hora))+'</span>'}</div><div class="v3-sub">${esc(rango)}</div>`;
   }
+  /* v6c C10: texto del aviso que espera acción del hijo ('' si no aplica).
+     aviso_aprobada → «👉 Toca para aceptar tus N pts»; aviso_vencida / devuelta → «👉 Toca para ver». */
+  function avisoHijo(t){
+    if(t.estado==='aviso_aprobada'){const n=Math.max(0,Number(t.puntos_aplicados!=null?t.puntos_aplicados:t.puntos)||0); return '👉 Toca para aceptar tus '+n+' pts';}
+    if((t.estado==='aviso_vencida'&&!t.estado_vencida)||t.estado_vencida==='pendiente_hijo'||t.estado==='aviso_rechazada') return '👉 Toca para ver';
+    if(t.estado==='pendiente'&&motivoDevuelta(t)!==null) return '👉 Toca para ver';
+    return '';
+  }
   // v6b B3: obligatoria (inmediata) abierta → tarjeta roja desde que se crea.
   function esObligatoria(t){return !!(t&&(t.inmediata||t.tipo==='inmediata')&&!cerrada(t));}
   function ficha(t,acciones){
@@ -3909,15 +3919,22 @@ window.FamiliaV3=(function(){
     // v6 A5b: estado 'solicitada' (pedido del hijo sin aprobar): fuera de Hoy/Vencidos/Más adelante y de sus contadores; el hijo las ve aparte en «Mis solicitudes».
     const misSol=admin?[]:lista.filter(t=>t.estado==='solicitada');
     lista=lista.filter(t=>t.estado!=='solicitada');
-    lista.sort((a,b)=>(esDeber(b)-esDeber(a))||String(a.titulo).localeCompare(b.titulo));
+    // v6c C5 + C10: primero los avisos que esperan acción del hijo; luego por hora (fecha_limite asc, sin fecha al final); empate → título.
+    const limMs=t=>{const n=t.fecha_limite?new Date(t.fecha_limite).getTime():NaN; return isNaN(n)?Infinity:n;};
+    const pri=t=>!admin&&avisoHijo(t)?0:1;
+    lista.sort((a,b)=>(pri(a)-pri(b))||((limMs(a)-limMs(b))||0)||String(a.titulo).localeCompare(b.titulo));
     const hoy=lista.filter(t=>grupoFecha(t)==='hoy'), venc=lista.filter(t=>grupoFecha(t)==='vencido'), luego=lista.filter(t=>grupoFecha(t)==='luego');
     const fila=t=>{
       const st=estadoDe(t);
       let act='';
       if(!admin&&(t.estado_vencida==='pendiente_hijo'||(t.estado==='aviso_vencida'&&!t.estado_vencida)))
         act=`<button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.verVencida(${t.id})">Ver</button>`;
+      // v6c C10: «Aceptar» visible en la tarjeta (sin abrirla); la acción sigue siendo aceptarAprobada.
       if(!admin&&t.estado==='aviso_aprobada')
-        act=`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aceptarAprobada(${t.id})">Entendido</button>`;
+        act=`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aceptarAprobada(${t.id})">Aceptar</button>`;
+      // v6c C10: insignia llamativa encima de la tarjeta cuando espera acción del hijo.
+      const av=!admin&&!soloLectura()?avisoHijo(t):'';
+      if(av) return `<div class="v6c-aviso"><div class="v6c-aviso-b">${esc(av)}</div>${ficha(t,act)}</div>`;
       // v4 · traspaso: el hermano destino acepta o rechaza.
       if(!admin&&t.estado==='pendiente_transferencia'&&String(t.para_quien)===String(u.id))
         act=`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.traspaso('aceptar',${t.id})">Aceptar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.traspaso('rechazar',${t.id})">Rechazar</button></div>`;
