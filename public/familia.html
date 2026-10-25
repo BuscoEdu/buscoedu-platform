@@ -4298,13 +4298,22 @@ window.FamiliaV3=(function(){
     let min=null; src.forEach(h=>{const d=h&&h.creado_en?new Date(h.creado_en):null; if(d&&!isNaN(d)&&(!min||d<min)) min=d;});
     return min;
   }
+  // v6c C13: fecha con la que el ranking ubica un movimiento del historial.
+  function fechaMovRanking(h){
+    const t=h&&h.tarea_id!=null?(state.tasks||[]).find(x=>Number(x.id)===Number(h.tarea_id)):null;
+    const f=t&&(t.fecha_limite||t.creado_en);
+    const d=f?new Date(f):null;
+    return d&&!isNaN(d)?d:new Date(h.creado_en);
+  }
   function pintarRanking(u){
     const desde=rkModo==='semana'?inicioSemana():null;
     const MED=['🥇','🥈','🥉','🍬','⭐','🎈','🍪','🍎','⚽','🎯'];
     const filas=state.members.filter(isKid).map(k=>{
       // Columnas: g ganados (tareas/deberes) · me mesada · c canjeados · d descuentos · o otros (anulaciones, traspasos, ajustes).
       let g=0,me=0,c=0,d=0,o=0;
-      (state.history||[]).filter(h=>h.miembro_id===k.id&&(!desde||new Date(h.creado_en)>=desde)).forEach(h=>{
+      // v6c C13: el movimiento cuenta en la FECHA DE LA TAREA (fecha_limite; sin ella, creado_en de la tarea), vía historial.tarea_id.
+      // Si la fila no tiene tarea o la tarea no está cargada, se usa creado_en del movimiento (como antes). El saldo no cambia.
+      (state.history||[]).filter(h=>h.miembro_id===k.id&&(!desde||fechaMovRanking(h)>=desde)).forEach(h=>{
         const r=claseMov(h); if(!r) return;
         if(r.k==='g')g+=r.pts; else if(r.k==='me')me+=r.pts; else if(r.k==='c')c+=-r.pts; else if(r.k==='d')d+=-r.pts; else o+=r.pts;
       });
