@@ -29,6 +29,14 @@ export interface OfertaWa {
   programa_id?: string;
   /** Todas las ciudades donde está disponible el programa (la primera = `ciudad`). */
   ciudades?: string[];
+  /** WA-fix-1: área de conocimiento del programa (S12: ofrecer áreas si hay muchos resultados). */
+  area?: string;
+  /** WA-fix-1 (S14): `programas_academicos.codigo_snies`; vacío → «por confirmar». */
+  snies?: string;
+  /** WA-fix-1b (S13): duración del programa tal como la trae el catálogo («8 semestres»); vacío → no se muestra. */
+  duracion?: string;
+  /** WA-fix-1 (MEDIA): precio publicable ya formateado por BE («Precio: $4.316.000 COP por semestre»); vacío → T17. */
+  texto_precio?: string;
 }
 
 /** Forma agrupada que consume presentacion.ts (contrato FE). */
@@ -41,6 +49,8 @@ export interface AplicacionEnCursoWa {
   universidad: string;
   paso: 'datos_nombre' | 'datos_correo' | 'consentimiento';
   nombreCompleto?: string;
+  /** WA-fix-1 (S18): nombre de una sola palabra a la espera del apellido. */
+  nombreParcial?: string;
   correo?: string | null;
 }
 
@@ -65,6 +75,8 @@ export interface SesionWa {
   /** Página mostrada (base 0) y total real de programas (C-12). */
   pagina?: number;
   total?: number;
+  /** S12 exacto: false si el total es un mínimo (tope de páginas) → los textos dicen «más de N». */
+  totalExacto?: boolean;
   /** Momento en que se mostró la lista: vale 24 h (C-18). */
   listaEn?: number;
   /** Fichas de listas recientes (<24 h) para que un toque a una lista vieja siga funcionando. */
@@ -82,6 +94,8 @@ export interface SesionWa {
   consentimientoRevocadoEn?: string;
   /** Contacto creado desde simulación de preview (C-55/C-56): datos de QA. */
   simulacionQa?: boolean;
+  /** WA-fix-1 (B3): última ficha abierta y cuándo; «guardar»/«aplicar» escritos actúan sobre ella (<24 h). */
+  fichaAbierta?: { ofertaId: string; en: number };
 }
 
 export const SESION_WA_VACIA: SesionWa = { filtros: {}, ofertas: [], miLista: [], aplicacion: null };
@@ -147,15 +161,27 @@ export type FiltrosBusquedaWa = {
   modalidad?: string;
   ciudad?: string;
   nivel_academico?: string;
+  /** WA-fix-1 (S5): términos reconocidos que deben cumplirse TODOS (AND). */
+  terminos_todos?: string[];
 };
 
 /** Catálogo: solo ofertas activas + publicadas + validadas + vigentes. */
+/**
+ * S12 exacto (2026-10-19) · conteo sobre TODOS los programas de la consulta (no solo los `max` devueltos).
+ * `exacto` = false si se llegó al tope de páginas: entonces ni `total` ni las cantidades por área son seguras.
+ */
+export interface ConteoProgramasWa {
+  exacto: boolean;
+  /** Áreas con ≥1 programa (sin las de programas sin área), de mayor a menor; con exacto=false, la cantidad no se muestra. */
+  areas: Array<{ area: string; cantidad: number }>;
+}
+
 export interface CatalogoWa {
   /**
    * Busca y devuelve programas ya agrupados por programa_id (hasta `max`) y `total` = programas distintos (C-12/C-52).
    * `total` puede faltar en catálogos de prueba: entonces vale ofertas.length.
    */
-  buscar(filtros: FiltrosBusquedaWa, max: number): Promise<{ ok: true; ofertas: OfertaWa[]; total?: number } | { ok: false }>;
+  buscar(filtros: FiltrosBusquedaWa, max: number): Promise<{ ok: true; ofertas: OfertaWa[]; total?: number; respaldoArea?: boolean; conteo?: ConteoProgramasWa } | { ok: false }>;
   tiposConsentimiento(): Promise<TipoConsentimientoRegla[]>;
 }
 
