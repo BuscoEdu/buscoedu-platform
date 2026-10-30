@@ -461,6 +461,53 @@ h3{margin-bottom:12px}
 <script>
 const SUPABASE_URL='https://khnrnnoxyzuulagemfbh.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtobnJubm94eXp1dWxhZ2VtZmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MzM1NTMsImV4cCI6MjA5ODEwOTU1M30.uN8Vm9H-Na92r6UPOsP39F6pGwU6M_K6C4HJ5Tq-2Ts';
+
+/* mf O4 D5: token de sesión = respuesta.token de familia_rpc_login_miembro (fila en familia_sesiones).
+   Se guarda en sessionStorage (nunca en URL ni console) y se envía como header x-familia-token
+   (PostgREST: current_setting('request.headers')::json->>'x-familia-token'). */
+const FAM_TOK_SS='familia_token';
+function leerTokenFamilia(){
+  try{
+    let t=sessionStorage.getItem(FAM_TOK_SS)||'';
+    if(!t){
+      /* mf O4 D5: una sola migración desde localStorage (login O2 previo); luego solo sessionStorage. */
+      t=localStorage.getItem('familia_token')||'';
+      if(t){ sessionStorage.setItem(FAM_TOK_SS,t); localStorage.removeItem('familia_token'); }
+    }
+    return t;
+  }catch(e){ return ''; }
+}
+function guardarTokenFamilia(tok){
+  try{
+    if(tok) sessionStorage.setItem(FAM_TOK_SS, String(tok));
+    else sessionStorage.removeItem(FAM_TOK_SS);
+    localStorage.removeItem('familia_token');
+  }catch(e){}
+}
+function limpiarTokenFamilia(){
+  try{ sessionStorage.removeItem(FAM_TOK_SS); }catch(e){}
+  try{ localStorage.removeItem('familia_token'); }catch(e){}
+}
+function headersFamiliaExtra(){
+  const t=leerTokenFamilia();
+  return t?{'x-familia-token':t}:{};
+}
+function crearClienteSupabase(){
+  /* mf O4 D5: cliente con header global; se recrea tras login para aplicar el token. */
+  return window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global:{ headers: headersFamiliaExtra() } });
+}
+function sesionInvalidaErr(err){
+  if(!err) return false;
+  const h=String(err.hint||'');
+  return h==='d5_sesion'||h==='d5_sin_sesion'||h==='d5_actor'||h==='d5_actor_ajeno';
+}
+function volverEntradaSesion(msg){
+  /* mf O4 D5: token inválido/expirado → pantalla de entrada, mensaje genérico. */
+  try{ limpiarTokenFamilia(); }catch(e){}
+  try{ localStorage.removeItem('familia_current'); }catch(e){}
+  try{ showToast(msg||'Tu sesión ya no es válida. Vuelve a entrar.'); }catch(e){}
+  setTimeout(function(){ location.reload(); }, 700);
+}
 const EMOJIS=['😎','❤️','👦','👧','👩‍🦰','👨','👩','🧑','😀','🙂','🤩','🥳','💪','⭐','🎯','🏆','🎁','🏠','📚','⚽','🎮','🍦','🎬','🚲','📱','🍕','🌳','😴','🎲','💰'];
 const COLORS=['#6366f1','#10b981','#ef4444','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16'];
 
@@ -640,7 +687,7 @@ function closeFicha(){
     openBalance(id);
   }
 }
-function logout(){localStorage.removeItem('familia_current');localStorage.removeItem('familia_token');location.reload();}
+function logout(){/* mf O4 D5 */ limpiarTokenFamilia(); localStorage.removeItem('familia_current'); localStorage.removeItem('familia_fid'); location.reload();}
 
 function statusLabel(t){
   const estado=t&&t.estado?t.estado:t;
@@ -3588,10 +3635,13 @@ async function consumeDeepLink(){
 }
 
 function loginCambiarFamilia(){
+  /* mf O4 D5: al cambiar de casa se limpia el token de sesión. */
   loginFamId=null; state.familiaId=null;
+  limpiarTokenFamilia();
   document.getElementById('loginPasoNick').style.display='';
   document.getElementById('loginPasoPin').style.display='none';
   try{localStorage.removeItem('familia_nick');}catch(e){}
+  try{localStorage.removeItem('familia_current');localStorage.removeItem('familia_fid');}catch(e){}
 }
 async function loginResolverNick(){
   if(loginBusy) return;
@@ -3622,10 +3672,9 @@ async function doLogin(){
     const {data,error}=await supabase.rpc('familia_rpc_login_miembro',{p_familia_id:fid,p_alias:alias,p_pin:pin});
     if(error) return showToast(msgErrorBD(error));
     if(!data||!data.ok) return showToast((data&&data.mensaje)||'Datos incorrectos');
-    try{
-      localStorage.setItem('familia_alias',alias.toLowerCase());
-      if(data.token) localStorage.setItem('familia_token',data.token);
-    }catch(e){}
+    try{ localStorage.setItem('familia_alias',alias.toLowerCase()); }catch(e){}
+    /* mf O4 D5: token de familia_rpc_login_miembro → sessionStorage + header del cliente. */
+    if(data.token){ guardarTokenFamilia(data.token); supabase=crearClienteSupabase(); }
     state.familiaId=+data.familia_id;
     enterAs(+data.miembro_id);
     if(data.pin_debil) setTimeout(()=>showToast('Tu PIN es débil: cámbialo en tu perfil (evita oooo/0000/1234)'),800);
@@ -3918,22 +3967,32 @@ async function init(){
     document.getElementById('loginScreen').insertAdjacentHTML('beforeend','<p style="color:#ef4444;margin-top:12px">No cargó la conexión. Recarga la página.</p>');
     return;
   }
-  supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  supabase=crearClienteSupabase();
   // MF O2: no cargar miembros ni nombres antes del PIN.
   fillLoginMembers();
   const savedFid=+localStorage.getItem('familia_fid');
   const saved=+localStorage.getItem('familia_current');
   if(savedFid&&saved){
     state.familiaId=savedFid; loginFamId=savedFid;
-    // Revalidar sesión silenciosa: cargar solo si el miembro sigue en esa casa.
-    const {data:mm}=await eqFam(supabase.from('familia_miembros').select('id')).eq('id',saved).maybeSingle();
-    if(mm&&mm.id){ enterAs(saved); }
-    else {
+    /* mf O4 D5: sin token de sesión no se restaura en silencio (haría fallar link_emitir → legacy). */
+    if(!leerTokenFamilia()){
       try{localStorage.removeItem('familia_current');}catch(e){}
       if(localStorage.getItem('familia_nick')){
         document.getElementById('loginPasoNick').style.display='none';
         document.getElementById('loginPasoPin').style.display='block';
       }
+    } else {
+    // Revalidar sesión silenciosa: cargar solo si el miembro sigue en esa casa.
+    const {data:mm}=await eqFam(supabase.from('familia_miembros').select('id')).eq('id',saved).maybeSingle();
+    if(mm&&mm.id){ enterAs(saved); }
+    else {
+      try{localStorage.removeItem('familia_current');}catch(e){}
+      limpiarTokenFamilia();
+      if(localStorage.getItem('familia_nick')){
+        document.getElementById('loginPasoNick').style.display='none';
+        document.getElementById('loginPasoPin').style.display='block';
+      }
+    }
     }
   } else if(localStorage.getItem('familia_nick')){
     // Prefill nick; usuario confirma Continuar
@@ -5592,7 +5651,11 @@ window.FamiliaV3=(function(){
       const a=Object.assign({},args); delete a.p_exige_foto; delete a.p_confirmar_pasado;
       ({data,error}=await supabase.rpc(nombre,a)); if(!error&&data!=null&&data!==false) window._v6dSinFotoRpc=true;
     }
-    if(error){showToast(msgErrorBD(error));return null;}
+    if(error){
+      /* mf O4 D5: HINT d5_* de sesión → volver a la entrada. */
+      if(sesionInvalidaErr(error)){ volverEntradaSesion(msgErrorBD(error)); return null; }
+      showToast(msgErrorBD(error));return null;
+    }
     if(data==null){showToast('No se pudo: respuesta vacía');return null;}   // nulo nunca es éxito
     return data;
   }
@@ -5654,8 +5717,9 @@ window.FamiliaV3=(function(){
      El navegador la termina aunque la página se cierre. Si falla y la página sigue viva, avisa. */
   function rpcKeepalive(nombre,args){
     try{
+      /* mf O4 D5: mismo header x-familia-token que el cliente supabase-js. */
       return fetch(SUPABASE_URL+'/rest/v1/rpc/'+nombre,{method:'POST',keepalive:true,
-        headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
+        headers:Object.assign({'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}, headersFamiliaExtra()),
         body:JSON.stringify(args)})
         .then(r=>{if(!r.ok) throw new Error('HTTP '+r.status); return r.json();})
         .catch(e=>{showToast('No se pudo aprobar: '+e.message); scheduleReload();});
@@ -6882,7 +6946,7 @@ window.FamiliaV3=(function(){
     if(error) return showToast('No se pudo: '+error.message);
     cerrarHoja(); showToast('Perfil actualizado'); loadAll();
   }
-  function salir(){localStorage.removeItem('familia_current');localStorage.removeItem('familia_token');location.reload();}
+  function salir(){/* mf O4 D5 */ limpiarTokenFamilia(); localStorage.removeItem('familia_current'); localStorage.removeItem('familia_fid'); location.reload();}
 
   /* --- Gancho al render de la v1: si el interruptor está encendido, se muestra la v3. --- */
   const renderV1=render;
