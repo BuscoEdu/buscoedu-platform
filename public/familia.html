@@ -465,6 +465,25 @@ const EMOJIS=['😎','❤️','👦','👧','👩‍🦰','👨','👩','🧑','
 const COLORS=['#6366f1','#10b981','#ef4444','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16'];
 
 let supabase;
+
+/* mf O4: captura token opaco de ?l= o /familia/l/<token> antes del login. */
+(function capturarLinkOpacoMF(){
+  try{
+    const q=new URLSearchParams(location.search);
+    let tok=q.get('l');
+    const m=String(location.pathname||'').match(/\/familia\/l\/([^/]+)\/?$/);
+    if(!tok&&m) tok=decodeURIComponent(m[1]);
+    if(tok){
+      sessionStorage.setItem('familia_link_opaco', String(tok));
+      const clean=new URL(location.href);
+      clean.searchParams.delete('l');
+      // Sin rewrite /familia/l/: si viniera por path, dejamos el path (servidor 404) o normalizamos a familia.html
+      if(m){ clean.pathname=clean.pathname.replace(/\/familia\/l\/[^/]+\/?$/,'/familia.html'); if(!/familia\.html$/.test(clean.pathname)) clean.pathname='/familia.html'; }
+      history.replaceState({},'',clean.pathname+(clean.search||'')+clean.hash);
+    }
+  }catch(e){}
+})();
+
 let state={currentUserId:null,members:[],tasks:[],rewards:[],history:[],config:{},plantillas:[],mensajes:[],solicitudes:[],notifs:[],deberes:[]};
 let notifPanelOpen=false;
 let notifSeenIds=[];
@@ -2155,7 +2174,7 @@ async function createTask(){
     const r0=rows[0], kid=(memberById(r0.asignada_a)||{}).nombre||'tu hijo';
     const hh=new Date(r0.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false}), hf=new Date(r0.fecha_limite).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
     let tid=null; try{const {data:dl}=await supabase.from('familia_tareas').select('id').eq('client_req_id',r0.client_req_id).maybeSingle(); tid=dl&&dl.id;}catch(e){}
-    const link=tid?appUrl({tarea:tid}):(location.origin+location.pathname);
+    const link=tid?(await appUrl({tarea:tid})):(location.origin+location.pathname);
     const msg='Obligatoria para '+kid+': '+titulo+'\nHora: '+hh+' a '+hf+(desc?'\n'+desc:'')+'\n'+link;
     const num=String((memberById(r0.asignada_a)||{}).telefono||'').replace(/\D/g,'');
     const w=window.open('https://wa.me/'+(num||'')+'?text='+encodeURIComponent(msg),'_blank','noopener');
@@ -2787,7 +2806,7 @@ async function submitEvidence(){
   if(error) return showToast(error.message);
   showToast(payload.estado==='esperando_aprobacion'?'Quedó pendiente de aprobación':'Falta la parte del otro');
   closeModal('modal-evidencia');
-  const share=t&&payload.estado==='esperando_aprobacion'?shareTaskText(t):'';
+  const share=t&&payload.estado==='esperando_aprobacion'?await shareTaskText(t):'';
   pendingTaskId=null;
   loadAll();
   if(share) askWhatsApp(share);
@@ -3261,7 +3280,7 @@ async function redeemReward(id){
   showToast('Canjeado');
   closeModal('modal-premio');
   loadAll();
-  askWhatsApp(shareRewardText(r, queda));
+  askWhatsApp(await shareRewardText(r, queda));
 }
 function openRewardHistory(){
   const u=currentUser();
@@ -3416,16 +3435,57 @@ async function sendMessage(){
   loadAll();
 }
 
-function appUrl(params){
+/* mf O4: links WhatsApp/deep link con token opaco (sin nickname ni ids en URL cuando la RPC existe). */
+function urlConTokenOpaco(token){
   const u=new URL(location.href);
   u.hash='';
   u.search='';
-  Object.keys(params).forEach(k=>u.searchParams.set(k,params[k]));
+  u.searchParams.set('l', token);
   return u.toString();
 }
-function shareTaskText(t){
+function urlLegacyParams(params){
+  const u=new URL(location.href);
+  u.hash='';
+  u.search='';
+  Object.keys(params||{}).forEach(k=>u.searchParams.set(k,params[k]));
+  return u.toString();
+}
+function rpcLinkAusente(err){
+  if(!err) return false;
+  const c=String(err.code||''), m=String(err.message||'')+' '+String(err.details||'');
+  return c==='PGRST202'||c==='42883'||/could not find the function|function .* does not exist|schema cache/i.test(m);
+}
+async function linkOpaco(tipo, id){
+  try{
+    if(!supabase||id==null||id==='') return null;
+    const {data,error}=await supabase.rpc('familia_rpc_link_emitir',{p_tipo:String(tipo),p_id:Number(id)});
+    if(error){
+      if(rpcLinkAusente(error)) console.warn('mf O4: familia_rpc_link_emitir no disponible; fallback link con id');
+      else console.warn('mf O4: emitir link', error.message||error);
+      return null;
+    }
+    const token=(data&&typeof data==='object')?(data.token||(data.data&&data.data.token)):data;
+    if(typeof token==='string'&&token.length) return urlConTokenOpaco(token);
+  }catch(e){ console.warn('mf O4: emitir link', e); }
+  return null;
+}
+async function appUrl(params){
+  params=params||{};
+  if(params.tarea!=null){
+    const op=await linkOpaco('tarea', params.tarea);
+    if(op) return op;
+    return urlLegacyParams({tarea:params.tarea});
+  }
+  if(params.premio!=null){
+    const op=await linkOpaco('premio', params.premio);
+    if(op) return op;
+    return urlLegacyParams({premio:params.premio});
+  }
+  return urlLegacyParams(params);
+}
+async function shareTaskText(t){
   const u=currentUser();
-  const link=appUrl({tarea:t.id});
+  const link=await appUrl({tarea:t.id});
   const name=t.titulo||'la tarea';
   if(taskAudience(t)==='parent'){
     const other=otherParent(u&&u.id);
@@ -3436,8 +3496,8 @@ function shareTaskText(t){
   }
   return 'Ya hice «'+name+'». Si está bien, los puntos son míos. ¿La aprueban? '+link;
 }
-function shareRewardText(r,queda){
-  return 'Canjeé «'+(r.nombre||'un premio')+'» por '+(r.costo||0)+' pts. Me quedan '+queda+'. '+appUrl({premio:r.id});
+async function shareRewardText(r,queda){
+  return 'Canjeé «'+(r.nombre||'un premio')+'» por '+(r.costo||0)+' pts. Me quedan '+queda+'. '+await appUrl({premio:r.id});
 }
 function askWhatsApp(text){
   pendingShare=text;
@@ -3455,7 +3515,59 @@ function skipWhatsApp(){
   pendingShare=null;
   closeModal('modal-whatsapp');
 }
-function consumeDeepLink(){
+/* mf O4: aviso genérico (móvil 390px / web) reusando #toast. */
+function enlaceNoDisponible(){
+  try{
+    const el=document.getElementById('toast');
+    if(el){ el.textContent='Este enlace no está disponible'; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),4000); }
+    else showToast('Este enlace no está disponible');
+  }catch(e){ try{showToast('Este enlace no está disponible');}catch(_){}}
+  try{
+    if(window.FamiliaV3&&FamiliaV3.activo&&FamiliaV3.activo()&&typeof FamiliaV3.ir==='function') FamiliaV3.ir('hoy');
+    else showSection('tareas', document.querySelector('.nav-btn'));
+  }catch(e){ try{showSection('tareas', document.querySelector('.nav-btn'));}catch(_){}}
+}
+function abrirDeepPorTipo(tipo, id){
+  const u=currentUser();
+  if(String(tipo)==='tarea'||String(tipo)==='t'){
+    showSection('tareas', document.querySelector('.nav-btn'));
+    const t=(state.tasks||[]).find(x=>String(x.id)===String(id));
+    if(!t){ enlaceNoDisponible(); return; }
+    if(!esPadre(u)&&taskAudience(t)==='parent') return showToast('Esa tarea es entre padres');
+    if(!esPadre(u)&&t.asignada_a!==u.id&&Number(t.para_quien)!==u.id) return showToast('Esa tarea no es tuya');
+    openTaskCard(t.id);
+    return;
+  }
+  if(String(tipo)==='premio'||String(tipo)==='p'){
+    showSection('premios', document.querySelectorAll('.nav-btn')[1]);
+    const r=(state.rewards||[]).find(x=>String(x.id)===String(id));
+    if(!r){ enlaceNoDisponible(); return; }
+    if(!esPadre(u)&&(r.tipo||'hijo')==='padre') return showToast('Ese premio es de los padres');
+    openReward(r.id);
+    return;
+  }
+  enlaceNoDisponible();
+}
+async function consumeDeepLink(){
+  /* mf O4: 1) token opaco en sessionStorage; 2) links viejos ?tarea=/?premio= solo si están en datos de la casa. */
+  let tok=null;
+  try{ tok=sessionStorage.getItem('familia_link_opaco'); }catch(e){}
+  if(tok){
+    try{ sessionStorage.removeItem('familia_link_opaco'); }catch(e){}
+    try{
+      const {data,error}=await supabase.rpc('familia_rpc_link_resolver',{p_token:String(tok)});
+      if(error){
+        if(rpcLinkAusente(error)){ /* RPC aún no desplegada: ignorar */ }
+        else { enlaceNoDisponible(); return; }
+      }else if(data&&(data.tipo||data.type)&&(data.id!=null||data.recurso_id!=null)){
+        abrirDeepPorTipo(data.tipo||data.type, data.id!=null?data.id:data.recurso_id);
+        return;
+      }else{
+        enlaceNoDisponible();
+        return;
+      }
+    }catch(e){ /* ignore */ }
+  }
   const q=new URLSearchParams(location.search);
   const tarea=q.get('tarea');
   const premio=q.get('premio');
@@ -3464,26 +3576,17 @@ function consumeDeepLink(){
   clean.searchParams.delete('tarea');
   clean.searchParams.delete('premio');
   history.replaceState({},'',clean.pathname+(clean.search||'')+clean.hash);
-  const u=currentUser();
   if(tarea){
-    showSection('tareas', document.querySelector('.nav-btn'));
-    const t=state.tasks.find(x=>String(x.id)===String(tarea));
-    if(!t) return showToast('Esa tarea ya no está');
-    if(!esPadre(u)&&taskAudience(t)==='parent') return showToast('Esa tarea es entre padres');
-    if(!esPadre(u)&&t.asignada_a!==u.id&&Number(t.para_quien)!==u.id) return showToast('Esa tarea no es tuya');
-    openTaskCard(t.id);
+    const t=(state.tasks||[]).find(x=>String(x.id)===String(tarea));
+    if(!t){ enlaceNoDisponible(); return; }
+    abrirDeepPorTipo('tarea', t.id);
     return;
   }
-  showSection('premios', document.querySelectorAll('.nav-btn')[1]);
-  const r=state.rewards.find(x=>String(x.id)===String(premio));
-  if(!r) return showToast('Ese premio ya no está');
-  if(!esPadre(u)&&(r.tipo||'hijo')==='padre') return showToast('Ese premio es de los padres');
-  openReward(r.id);
+  const r=(state.rewards||[]).find(x=>String(x.id)===String(premio));
+  if(!r){ enlaceNoDisponible(); return; }
+  abrirDeepPorTipo('premio', r.id);
 }
 
-/* MF O2: pasos de entrada sin revelar nombres. */
-let loginFamId=null;
-let loginBusy=false;
 function loginCambiarFamilia(){
   loginFamId=null; state.familiaId=null;
   document.getElementById('loginPasoNick').style.display='';
@@ -3537,7 +3640,7 @@ function enterAs(id){
   if(state.familiaId) localStorage.setItem('familia_fid',String(state.familiaId));
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('mainApp').style.display='flex';
-  loadAll().then(()=>{ render(); consumeDeepLink(); maybeAskCycle(); entradaV6c(id); });
+  loadAll().then(async()=>{ render(); await consumeDeepLink(); maybeAskCycle(); entradaV6c(id); });
 }
 
 function fillLoginMembers(){
@@ -6350,7 +6453,7 @@ window.FamiliaV3=(function(){
     const who=(memberById(crear.asignada)||{}).nombre||'';
     // v6e E-WA1: mensaje con nombre + título + enlace directo a la tarea.
     {const tid=typeof id==='object'?(id.id||id.tarea_id):id;
-      const link=tid?appUrl({tarea:tid}):(location.origin+location.pathname);
+      const link=tid?(await appUrl({tarea:tid})):(location.origin+location.pathname);
       const texto=`${d?'Deber':'Tarea'} para ${who}: ${crear.titulo}\n${link}`;
       crear={};
       // WhatsApp SOLO aquí, al crear (opcional para el padre).

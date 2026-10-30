@@ -548,6 +548,7 @@ Bitácora: 2026-10-19 18:10 (hora Madrid) — **qué**: logos de las 4 aliadas s
 ### Familia (`public/familia.html`) · v3
 - 2026-10-30 · Orquestador BuscoEdu / executor · E-AG1 Agenda A0–A3 publicada (pestaña Agenda; hijo crea; padre edita/archiva; cruce BD; recordatorios solo hijo). · por qué: OK Jhon t799u.
 - 2026-10-30 · Orquestador BuscoEdu / executor · Familia v6e cierre FI1/DU1/canje (rama feat/familia-v6e-fi1): ficha única deber/repetitiva con días + inicio/duración 1–72 h por día; cruce+VA1/VA2 en crear/lote/serie/editar/v1; canje `asignado_a` en RPC; `v6e_05`; `AGENTS.md` en raíz. · por qué: OK Jhon t792u.
+- 2026-10-30 · qué: mf O4 links WhatsApp opacos en familia.html/familia-v1.html (`linkOpaco` + `?l=<token>`; fallback si RPC ausente; resolución tras login; links viejos solo si son de la casa). · por qué: MF-31/MF-32 — ningún id/nick en la URL compartida. · Frontend BuscoEdu
 
 Bitácora: 2026-10-24 — F0 v3: aprobar, cerrar y rechazar una tarea ya no ponen `foto_url`/`foto_2` en null (4 sitios); al devolver se siguen limpiando hasta F1 (`foto_anterior`) — porque la evidencia del hijo se borraba al aprobar y se perdía para el historial — parche de Backend BuscoEdu (bot), aplicado y comentado por Frontend BuscoEdu (bot) con OK de Jhon vía Orquestador. Sin cambios de BD ni deploy (se agrupa por fase).
 
