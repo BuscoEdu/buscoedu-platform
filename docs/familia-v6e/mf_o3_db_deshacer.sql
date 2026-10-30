@@ -3,6 +3,14 @@
 -- No toca puntos. No DROP TABLE de negocio. Respaldo en respaldos.* se conserva.
 -- Quién: BD bot. Ejecutar solo si hace falta rollback de O3 DB.
 
+-- --- O3 links (familia_links) ---
+-- Quita trigger, función y tabla de enlaces opacos (sin borrar datos de negocio familia_*).
+DROP TRIGGER IF EXISTS familia_links_no_delete ON public.familia_links;
+DROP FUNCTION IF EXISTS public.familia_links_bloquear_delete();
+DROP INDEX IF EXISTS public.familia_links_fam_tipo_ref_idx;
+DROP INDEX IF EXISTS public.familia_links_token_uidx;
+DROP TABLE IF EXISTS public.familia_links;
+
 -- Quitar índices compuestos O3
 DROP INDEX IF EXISTS public.familia_notifs_fam_para_creado_idx;
 DROP INDEX IF EXISTS public.familia_tareas_fam_creado_idx;

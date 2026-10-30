@@ -126,6 +126,8 @@ Pantallas de `/admin/ia/multiproveedor` (solo super_admin): asistente de 5 pasos
 ## Explorar — paginación estable de «Mostrar más»
 
 «Mostrar más» en `/explorar` y `/naia` llega a todas las ofertas sin duplicados: `obtenerOfertas` ordena por `creado_en desc, id asc` y la página siguiente sale de las páginas ya pedidas (`src/lib/paginacion-ofertas.ts`, con pruebas). 
+Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Multi-familia O3 links: tabla `familia_links` (token hex 32 bytes, RLS sin policies, trigger anti-DELETE, índices token + (familia_id,tipo,ref_id)); migración `familia_mf_o3_links`. RPCs emitir/resolver = Backend. **por qué**: Orq GO O3+O4 links. **quién**: BD bot BuscoEdu.
+
 Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Multi-familia O3 (solo BD): vista `familia_historial_v` con `familia_id`; índices `familia_id` + compuestos (loadAll/filtros); respaldo en `respaldos.familia_mf_o3_*`; migración `familia_mf_o3_db` aplicada en prod. Sin tocar RPCs ni puntos. **por qué**: ola O3 tras #84; OK Jhon t809u. **quién**: BD bot BuscoEdu.
 
 Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Multi-familia O1+O2: tabla familia_familias (nick **beman27** case-insensitive), familia_id backfill #1, alias_entrada, RPC resolver/login + C4, pantalla nick→alias→PIN, loadAll por casa. Migración `mf_o1_o2`. **por qué**: OK Jhon t809u. **quién**: Orquestador BuscoEdu / executor.
