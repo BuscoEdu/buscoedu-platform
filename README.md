@@ -126,6 +126,8 @@ Pantallas de `/admin/ia/multiproveedor` (solo super_admin): asistente de 5 pasos
 ## Explorar — paginación estable de «Mostrar más»
 
 «Mostrar más» en `/explorar` y `/naia` llega a todas las ofertas sin duplicados: `obtenerOfertas` ordena por `creado_en desc, id asc` y la página siguiente sale de las páginas ya pedidas (`src/lib/paginacion-ofertas.ts`, con pruebas). 
+Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: post-deploy #85 limpieza QA: borrado m55 (`qahijo8808`) + 3 tareas + deps; revocados 3 links E2E (no QA2; QA2 links activos=3); borradas sesiones m55; QA2 m53/m54 intactos; pts 0/0/99/52/119/77; 0 NULL familia_id. Ops `familia_qa_limpieza_o3o4`. **por qué**: Orq GO post-merge. **quién**: BD bot BuscoEdu.
+
 Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: aplicada en prod `familia_mf_o3_fix` (link_emitir→`extensions.gen_random_bytes`; crear_tarea/lote/serie con `familia_id` desde sesión); respaldo defs `respaldos.familia_mf_o3_fix_previo(_bd)`; pts 0/0/99/52/119/77; tareas NULL=0; smoke emitir token OK. **por qué**: Orq GO Part B / OK Jhon t809u. **quién**: BD bot BuscoEdu.
 
 Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: ops O3 QA: borrado miembro QA #52 (+2 tareas); 0 sesiones QA (las de hoy eran de m1, no tocadas); backfill `familia_tareas.familia_id` (ya 0 NULL); alta familia QA2 `qa2mfcasa` (fid=2, m53 admin / m54 hijo, sin Auth/email); PIN en `/home/box/.secrets/qa-buscoedu.env` (600). Migración/ops `familia_mf_o3_ops_qa_familia2`. Pts 0/0/99/52/119/77. **por qué**: Orq GO t809u. **quién**: BD bot BuscoEdu.
