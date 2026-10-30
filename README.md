@@ -134,6 +134,8 @@ Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Multi-familia O
 
 Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Multi-familia O3 RPC scope (aceptar_subasta/tick/lote/serie/mesada/canje/agenda/ranking acotados por familia_id; familia_rpc_link_emitir/resolver DEFINER; email dueño #1 beman27 activo sin Auth). Migración `20261031090000_familia_mf_o3_rpc_scope.sql`. **por qué**: lote O3+O4 aislamiento + contrato FE O4; OK Orq. **quién**: Backend BuscoEdu (bot).
 
+Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Fix O3 QA `familia_rpc_link_emitir` usa `extensions.gen_random_bytes`; crear_tarea/lote/serie escriben `familia_id` desde sesión (migración `20261031100000_familia_mf_o3_fix.sql`). **por qué**: QA PR #85 — pgcrypto en schema extensions + tareas con familia_id NULL. **quién**: Backend BuscoEdu (bot).
+
 Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Multi-familia O1+O2: tabla familia_familias (nick **beman27** case-insensitive), familia_id backfill #1, alias_entrada, RPC resolver/login + C4, pantalla nick→alias→PIN, loadAll por casa. Migración `mf_o1_o2`. **por qué**: OK Jhon t809u. **quién**: Orquestador BuscoEdu / executor.
 
 Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Familia v6e E-AG1 Agenda olas A0–A3 (tablas+RPC+UI día/semana/mes; recordatorios solo hijo; padre no crea; archivar=próximas; cruce BD; VE1 tick→reabrir probado; limpia QA 46–48). Migraciones `v6e_07`/`v6e_08`. **por qué**: OK Jhon t799u construir y publicar. **quién**: Orquestador BuscoEdu / executor.
