@@ -114,15 +114,30 @@ h3{margin-bottom:12px}
 .v6d-tarde-b{display:inline-block;font-size:.8rem;font-weight:700;color:#374151;background:#f3f4f6;border:1px solid #9ca3af;border-radius:999px;padding:2px 8px;margin:4px 0}
 </style>
 <!-- v6e control de versión: la misma etiqueta que FAMILIA_VERSION; el chequeo la compara con la página del servidor. -->
-<meta name="familia-version" content="v6e1">
+<meta name="familia-version" content="mf1">
 </head>
 <body>
 <div class="login-screen" id="loginScreen">
   <div style="font-weight:800;letter-spacing:.08em;color:#4338ca;margin-bottom:4px">FAMLY</div><!-- v6d D8: marca en la entrada -->
   <h2 style="margin-bottom:16px">Entrar</h2>
-  <div class="form-group" style="width:100%;max-width:320px"><label>Soy</label><select id="loginMember"><option value="">Cargando...</option></select></div>
-  <div class="form-group" style="width:100%;max-width:320px"><label>PIN</label><input id="loginPin" type="password" placeholder="PIN" maxlength="8" inputmode="numeric"></div>
-  <button class="btn" style="width:100%;max-width:320px" onclick="doLogin()">Entrar</button>
+  <!-- MF O2: nick → alias+PIN (sin listar nombres hasta después del PIN). -->
+  <div id="loginPasoNick">
+    <div class="form-group" style="width:100%;max-width:320px"><label>Apodo de la familia</label>
+      <input id="loginNick" autocomplete="organization" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" placeholder="ej. beman27" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation">
+    </div>
+    <button class="btn" style="width:100%;max-width:320px;min-height:44px" type="button" onclick="loginResolverNick()">Continuar</button>
+  </div>
+  <div id="loginPasoPin" style="display:none;width:100%;max-width:320px">
+    <p class="v3-sub" id="loginFamOk" style="margin:0 0 10px;color:#6b7280">Familia encontrada</p>
+    <div class="form-group"><label>Tu alias</label>
+      <input id="loginAlias" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="16" placeholder="ej. juanes" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation">
+    </div>
+    <div class="form-group"><label>PIN</label>
+      <input id="loginPin" type="password" placeholder="PIN" maxlength="8" inputmode="numeric" autocomplete="current-password" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation">
+    </div>
+    <button class="btn" style="width:100%;min-height:44px" type="button" onclick="doLogin()">Entrar</button>
+    <button class="btn secondary" style="width:100%;margin-top:8px;min-height:44px" type="button" onclick="loginCambiarFamilia()">Cambiar de familia</button>
+  </div>
   <!-- v6e E-LG1: no mostrar ningún código/contraseña en el login -->
 </div>
 
@@ -606,7 +621,7 @@ function closeFicha(){
     openBalance(id);
   }
 }
-function logout(){localStorage.removeItem('familia_current');location.reload();}
+function logout(){localStorage.removeItem('familia_current');localStorage.removeItem('familia_token');location.reload();}
 
 function statusLabel(t){
   const estado=t&&t.estado?t.estado:t;
@@ -899,36 +914,45 @@ function columnasTareas(){return localStorage.getItem('familia_v3_on')==='1'?(wi
 /* v4 Ola 2: «Resetear todo» archiva (archivada_en) en vez de borrar. En modo v3/v4 toda lectura de
    tareas e historial filtra archivada_en IS NULL; en modo v1 la consulta queda igual que antes. */
 function sinArchivadas(q){return localStorage.getItem('familia_v3_on')==='1'?q.is('archivada_en',null):q;}
+/* MF: acota consultas a la casa en sesión (familia_id). */
+function eqFam(q){return state.familiaId?q.eq('familia_id',state.familiaId):q;}
+function pinSeguroCliente(p){
+  p=String(p||'');
+  if(p.length<4||p.length>8) return false;
+  if(!/^[0-9a-zA-Z]+$/.test(p)) return false;
+  const bad=['oooo','0000','1111','1234','4321','abcd','aaaa','2222','3333','4444','5555','6666','7777','8888','9999'];
+  return bad.indexOf(p.toLowerCase())<0;
+}
 async function loadAll(opts){
   const penalize=!!(opts&&opts.penalize);
   if(loadLock){ reloadQueued=true; return; }
   loadLock=true;
   try{
     let [m,t,p,h,c,pl,msg,sol,nt,db]=await Promise.all([
-      supabase.from('familia_miembros').select('*').order('id'),
-      sinArchivadas(supabase.from('familia_tareas').select(columnasTareas())).order('creado_en',{ascending:false}),
+      eqFam(supabase.from('familia_miembros').select('*')).order('id'),
+      eqFam(sinArchivadas(supabase.from('familia_tareas').select(columnasTareas()))).order('creado_en',{ascending:false}),
       /* v6e E-PR1: el hijo solo descarga premios suyos o «para todos» (no tipo padre). */
-      (()=>{let q=supabase.from('familia_premios').select('*').order('costo');
+      (()=>{let q=eqFam(supabase.from('familia_premios').select('*')).order('costo');
         const u0=state.currentUserId&&memberById(state.currentUserId);
         if(u0&&!esPadre(u0)) q=q.or('asignado_a.is.null,asignado_a.eq.'+u0.id).not('tipo','eq','padre');
         return q;})(),
       // v6 Mesada final: lectura desde la vista familia_historial_v (trae mesada_estado); las escrituras siguen en familia_historial.
-      sinArchivadas(supabase.from('familia_historial_v').select('*')).order('creado_en',{ascending:false}).limit(1000),
-      supabase.from('familia_config').select('*').eq('id',1).maybeSingle(),
-      supabase.from('familia_plantillas_tareas').select('*'),
-      supabase.from('familia_mensajes').select('*').order('creado_en',{ascending:false}).limit(200),
-      supabase.from('familia_solicitudes_premios').select('*').order('creado_en',{ascending:false}),
+      eqFam(sinArchivadas(supabase.from('familia_historial_v').select('*'))).order('creado_en',{ascending:false}).limit(1000),
+      (state.familiaId?eqFam(supabase.from('familia_config').select('*')).maybeSingle():supabase.from('familia_config').select('*').eq('id',1).maybeSingle()),
+      eqFam(supabase.from('familia_plantillas_tareas').select('*')),
+      eqFam(supabase.from('familia_mensajes').select('*')).order('creado_en',{ascending:false}).limit(200),
+      eqFam(supabase.from('familia_solicitudes_premios').select('*')).order('creado_en',{ascending:false}),
       /* v6e E-NOTIF: NUNCA traer avisos ajenos. Sin sesión → lista vacía (no SELECT *). */
       (state.currentUserId
-        ? supabase.from('familia_notificaciones').select('*').eq('para_id',state.currentUserId).order('leida',{ascending:true}).order('creado_en',{ascending:false}).limit(80)
+        ? eqFam(supabase.from('familia_notificaciones').select('*')).eq('para_id',state.currentUserId).order('leida',{ascending:true}).order('creado_en',{ascending:false}).limit(80)
         : Promise.resolve({data:[],error:null})),
-      supabase.from('familia_deberes').select('*').order('id')
+      eqFam(supabase.from('familia_deberes').select('*')).order('id')
     ]);
     // v6 Mesada final: si la vista no existe o falla, se vuelve a la tabla (comportamiento anterior).
-    if(h&&h.error) h=await sinArchivadas(supabase.from('familia_historial').select('*')).order('creado_en',{ascending:false}).limit(1000);
+    if(h&&h.error) h=await eqFam(sinArchivadas(supabase.from('familia_historial').select('*'))).order('creado_en',{ascending:false}).limit(1000);
     if(m.error){
       await new Promise(r=>setTimeout(r,700));
-      const retry=await supabase.from('familia_miembros').select('*').order('id');
+      const retry=await eqFam(supabase.from('familia_miembros').select('*')).order('id');
       if(!retry.error) m=retry;
     }
     if(m.error){
@@ -943,12 +967,12 @@ async function loadAll(opts){
     // v6c fix4 N2: sin v6c_08 en la BD → se reintenta sin entendida_en/vencida_origen y se recuerda para esta página.
     if(t.error&&window._v6c08Cols&&localStorage.getItem('familia_v3_on')==='1'&&faltaEnBD(t.error,['entendida_en','vencida_origen'])){
       window._v6c08Cols=false;
-      t=await sinArchivadas(supabase.from('familia_tareas').select(V6C_COLS_TAREAS)).order('creado_en',{ascending:false});
+      t=await eqFam(sinArchivadas(supabase.from('familia_tareas').select(V6C_COLS_TAREAS))).order('creado_en',{ascending:false});
     }
     if(t.error){
       await new Promise(r=>setTimeout(r,800));
       // v3: si alguna columna explícita no existe, el reintento usa '*' y la v3 quita las fotos en memoria.
-      const retry=await sinArchivadas(supabase.from('familia_tareas').select('*')).order('creado_en',{ascending:false});
+      const retry=await eqFam(sinArchivadas(supabase.from('familia_tareas').select('*'))).order('creado_en',{ascending:false});
       if(!retry.error) t=retry;
     }
     // v3 (V16): se guarda si la carga de tareas falló, para que la v3 no confunda error con vacío.
@@ -3276,7 +3300,7 @@ async function saveProfile(){
   const pin2=document.getElementById('profPin2').value.trim();
   if(pin&&pin!==pin2) return showToast('Los PIN no coinciden');
   const upd={nombre,frase,emoji,color,fecha_nacimiento:birth};
-  if(pin) upd.pin=pin;
+  if(pin){ if(!pinSeguroCliente(pin)) return showToast('PIN débil: 4–8 caracteres; no uses 0000, oooo, 1111 ni 1234'); upd.pin=pin; }
   const photoEl=document.getElementById('profPhoto');
   const photoFile=photoEl&&photoEl.files?photoEl.files[0]:null;
   if(photoFile){
@@ -3457,13 +3481,52 @@ function consumeDeepLink(){
   openReward(r.id);
 }
 
-function doLogin(){
-  const id=+document.getElementById('loginMember').value;
+/* MF O2: pasos de entrada sin revelar nombres. */
+let loginFamId=null;
+let loginBusy=false;
+function loginCambiarFamilia(){
+  loginFamId=null; state.familiaId=null;
+  document.getElementById('loginPasoNick').style.display='';
+  document.getElementById('loginPasoPin').style.display='none';
+  try{localStorage.removeItem('familia_nick');}catch(e){}
+}
+async function loginResolverNick(){
+  if(loginBusy) return;
+  const nick=(document.getElementById('loginNick').value||'').trim();
+  if(nick.length<5) return showToast('Escribe el apodo de la familia');
+  loginBusy=true;
+  try{
+    const {data,error}=await supabase.rpc('familia_rpc_resolver_nickname',{p_nickname:nick});
+    if(error) return showToast(msgErrorBD(error));
+    if(!data||!data.ok) return showToast('No encontramos esa familia');
+    loginFamId=+data.familia_id;
+    state.familiaId=loginFamId;
+    try{localStorage.setItem('familia_nick',nick.toLowerCase());}catch(e){}
+    document.getElementById('loginPasoNick').style.display='none';
+    document.getElementById('loginPasoPin').style.display='block';
+    const al=document.getElementById('loginAlias'); if(al){ const s=localStorage.getItem('familia_alias')||''; if(s) al.value=s; al.focus(); }
+  }finally{loginBusy=false;}
+}
+async function doLogin(){
+  if(loginBusy) return;
+  if(!loginFamId&&!state.familiaId) return showToast('Indica primero el apodo de la familia');
+  const fid=loginFamId||state.familiaId;
+  const alias=(document.getElementById('loginAlias').value||'').trim();
   const pin=document.getElementById('loginPin').value;
-  const m=state.members.find(x=>x.id===id);
-  if(!m) return showToast('Selecciona un miembro');
-  if((m.pin||'oooo')!==pin) return showToast('PIN incorrecto');
-  enterAs(id);
+  if(!alias||!pin) return showToast('Escribe tu alias y PIN');
+  loginBusy=true;
+  try{
+    const {data,error}=await supabase.rpc('familia_rpc_login_miembro',{p_familia_id:fid,p_alias:alias,p_pin:pin});
+    if(error) return showToast(msgErrorBD(error));
+    if(!data||!data.ok) return showToast((data&&data.mensaje)||'Datos incorrectos');
+    try{
+      localStorage.setItem('familia_alias',alias.toLowerCase());
+      if(data.token) localStorage.setItem('familia_token',data.token);
+    }catch(e){}
+    state.familiaId=+data.familia_id;
+    enterAs(+data.miembro_id);
+    if(data.pin_debil) setTimeout(()=>showToast('Tu PIN es débil: cámbialo en tu perfil (evita oooo/0000/1234)'),800);
+  }finally{loginBusy=false;}
 }
 function enterAs(id){
   state.currentUserId=id;
@@ -3471,17 +3534,18 @@ function enterAs(id){
   // v6e E-NOTIF / E-PR1: limpia avisos y premios ajenos del init previo al login.
   state.notifs=[]; state.rewards=[];
   localStorage.setItem('familia_current',id);
+  if(state.familiaId) localStorage.setItem('familia_fid',String(state.familiaId));
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('mainApp').style.display='flex';
   loadAll().then(()=>{ render(); consumeDeepLink(); maybeAskCycle(); entradaV6c(id); });
 }
 
 function fillLoginMembers(){
-  const sel=document.getElementById('loginMember');
-  if(!sel) return;
-  const prev=sel.value;
-  sel.innerHTML=state.members.slice().sort(byName).map(m=>`<option value="${m.id}">${face(m)} ${esc(m.nombre)}</option>`).join('');
-  if(prev&&[].some.call(sel.options,o=>o.value===prev)) sel.value=prev;
+  /* MF: ya no hay desplegable de nombres en el login. */
+  const nick=document.getElementById('loginNick');
+  if(nick&&!nick.value){
+    try{const s=localStorage.getItem('familia_nick'); if(s) nick.value=s;}catch(e){}
+  }
 }
 const MEMBER_ROLES={
   hijo:['Hijo','Hija'],
@@ -3752,9 +3816,25 @@ async function init(){
     return;
   }
   supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-  await loadAll({penalize:true});
+  // MF O2: no cargar miembros ni nombres antes del PIN.
+  fillLoginMembers();
+  const savedFid=+localStorage.getItem('familia_fid');
   const saved=+localStorage.getItem('familia_current');
-  if(saved&&state.members.find(m=>m.id===saved)) enterAs(saved);
+  if(savedFid&&saved){
+    state.familiaId=savedFid; loginFamId=savedFid;
+    // Revalidar sesión silenciosa: cargar solo si el miembro sigue en esa casa.
+    const {data:mm}=await eqFam(supabase.from('familia_miembros').select('id')).eq('id',saved).maybeSingle();
+    if(mm&&mm.id){ enterAs(saved); }
+    else {
+      try{localStorage.removeItem('familia_current');}catch(e){}
+      if(localStorage.getItem('familia_nick')){
+        document.getElementById('loginPasoNick').style.display='none';
+        document.getElementById('loginPasoPin').style.display='block';
+      }
+    }
+  } else if(localStorage.getItem('familia_nick')){
+    // Prefill nick; usuario confirma Continuar
+  }
   supabase.channel('familia-live')
     .on('postgres_changes',{event:'*',schema:'public',table:'familia_tareas'},scheduleReload)
     .on('postgres_changes',{event:'*',schema:'public',table:'familia_miembros'},scheduleReload)
@@ -6699,7 +6779,7 @@ window.FamiliaV3=(function(){
     if(error) return showToast('No se pudo: '+error.message);
     cerrarHoja(); showToast('Perfil actualizado'); loadAll();
   }
-  function salir(){localStorage.removeItem('familia_current');location.reload();}
+  function salir(){localStorage.removeItem('familia_current');localStorage.removeItem('familia_token');location.reload();}
 
   /* --- Gancho al render de la v1: si el interruptor está encendido, se muestra la v3. --- */
   const renderV1=render;
@@ -6830,7 +6910,7 @@ window.FamiliaV3=(function(){
 /* v6d control de versión: una pestaña o PWA vieja (p. ej. expireWindows de 84ba90f, que escribía no_terminada) debe
    recargarse sola. Cada 5 min y al volver a la pestaña se pide familia.html con no-store y se compara la meta
    familia-version con FAMILIA_VERSION. Si difiere → recarga una sola vez por versión remota (sessionStorage evita bucles). */
-const FAMILIA_VERSION='v6e1';
+const FAMILIA_VERSION='mf1';
 (function(){
   const CLAVE='familia_recarga_version';
   let enVuelo=false;

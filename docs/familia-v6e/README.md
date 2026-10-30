@@ -46,3 +46,9 @@ Orquestador BuscoEdu / executor · OK Jhon t792u (+ 15:19 AGENTS.md) · Europe/M
 - Cruce de horario bloquea en FE y BD (compromiso↔tarea y tarea↔tarea).
 - Recordatorios: solo al hijo (campana), cada ~5 min con el tick existente.
 - Hermanos no ven la agenda ajena.
+
+## Multi-familia O1+O2
+- Nickname #1: **beman27** (minúsculas; login acepta cualquier capitalización).
+- Entrada: apodo familia → alias → PIN (sin listar nombres).
+- Alias actuales: jhon, shirley, juanes, sara, mariana, isabella.
+- C4: PINs nuevos no pueden ser oooo/0000/1111/1234; login aún acepta PINs legacy con aviso.
