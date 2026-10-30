@@ -126,6 +126,8 @@ Pantallas de `/admin/ia/multiproveedor` (solo super_admin): asistente de 5 pasos
 ## Explorar — paginación estable de «Mostrar más»
 
 «Mostrar más» en `/explorar` y `/naia` llega a todas las ofertas sin duplicados: `obtenerOfertas` ordena por `creado_en desc, id asc` y la página siguiente sale de las páginas ya pedidas (`src/lib/paginacion-ofertas.ts`, con pruebas). 
+Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Multi-familia O1+O2: tabla familia_familias (nick **beman27** case-insensitive), familia_id backfill #1, alias_entrada, RPC resolver/login + C4, pantalla nick→alias→PIN, loadAll por casa. Migración `mf_o1_o2`. **por qué**: OK Jhon t809u. **quién**: Orquestador BuscoEdu / executor.
+
 Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Familia v6e E-AG1 Agenda olas A0–A3 (tablas+RPC+UI día/semana/mes; recordatorios solo hijo; padre no crea; archivar=próximas; cruce BD; VE1 tick→reabrir probado; limpia QA 46–48). Migraciones `v6e_07`/`v6e_08`. **por qué**: OK Jhon t799u construir y publicar. **quién**: Orquestador BuscoEdu / executor.
 
 Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Familia v6e hotfix QA E2E (9 FAIL): subasta SECURITY DEFINER; avisos por para_id + reload al cambiar actor; WA Obligatoria con link; Ranking Semana/Total debajo; mesada DEFINER + error visible; premios filtrados por hijo; etiqueta meta/FAMILIA_VERSION → v6e; limpieza QA 43–45. Migración `v6e_06`. **por qué**: QA E2E prod NO LISTO (qa-e2e/qa.md) + OK Jhon t792u terminar corte. **quién**: Orquestador BuscoEdu / executor.
