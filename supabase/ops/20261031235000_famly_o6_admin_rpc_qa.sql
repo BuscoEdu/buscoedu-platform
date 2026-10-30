@@ -18,6 +18,24 @@ DELETE FROM public.familia_familias WHERE id IS DISTINCT FROM 1;
 
 
 -- Helper QA: purgar invitaciones no usadas para no chocar cupo 9
+
+-- Prod-like: familia_miembros.rol NOT NULL (23502 en acd5e37 sin fix)
+ALTER TABLE public.familia_miembros ADD COLUMN IF NOT EXISTS rol text;
+UPDATE public.familia_miembros SET rol = CASE
+  WHEN coalesce(es_admin,false) OR coalesce(rol_v6d,'') IN ('padre_admin','padre') OR id IN (1,2)
+  THEN 'Padre' ELSE 'Hijo' END
+WHERE rol IS NULL OR btrim(rol) = '';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='familia_miembros'
+       AND column_name='rol' AND is_nullable='YES'
+  ) THEN
+    ALTER TABLE public.familia_miembros ALTER COLUMN rol SET NOT NULL;
+  END IF;
+END $$;
+
 CREATE OR REPLACE FUNCTION pg_temp.o6_qa_purgar_inv_libres() RETURNS void
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -65,6 +83,15 @@ BEGIN
   );
   fid := (r->>'familia_id')::bigint;
   admin_mid := (r->>'miembro_id')::integer;
+  INSERT INTO o6_res VALUES (
+    'T06_rol_padre',
+    EXISTS (
+      SELECT 1 FROM familia_miembros
+       WHERE id = admin_mid AND familia_id = fid
+         AND rol = 'Padre' AND rol_v6d = 'padre_admin'
+    ),
+    coalesce((SELECT rol||'/'||rol_v6d FROM familia_miembros WHERE id=admin_mid),'missing')
+  );
   PERFORM set_config('app.familia_id', fid::text, false);
   PERFORM set_config('app.miembro_id', admin_mid::text, false);
   PERFORM set_config('app.familia_session', r->>'token', false);
@@ -235,6 +262,11 @@ BEGIN
     coalesce(r2->>'hint', 'ok')
   );
   mid := (r2->'miembro'->>'id')::integer;
+  INSERT INTO o6_res VALUES (
+    'T10_rol_hijo',
+    EXISTS (SELECT 1 FROM familia_miembros WHERE id=mid AND rol='Hijo' AND rol_v6d='hijo'),
+    coalesce((SELECT rol||'/'||rol_v6d FROM familia_miembros WHERE id=mid),'missing')
+  );
 
   -- listar
   r2 := familia_rpc_miembros_listar();

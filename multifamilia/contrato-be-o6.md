@@ -84,6 +84,19 @@ Roles creables: `padre` \| `hijo` (no otro `padre_admin`). Tope **10 activos** (
 
 La migración BE incluye un bloque idempotente que alinea `familia_familias_nick_fmt` a `^[a-z0-9_-]{5,20}$` si el mock aún tenía el CHECK sin guion (p.ej. copia previa de BD). Anotado: en PG17 `:55432` db `mf_o6` el CHECK queda CON guion tras aplicar 235000.
 
+
+## Columna legacy `familia_miembros.rol` (fix 2026-10-31)
+
+Prod exige `rol text NOT NULL` (QA T06/T10/T26 → 23502 si falta).
+`admin_registrar` / `miembro_crear` / `miembro_editar` setean:
+
+| `rol_v6d` | `rol` (etiqueta) | Fuente |
+|--|--|--|
+| `padre_admin` / `padre` | `Padre` | `20261030223000_familia_mf_o3_ops_qa_familia2.sql:205` |
+| `hijo` | `Hijo` | misma migración `:211` |
+
+Helper: `familia_mf_o6_rol_etiqueta(p_rol_v6d)`. Migración fix: `20261031245000_famly_o6_fix_miembro_rol.sql`.
+
 ## Fuera de alcance O6 BE
 
 UI superadmin emitir/revocar; Auth global BuscoEdu; correos; planes/pagos; push/prod.
