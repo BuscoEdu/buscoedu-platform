@@ -533,6 +533,8 @@ let supabase;
 
 let state={currentUserId:null,members:[],tasks:[],rewards:[],history:[],config:{},plantillas:[],mensajes:[],solicitudes:[],notifs:[],deberes:[]};
 let notifPanelOpen=false;
+/* mf O3/O4 fix: bandera anti doble clic de la entrada (nick→alias→PIN); antes no estaba declarada y «Continuar» lanzaba ReferenceError. */
+let loginBusy=false;
 let notifSeenIds=[];
 let pendingTaskId=null;
 let pendingTransferId=null;
