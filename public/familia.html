@@ -114,7 +114,7 @@ h3{margin-bottom:12px}
 .v6d-tarde-b{display:inline-block;font-size:.8rem;font-weight:700;color:#374151;background:#f3f4f6;border:1px solid #9ca3af;border-radius:999px;padding:2px 8px;margin:4px 0}
 </style>
 <!-- v6e control de versión: la misma etiqueta que FAMILIA_VERSION; el chequeo la compara con la página del servidor. -->
-<meta name="familia-version" content="v6e">
+<meta name="familia-version" content="v6e1">
 </head>
 <body>
 <div class="login-screen" id="loginScreen">
@@ -3954,6 +3954,41 @@ body.v3-modo.tema-rosa,body.v3-modo.tema-rosa #v3App{--v3-cta:#be185d;--v6t-head
 .v3-card.rev-stack{display:flex;flex-direction:column;align-items:stretch;gap:8px}
 .v3-card.rev-stack .v3-row{width:100%;display:flex;flex-wrap:wrap;gap:8px}
 .v3-card.rev-stack .v3-cta,.v3-card.rev-stack .v3-btn2,.v3-card.rev-stack .v3-full{flex:1 1 100%;width:100%;min-height:44px;box-sizing:border-box}
+
+/* v6e E-AG1 Agenda: web + 390 (lista en semana; targets ≥44px; sin hover-only). */
+.v3-ag-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.v3-ag-top select,.v3-ag-top button,.v3-ag-form select,.v3-ag-form input{font-size:16px;min-height:44px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+.v3-ag-seg{display:flex;gap:4px;flex:1 1 auto}
+.v3-ag-seg button{flex:1;min-height:44px;border-radius:10px;border:1px solid #e5e7eb;background:#fff;font-weight:600}
+.v3-ag-seg button.on{background:#4f46e5;color:#fff;border-color:#4f46e5}
+.v3-ag-nav{display:flex;gap:6px;align-items:center;width:100%}
+.v3-ag-nav button{min-width:44px;min-height:44px;border-radius:10px;border:1px solid #e5e7eb;background:#fff;font-size:1.1rem}
+.v3-ag-nav .tit{flex:1;text-align:center;font-weight:700;font-size:.95rem}
+.v3-ag-day{display:flex;flex-direction:column;gap:6px;max-height:min(70dvh,560px);overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.v3-ag-slot{display:flex;gap:8px;align-items:stretch;min-height:44px}
+.v3-ag-hh{width:42px;flex:0 0 42px;font-size:.72rem;color:#6b7280;padding-top:10px;text-align:right}
+.v3-ag-ev{flex:1;border-left:4px solid #64748b;background:#f8fafc;border-radius:10px;padding:10px 12px;text-align:left;min-height:44px;touch-action:manipulation}
+.v3-ag-ev.tarea{border-style:dashed;background:#f0fdfa}
+.v3-ag-ev strong{display:block;font-size:.9rem}
+.v3-ag-ev .sub{font-size:.75rem;color:#6b7280}
+.v3-ag-week{display:flex;flex-direction:column;gap:10px}
+.v3-ag-wd{border:1px solid #e5e7eb;border-radius:12px;padding:8px 10px}
+.v3-ag-wd h4{margin:0 0 6px;font-size:.85rem}
+.v3-ag-month{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.v3-ag-md{min-height:52px;border-radius:10px;border:1px solid #e5e7eb;padding:4px;font-size:.7rem;background:#fff;touch-action:manipulation}
+.v3-ag-md.on{border-color:#4f46e5;background:#eef2ff}
+.v3-ag-md .dots{display:flex;flex-wrap:wrap;gap:2px;margin-top:2px}
+.v3-ag-md .dot{width:6px;height:6px;border-radius:50%}
+.v3-ag-fab{position:sticky;bottom:8px;margin-top:12px}
+.v3-ag-fab button{width:100%;min-height:48px}
+.v3-ag-form label{display:block;margin:10px 0 4px;font-size:.8rem;color:#6b7280}
+.v3-ag-chips{display:flex;flex-wrap:wrap;gap:6px}
+.v3-ag-chips button{min-height:40px;border-radius:999px;border:2px solid transparent;padding:6px 12px;color:#fff;font-weight:600;touch-action:manipulation}
+.v3-ag-chips button.on{outline:2px solid #111;outline-offset:2px}
+@media (hover:hover) and (pointer:fine){
+  .v3-ag-ev:hover,.v3-ag-md:hover{filter:brightness(.97)}
+}
+
 .v3-card .v3-grow{flex:1;min-width:0}
 .v3-card .v3-t{font-weight:600;overflow-wrap:anywhere}
 .v3-sub{font-size:.78rem;color:#64748b}
@@ -4024,6 +4059,7 @@ details.v3-admin summary{cursor:pointer;font-weight:600}
   <div class="v3-main">
     <section class="v3-sec on" id="v3-hoy"><h2>Hoy</h2><div id="v3Hoy"></div></section>
     <section class="v3-sec" id="v3-bandeja"><h2>Por revisar</h2><div id="v3Bandeja"></div></section>
+    <section class="v3-sec" id="v3-agenda"><div id="v3Agenda"></div></section>
     <section class="v3-sec" id="v3-premios"><h2>Premios</h2><div id="v3Premios"></div></section>
     <section class="v3-sec" id="v3-ranking"><!-- v5 · ítem 16: título solo «Ranking» --><h2>Ranking</h2><div id="v4Ranking"></div></section>
     <section class="v3-sec" id="v3-yo"><div id="v3Yo"></div></section>
@@ -4051,7 +4087,8 @@ window.FamiliaV3=(function(){
     yo:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 15-5 16 0"/>',
     mas:'<path d="M12 5v14M5 12h14"/>',
     trofeo:'<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8"/>',
-    campana:'<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>'
+    campana:'<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+    agenda:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>'
   };
   function svg(n){return '<svg class="v3-ico" viewBox="0 0 24 24" aria-hidden="true">'+ICO[n]+'</svg>';}
 
@@ -4086,9 +4123,15 @@ window.FamiliaV3=(function(){
   function tareaCruza(aid, ini, fin, excludeId){
     const a=+aid, i=new Date(ini).getTime(), f=new Date(fin).getTime();
     if(!a||!(f>i)) return null;
-    return (state.tasks||[]).find(t=>+t.asignada_a===a&&(!excludeId||+t.id!==+excludeId)&&!t.archivada_en
+    const tHit=(state.tasks||[]).find(t=>+t.asignada_a===a&&(!excludeId||+t.id!==+excludeId)&&!t.archivada_en
       &&t.estado!=='completada'&&t.estado!=='no_terminada'&&t.habilita_en&&t.fecha_limite
       &&new Date(t.habilita_en).getTime()<f&&new Date(t.fecha_limite).getTime()>i)||null;
+    if(tHit) return tHit;
+    // v6e E-AG1: también cruza contra compromisos cargados en agenda (mismo hijo).
+    const aHit=(state.agendaEv||[]).find(e=>e.origen==='agenda'&&+e._miembro===a
+      &&(!excludeId||('t'+excludeId)!==e.id)
+      &&new Date(e.inicio).getTime()<f&&new Date(e.fin).getTime()>i)||null;
+    return aHit?{titulo:aHit.titulo,habilita_en:aHit.inicio}:null;
   }
   function avisoCruce(cruza){
     if(!cruza) return false;
@@ -4645,6 +4688,7 @@ window.FamiliaV3=(function(){
         <button class="v3-btn2" onclick="FamiliaV3.panelV1('section-premios','Premios')">Premios</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>{openNewReward();const s=document.getElementById('rewardTipo');if(s){s.value='hijo';syncRewardParent();}})">Nuevo premio</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaMesadaV6()">Mesada mensual</button>
+        <button class="v3-btn2" onclick="FamiliaV3.ir('agenda')">Agenda</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openPenalty())">Descuento</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNewMember())">Integrante</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaPin()">PINs</button><button class="v3-btn2" onclick="FamiliaV3.hojaMovil()">📵 Celulares</button>
@@ -5302,13 +5346,14 @@ window.FamiliaV3=(function(){
     ib.innerHTML=svg('bandeja')+(n?`<span class="v3-dot">${n}</span>`:'');
     ib.setAttribute('aria-label','Por aprobar, '+n);
     // v4 · ajuste 1: pestaña propia de Ranking (lista solo hijos, como la v1), visible para todos.
-    const tabs=[['hoy','Hoy','hoy'],['premios','Premios','premio'],['ranking','Ranking','trofeo'],['yo','Yo','yo']];
+    const tabs=[['hoy','Hoy','hoy'],['agenda','Agenda','agenda'],['premios','Premios','premio'],['ranking','Ranking','trofeo'],['yo','Yo','yo']];
     if(admin) tabs.splice(1,0,['bandeja','Revisar','bandeja']);
     if(!admin&&seccion==='bandeja') seccion='hoy';
     document.getElementById('v3Nav').innerHTML=tabs.map(([k,l,i])=>`<button class="${seccion===k?'on':''}" onclick="FamiliaV3.ir('${k}')" aria-label="${l}">${svg(i)}${l}</button>`).join('');
     document.querySelectorAll('#v3App .v3-sec').forEach(s=>s.classList.toggle('on',s.id==='v3-'+seccion));
     if(seccion==='hoy') pintarHoy(u);
     if(seccion==='bandeja') pintarBandeja();
+    if(seccion==='agenda') pintarAgenda(u);
     if(seccion==='premios') pintarPremios(u);
     if(seccion==='ranking') pintarRanking(u);
     if(seccion==='yo') pintarYo(u);
@@ -6241,7 +6286,258 @@ window.FamiliaV3=(function(){
   function abrirHoja(html){document.getElementById('v3SheetBody').innerHTML='<div class="v5-volver"><button type="button" onclick="FamiliaV3.cerrarHoja()">← Volver</button></div>'+html;document.getElementById('v3Sheet').classList.add('on');}
   function cerrarHoja(){document.getElementById('v3Sheet').classList.remove('on');}
   // v6 Mesada: al entrar a Yo o Premios se pide el estado de la mesada (una vez por entrada) y se repinta.
-  function ir(s){seccion=s;pintar();if(s==='yo')cargarHistorial().then(pintar);if(s==='yo'||s==='premios')cargarMesadaEst().then(pintar);}
+
+  /* --- v6e E-AG1 Agenda (día / semana-lista / mes). Hijo crea; padre ve/edita/borra. --- */
+  const AG_CATS=[
+    ['escolar','Escolar','#2563eb'],['deportivo','Deportivo','#16a34a'],
+    ['academico','Académico','#7c3aed'],['ludico','Lúdico','#ea580c'],['otros','Otros','#64748b']
+  ];
+  let agVista='dia', agCursor=new Date(), agMiembro=null, agBusy=false;
+  state.agendaEv=state.agendaEv||[];
+
+  function agHijoId(u){
+    if(!esPadre(u)) return u.id;
+    const kids=(state.members||[]).filter(m=>!esPadre(m)).slice().sort(byName);
+    if(agMiembro&&kids.some(k=>k.id===agMiembro)) return agMiembro;
+    agMiembro=kids[0]?kids[0].id:null;
+    return agMiembro;
+  }
+  function agOptsDur(){
+    const mins=[15,30,45,60,90,120,180,240,300,360,480];
+    return mins.map(m=>{const h=Math.floor(m/60),mm=m%60; const lab=h?(mm?h+' h '+mm+' min':h+' h'):mm+' min'; return `<option value="${m}">${lab}</option>`;}).join('');
+  }
+  function agOptsHora(){
+    let o=''; for(let h=6;h<=22;h++) for(const m of [0,15,30,45]){
+      if(h===22&&m) break;
+      const hh=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+      o+=`<option value="${hh}">${hh}</option>`;
+    } return o;
+  }
+  function agOptsRec(){return '<option value="once">Una vez</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option>';}
+  function agOptsRecuer(){return [[0,'Sin aviso'],[5,'5 min'],[10,'10 min'],[15,'15 min'],[30,'30 min'],[60,'1 h'],[120,'2 h'],[1440,'1 día']].map(([v,l])=>`<option value="${v}">${l}</option>`).join('');}
+  function agYMD(d){const x=new Date(d); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');}
+  function agStartOfWeek(d){const x=new Date(d); const day=(x.getDay()+6)%7; x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x;}
+  function agRango(){
+    const c=new Date(agCursor); c.setHours(0,0,0,0);
+    if(agVista==='dia'){const a=new Date(c), b=new Date(c); b.setDate(b.getDate()+1); return [a,b];}
+    if(agVista==='semana'){const a=agStartOfWeek(c), b=new Date(a); b.setDate(b.getDate()+7); return [a,b];}
+    const a=new Date(c.getFullYear(),c.getMonth(),1), b=new Date(c.getFullYear(),c.getMonth()+1,1); return [a,b];
+  }
+  async function cargarAgenda(){
+    const u=currentUser(); if(!u) return;
+    const mid=agHijoId(u); if(!mid){state.agendaEv=[]; return;}
+    const [a,b]=agRango();
+    const {data,error}=await supabase.rpc('familia_rpc_expandir_agenda',{
+      p_actor_id:state.currentUserId, p_miembro_id:mid,
+      p_desde:a.toISOString(), p_hasta:b.toISOString()
+    });
+    if(error){ showToast(msgErrorBD(error)); state.agendaEv=[]; return; }
+    const arr=Array.isArray(data)?data:(data||[]);
+    state.agendaEv=arr.map(e=>({...e,_miembro:mid}));
+  }
+  function pintarAgenda(u){
+    const box=document.getElementById('v3Agenda'); if(!box) return;
+    const kids=(state.members||[]).filter(m=>!esPadre(m)).slice().sort(byName);
+    const mid=agHijoId(u);
+    const selHijo=esPadre(u)?`<select id="agHijo" onchange="FamiliaV3.agSetHijo(+this.value)">${kids.map(k=>`<option value="${k.id}" ${k.id===mid?'selected':''}>${esc(k.nombre)}</option>`).join('')}</select>`:'';
+    const [a,b]=agRango();
+    let tit='';
+    if(agVista==='dia') tit=agCursor.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'short'});
+    else if(agVista==='semana'){const f=new Date(b); f.setDate(f.getDate()-1); tit=a.toLocaleDateString('es-CO',{day:'numeric',month:'short'})+' – '+f.toLocaleDateString('es-CO',{day:'numeric',month:'short'});}
+    else tit=agCursor.toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+    const puedeCrear=!esPadre(u)&&!soloLectura();
+    box.innerHTML=`<div class="v3-ag-top">${selHijo}
+      <div class="v3-ag-seg" role="tablist">
+        <button type="button" class="${agVista==='dia'?'on':''}" onclick="FamiliaV3.agSetVista('dia')">Día</button>
+        <button type="button" class="${agVista==='semana'?'on':''}" onclick="FamiliaV3.agSetVista('semana')">Semana</button>
+        <button type="button" class="${agVista==='mes'?'on':''}" onclick="FamiliaV3.agSetVista('mes')">Mes</button>
+      </div>
+      <div class="v3-ag-nav">
+        <button type="button" aria-label="Anterior" onclick="FamiliaV3.agNav(-1)">‹</button>
+        <div class="tit">${esc(tit)}</div>
+        <button type="button" aria-label="Siguiente" onclick="FamiliaV3.agNav(1)">›</button>
+      </div></div>
+      <div id="agBody">${agVista==='dia'?agHtmlDia():agVista==='semana'?agHtmlSemana():agHtmlMes()}</div>
+      ${puedeCrear?`<div class="v3-ag-fab"><button class="v3-cta" type="button" onclick="FamiliaV3.hojaAgendaNueva()">+ Compromiso</button></div>`:
+        (esPadre(u)?`<p class="v3-sub" style="margin-top:10px">Puedes ver, editar o archivar. El hijo crea los compromisos.</p>`:'')}`;
+  }
+  function agHtmlDia(){
+    const day=agYMD(agCursor);
+    const evs=(state.agendaEv||[]).filter(e=>agYMD(e.inicio)===day||(new Date(e.inicio)<new Date(agCursor.getFullYear(),agCursor.getMonth(),agCursor.getDate()+1)&&new Date(e.fin)>new Date(agCursor.getFullYear(),agCursor.getMonth(),agCursor.getDate())))
+      .slice().sort((x,y)=>new Date(x.inicio)-new Date(y.inicio));
+    if(!evs.length) return '<p class="v3-sub">Sin eventos este día.</p>';
+    return '<div class="v3-ag-day">'+evs.map(e=>{
+      const hh=new Date(e.inicio).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+      const hf=new Date(e.fin).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+      const col=e.color||'#64748b';
+      const cls=e.origen==='tarea'?'tarea':'';
+      const tap=e.origen==='tarea'?`FamiliaV3.detalle(${e.tarea_id})`:`FamiliaV3.hojaAgendaEv('${String(e.actividad_id)}','${agYMD(e.inicio)}')`;
+      return `<div class="v3-ag-slot"><div class="v3-ag-hh">${hh}</div>
+        <button type="button" class="v3-ag-ev ${cls}" style="border-left-color:${col}" onclick="${tap}">
+          <strong>${e.origen==='tarea'?'📋 ':''}${esc(e.titulo||'')}</strong>
+          <span class="sub">${hh}–${hf}${e.categoria?' · '+esc(e.categoria):''}</span>
+        </button></div>`;
+    }).join('')+'</div>';
+  }
+  function agHtmlSemana(){
+    const a=agStartOfWeek(agCursor);
+    let html='<div class="v3-ag-week">';
+    for(let i=0;i<7;i++){
+      const d=new Date(a); d.setDate(a.getDate()+i);
+      const key=agYMD(d);
+      const evs=(state.agendaEv||[]).filter(e=>agYMD(e.inicio)===key).sort((x,y)=>new Date(x.inicio)-new Date(y.inicio));
+      html+=`<div class="v3-ag-wd"><h4><button type="button" class="v3-btn2" style="min-height:36px;padding:4px 8px" onclick="FamiliaV3.agIrDia('${key}')">${esc(d.toLocaleDateString('es-CO',{weekday:'short',day:'numeric',month:'short'}))}</button></h4>`;
+      if(!evs.length) html+='<p class="v3-sub">—</p>';
+      else html+=evs.map(e=>{
+        const hh=new Date(e.inicio).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+        const tap=e.origen==='tarea'?`FamiliaV3.detalle(${e.tarea_id})`:`FamiliaV3.hojaAgendaEv('${e.actividad_id}','${key}')`;
+        return `<button type="button" class="v3-ag-ev ${e.origen==='tarea'?'tarea':''}" style="border-left-color:${e.color||'#64748b'};margin-bottom:4px;width:100%" onclick="${tap}"><strong>${esc(e.titulo||'')}</strong><span class="sub">${hh}</span></button>`;
+      }).join('');
+      html+='</div>';
+    }
+    return html+'</div>';
+  }
+  function agHtmlMes(){
+    const y=agCursor.getFullYear(), m=agCursor.getMonth();
+    const first=new Date(y,m,1); const startPad=(first.getDay()+6)%7;
+    const days=new Date(y,m+1,0).getDate();
+    let html='<div class="v3-ag-month">'+['L','M','X','J','V','S','D'].map(x=>`<div class="v3-sub" style="text-align:center">${x}</div>`).join('');
+    for(let i=0;i<startPad;i++) html+='<div></div>';
+    for(let d=1;d<=days;d++){
+      const key=agYMD(new Date(y,m,d));
+      const evs=(state.agendaEv||[]).filter(e=>agYMD(e.inicio)===key);
+      const on=key===agYMD(new Date())?'on':'';
+      html+=`<button type="button" class="v3-ag-md ${on}" onclick="FamiliaV3.agIrDia('${key}')"><div>${d}</div><div class="dots">${evs.slice(0,4).map(e=>`<span class="dot" style="background:${e.color||'#64748b'}"></span>`).join('')}</div></button>`;
+    }
+    return html+'</div>';
+  }
+  function agSetVista(v){agVista=v; cargarAgenda().then(()=>pintar());}
+  function agNav(dir){
+    const c=new Date(agCursor);
+    if(agVista==='dia') c.setDate(c.getDate()+dir);
+    else if(agVista==='semana') c.setDate(c.getDate()+7*dir);
+    else c.setMonth(c.getMonth()+dir);
+    agCursor=c; cargarAgenda().then(()=>pintar());
+  }
+  function agIrDia(ymd){const [y,m,d]=ymd.split('-').map(Number); agCursor=new Date(y,m-1,d); agVista='dia'; cargarAgenda().then(()=>pintar());}
+  function agSetHijo(id){agMiembro=id; cargarAgenda().then(()=>pintar());}
+
+  function hojaAgendaNueva(){
+    const u=currentUser(); if(esPadre(u)||soloLectura()) return showToast('El hijo crea los compromisos');
+    const hoy=agYMD(agCursor);
+    abrirHoja(`<h3>Nuevo compromiso</h3><div class="v3-ag-form">
+      <label>Título</label><input id="agTit" maxlength="40" placeholder="Ej. Fútbol">
+      <label>Categoría</label><div class="v3-ag-chips" id="agCat">${AG_CATS.map(([k,l,c],i)=>`<button type="button" data-c="${k}" class="${i===0?'on':''}" style="background:${c}" onclick="FamiliaV3.agPickCat(this)">${l}</button>`).join('')}</div>
+      <label>Fecha</label><input id="agFecha" type="date" value="${hoy}">
+      <label>Inicio</label><select id="agIni">${agOptsHora()}</select>
+      <label>Duración</label><select id="agDur">${agOptsDur()}</select>
+      <label>Repetir</label><select id="agRec" onchange="FamiliaV3.agSyncRec()">${agOptsRec()}</select>
+      <div id="agDiasWrap" style="display:none"><label>Días (L–D)</label><div id="agDias" class="v3-ag-chips">${['L','M','X','J','V','S','D'].map((l,i)=>`<button type="button" data-i="${i}" class="v3-btn2" style="min-width:40px;background:#e5e7eb;color:#111" onclick="this.classList.toggle('on');this.style.background=this.classList.contains('on')?'#4f46e5':'#e5e7eb';this.style.color=this.classList.contains('on')?'#fff':'#111'">${l}</button>`).join('')}</div></div>
+      <div id="agMenWrap" style="display:none"><label>Día del mes</label><select id="agMen">${Array.from({length:30},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}</select></div>
+      <label>Hasta (opcional)</label><input id="agHasta" type="date">
+      <label>Recordatorio</label><select id="agRecuer">${agOptsRecuer()}</select>
+      <label>Notas</label><input id="agDesc" maxlength="300" placeholder="Opcional">
+      <button class="v3-cta v3-full" style="margin-top:14px" onclick="FamiliaV3.guardarAgenda()">Guardar</button>
+    </div>`);
+    const ini=document.getElementById('agIni'); if(ini) ini.value='16:00';
+    const dur=document.getElementById('agDur'); if(dur) dur.value='60';
+    const rec=document.getElementById('agRecuer'); if(rec) rec.value='30';
+  }
+  function agPickCat(btn){document.querySelectorAll('#agCat button').forEach(b=>b.classList.remove('on')); btn.classList.add('on');}
+  function agSyncRec(){
+    const r=document.getElementById('agRec').value;
+    document.getElementById('agDiasWrap').style.display=r==='weekly'?'':'none';
+    document.getElementById('agMenWrap').style.display=r==='monthly'?'':'none';
+  }
+  async function guardarAgenda(editId){
+    if(agBusy) return; const u=currentUser();
+    const tit=(document.getElementById('agTit').value||'').trim();
+    if(!tit) return showToast('Escribe un título');
+    const cat=(document.querySelector('#agCat button.on')||{}).dataset.c||'otros';
+    const fecha=document.getElementById('agFecha').value;
+    const ini=document.getElementById('agIni').value;
+    const dur=+document.getElementById('agDur').value||60;
+    const rec=document.getElementById('agRec').value;
+    let dias='0000000';
+    if(rec==='weekly'){ const arr=['0','0','0','0','0','0','0']; document.querySelectorAll('#agDias button.on').forEach(b=>{arr[+b.dataset.i]='1';}); dias=arr.join(''); if(dias==='0000000') return showToast('Marca al menos un día'); }
+    const men=rec==='monthly'?(+document.getElementById('agMen').value||null):null;
+    const hasta=document.getElementById('agHasta').value||null;
+    const recuer=+document.getElementById('agRecuer').value;
+    const desc=(document.getElementById('agDesc').value||'').trim();
+    if(!confirm(editId?'¿Guardar cambios del compromiso?':'¿Crear este compromiso?')) return;
+    agBusy=true;
+    try{
+      const args={
+        p_actor_id:state.currentUserId,
+        p_id: editId||null,
+        p_miembro_id: editId?null:u.id,
+        p_titulo:tit, p_descripcion:desc||null, p_categoria:cat,
+        p_hora_inicio:ini+':00', p_duracion_min:dur, p_recurrencia:rec,
+        p_dias_semana:dias, p_mensual_dia:men, p_desde_fecha:fecha, p_hasta_fecha:hasta,
+        p_recordar_min_antes:recuer, p_client_req_id: editId?null:('ag-'+Date.now()+'-'+Math.random().toString(36).slice(2,8))
+      };
+      const {data,error}=await supabase.rpc('familia_rpc_agenda_guardar', args);
+      if(error) return showToast(msgErrorBD(error));
+      cerrarHoja(); showToast('Guardado'); await cargarAgenda(); pintar();
+    }finally{agBusy=false;}
+  }
+  async function hojaAgendaEv(actId, dia){
+    const ev=(state.agendaEv||[]).find(e=>String(e.actividad_id)===String(actId)&&agYMD(e.inicio)===dia);
+    if(!ev) return;
+    const u=currentUser(); const canEdit=!!ev.editable&&!soloLectura();
+    const hh=new Date(ev.inicio).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+    const hf=new Date(ev.fin).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+    abrirHoja(`<h3>${esc(ev.titulo||'')}</h3>
+      <p class="v3-sub">${esc(ev.categoria||'')} · ${hh}–${hf}<br>${esc(dia)}${ev.recurrencia&&ev.recurrencia!=='once'?' · '+esc(ev.recurrencia):''}</p>
+      ${ev.descripcion?`<p>${esc(ev.descripcion)}</p>`:''}
+      ${canEdit?`<button class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.hojaAgendaEditar(${actId})">Editar</button>
+        <button class="v3-btn2 v3-full" style="margin-top:8px" onclick="FamiliaV3.agExcepcion(${actId},'${dia}','omitir')">Omitir solo este día</button>
+        <button class="v3-btn2 v3-full" style="margin-top:8px;color:#b91c1c" onclick="FamiliaV3.agArchivar(${actId})">Archivar próximas</button>`:
+        `<p class="v3-sub">Solo lectura</p>`}`);
+  }
+  async function hojaAgendaEditar(actId){
+    // Carga regla vía expandir ya tiene campos; pedimos al usuario los mismos campos prellenados desde el evento.
+    const ev=(state.agendaEv||[]).find(e=>+e.actividad_id===+actId);
+    if(!ev) return showToast('No encontrado');
+    const ini=new Date(ev.inicio);
+    const hh=String(ini.getHours()).padStart(2,'0')+':'+String(ini.getMinutes()).padStart(2,'0');
+    const dur=Math.max(15, Math.round((new Date(ev.fin)-ini)/60000));
+    abrirHoja(`<h3>Editar compromiso</h3><div class="v3-ag-form">
+      <label>Título</label><input id="agTit" maxlength="40" value="${esc(ev.titulo||'')}">
+      <label>Categoría</label><div class="v3-ag-chips" id="agCat">${AG_CATS.map(([k,l,c])=>`<button type="button" data-c="${k}" class="${k===(ev.categoria||'otros')?'on':''}" style="background:${c}" onclick="FamiliaV3.agPickCat(this)">${l}</button>`).join('')}</div>
+      <label>Fecha (regla desde)</label><input id="agFecha" type="date" value="${agYMD(ev.inicio)}">
+      <label>Inicio</label><select id="agIni">${agOptsHora()}</select>
+      <label>Duración</label><select id="agDur">${agOptsDur()}</select>
+      <label>Repetir</label><select id="agRec" onchange="FamiliaV3.agSyncRec()">${agOptsRec()}</select>
+      <div id="agDiasWrap" style="display:none"><label>Días (L–D)</label><div id="agDias" class="v3-ag-chips">${['L','M','X','J','V','S','D'].map((l,i)=>`<button type="button" data-i="${i}" class="v3-btn2" style="min-width:40px;background:#e5e7eb;color:#111" onclick="this.classList.toggle('on');this.style.background=this.classList.contains('on')?'#4f46e5':'#e5e7eb';this.style.color=this.classList.contains('on')?'#fff':'#111'">${l}</button>`).join('')}</div></div>
+      <div id="agMenWrap" style="display:none"><label>Día del mes</label><select id="agMen">${Array.from({length:30},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}</select></div>
+      <label>Hasta (opcional)</label><input id="agHasta" type="date">
+      <label>Recordatorio</label><select id="agRecuer">${agOptsRecuer()}</select>
+      <label>Notas</label><input id="agDesc" maxlength="300" value="${esc(ev.descripcion||'')}">
+      <button class="v3-cta v3-full" style="margin-top:14px" onclick="FamiliaV3.guardarAgenda(${actId})">Guardar</button>
+    </div>`);
+    document.getElementById('agIni').value=hh;
+    document.getElementById('agDur').value=String([15,30,45,60,90,120,180,240,300,360,480].includes(dur)?dur:60);
+    document.getElementById('agRec').value=ev.recurrencia||'once';
+    document.getElementById('agRecuer').value=String(ev.recordar_min_antes||30);
+    agSyncRec();
+  }
+  async function agArchivar(id){
+    if(!confirm('¿Archivar las próximas ocurrencias? Lo pasado se conserva.')) return;
+    const {error}=await supabase.rpc('familia_rpc_agenda_archivar',{p_actor_id:state.currentUserId,p_actividad_id:id});
+    if(error) return showToast(msgErrorBD(error));
+    cerrarHoja(); showToast('Archivado'); await cargarAgenda(); pintar();
+  }
+  async function agExcepcion(id, dia, tipo){
+    if(!confirm(tipo==='omitir'?'¿Omitir solo este día?':'¿Mover?')) return;
+    const {error}=await supabase.rpc('familia_rpc_agenda_excepcion',{
+      p_actor_id:state.currentUserId, p_actividad_id:id, p_dia:dia, p_tipo:tipo
+    });
+    if(error) return showToast(msgErrorBD(error));
+    cerrarHoja(); showToast('Listo'); await cargarAgenda(); pintar();
+  }
+
+    function ir(s){seccion=s;pintar();if(s==='yo')cargarHistorial().then(pintar);if(s==='yo'||s==='premios')cargarMesadaEst().then(pintar);if(s==='agenda')cargarAgenda().then(pintar);}
   function ranking(m){rkModo=m;pintar();}
   function ordenPremios(){localStorage.setItem('v3_premios_orden',localStorage.getItem('v3_premios_orden')==='desc'?'asc':'desc');pintar();}
   /* --- Administración v3 (MED 4): hojas propias; cada escritura es UNA fila (sin pasos encadenados). --- */
@@ -6487,7 +6783,7 @@ window.FamiliaV3=(function(){
     if(d.ok===false) return showToast('Ya la tomó '+(d.tomada_por||'otro'));
     showToast('¡Es tuya!'); scheduleReload();
   }
-  return {hojaRoles,guardarRolMiembro,togglePermiso,hojaCambiarPin,guardarPinAjeno,liberarParaHacer,reabrir,aceptarSubasta,comprometer,hojaConvertirSerie,convertirSerie,hojaMultas,multaAplicar,hojaMultaEditar,multaGuardar,multaArchivar,noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,_grupoFecha:grupoFecha,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {pintarAgenda,cargarAgenda,agSetVista,agNav,agIrDia,agSetHijo,hojaAgendaNueva,agPickCat,agSyncRec,guardarAgenda,hojaAgendaEv,hojaAgendaEditar,agArchivar,agExcepcion,hojaRoles,guardarRolMiembro,togglePermiso,hojaCambiarPin,guardarPinAjeno,liberarParaHacer,reabrir,aceptarSubasta,comprometer,hojaConvertirSerie,convertirSerie,hojaMultas,multaAplicar,hojaMultaEditar,multaGuardar,multaArchivar,noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,_grupoFecha:grupoFecha,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 <script>
@@ -6534,7 +6830,7 @@ window.FamiliaV3=(function(){
 /* v6d control de versión: una pestaña o PWA vieja (p. ej. expireWindows de 84ba90f, que escribía no_terminada) debe
    recargarse sola. Cada 5 min y al volver a la pestaña se pide familia.html con no-store y se compara la meta
    familia-version con FAMILIA_VERSION. Si difiere → recarga una sola vez por versión remota (sessionStorage evita bucles). */
-const FAMILIA_VERSION='v6e';
+const FAMILIA_VERSION='v6e1';
 (function(){
   const CLAVE='familia_recarga_version';
   let enVuelo=false;
