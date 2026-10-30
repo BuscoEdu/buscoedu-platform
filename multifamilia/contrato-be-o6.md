@@ -24,7 +24,7 @@ Tests locales: GUC `app.familia_session` / `app.familia_id` / `app.miembro_id`.
 
 | | |
 |--|--|
-| OK | `{ ok: true, nick: text }` con `^[a-z0-9_]{5,20}$` (**sin** guion medio; I8 + CHECK BD) |
+| OK | `{ ok: true, nick: text }` con `^[a-z0-9_-]{5,20}$` (CON guion; regla O1 Orq + CHECK BD) |
 | Grant | anon, authenticated, service_role |
 
 ### `familia_rpc_admin_registrar(p_token, p_email, p_clave, p_nick, p_nombre_familia, p_alias_admin) → jsonb`
@@ -36,11 +36,11 @@ Una transacción: valida inputs → `familia_invitacion_consumir` → familia + 
 | OK | `{ ok: true, token, familia_id, admin_id, miembro_id, nick, alias, nombre_familia }` |
 | Email ya dueño (I5) | `{ ok: false, hint: 'email_dueño', mensaje: 'Este correo ya tiene una familia. Inicia sesión.' }` |
 | Clave (I4) | `{ ok: false, hint: 'clave', mensaje: 'La clave debe tener al menos 8 caracteres, con una letra y un número.' }` |
-| Nick formato (I8) | `{ ok: false, hint: 'nick_fmt', mensaje: 'El apodo debe tener de 5 a 20 caracteres: solo minúsculas, números y guion bajo.' }` |
+| Nick formato | `{ ok: false, hint: 'nick_fmt', mensaje: 'El apodo debe tener de 5 a 20 caracteres: solo minúsculas, números, guion bajo o guion medio.' }` |
 | Nick ocupado (I7) | `{ ok: false, hint: 'nick_dup', mensaje: 'Ese apodo ya existe. Prueba con este: …', sugerencia }` |
 | Inv no válida (I2) | `{ ok: false, hint: 'no_disponible', mensaje: 'Este enlace no está disponible.' }` |
 | Clave regla | ≥8 + ≥1 letra + ≥1 número (`familia_mf_clave_ok`); hash bcrypt bf10 |
-| Nick regla | `^[a-z0-9_]{5,20}$` (sin `-`) |
+| Nick regla | `^[a-z0-9_-]{5,20}$` (CON `-`; O1 Orq) |
 | Grant | anon, authenticated, service_role |
 
 ### `familia_rpc_admin_login(p_email, p_clave) → jsonb`
@@ -74,11 +74,15 @@ Roles creables: `padre` \| `hijo` (no otro `padre_admin`). Tope **10 activos** (
 
 | Tema | FE ASSUMED | BE definitivo |
 |--|--|--|
-| Nick charset | `^[a-z0-9_-]{5,20}$` (permite `-`) | `^[a-z0-9_]{5,20}$` (I8 + CHECK BD; **sin** `-`) |
+| Nick charset | `^[a-z0-9_-]{5,20}$` | **Alineado** `^[a-z0-9_-]{5,20}$` (O1 Orq; CON guion) |
 | Login fail copy | Genérico I18 | Mismo mensaje; `hint` distingue `credenciales` / `bloqueado` |
 | Registrar errores | Mezcla RAISE/HINT | Siempre `jsonb` `ok:false` + `hint`/`mensaje` (FE ya contempla ambos) |
 | `miembros` en login | opcional | Incluido |
 | `sugerencia` nick_dup | «aviso + sugerencia» | Campo `sugerencia` + mensaje I7 |
+
+## Mock local
+
+La migración BE incluye un bloque idempotente que alinea `familia_familias_nick_fmt` a `^[a-z0-9_-]{5,20}$` si el mock aún tenía el CHECK sin guion (p.ej. copia previa de BD). Anotado: en PG17 `:55432` db `mf_o6` el CHECK queda CON guion tras aplicar 235000.
 
 ## Fuera de alcance O6 BE
 

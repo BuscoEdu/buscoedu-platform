@@ -4,6 +4,28 @@
 \set ON_ERROR_STOP on
 \timing off
 
+
+-- Limpieza local mock: liberar cupo 9 (solo QA; trigger anti-DELETE se desactiva temporalmente)
+ALTER TABLE public.familia_invitaciones DISABLE TRIGGER familia_invitaciones_no_delete;
+DELETE FROM public.familia_invitaciones;
+ALTER TABLE public.familia_invitaciones ENABLE TRIGGER familia_invitaciones_no_delete;
+DELETE FROM public.familia_rate_limit;
+-- No borramos admins/familias creados mid-test; al inicio de suite sí limpiar restos previos
+DELETE FROM public.familia_sesiones WHERE familia_id IS DISTINCT FROM 1;
+DELETE FROM public.familia_admins;
+DELETE FROM public.familia_miembros WHERE familia_id IS DISTINCT FROM 1;
+DELETE FROM public.familia_familias WHERE id IS DISTINCT FROM 1;
+
+
+-- Helper QA: purgar invitaciones no usadas para no chocar cupo 9
+CREATE OR REPLACE FUNCTION pg_temp.o6_qa_purgar_inv_libres() RETURNS void
+LANGUAGE plpgsql AS $$
+BEGIN
+  ALTER TABLE public.familia_invitaciones DISABLE TRIGGER familia_invitaciones_no_delete;
+  DELETE FROM public.familia_invitaciones WHERE usado_en IS NULL;
+  ALTER TABLE public.familia_invitaciones ENABLE TRIGGER familia_invitaciones_no_delete;
+END $$;
+
 CREATE TEMP TABLE o6_res (caso text PRIMARY KEY, ok boolean, detalle text);
 
 DO $$
@@ -97,6 +119,7 @@ BEGIN
 
   r := familia_rpc_invitacion_emitir(NULL); v_tok := r->>'token';
   r2 := familia_rpc_admin_registrar(v_tok, 'c3@ex.test', '12345678', 'clavfmt3', 'C', 'cc');
+  PERFORM pg_temp.o6_qa_purgar_inv_libres();
   INSERT INTO o6_res VALUES ('I4_clave_sin_letra', (r2->>'ok')::boolean IS FALSE AND (r2->>'hint')='clave', coalesce(r2->>'hint',''));
 
   -- I4 exactamente 8 OK
@@ -131,15 +154,35 @@ BEGIN
     coalesce(r2->>'hint','')
   );
 
-  -- guion medio rechazado (I8/BD; FE ASSUMED permite -)
+  PERFORM pg_temp.o6_qa_purgar_inv_libres();
+  -- O1: guion medio PERMITIDO
   r := familia_rpc_invitacion_emitir(NULL); v_tok := r->>'token';
-  r2 := familia_rpc_admin_registrar(v_tok, 'nh@ex.test', 'Clave123', 'casa-one', 'N', 'nn');
+  r2 := familia_rpc_admin_registrar(v_tok, 'nh@ex.test', 'Clave123', 'casa-one', 'Casa Guion', 'nn');
   INSERT INTO o6_res VALUES (
-    'I8_nick_sin_guion',
+    'O1_nick_con_guion_ok',
+    coalesce((r2->>'ok')::boolean,false) AND (r2->>'nick') = 'casa-one',
+    coalesce(r2->>'hint', 'ok') || '|nick=' || coalesce(r2->>'nick','')
+  );
+
+  -- mayúscula rechazada
+  r := familia_rpc_invitacion_emitir(NULL); v_tok := r->>'token';
+  r2 := familia_rpc_admin_registrar(v_tok, 'nu@ex.test', 'Clave123', 'CasaUno', 'N', 'nn');
+  INSERT INTO o6_res VALUES (
+    'O1_nick_mayuscula_fail',
     (r2->>'ok')::boolean IS FALSE AND (r2->>'hint')='nick_fmt',
     coalesce(r2->>'hint','')
   );
 
+  -- espacio rechazado
+  r := familia_rpc_invitacion_emitir(NULL); v_tok := r->>'token';
+  r2 := familia_rpc_admin_registrar(v_tok, 'ns@ex.test', 'Clave123', 'casa uno', 'N', 'nn');
+  INSERT INTO o6_res VALUES (
+    'O1_nick_espacio_fail',
+    (r2->>'ok')::boolean IS FALSE AND (r2->>'hint')='nick_fmt',
+    coalesce(r2->>'hint','')
+  );
+
+  PERFORM pg_temp.o6_qa_purgar_inv_libres();
   -- nick_sugerir
   r2 := familia_rpc_nick_sugerir('Casa One!');
   INSERT INTO o6_res VALUES (
@@ -173,6 +216,7 @@ BEGIN
     coalesce(r2->>'hint','')
   );
 
+  PERFORM pg_temp.o6_qa_purgar_inv_libres();
   -- --- I18 rate limit 5/15 ---
   r := familia_rpc_invitacion_emitir(NULL); v_tok := r->>'token';
   r2 := familia_rpc_admin_registrar(v_tok, 'rate@ex.test', 'Clave123', 'casarate', 'R', 'rr');
@@ -253,6 +297,7 @@ BEGIN
     coalesce(r2->>'hint','')
   );
 
+  PERFORM pg_temp.o6_qa_purgar_inv_libres();
   -- --- I10/I11 aislamiento: no editar miembro de otra familia ---
   r := familia_rpc_invitacion_emitir(NULL); v_tok := r->>'token';
   r2 := familia_rpc_admin_registrar(v_tok, 'otra@ex.test', 'Clave123', 'casaotra', 'Otra', 'adm');

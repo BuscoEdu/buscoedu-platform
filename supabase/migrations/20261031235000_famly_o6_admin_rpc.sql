@@ -37,17 +37,45 @@ BEGIN
   END IF;
 END $$;
 
--- ========== Helper nick OK (I8 · alineado a CHECK BD ^[a-z0-9_]{5,20}$ · sin guion medio) ==========
+-- ========== Alinear CHECK nick a O1 (CON guion) si el mock aún lo rechaza ==========
+DO $$
+DECLARE c text;
+BEGIN
+  IF to_regclass('public.familia_familias') IS NULL THEN RETURN; END IF;
+  FOR c IN
+    SELECT con.conname
+      FROM pg_constraint con
+     WHERE con.conrelid = 'public.familia_familias'::regclass
+       AND con.contype = 'c'
+       AND pg_get_constraintdef(con.oid) ILIKE '%nickname%'
+       AND pg_get_constraintdef(con.oid) NOT ILIKE '%a-z0-9_-%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.familia_familias DROP CONSTRAINT IF EXISTS %I', c);
+  END LOOP;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'public.familia_familias'::regclass
+       AND conname = 'familia_familias_nick_fmt'
+       AND pg_get_constraintdef(oid) ILIKE '%a-z0-9_-%'
+  ) THEN
+    ALTER TABLE public.familia_familias DROP CONSTRAINT IF EXISTS familia_familias_nick_fmt;
+    ALTER TABLE public.familia_familias
+      ADD CONSTRAINT familia_familias_nick_fmt
+      CHECK (nickname ~ '^[a-z0-9_-]{5,20}$');
+  END IF;
+END $$;
+
+-- ========== Helper nick OK (O1/Orq · CHECK BD ^[a-z0-9_-]{5,20}$ · CON guion) ==========
 CREATE OR REPLACE FUNCTION public.familia_mf_o6_nick_ok(p_nick text)
 RETURNS boolean
 LANGUAGE sql
 IMMUTABLE
 SET search_path = public, pg_temp
 AS $$
-  SELECT coalesce(p_nick, '') ~ '^[a-z0-9_]{5,20}$';
+  SELECT coalesce(p_nick, '') ~ '^[a-z0-9_-]{5,20}$';
 $$;
 COMMENT ON FUNCTION public.familia_mf_o6_nick_ok(text) IS
-  'O6: nick 5–20, solo minúsculas/números/_ (I8 + CHECK BD; sin guion medio).';
+  'O6: nick 5–20, minúsculas/números/_/- (regla O1 Orq + CHECK BD; CON guion).';
 REVOKE ALL ON FUNCTION public.familia_mf_o6_nick_ok(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.familia_mf_o6_nick_ok(text) TO anon, authenticated, service_role;
 
@@ -166,7 +194,7 @@ DECLARE
   v_cand text;
   i int := 0;
 BEGIN
-  v_base := lower(regexp_replace(coalesce(p_base, ''), '[^a-z0-9_]+', '', 'g'));
+  v_base := lower(regexp_replace(coalesce(p_base, ''), '[^a-z0-9_-]+', '', 'g'));
   IF char_length(v_base) < 5 THEN
     v_base := 'casa' || substr(encode(extensions.gen_random_bytes(3), 'hex'), 1, 4);
   END IF;
@@ -197,7 +225,7 @@ BEGIN
 END;
 $$;
 COMMENT ON FUNCTION public.familia_rpc_nick_sugerir(text) IS
-  'O6 I6/I7: sugiere nick libre 5–20 [a-z0-9_].';
+  'O6 I6/I7: sugiere nick libre 5–20 [a-z0-9_-] (CON guion).';
 REVOKE ALL ON FUNCTION public.familia_rpc_nick_sugerir(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.familia_rpc_nick_sugerir(text) TO anon, authenticated, service_role;
 
@@ -260,12 +288,12 @@ BEGIN
     );
   END IF;
 
-  -- I8 nick
-  v_nick := lower(trim(coalesce(p_nick, '')));
+  -- Nick O1: validar SIN lower previo (mayúsculas → nick_fmt; regex ya exige a-z)
+  v_nick := trim(coalesce(p_nick, ''));
   IF NOT public.familia_mf_o6_nick_ok(v_nick) THEN
     RETURN jsonb_build_object(
       'ok', false, 'hint', 'nick_fmt',
-      'mensaje', 'El apodo debe tener de 5 a 20 caracteres: solo minúsculas, números y guion bajo.'
+      'mensaje', 'El apodo debe tener de 5 a 20 caracteres: solo minúsculas, números, guion bajo o guion medio.'
     );
   END IF;
   IF EXISTS (
