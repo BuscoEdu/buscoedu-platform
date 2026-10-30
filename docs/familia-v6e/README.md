@@ -1,6 +1,6 @@
 # FAMILIA v6e · Olas O0–O6 (+ cierre FI1/DU1/canje)
 
-Estado: **BD v6e_00…v6e_05 en prod** (Supabase `khnrnnoxyzuulagemfbh`). FE en PR `feat/familia-v6e-fi1`.
+Estado: **BD v6e_00…v6e_06 en prod** (Supabase `khnrnnoxyzuulagemfbh`). FE en PR `feat/familia-v6e-fi1`.
 
 ## Archivos SQL (orden)
 | Archivo | Contenido |
@@ -10,7 +10,8 @@ Estado: **BD v6e_00…v6e_05 en prod** (Supabase `khnrnnoxyzuulagemfbh`). FE en 
 | v6e_02_horario.sql | Trigger INSERT/UPDATE Fin>Inicio + duración 1–72 h |
 | v6e_03_premios_ap1.sql | liberar_para_hacer + helper premio |
 | v6e_04_tick_reabrir_subasta.sql | tick_vencidas + cron */5, reabrir, perdonar_despues_auto, aceptar_subasta |
-| v6e_05_fi1_canje.sql | E-FI1 zona Europe/Madrid + duración por día en series; E-PR1 guarda `asignado_a` en RPC de canje; previa/cambiar con `{hora,dur_min}` |
+| v6e_05_fi1_canje.sql |
+| v6e_06_qa_e2e.sql | Hotfix QA E2E: SECURITY DEFINER subasta/liberar/reabrir/perdonar/mesada; sin GRANT a v6d_actor | E-FI1 zona Europe/Madrid + duración por día en series; E-PR1 guarda `asignado_a` en RPC de canje; previa/cambiar con `{hora,dur_min}` |
 
 ## Manual corto (padre)
 1. **Crear / editar** tarea o deber: elige **Inicio** + **Duración** (1–72 h). El Fin se calcula solo.
@@ -25,3 +26,10 @@ Estado: **BD v6e_00…v6e_05 en prod** (Supabase `khnrnnoxyzuulagemfbh`). FE en 
 
 ## Quién
 Orquestador BuscoEdu / executor · OK Jhon t792u (+ 15:19 AGENTS.md) · Europe/Madrid.
+
+## Hotfix QA E2E (visible)
+- La app se anuncia como **v6e** (`meta familia-version` + `FAMILIA_VERSION`).
+- Ranking: Semana|Total **debajo** del cuadro.
+- WhatsApp al crear incluye enlace a la tarea.
+- Premios: cada hijo solo ve los suyos / para todos.
+- Avisos: solo los del usuario en sesión.
