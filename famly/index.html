@@ -3927,31 +3927,23 @@ function fillLoginMembers(){
 }
 
 /* =============================================================================
-   O6 FE · Adaptador RPC invitaciones / admin / miembros (firmas ASSUMED)
-   Aísla todas las llamadas O6. No imprimir tokens ni PINs.
-   Contrato documentado en familia-analisis/multifamilia/contrato-fe-o6.md
+   O6 FE · Adaptador RPC invitaciones / admin / miembros
+   Alineado con BE: familia-analisis/multifamilia/contrato-be-o6.md
+   + migración 20261031235000_famly_o6_admin_rpc.sql
+   Errores de negocio = jsonb { ok:false, hint, mensaje }; no imprimir tokens/PIN.
    =============================================================================
-   ASSUMED signatures (param names = assumptions; BE may rename):
-   - familia_rpc_invitacion_validar(p_token text) → jsonb { ok:bool, hint?:text }
-   - familia_rpc_nick_sugerir(p_base text default '') → jsonb { ok:bool, nick:text }
-       fallback: { nick:text } o text plano
-   - familia_rpc_admin_registrar(p_token, p_email, p_clave, p_nick,
-       p_nombre_familia text, p_alias_admin text)
-       → jsonb { ok, token?, familia_id?, admin_id?, miembro_id?, nick?, mensaje?, hint? }
-       (brief nombraba solo 4 params; FE también envía nombre_familia + alias_admin por I6)
-   - familia_rpc_admin_login(p_email, p_clave)
-       → jsonb { ok, token?, familia_id?, admin_id?, miembros?:[], mensaje?, hint? }
-       fail/rate-limit → ok:false o error; FE mensaje genérico
-   - familia_rpc_miembros_listar()  [assumed; sesión x-familia-token]
-       → jsonb { ok, miembros:[{id,nombre,alias,rol,activo,...}] }
-   - familia_rpc_miembro_crear(p_nombre, p_alias, p_rol, p_pin)
-       → jsonb { ok, miembro?, mensaje?, hint? }
-   - familia_rpc_miembro_editar(p_miembro_id, p_nombre, p_alias, p_rol)
-       → jsonb { ok, mensaje?, hint? }
-   - familia_rpc_miembro_pin(p_miembro_id, p_pin)
-       → jsonb { ok, mensaje?, hint? }
-   - familia_rpc_miembro_desactivar(p_miembro_id)
-       → jsonb { ok, mensaje?, hint? }
+   Firmas BE (params / retorno):
+   - familia_rpc_invitacion_validar(p_token) → { ok, hint?, vence_en? } | no_disponible
+   - familia_rpc_nick_sugerir(p_base) → { ok, nick }  (^ [a-z0-9_-]{5,20} $)
+   - familia_rpc_admin_registrar(p_token,p_email,p_clave,p_nick,p_nombre_familia,p_alias_admin)
+       → ok+token+ids+nick+alias+nombre_familia | hints: email_dueño, clave, nick_fmt, nick_dup(+sugerencia), no_disponible
+   - familia_rpc_admin_login(p_email,p_clave)
+       → ok+token+ids+miembros[{id,nombre,alias,rol,activo}] | hints: credenciales|bloqueado|datos (copy genérico)
+   - familia_rpc_miembros_listar() → { ok, miembros[], familia_id }
+   - familia_rpc_miembro_crear(p_nombre,p_alias,p_rol,p_pin) → { ok, miembro } | tope_miembros|c4_pin|…
+   - familia_rpc_miembro_editar(p_miembro_id,p_nombre,p_alias,p_rol) → { ok }
+   - familia_rpc_miembro_pin(p_miembro_id,p_pin) → { ok } | c4_pin
+   - familia_rpc_miembro_desactivar(p_miembro_id) → { ok } soft
    ============================================================================= */
 const O6_NICK_RE=/^[a-z0-9_-]{5,20}$/;
 const O6_MAX_MIEMBROS=10;
@@ -3969,19 +3961,45 @@ function o6RpcPayload(data){
 }
 function o6MsgGenericoInv(){ return 'Este enlace no está disponible.'; }
 function o6MsgLoginFail(){ return 'No se pudo entrar. Inténtalo más tarde.'; }
+function o6MsgEmailDueño(){ return 'Este correo ya tiene una familia. Inicia sesión.'; }
+function o6MsgTope(){ return 'Puedes tener hasta 10 personas en tu familia.'; }
+function o6Hint(data){
+  /* hint de negocio desde jsonb ok:false (BE). */
+  return String((data&&data.hint)||'').trim();
+}
+function o6MensajeNegocio(data, fallback){
+  /* Prefiere mensaje BE; mapea hints clave a copy corta ES. */
+  const h=o6Hint(data);
+  const m=String((data&&data.mensaje)||'').trim();
+  if(h==='email_dueño'||h==='email_dueno') return o6MsgEmailDueño();
+  if(h==='no_disponible') return o6MsgGenericoInv();
+  if(h==='credenciales'||h==='bloqueado'||h==='datos') return o6MsgLoginFail();
+  if(h==='tope_miembros') return o6MsgTope();
+  if(h==='nick_dup'){
+    const sug=String((data&&data.sugerencia)||'').trim();
+    if(sug) return (m && m.indexOf(sug)>=0) ? m : ('Ese apodo ya existe. Prueba con este: '+sug);
+    return m || 'Ese apodo ya existe. Prueba con otro.';
+  }
+  if(h==='clave') return m || 'La clave debe tener al menos 8 caracteres, con una letra y un número.';
+  if(h==='nick_fmt') return m || 'El apodo debe tener de 5 a 20 caracteres: solo minúsculas, números, guion bajo o guion medio.';
+  if(h==='c4_pin') return m || 'Elige un PIN de 4 a 8 caracteres. No uses 0000, 1111 ni 1234.';
+  if(m) return m.slice(0,160);
+  return fallback||'No se pudo completar. Inténtalo de nuevo.';
+}
 
-/* --- Adaptador: una sola puerta a las RPC O6 --- */
+/* --- Adaptador: una sola puerta a las RPC O6 (nombres = contrato BE) --- */
 const O6Rpc={
   async validar(p_token){
     const {data,error}=await supabase.rpc('familia_rpc_invitacion_validar',{p_token:String(p_token||'')});
     return {data:o6RpcPayload(data),error};
   },
   async nickSugerir(p_base){
+    /* p_base DEFAULT NULL en BE; enviamos string (vacío ok). */
     const {data,error}=await supabase.rpc('familia_rpc_nick_sugerir',{p_base:String(p_base||'')});
     return {data:o6RpcPayload(data),error};
   },
   async adminRegistrar(args){
-    /* ASSUMED: p_token,p_email,p_clave,p_nick + p_nombre_familia,p_alias_admin (I6). */
+    /* Params exactos BE: p_token,p_email,p_clave,p_nick,p_nombre_familia,p_alias_admin. */
     const {data,error}=await supabase.rpc('familia_rpc_admin_registrar',{
       p_token:String(args.token||''),
       p_email:String(args.email||''),
@@ -4000,6 +4018,7 @@ const O6Rpc={
     return {data:o6RpcPayload(data),error};
   },
   async miembrosListar(){
+    /* Refresco panel; login ya trae miembros[]. */
     const {data,error}=await supabase.rpc('familia_rpc_miembros_listar',{});
     return {data:o6RpcPayload(data),error};
   },
@@ -4154,45 +4173,32 @@ async function o6RegistrarAdmin(){
       token:tok, email:o6Draft.email, clave:o6Draft.clave, nick:nick,
       nombre_familia:nombre, alias:alias
     });
-    if(error){
-      const h=String((error&&error.hint)||'');
-      const m=String((error&&error.message)||'');
-      if(/email|correo|ya/i.test(h+m) || h==='o6_email_dueño' || h==='o6_email_dueno'){
-        o6SetErr('o6FamErr','Este correo ya tiene una familia. Inicia sesión.');
-      } else if(/nick|apodo/i.test(h+m) || h==='o6_nick'){
-        let sug='';
-        try{
-          const s=await O6Rpc.nickSugerir(nick);
-          if(s.data) sug=(s.data.nick||s.data.sugerencia||'')+'';
-        }catch(e2){}
-        o6SetErr('o6FamErr', sug ? ('Ese apodo ya existe. Prueba con este: '+sug) : 'Ese apodo ya existe. Prueba con otro.');
-      } else if(/inv|enlace|token|o6_inv/i.test(h+m)){
-        document.getElementById('o6ErrorMsg').textContent=o6MsgGenericoInv();
-        o6Mostrar('error');
-      } else {
-        o6SetErr('o6FamErr', m && m.length<120 ? m : 'No se pudo crear la familia. Inténtalo de nuevo.');
-      }
+    /* Negocio BE = jsonb ok:false + hint (no RAISE). Red/RPC → genérico. */
+    if(error && (!data || data.ok==null)){
+      o6SetErr('o6FamErr','No se pudo crear la familia. Inténtalo de nuevo.');
       return;
     }
     if(!data || data.ok===false){
-      const hint=String((data&&(data.hint||data.mensaje))||'');
-      if(/email|correo/i.test(hint) || hint==='email_dueño' || hint==='email_dueno'){
-        o6SetErr('o6FamErr','Este correo ya tiene una familia. Inicia sesión.');
-      } else if(/nick/i.test(hint)){
-        const alt=(data&&data.nick_sugerido)||'';
-        o6SetErr('o6FamErr', alt ? ('Ese apodo ya existe. Prueba con este: '+alt) : 'Ese apodo ya existe. Prueba con otro.');
-      } else {
+      const h=o6Hint(data);
+      if(h==='no_disponible'){
         document.getElementById('o6ErrorMsg').textContent=o6MsgGenericoInv();
         o6Mostrar('error');
+      } else if(h==='email_dueño'||h==='email_dueno'){
+        o6SetErr('o6FamErr', o6MsgEmailDueño());
+      } else {
+        o6SetErr('o6FamErr', o6MensajeNegocio(data, 'No se pudo crear la familia. Inténtalo de nuevo.'));
+        if(h==='nick_dup' && data && data.sugerencia){
+          const inp=document.getElementById('o6Nick');
+          if(inp && !inp.value) inp.value=String(data.sugerencia);
+        }
       }
       return;
     }
-    /* Éxito: consumir invitación en cliente; guardar sesión admin si viene token. */
+    /* Éxito: limpiar inv; sesión admin; nick local. Registrar no trae miembros[]. */
     o6LimpiarInvToken();
     if(data.token){ guardarTokenFamilia(data.token); supabase=crearClienteSupabase(); }
     if(data.familia_id){ state.familiaId=+data.familia_id; try{localStorage.setItem('familia_fid',String(data.familia_id));}catch(e){} }
     if(nick){ try{localStorage.setItem('familia_nick',nick);}catch(e){} }
-    if(data.miembros && Array.isArray(data.miembros)) o6MiembrosCache=data.miembros;
     o6Draft.clave=''; /* no dejar clave en memoria de draft */
     o6Mostrar('resumen');
   }catch(e){
@@ -4213,13 +4219,18 @@ async function o6AdminLogin(){
   if(btn) btn.disabled=true;
   try{
     const {data,error}=await O6Rpc.adminLogin(email,clave);
-    /* I18: fail y rate-limit → mismo mensaje genérico. */
-    if(error || !data || data.ok!==true){
+    /* I18: fail/rate-limit/credenciales/bloqueado/datos → copy genérico (jsonb ok:false). */
+    if(error && (!data || data.ok==null)){
+      o6SetErr('o6AdminErr', o6MsgLoginFail());
+      return;
+    }
+    if(!data || data.ok!==true){
       o6SetErr('o6AdminErr', o6MsgLoginFail());
       return;
     }
     if(data.token){ guardarTokenFamilia(data.token); supabase=crearClienteSupabase(); }
     if(data.familia_id){ state.familiaId=+data.familia_id; try{localStorage.setItem('familia_fid',String(data.familia_id));}catch(e){} }
+    /* Login trae miembros[]; pintar ya y refrescar con miembros_listar en panel. */
     if(data.miembros && Array.isArray(data.miembros)) o6MiembrosCache=data.miembros;
     o6Mostrar('panel');
   }catch(e){
@@ -4233,29 +4244,28 @@ function o6Esc(s){
   return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});
 }
 async function o6CargarMiembros(){
+  /* Refresco vía miembros_listar; si hay caché (p.ej. login) pinta de inmediato. */
   const load=document.getElementById('o6MiembrosLoad');
   const empty=document.getElementById('o6MiembrosEmpty');
   const err=document.getElementById('o6MiembrosErr');
   const list=document.getElementById('o6MiembrosList');
+  if(o6MiembrosCache.length) o6PintarMiembros(o6MiembrosCache);
   if(load) load.style.display='block';
   if(empty) empty.style.display='none';
   if(err){ err.style.display='none'; err.textContent=''; }
-  if(list) list.innerHTML='';
   try{
     const {data,error}=await O6Rpc.miembrosListar();
-    if(error){
-      /* Si la RPC listar aún no existe, usa caché del login/registro. */
+    if(error || !data || data.ok===false){
       if(o6MiembrosCache.length){ o6PintarMiembros(o6MiembrosCache); }
-      else {
-        if(err){ err.style.display='block'; err.textContent='No se pudieron cargar las personas.'; }
-      }
+      else if(err){ err.style.display='block'; err.textContent='No se pudieron cargar las personas.'; }
       return;
     }
-    const rows=(data&&(data.miembros||data.items||data.rows))||(Array.isArray(data)?data:o6MiembrosCache);
+    const rows=(data&&data.miembros)||[];
     o6MiembrosCache=Array.isArray(rows)?rows:[];
     o6PintarMiembros(o6MiembrosCache);
   }catch(e){
-    if(err){ err.style.display='block'; err.textContent='No se pudieron cargar las personas.'; }
+    if(o6MiembrosCache.length) o6PintarMiembros(o6MiembrosCache);
+    else if(err){ err.style.display='block'; err.textContent='No se pudieron cargar las personas.'; }
   }finally{
     if(load) load.style.display='none';
   }
@@ -4284,13 +4294,34 @@ function o6PintarMiembros(rows){
       '</div>'):'')+
     '</div>';
   }).join('');
-  /* Aviso tope */
+  /* Tope 10: deshabilitar alta + aviso (I20). */
+  o6SyncTopeAlta(activos.length);
   if(activos.length>=O6_MAX_MIEMBROS){
     const tip=document.createElement('p');
     tip.className='o6-err';
     tip.style.display='block';
-    tip.textContent='Puedes tener hasta 10 personas en tu familia.';
+    tip.textContent=o6MsgTope();
     list.appendChild(tip);
+  }
+}
+function o6SyncTopeAlta(nActivos){
+  /* Deshabilita inputs/botón Añadir al llegar a 10 activos. */
+  const full=Number(nActivos)>=O6_MAX_MIEMBROS;
+  const btn=document.getElementById('o6BtnMemCrear');
+  if(btn){ btn.disabled=full; btn.title=full?o6MsgTope():''; }
+  ['o6MemNombre','o6MemAlias','o6MemRol','o6MemPin'].forEach(function(id){
+    const el=document.getElementById(id); if(el) el.disabled=full;
+  });
+  const tip=document.getElementById('o6MemTopeTip');
+  if(tip){ tip.style.display=full?'block':'none'; tip.textContent=full?o6MsgTope():''; }
+  else if(full){
+    const form=btn && btn.parentElement;
+    if(form && !document.getElementById('o6MemTopeTip')){
+      const p=document.createElement('p');
+      p.id='o6MemTopeTip'; p.className='o6-err'; p.style.display='block';
+      p.textContent=o6MsgTope();
+      form.appendChild(p);
+    }
   }
 }
 async function o6MiembroCrear(){
@@ -4310,13 +4341,13 @@ async function o6MiembroCrear(){
   if(btn) btn.disabled=true;
   try{
     const {data,error}=await O6Rpc.miembroCrear(nombre,alias,rol,pin);
-    if(error || !data || data.ok===false){
-      const msg=(data&&data.mensaje)||(error&&error.message)||'No se pudo añadir.';
-      if(/10|tope|máximo|maximo/i.test(String(msg)+(error&&error.hint||''))){
-        o6SetErr('o6MemErr','Puedes tener hasta 10 personas en tu familia.');
-      } else {
-        o6SetErr('o6MemErr', String(msg).slice(0,140));
-      }
+    if(error && (!data || data.ok==null)){
+      o6SetErr('o6MemErr','No se pudo añadir.');
+      return;
+    }
+    if(!data || data.ok===false){
+      o6SetErr('o6MemErr', o6MensajeNegocio(data, 'No se pudo añadir.'));
+      if(o6Hint(data)==='tope_miembros') o6SyncTopeAlta(O6_MAX_MIEMBROS);
       return;
     }
     document.getElementById('o6MemNombre').value='';
@@ -4332,7 +4363,7 @@ async function o6MiembroCrear(){
     if(btn) btn.disabled=false;
   }
 }
-/* O6 · modal accesible (focus trap, Esc, restore focus); modos edit|pin. */
+/* O6 · modal accesible (focus trap, Esc, restore focus); modos edit|pin|desactivar. */
 let o6ModalMode=null;
 let o6ModalMemberId=null;
 let o6ModalPrevFocus=null;
@@ -4359,7 +4390,7 @@ function o6ModalOnKey(e){
   else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
 }
 function o6ModalAbrir(mode,id){
-  /* Abre sheet edit|pin; rellena campos; atrapa foco. */
+  /* Abre sheet edit|pin|desactivar; rellena campos; atrapa foco. Sin confirm()/alert(). */
   if(o6Busy||o6ModalSubmitting) return;
   const m=o6MiembrosCache.find(function(x){ return Number(x.id)===Number(id); });
   const modal=o6ModalEl();
@@ -4387,18 +4418,30 @@ function o6ModalAbrir(mode,id){
         '<option value="padre"'+(rolNorm==='padre'?' selected':'')+'>Padre/Madre</option>'+
         '<option value="hijo"'+(rolNorm==='hijo'?' selected':'')+'>Hijo/Hija</option>'+
       '</select></div>';
-  } else {
+  } else if(mode==='pin'){
     title.textContent='Cambiar PIN';
     body.innerHTML=
       '<div class="o6-field"><label for="o6EditPin">Nuevo PIN (4–8 dígitos)</label>'+
       '<input id="o6EditPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="4–8 dígitos"></div>';
+  } else if(mode==='desactivar'){
+    title.textContent='Desactivar persona';
+    ok.textContent='Desactivar';
+    const nom=o6Esc((m&&(m.nombre||m.alias))||'esta persona');
+    body.innerHTML=
+      '<p style="margin:0 0 8px;color:#1f1a4d;line-height:1.4">¿Desactivar a <strong>'+nom+'</strong>?</p>'+
+      '<p style="margin:0;color:#4b5563;font-size:.92rem;line-height:1.4">No se borra; solo deja de entrar. Puedes volver a activarla más adelante si el producto lo permite.</p>';
+  } else {
+    return;
   }
   modal.hidden=false;
   modal.setAttribute('aria-hidden','false');
   modal.classList.add('show');
   document.addEventListener('keydown', o6ModalOnKey, true);
   setTimeout(function(){
-    const first=document.getElementById(mode==='edit'?'o6EditNombre':'o6EditPin');
+    let first=null;
+    if(mode==='edit') first=document.getElementById('o6EditNombre');
+    else if(mode==='pin') first=document.getElementById('o6EditPin');
+    else first=ok;
     if(first) first.focus();
     else { const s=document.getElementById('o6ModalSheet'); if(s) s.focus(); }
   },0);
@@ -4441,8 +4484,12 @@ async function o6ModalConfirmar(){
     if(okBtn){ okBtn.disabled=true; okBtn.textContent='Guardando…'; }
     try{
       const {data,error}=await O6Rpc.miembroEditar(id, nombre, alias, rol);
-      if(error || (data&&data.ok===false)){
-        o6ModalSetErr(((data&&data.mensaje)||'No se pudo guardar.').toString().slice(0,140));
+      if(error && (!data || data.ok==null)){
+        o6ModalSetErr('No se pudo guardar.');
+        return;
+      }
+      if(!data || data.ok===false){
+        o6ModalSetErr(o6MensajeNegocio(data, 'No se pudo guardar.'));
         return;
       }
       o6ModalCerrar();
@@ -4461,8 +4508,12 @@ async function o6ModalConfirmar(){
     if(okBtn){ okBtn.disabled=true; okBtn.textContent='Guardando…'; }
     try{
       const {data,error}=await O6Rpc.miembroPin(id, pin);
-      if(error || (data&&data.ok===false)){
-        o6ModalSetErr(((data&&data.mensaje)||'No se pudo cambiar el PIN.').toString().slice(0,140));
+      if(error && (!data || data.ok==null)){
+        o6ModalSetErr('No se pudo cambiar el PIN.');
+        return;
+      }
+      if(!data || data.ok===false){
+        o6ModalSetErr(o6MensajeNegocio(data, 'No se pudo cambiar el PIN.'));
         return;
       }
       /* no mostrar el PIN */
@@ -4472,6 +4523,28 @@ async function o6ModalConfirmar(){
       o6ModalSubmitting=false; o6Busy=false;
       if(okBtn && o6ModalEl() && o6ModalEl().classList.contains('show')){
         okBtn.disabled=false; okBtn.textContent='Guardar';
+      }
+    }
+  } else if(mode==='desactivar'){
+    o6ModalSubmitting=true; o6Busy=true;
+    if(okBtn){ okBtn.disabled=true; okBtn.textContent='Desactivando…'; }
+    try{
+      const {data,error}=await O6Rpc.miembroDesactivar(id);
+      if(error && (!data || data.ok==null)){
+        o6ModalSetErr('No se pudo desactivar.');
+        return;
+      }
+      if(!data || data.ok===false){
+        o6ModalSetErr(o6MensajeNegocio(data, 'No se pudo desactivar.'));
+        return;
+      }
+      o6ModalCerrar();
+      await o6CargarMiembros();
+    }catch(e){ o6ModalSetErr('No se pudo desactivar.'); }
+    finally{
+      o6ModalSubmitting=false; o6Busy=false;
+      if(okBtn && o6ModalEl() && o6ModalEl().classList.contains('show')){
+        okBtn.disabled=false; okBtn.textContent='Desactivar';
       }
     }
   }
@@ -4495,19 +4568,9 @@ function o6MiembroPinUI(id){ o6ModalAbrir('pin', id); }
   else bind();
 })();
 
-async function o6MiembroDesactivarUI(id){
-  if(o6Busy) return;
-  if(!confirm('¿Desactivar a esta persona? No se borra; solo deja de entrar.')) return;
-  o6Busy=true;
-  try{
-    const {data,error}=await O6Rpc.miembroDesactivar(id);
-    if(error || (data&&data.ok===false)){
-      alert((data&&data.mensaje)||'No se pudo desactivar.');
-      return;
-    }
-    await o6CargarMiembros();
-  }catch(e){ alert('No se pudo desactivar.'); }
-  finally{ o6Busy=false; }
+function o6MiembroDesactivarUI(id){
+  /* Confirmación vía modal O6 (sin confirm()/alert()). */
+  o6ModalAbrir('desactivar', id);
 }
 
 const MEMBER_ROLES={
