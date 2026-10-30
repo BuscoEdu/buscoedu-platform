@@ -685,7 +685,27 @@ function shiftDate(base, rec, steps){
 function mesadaAmable(m){const x=/puntos insuficientes:\s*(\d+)\s*disponibles para premios(?:;\s*(\d+)\s*de mesada se liberan el\s*(\d{1,2})\/(\d{1,2}))?/i.exec(String(m||''));
   if(!x) return m; const mes=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][(+x[4]||1)-1];
   return 'Te faltan puntos: tienes '+x[1]+' disponibles para premios.'+(x[2]&&+x[2]>0?' Tus '+x[2]+' de mesada se liberan el '+(+x[3])+' de '+mes+'.':'');}
-function showToast(m){m=mesadaAmable(m);const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+/* Ola 1 FE: cola de toasts — un mensaje nuevo no corta el anterior antes del mínimo de lectura. */
+var _toastCola=[],_toastTimer=null;
+var TOAST_MIN_MS=2800;
+function showToast(m){
+  m=mesadaAmable(m);
+  if(m==null||m==='') return;
+  _toastCola.push(String(m));
+  if(!_toastTimer) _mostrarSiguienteToast();
+}
+function _mostrarSiguienteToast(){
+  const t=document.getElementById('toast');
+  if(!_toastCola.length){
+    _toastTimer=null;
+    if(t) t.classList.remove('show');
+    return;
+  }
+  if(!t){ _toastCola=[]; _toastTimer=null; return; }
+  t.textContent=_toastCola.shift();
+  t.classList.add('show');
+  _toastTimer=setTimeout(_mostrarSiguienteToast, TOAST_MIN_MS);
+}
 function showSection(n,btn){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
@@ -990,7 +1010,8 @@ function memberOptions(selected, opts){
    porque en la primera carga la config todavía no ha llegado. */
 // QA v5 fix 2: se quitó «comentario» (no existe en prod: «column familia_tareas.comentario does not exist»); el resto
 // está en las SQL v3/v4 o lo escribe la v1 en prod. comentAprob() ya tolera t.comentario indefinido.
-const V3_COLS_TAREAS='id,titulo,descripcion,puntos,recurrencia,icono,asignada_a,conjunto_con,para_quien,tipo,clase,inmediata,estado,estado_vencida,creada_por,puntos_sumados,puntos_aplicados,puntos_penalizacion_dia,resta_por_minuto,max_negativo,pierde_pts,habilita_en,fecha_limite,ventana_horas,ventana_min,marcada_en,cerrado_en,creado_en,comentario_completado,comentario_aprobacion,evidencia_2,es_transferencia,duplicada_de,client_req_id,plantilla_id,max_por_dia,intervalo_min_min,cierre_auto,duracion_min,aprobada_para_hacer,en_subasta,subasta_vence_en,reabrir_min,serie_id,exige_foto';
+/* Ola 1 FE: familia_id en el select de tareas (columnasTareas / V3→V6C→V6C08) para aislamiento MF. */
+const V3_COLS_TAREAS='id,familia_id,titulo,descripcion,puntos,recurrencia,icono,asignada_a,conjunto_con,para_quien,tipo,clase,inmediata,estado,estado_vencida,creada_por,puntos_sumados,puntos_aplicados,puntos_penalizacion_dia,resta_por_minuto,max_negativo,pierde_pts,habilita_en,fecha_limite,ventana_horas,ventana_min,marcada_en,cerrado_en,creado_en,comentario_completado,comentario_aprobacion,evidencia_2,es_transferencia,duplicada_de,client_req_id,plantilla_id,max_por_dia,intervalo_min_min,cierre_auto,duracion_min,aprobada_para_hacer,en_subasta,subasta_vence_en,reabrir_min,serie_id,exige_foto';
 // v6c C1/C3/C7/C11: columnas del contrato v6c (enviada_tarde, exige_foto, marcada_por, pagado_a, serie_id, dias_semana); si faltan, loadAll reintenta con '*'.
 const V6C_COLS_TAREAS=V3_COLS_TAREAS+',enviada_tarde,exige_foto,marcada_por,pagado_a,serie_id,dias_semana';
 // v6b B18: plantilla_id, max_por_dia e intervalo_min_min (contrato v6b). Si faltan en la BD, loadAll reintenta con '*'.

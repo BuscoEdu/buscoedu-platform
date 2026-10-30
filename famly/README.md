@@ -14,3 +14,6 @@ Origen: `public/familia.html` → `index.html` con meta `familia-deploy=famly`.
 
 ## Sync
 Tras cambiar `public/familia.html`, regenerar `famly/index.html` (copiar + meta famly).
+
+## Bitácora
+- 2026-10-30 · qué: Ola 1 FE — cola de toasts (mín. 2,8 s, no se cortan) + `familia_id` en `columnasTareas` (V3_COLS_TAREAS) en `public/familia.html` y `famly/index.html` (sync). · por qué: toasts importantes se pisaban al cargar; select de tareas sin familia_id en modo columnas. · Frontend BuscoEdu
