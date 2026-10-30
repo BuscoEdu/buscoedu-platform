@@ -264,8 +264,9 @@ h3{margin-bottom:12px}
   <div class="form-group"><label>Multa por no hacerlo</label><!-- v6d D9 --><input type="number" id="taskPenalty" min="0" value="0"></div>
   <!-- v5 ítem 20: id para ocultar la hora cuando es Inmediata (abre en el momento de crearla). -->
   <div class="form-group" id="taskDueWrap"><label>Hora de la tarea</label><input type="datetime-local" id="taskDue" onchange="paintDueHint()"></div>
-  <div class="form-group"><!-- v6 A4: etiqueta aclarada (la ventana va antes y después de la hora). -->
+  <div class="form-group v6d-v1"><!-- v6 A4: modelo centrado solo en v1 pura. -->
   <label>Ventana (horas antes y después de la hora)</label><div style="display:flex;gap:8px"><input type="number" id="taskWindowQty" min="1" value="1" style="width:96px" onchange="paintDueHint()"><select id="taskWindowUnit" onchange="paintDueHint()"><option value="minutos">Minutos</option><option value="horas" selected>Horas</option><option value="dias">Días</option></select></div></div>
+  <div class="form-group v6b-solo"><label for="taskDur">Duración</label><select id="taskDur" onchange="paintDueHint()"><!-- v6e E-DU1: 1–72 h --></select></div>
   <input type="hidden" id="taskWindow" value="1">
   <input type="hidden" id="taskCount" value="1">
   <input type="hidden" id="taskRecurrent">
@@ -428,7 +429,7 @@ h3{margin-bottom:12px}
   <div class="form-group v6d-v1"><label>Ventana (horas antes y después de la hora)</label><input type="number" id="fichaVentana" min="0.25" step="0.25" max="336" value="1"></div>
   <!-- v6d D7: en modo v3–v6 la ficha edita Inicio y Fin (fecha y hora); la v1 sigue con hora + ventana. -->
   <div class="form-group v6b-solo"><label for="fichaIni">Inicio</label><input type="datetime-local" id="fichaIni"></div>
-  <div class="form-group v6b-solo"><label for="fichaFin">Fin</label><input type="datetime-local" id="fichaFin"></div>
+  <div class="form-group v6b-solo"><label for="fichaDur">Duración</label><select id="fichaDur"></select></div><!-- v6e E-DU1: Fin = inicio + duración -->
   <div class="form-group"><label>Resta por cada día de atraso</label><input type="number" id="fichaPen"></div>
   </div>
   <div id="fichaRead" style="display:none"></div>
@@ -1719,11 +1720,18 @@ function paintDueHint(){
   const dueEl=document.getElementById('taskDue');
   if(!help||!dueEl||!dueEl.value) return;
   const centro=parseLocalInput(dueEl.value);
-  const b=windowBounds(centro, windowMinutes());
+  // v6e E-DU1: en v3–v6 inicio+duración; en v1 centrado.
+  let abre,cierra;
+  if(typeof v6bOn==='function'&&v6bOn()){
+    const durH=Math.max(1,Math.min(72,parseInt((document.getElementById('taskDur')||{}).value,10)||1));
+    abre=centro; cierra=new Date(centro.getTime()+durH*3600000);
+  }else{
+    const b=windowBounds(centro, windowMinutes()); abre=b.abre; cierra=b.cierra;
+  }
   const tipo=document.getElementById('taskTipo')?document.getElementById('taskTipo').value:'tarea';
   const rec=chosenRecurrence();
   const n=tipo==='deber'?projectSlots(centro, rec).length:1;
-  help.textContent='Se abre '+fmtWhen(b.abre.toISOString())+' y se cierra '+fmtWhen(b.cierra.toISOString())+'. '+n+(n===1?' fecha.':' fechas en este mes.');
+  help.textContent='Se abre '+fmtWhen(abre.toISOString())+' y se cierra '+fmtWhen(cierra.toISOString())+'. '+n+(n===1?' fecha.':' fechas en este mes.');
 }
 function windowBounds(centro, minutos){
   return {
@@ -1761,6 +1769,9 @@ const BASE_REWARDS=[
   {nombre:'Día sin oficio de casa',costo:120,icono:'🏠'}
 ];
 function prepareTaskForm(audiencia){
+  // v6e E-DU1: rellena el desplegable de duración 1–72 h (Crear completo / v3).
+  {const td=document.getElementById('taskDur'); if(td&&!td.options.length){let h=''; for(let i=1;i<=72;i++) h+=`<option value="${i}" ${i===1?'selected':''}>${i} h</option>`; td.innerHTML=h;}}
+
   // v6b B16: a los padres no se les ofrecen plantillas de deber.
   const saved=state.plantillas.filter(p=>plantillaAudiencia(p)===(audiencia==='padres'?'padre':'hijo')&&(p.tipo||'')!=='inmediata'&&!(audiencia==='padres'&&p.tipo==='deber'));
   const builtins=audiencia==='padres'?PARENT_BUILTINS:KID_BUILTINS;
@@ -2042,7 +2053,15 @@ async function createTask(){
   let saveTpl=!inmediata&&document.getElementById('taskSaveTemplate').checked;
   if(!inmediata&&!validateMode&&!saveTpl&&confirm('¿Guardar esta tarea en la lista para reutilizarla después?')) saveTpl=true;
   const start=inmediata?new Date():parseLocalInput(fechaBase);
-  const minutos=windowMinutes();
+  // v6e E-DU1: en v3–v6 la duración es el desplegable 1–72 h (inicio→fin); en v1 pura sigue el modelo centrado.
+  let minutos;
+  if(v6bOn()){
+    const durH=Math.max(1,Math.min(72,parseInt((document.getElementById('taskDur')||{}).value,10)||1));
+    minutos=durH*60;
+    if(!inmediata&&start.getTime()<Date.now()-60000) return showToast('El inicio no puede estar en el pasado');
+  }else{
+    minutos=windowMinutes();
+  }
   const penal=Math.max(0,+document.getElementById('taskPenalty').value||0);
   const icono=document.getElementById('taskIcon').value||'📋';
   const slots=(raw==='deber'&&!validateMode)?projectSlots(start, recurrencia):[start];
@@ -2059,16 +2078,25 @@ async function createTask(){
   for(const slot of assigned){
     if(!slot.asignada_a) continue;
     if(sameTaskTooClose(slot.asignada_a,titulo,slot.at.getTime())) continue;
-    const limite=inmediata?new Date(slot.at.getTime()+minutos*60000):windowBounds(slot.at, minutos).cierra;
-    const abre=inmediata?slot.at:windowBounds(slot.at, minutos).abre;
+    // v6e E-DU1: v3–v6 = inicio + duración (después); v1 pura = centrado.
+    let abre, limite;
+    if(inmediata||v6bOn()){ abre=slot.at; limite=new Date(slot.at.getTime()+minutos*60000); }
+    else { const wb=windowBounds(slot.at, minutos); abre=wb.abre; limite=wb.cierra; }
+    // Bloqueo de cruce (todos los formularios).
+    {const cruza=(typeof tareaCruza==='function')?tareaCruza(slot.asignada_a,abre,limite):null;
+      if(cruza){ showToast('En ese horario no es posible: se cruza con «'+(cruza.titulo||'otra')+'»'); return; }}
     const base={
       titulo,puntos,recurrencia,icono,lote,
       fecha_limite:limite.toISOString(),habilita_en:abre.toISOString(),
       // ventana_horas es integer en BD (confirmado): se redondea hacia arriba, mínimo 1 h.
       ventana_horas:Math.max(1, Math.ceil(minutos/60)),
+      ventana_min:v6bOn()?minutos:undefined,
+      duracion_min:v6bOn()?minutos:undefined,
       max_negativo:0,resta_por_minuto:0,puntos_penalizacion_dia:penal,
       creada_por:state.currentUserId,puntos_sumados:false
     };
+    if(base.ventana_min==null) delete base.ventana_min;
+    if(base.duracion_min==null) delete base.duracion_min;
     if(desc) base.descripcion=desc;
     if(plantillaId) base.plantilla_id=plantillaId;
     // v6c C3: exige foto (solo si se marcó; sin marcar, la BD hereda el de la plantilla o deja false).
@@ -2365,8 +2393,12 @@ function openTaskCard(id, fromBalance){
   const centroMs=(abreMs&&cierraMs)?(abreMs+cierraMs)/2:(cierraMs||abreMs||0);
   document.getElementById('fichaDue').value=centroMs?toLocalInput(new Date(centroMs).toISOString()):'';
   // v6d D7: Inicio/Fin reales en la ficha v3–v6.
-  {const fi=document.getElementById('fichaIni'), ff=document.getElementById('fichaFin');
-    if(fi) fi.value=t.habilita_en?toLocalInput(t.habilita_en):''; if(ff) ff.value=t.fecha_limite?toLocalInput(t.fecha_limite):'';}
+  {const fi=document.getElementById('fichaIni'), fd=document.getElementById('fichaDur');
+    if(fi) fi.value=t.habilita_en?toLocalInput(t.habilita_en):'';
+    // v6e E-DU1: duración 1–72 h desde duracion_min / ventana / Fin−Inicio.
+    if(fd){const mins=Number(t.duracion_min)||Number(t.ventana_min)||(t.habilita_en&&t.fecha_limite?Math.round((new Date(t.fecha_limite)-new Date(t.habilita_en))/60000):60);
+      const hrs=Math.max(1,Math.min(72,Math.round(mins/60)||1)); let h=''; for(let i=1;i<=72;i++) h+=`<option value="${i}" ${i===hrs?'selected':''}>${i} h</option>`; fd.innerHTML=h;}
+  }
   const fichaWin=document.getElementById('fichaVentana');
   // ventana_horas es integer en BD: el formulario muestra horas enteras (mínimo 1).
   if(fichaWin) fichaWin.value=(abreMs&&cierraMs)?Math.max(1, Math.ceil((cierraMs-abreMs)/2/3600000)):(t.ventana_horas||1);
@@ -2389,7 +2421,7 @@ function openTaskCard(id, fromBalance){
       }
     }
   }
-  ['fichaNombre','fichaPuntos','fichaAsignada','fichaRec','fichaDue','fichaVentana','fichaPen','fichaTipo','fichaIni','fichaFin'].forEach(fid=>{   // v6d QA-fix D10: Inicio/Fin siguen la misma regla (editables en vencida sin puntos)
+  ['fichaNombre','fichaPuntos','fichaAsignada','fichaRec','fichaDue','fichaVentana','fichaPen','fichaTipo','fichaIni','fichaDur'].forEach(fid=>{   // v6d QA-fix D10: Inicio/Fin siguen la misma regla (editables en vencida sin puntos)
     const el=document.getElementById(fid);
     if(el) el.disabled=!canEdit;
   });
@@ -2488,14 +2520,26 @@ async function saveTaskFicha(id){
   const half=ventana*3600000;
   let habilita=centroMs?new Date(centroMs-half).toISOString():null;
   let limite=centroMs?new Date(centroMs+half).toISOString():null;
-  // v6d D7+D16: en v3–v6 manda Inicio/Fin de la ficha; fin ≤ inicio no guarda; pasado/00–05 h → «¿Seguro?».
+  // v6e E-DU1: Inicio + duración (1–72 h); Fin calculado. E-VA2: pasado solo si se cambió el inicio.
   let ventanaV6d=null;
   if(v6bOn()&&document.getElementById('fichaIni')){
-    const ia=document.getElementById('fichaIni').value, fa=document.getElementById('fichaFin').value;
-    if(!ia||!fa) return showToast('Elige inicio y fin');
-    if(!await validarV6d(titulo,new Date(ia),new Date(fa))) return;
-    habilita=new Date(ia).toISOString(); limite=new Date(fa).toISOString();
-    ventanaV6d=Math.max(1,Math.ceil((new Date(fa)-new Date(ia))/3600000));
+    const ia=document.getElementById('fichaIni').value;
+    const durH=Math.max(1,Math.min(72,parseInt((document.getElementById('fichaDur')||{}).value,10)||1));
+    if(!ia) return showToast('Elige el inicio');
+    const ini=new Date(ia), fin=new Date(ini.getTime()+durH*3600000);
+    const iniOrig=t.habilita_en?new Date(t.habilita_en).getTime():null;
+    if(iniOrig!=null&&Math.abs(ini.getTime()-iniOrig)>60000&&ini.getTime()<Date.now()-60000)
+      return showToast('El inicio no puede estar en el pasado');
+    if(!await validarV6d(titulo,ini,fin)) return;
+    // Bloqueo de cruce al editar (excluye esta misma tarea).
+    if(typeof avisoCruce==='function'&&avisoCruce(tareaCruza(asignada,ini,fin,id))) return;
+    // Fallback si helpers aún no están (v1 puro): cruce inline.
+    if(typeof avisoCruce!=='function'){
+      const cruza=(state.tasks||[]).find(x=>+x.asignada_a===+asignada&&+x.id!==+id&&!x.archivada_en&&x.estado!=='completada'&&x.habilita_en&&x.fecha_limite&&new Date(x.habilita_en)<fin&&new Date(x.fecha_limite)>ini);
+      if(cruza) return showToast('En ese horario no es posible: se cruza con «'+(cruza.titulo||'otra')+'»');
+    }
+    habilita=ini.toISOString(); limite=fin.toISOString();
+    ventanaV6d=durH;
   }
   const payload={
     titulo,
@@ -2508,10 +2552,14 @@ async function saveTaskFicha(id){
     recurrencia:tipo==='deber'?document.getElementById('fichaRec').value:'once',
     fecha_limite:limite,
     habilita_en:habilita,
-    ventana_horas:ventanaV6d||ventana,   // v6d D7
+    ventana_horas:ventanaV6d||ventana,   // v6d D7 / v6e E-DU1
+    ventana_min:ventanaV6d?ventanaV6d*60:undefined,
+    duracion_min:ventanaV6d?ventanaV6d*60:undefined,
     puntos_penalizacion_dia:+document.getElementById('fichaPen').value||0
   };
-  const reabrir=t.estado==='no_terminada'&&!t.puntos_sumados&&centroMs&&(centroMs+half)>Date.now();
+  if(payload.ventana_min==null) delete payload.ventana_min;
+  if(payload.duracion_min==null) delete payload.duracion_min;
+  const reabrir=t.estado==='no_terminada'&&!t.puntos_sumados&&limite&&new Date(limite)>new Date();
   if(reabrir) payload.estado='pendiente';
   // v6d D10: vencida sin puntos (aviso_vencida o por_decidir) con fin futuro → vuelve a pendiente y estado_vencida=null.
   if(v6bOn()&&!t.puntos_sumados&&(t.estado==='aviso_vencida'||t.estado_vencida==='por_decidir'||t.estado_vencida==='pendiente_hijo')&&limite&&new Date(limite)>new Date()){payload.estado='pendiente';payload.estado_vencida=null;}
@@ -4018,6 +4066,34 @@ window.FamiliaV3=(function(){
   }
   const PRESET_REABRIR=[15,30,45,60,90,120,180,240];
   const PRESET_SUBASTA=[30,60,90,120,180,240,360,720,1440];
+  /* v6e E-FI1: lee hora/duración de un día (legado string "HH:MM" o {hora,dur_min}). */
+  function horaDiaDe(horas, dow, fallback){
+    const x=horas&&horas[String(dow)];
+    if(x&&typeof x==='object') return String(x.hora||fallback||'07:00');
+    if(typeof x==='string'&&x) return x;
+    return fallback||'07:00';
+  }
+  function durDiaDe(horas, dow, fallbackMin){
+    const x=horas&&horas[String(dow)];
+    if(x&&typeof x==='object'&&x.dur_min!=null) return Math.max(1,Math.min(72*60,Number(x.dur_min)||60));
+    return Math.max(1,Math.min(72*60,Number(fallbackMin)||60));
+  }
+  /* v6e: bloqueo de cruce con otra tarea del mismo hijo (decisión Jhon 15:00). excludeId=edición. */
+  function tareaCruza(aid, ini, fin, excludeId){
+    const a=+aid, i=new Date(ini).getTime(), f=new Date(fin).getTime();
+    if(!a||!(f>i)) return null;
+    return (state.tasks||[]).find(t=>+t.asignada_a===a&&(!excludeId||+t.id!==+excludeId)&&!t.archivada_en
+      &&t.estado!=='completada'&&t.estado!=='no_terminada'&&t.habilita_en&&t.fecha_limite
+      &&new Date(t.habilita_en).getTime()<f&&new Date(t.fecha_limite).getTime()>i)||null;
+  }
+  function avisoCruce(cruza){
+    if(!cruza) return false;
+    showToast('En ese horario no es posible: se cruza con «'+(cruza.titulo||'otra tarea')+'» ('+new Date(cruza.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false})+')');
+    return true;
+  }
+  // v6e: disponibles también desde ficha/v1 (fuera del IIFE).
+  window.optsDuracionHoras=optsDuracionHoras; window.tareaCruza=tareaCruza; window.avisoCruce=avisoCruce;
+  window.horaDiaDe=horaDiaDe; window.durDiaDe=durDiaDe;
 
 
   let rkModo='semana';          // ranking: 'semana' | 'total'
@@ -4803,10 +4879,11 @@ window.FamiliaV3=(function(){
       <label>Título</label><input id="v4lTit" maxlength="40" oninput="document.getElementById('v4lTitC').textContent=this.value.length+'/40'"><small class="v6b-cont" id="v4lTitC">0/40</small>${''/* v6d D11: nombre n/40 */}
       <!-- v5 ítem 20: sin selector Tarea/Deber (se quitó el de ítem 19). La clase sale de loteClase; deber = 0 pts + descuento. -->
       ${dl?'<p class="v3-sub">Un deber no suma puntos; si se vence aplica el descuento.</p>':'<label>Puntos</label><input id="v4lPts" type="number" min="0" value="10">'}
-      <label>Primera vez</label><input id="v4lIni" type="datetime-local" value="${loc}">
+      <label>Primera vez (inicio)</label><input id="v4lIni" type="datetime-local" value="${loc}">
+      <label>Duración (cada repetición)</label><select id="v4lDur">${optsDuracionHoras(1)}</select>${''/* v6e E-DU1: Fin = inicio + duración */}
       <label>Repetir</label><select id="v4lRec"><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option></select>
       <label>Veces al día (1–4)</label><input id="v4lVeces" type="number" min="1" max="4" value="1">
-      <label>Fin (de la primera vez)</label><input id="v4lFin" type="datetime-local" value="${new Date(d.getTime()+3600000-d.getTimezoneOffset()*60000).toISOString().slice(0,16)}">${''/* v6d D7: Inicio + Fin; la duración se repite en cada fecha */}<label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v4lFoto" style="width:auto"> Exige foto (todas las del lote)</label>${''/* v6d D1 */}
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v4lFoto" style="width:auto"> Exige foto (todas las del lote)</label>${''/* v6d D1 */}
       <label>Descuento si se pasa (pts)</label><input id="v4lPen" type="number" min="0" value="${dl?3:0}">
       <label>Para</label><div>${hijos.map(m=>`<label style="display:flex;gap:6px;align-items:center;margin:4px 0;color:#1e293b"><input type="checkbox" class="v4lHijo" value="${m.id}" style="width:auto">${esc(m.nombre)}</label>`).join('')}</div>
       <label>Reparto</label><select id="v4lModo"><option value="uno">Un solo hijo</option><option value="entre">Turnar entre los marcados (al azar)</option><option value="cada_uno">Cada uno la suya</option></select>
@@ -4870,24 +4947,35 @@ window.FamiliaV3=(function(){
      «Ver fechas» (familia_rpc_serie_previa) y Crear (familia_rpc_serie_crear). La BD renueva cada mes y no duplica. */
   const DIAS=['L','M','X','J','V','S','D'];
   function diasSel(){return DIAS.map((_,i)=>(document.getElementById('v6sD'+i)||{}).checked?'1':'0').join('');}
+  /* v6e E-FI1: horas por día = {hora,dur_min}; si todas = general, igual se envían los marcados. */
   function horasSel(){
-    const g=(document.getElementById('v6sHora')||{}).value||'', o={};
-    DIAS.forEach((_,i)=>{const v=(document.getElementById('v6sH'+i)||{}).value; if(v&&v!==g) o[String(i+1)]=v;});
+    const g=(document.getElementById('v6sHora')||{}).value||'07:00';
+    const gDur=Math.max(1,Math.min(72,parseInt((document.getElementById('v6sDur')||{}).value,10)||1))*60;
+    const o={};
+    DIAS.forEach((_,i)=>{
+      const on=(document.getElementById('v6sD'+i)||{}).checked;
+      if(!on) return;
+      const v=(document.getElementById('v6sH'+i)||{}).value||g;
+      const d=Math.max(1,Math.min(72,parseInt((document.getElementById('v6sDur'+i)||{}).value,10)||(gDur/60)))*60;
+      o[String(i+1)]={hora:v,dur_min:d};
+    });
     return Object.keys(o).length?o:null;
   }
   function mensualSel(){const on=(document.getElementById('v6sMen')||{}).checked; const n=parseInt((document.getElementById('v6sMenDia')||{}).value,10); return on&&n>=1&&n<=30?n:null;}   // v6d D14: 1–30
   function resumenSerie(dias,horas,mensual){
-    if(mensual) return 'Mensual, el día '+mensual+(horas&&horas['1']?' · '+horas['1']:'');
+    const fmt=h=>{ if(!h) return ''; if(typeof h==='object'){ const dh=Math.round((Number(h.dur_min)||60)/60); return (h.hora||'')+(dh?' · '+dh+' h':''); } return String(h); };
+    if(mensual) return 'Mensual, el día '+mensual+(horas&&horas['1']?' · '+fmt(horas['1']):'');
     const out=[]; let i=0;
-    while(i<7){ if(dias[i]!=='1'){i++;continue;} const h=horas?horas[String(i+1)]:''; let j=i;
-      while(j+1<7&&dias[j+1]==='1'&&(horas?horas[String(j+2)]:'')===h) j++;
-      out.push((j>i?DIAS[i]+'–'+DIAS[j]:DIAS[i])+(h?' '+h:'')); i=j+1; }
+    while(i<7){ if(dias[i]!=='1'){i++;continue;} const h=horas?horas[String(i+1)]:null; const key=fmt(h); let j=i;
+      while(j+1<7&&dias[j+1]==='1'&&fmt(horas?horas[String(j+2)]:null)===key) j++;
+      out.push((j>i?DIAS[i]+'–'+DIAS[j]:DIAS[i])+(key?' '+key:'')); i=j+1; }
     return out.join(' · ')||'Sin días';
   }
   function serieRefrescar(){
     const g=(document.getElementById('v6sHora')||{}).value||'';
-    DIAS.forEach((_,i)=>{const on=(document.getElementById('v6sD'+i)||{}).checked, f=document.getElementById('v6sF'+i), h=document.getElementById('v6sH'+i);
-      if(f) f.style.display=on?'flex':'none'; if(h&&!h.dataset.tocado) h.value=g;});
+    const gDur=(document.getElementById('v6sDur')||{}).value||'1';
+    DIAS.forEach((_,i)=>{const on=(document.getElementById('v6sD'+i)||{}).checked, f=document.getElementById('v6sF'+i), h=document.getElementById('v6sH'+i), d=document.getElementById('v6sDur'+i);
+      if(f) f.style.display=on?'flex':'none'; if(h&&!h.dataset.tocado) h.value=g; if(d&&!d.dataset.tocado) d.value=gDur;});
     // v6d D14: Mensual bloquea y limpia L–D y sus horas; al desmarcar vuelven. Aviso «Sale una vez al mes, el día N».
     {const men=!!(document.getElementById('v6sMen')||{}).checked;
       DIAS.forEach((_,i)=>{const c=document.getElementById('v6sD'+i), h=document.getElementById('v6sH'+i); if(c){if(men) c.checked=false; c.disabled=men;} if(h) h.disabled=men; const f=document.getElementById('v6sF'+i); if(f&&men) f.style.display='none';});
@@ -4899,11 +4987,15 @@ window.FamiliaV3=(function(){
     DIAS.forEach((_,i)=>{const c=document.getElementById('v6sD'+i); if(c) c.checked=k==='todos'||(k==='semana'?i<5:i>=5);});
     serieRefrescar();
   }
+  /* v6e E-FI1: días + inicio y duración (1–72 h) por día; general rellena los no tocados. */
   function camposDias(dias,horas,hora){
+    const h0=typeof hora==='object'?(hora&&hora.hora)||'07:00':(hora||'07:00');
+    const d0=typeof hora==='object'?Math.max(1,Math.round((Number(hora&&hora.dur_min)||60)/60)):1;
     return `<label>Días</label><div class="v6c-dias">${DIAS.map((d,i)=>`<label class="v6c-dia"><input type="checkbox" id="v6sD${i}" ${dias[i]==='1'?'checked':''} onchange="FamiliaV3._serieRef()"><span>${d}</span></label>`).join('')}</div>
       <div class="v3-row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" class="v3-btn2" onclick="FamiliaV3._serieAtajo('todos')">Todos</button><button type="button" class="v3-btn2" onclick="FamiliaV3._serieAtajo('semana')">Entre semana</button><button type="button" class="v3-btn2" onclick="FamiliaV3._serieAtajo('finde')">Fin de semana</button></div>
-      <label for="v6sHora">Hora general</label><input id="v6sHora" type="time" value="${esc(hora||'07:00')}" oninput="FamiliaV3._serieRef()">
-      <details style="margin-top:6px"><summary class="v3-sub">Otra hora en algún día</summary>${DIAS.map((d,i)=>`<div id="v6sF${i}" class="v3-row" style="align-items:center;gap:8px;margin-top:4px"><span style="width:1.5em;font-weight:700">${d}</span><input id="v6sH${i}" type="time" value="${esc((horas&&horas[String(i+1)])||hora||'07:00')}" ${horas&&horas[String(i+1)]&&horas[String(i+1)]!==hora?'data-tocado="1"':''} oninput="this.dataset.tocado='1'" style="flex:1"></div>`).join('')}</details>`;
+      <label for="v6sHora">Inicio (hora general)</label><input id="v6sHora" type="time" value="${esc(h0)}" oninput="FamiliaV3._serieRef()">
+      <label for="v6sDur">Duración general</label><select id="v6sDur" onchange="FamiliaV3._serieRef()">${optsDuracionHoras(d0)}</select>
+      <details style="margin-top:6px"><summary class="v3-sub">Otra hora / duración en algún día</summary>${DIAS.map((d,i)=>{const hv=horaDiaDe(horas,i+1,h0); const dv=Math.max(1,Math.round(durDiaDe(horas,i+1,d0*60)/60)); const toc=horas&&horas[String(i+1)]&&(horaDiaDe(horas,i+1,'')!==h0||dv!==d0); return `<div id="v6sF${i}" class="v3-row" style="align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap"><span style="width:1.5em;font-weight:700">${d}</span><input id="v6sH${i}" type="time" value="${esc(hv)}" ${toc?'data-tocado="1"':''} oninput="this.dataset.tocado='1'" style="flex:1;min-width:7em"><select id="v6sDur${i}" ${toc?'data-tocado="1"':''} onchange="this.dataset.tocado='1'" style="flex:1;min-width:5em">${optsDuracionHoras(dv)}</select></div>`;}).join('')}</details>`;
   }
   function hojaSerie(){
     if(!puede('reglas')) return showToast('Solo el padre admin puede hacer esto');   // v6d D6: matriz «reglas»
@@ -4917,7 +5009,7 @@ window.FamiliaV3=(function(){
       ${camposDias('1111100',null,'07:00')}
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v6sMen" style="width:auto" onchange="FamiliaV3._serieRef()"> Mensual (un día fijo del mes)</label>
       <input id="v6sMenDia" type="number" min="1" max="30" value="1" oninput="FamiliaV3._serieRef()" aria-label="Día del mes (1 a 30)">${''/* v6d D14 */}
-      <label>Fin (hora; cada día dura lo mismo desde su inicio)</label><input id="v6sFin" type="time" value="08:00">${''/* v6d D7: Inicio = hora del día; Fin en vez de minutos */}
+      <!-- v6e E-FI1/E-DU1: duración por día en camposDias (desplegable 1–72 h); ya no hay Fin suelto. -->
       <label>Descuento si se pasa (pts)</label><input id="v6sPen" type="number" min="0" value="3">
       ${campoDescV3('v6sDesc','')}
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v6sFoto" style="width:auto"> Exige foto</label>
@@ -4947,19 +5039,22 @@ window.FamiliaV3=(function(){
     const dias=diasSel(), men=mensualSel(); if(dias==='0000000'&&men==null) return showToast('Marca al menos un día');
     const desc=descripcionDe(v('v6sDesc')); if(descReservada(desc)) return showToast('Escribe una descripción distinta de «META»');
     const horas=horasSel(), hora=v('v6sHora')||'07:00';
-    // v6d D7+D16: duración = Fin − hora general; fin ≤ inicio no guarda.
-    const [hI,mI]=String(hora).split(':').map(Number), [hF,mF]=String(v('v6sFin')||'').split(':').map(Number);
-    // v6d QA-fix D7: Fin ≤ Inicio = día siguiente (22:00→00:00 = 120 min); duración > 0 y ≤ 24 h.
-    let venS=(hF*60+mF)-(hI*60+mI); if(isNaN(venS)) return showToast('Elige el fin'); if(venS<=0) venS+=1440;
-    if(!(venS>0&&venS<=1440)) return showToast('El fin debe ser después del inicio');
-    {const a0=new Date(); a0.setHours(hI,mI,0,0); if(!await validarV6d(tit,a0,new Date(a0.getTime()+venS*60000))) return;}
-    if(!confirm('¿Crear el deber repetitivo «'+tit+'» ('+resumenSerie(men?'0000000':dias,Object.assign({},...DIAS.map((_,i)=>({[i+1]:hora})),horas||{}),men)+') para '+hijos.length+' hijo(s)?')) return;
+    // v6e E-DU1: duración general (1–72 h); por día viene en horas[].dur_min.
+    const venS=Math.max(1,Math.min(72,parseInt(v('v6sDur')||'1',10)||1))*60;
+    {const [hI,mI]=String(hora).split(':').map(Number); const a0=new Date(); a0.setHours(hI,mI,0,0);
+      // E-VA2: la primera ocurrencia de hoy no puede quedar en el pasado (margen 1 min).
+      if(a0.getTime()<Date.now()-60000){ a0.setDate(a0.getDate()+1); }
+      if(!await validarV6d(tit,a0,new Date(a0.getTime()+venS*60000))) return;
+      // E-FI1 cruce: prueba la primera ventana contra cada hijo marcado.
+      for(const hid of hijos){ if(avisoCruce(tareaCruza(hid,a0,new Date(a0.getTime()+venS*60000)))) return; }
+    }
+    if(!confirm('¿Crear el deber repetitivo «'+tit+'» ('+resumenSerie(men?'0000000':dias,horas||Object.assign({},...DIAS.map((_,i)=>({[i+1]:{hora,dur_min:venS}}))),men)+') para '+hijos.length+' hijo(s)?')) return;
     const k='serie'; if(enCurso.has(k)) return; enCurso.add(k);
     const b=document.getElementById('v6sOk'); if(b) b.disabled=true;
     try{
       const args={p_actor_id:originalAdminId||state.currentUserId,p_client_req_id:reqId(k),p_titulo:tit,p_hijos:hijos,p_dias:dias,p_hora_general:hora,p_horas:horas,
         p_modo:v('v6sModo')||'cada_uno',p_clase:'deber',p_puntos:0,p_ventana_min:venS,p_penal:Math.max(0,n('v6sPen',0)),
-        p_exige_foto:!!(document.getElementById('v6sFoto')||{}).checked,p_mensual_dia:men};
+        p_exige_foto:!!(document.getElementById('v6sFoto')||{}).checked,p_mensual_dia:men,p_zona:'Europe/Madrid'};
       if(desc) args.p_descripcion=desc;
       const d=await rpc('familia_rpc_serie_crear',args);
       if(!d){if(b) b.disabled=false; return;}   // error (p.ej. HINT c11_sin_dias): se conserva el req id
@@ -4982,9 +5077,10 @@ window.FamiliaV3=(function(){
   let serieAbierta=null;
   function hojaSerieCambiar(){
     const sr=serieAbierta; if(!sr||soloLectura()) return;
-    const hora=(sr.horas&&sr.horas['1'])||'07:00';
+    const hora=horaDiaDe(sr.horas,1,'07:00');
+    const durH=Math.max(1,Math.round(durDiaDe(sr.horas,1,60)/60));
     abrirHoja(`<h3>Cambiar las próximas</h3><p class="v3-sub">«${esc(sr.titulo||'')}». Solo cambian las fechas que vienen; lo ya pasado queda igual.</p>
-      ${camposDias(sr.dias_semana||'0000000',sr.horas,hora)}
+      ${camposDias(sr.dias_semana||'0000000',sr.horas,{hora,dur_min:durH*60})}
       <p id="v6sErr" class="v3-sub v3-st-err" style="min-height:1.2em"></p>
       <button id="v6sOk" class="v3-cta v3-full" style="margin-top:10px" onclick="FamiliaV3.serieCambiar()">Guardar cambios</button>`);
     serieRefrescar();
@@ -4992,12 +5088,12 @@ window.FamiliaV3=(function(){
   async function serieCambiar(){
     const sr=serieAbierta; if(!sr) return;
     const dias=diasSel(); if(dias==='0000000'&&sr.mensual_dia==null) return showToast('Marca al menos un día');
-    const hora=(document.getElementById('v6sHora')||{}).value||'07:00', horas={};
-    DIAS.forEach((_,i)=>{horas[String(i+1)]=(document.getElementById('v6sH'+i)||{}).value||hora;});
+    const horas=horasSel()||{};
+    const ven=Math.max(1,Math.min(72,parseInt((document.getElementById('v6sDur')||{}).value,10)||1))*60;
     if(!confirm('¿Cambiar las próximas a '+resumenSerie(dias,horas,sr.mensual_dia)+'?')) return;
     const k='sc'+sr.id; if(enCurso.has(k)) return; enCurso.add(k);
     try{
-      const d=await rpc('familia_rpc_serie_cambiar',{p_actor_id:originalAdminId||state.currentUserId,p_serie:sr.id,p_dias:dias,p_horas:horas});
+      const d=await rpc('familia_rpc_serie_cambiar',{p_actor_id:originalAdminId||state.currentUserId,p_serie:sr.id,p_dias:dias,p_horas:horas,p_ventana_min:ven});
       if(!d) return; cerrarHoja(); showToast('Listo: '+(Number(d.archivadas)||0)+' quitadas, '+(Number(d.creadas)||0)+' nuevas'); loadAll();
     }finally{enCurso.delete(k);}
   }
@@ -5021,12 +5117,14 @@ window.FamiliaV3=(function(){
     const ini=new Date(v('v4lIni')); if(isNaN(ini)) return showToast('Fecha inválida');
     // v6b B15: descripción del lote (todas las tareas la heredan).
     const desc=descripcionDe((document.getElementById('v4lDesc')||{}).value); if(descReservada(desc)) return showToast('Escribe una descripción distinta de «META»');
-    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
-    // v5 ítem 20: el texto dice deber o tarea según la sección de origen.
-    // v6d D7+D16: fin del primer día → ventana en minutos; validación con «¿Seguro?».
-    const finL=new Date(v('v4lFin')); if(isNaN(finL)) return showToast('Elige el fin');
+    // v6e E-DU1+E-VA1/VA2: duración desplegable; inicio no pasado; Fin = inicio + duración.
+    const durH=Math.max(1,Math.min(72,parseInt(v('v4lDur')||'1',10)||1));
+    if(ini.getTime()<Date.now()-60000) return showToast('El inicio no puede estar en el pasado');
+    const finL=new Date(ini.getTime()+durH*3600000);
     const vvL=await validarV6d(tit,ini,finL); if(!vvL) return;
-    const venL=Math.max(1,Math.round((finL-ini)/60000));
+    const venL=durH*60;
+    // Bloqueo de cruce en la primera ventana por cada hijo marcado.
+    for(const hid of hijos){ if(avisoCruce(tareaCruza(hid,ini,finL))) return; }
     if(!confirm('¿Crear '+(loteClase==='deber'?'el deber repetitivo':'la tarea repetitiva')+' «'+tit+'» para '+hijos.length+' hijo(s) hasta fin de mes?')) return;
     const d=await rpcIntento('lote-'+loteClase,'familia_rpc_crear_lote',{p_titulo:tit,p_clase:loteClase,p_puntos:loteClase==='deber'?0:Math.max(0,n('v4lPts',0)),   // v5 ítem 20: clase fija según de dónde se abrió
       
@@ -6093,11 +6191,7 @@ window.FamiliaV3=(function(){
     }
     // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
     /* v6e: cruce con otra tarea del mismo hijo → bloquea (decisión Jhon 15:00). */
-    {const ini=new Date(args.p_habilita_en), fin=new Date(args.p_fecha_limite), aid=Number(crear.asignada);
-      const cruza=(state.tasks||[]).find(t=>t.asignada_a===aid&&!t.archivada_en&&t.estado!=='completada'&&t.habilita_en&&t.fecha_limite
-        &&new Date(t.habilita_en)<fin&&new Date(t.fecha_limite)>ini);
-      if(cruza) return showToast('En ese horario no es posible: se cruza con «'+(cruza.titulo||'otra tarea')+'» ('+new Date(cruza.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false})+')');
-    }
+    if(avisoCruce(tareaCruza(Number(crear.asignada),args.p_habilita_en,args.p_fecha_limite))) return;
     if(!confirm('¿Crear '+(d?'el deber':'la tarea')+' «'+crear.titulo+'» para '+((memberById(Number(crear.asignada))||{}).nombre||'este hijo')+(d?'':' ('+(args.p_puntos||0)+' pts)')+'?')) return;
     if(enCurso.has('crear')) return; enCurso.add('crear');
     const exigeFoto=!!(document.getElementById('v3cFoto')||{}).checked;   // v6c C3: se lee antes de cerrar la hoja
