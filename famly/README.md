@@ -3,6 +3,7 @@
 Origen: `public/familia.html` → `index.html` con meta `familia-deploy=famly`.
 
 ## Rewrites (`vercel.json`)
+- `/i/:token` → `/index.html` (invitación O6)
 - `/l/:token` → `/index.html` (query/hash se conservan)
 - `/familia/l/:token` → `/index.html`
 - `/familia-v1.html` → `/index.html` (solo rewrite; no se copia el archivo)
@@ -17,3 +18,4 @@ Tras cambiar `public/familia.html`, regenerar `famly/index.html` (copiar + meta 
 
 ## Bitácora
 - 2026-10-30 · qué: Ola 1 FE — cola de toasts (mín. 2,8 s, no se cortan) + `familia_id` en `columnasTareas` (V3_COLS_TAREAS) en `public/familia.html` y `famly/index.html` (sync). · por qué: toasts importantes se pisaban al cargar; select de tareas sin familia_id en modo columnas. · Frontend BuscoEdu
+- 2026-10-30 · qué: O6 FE invitaciones — captura `/i/<token>`, registro admin, login dueño, panel miembros (desactivar≠borrar); adaptador RPC aislado; CTA coral. · por qué: criterios O6 I1–I21 alta por invitación sin correos. · Frontend BuscoEdu

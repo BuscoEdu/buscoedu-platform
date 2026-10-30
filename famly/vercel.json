@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/i/:token",
+      "destination": "/index.html"
+    },
+    {
       "source": "/l/:token",
       "destination": "/index.html"
     },

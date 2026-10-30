@@ -76,6 +76,34 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:12px;z-index:400;opacity:0;transition:opacity .3s;font-size:.9rem;max-width:90%}
 .toast.show{opacity:1}
 .login-screen{position:fixed;inset:0;background:#fff;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+/* O6 invitación: CTA coral, errores y bordes de criterios; overlay sobre login. */
+.o6-root{display:none;position:fixed;inset:0;z-index:600;background:#fff;overflow:auto;-webkit-overflow-scrolling:touch}
+.o6-root.show{display:block}
+.o6-wrap{max-width:420px;margin:0 auto;padding:24px 16px 40px;min-height:100%;box-sizing:border-box}
+.o6-brand{font-weight:800;letter-spacing:.08em;color:#4338ca;margin-bottom:4px;text-align:center}
+.o6-h{margin:0 0 8px;font-size:1.25rem;color:#1f1a4d;text-align:center}
+.o6-sub{margin:0 0 16px;color:#64748b;font-size:.9rem;line-height:1.4;text-align:center}
+.o6-card{border:1px solid #8a84b8;border-radius:14px;padding:16px;background:#fff}
+.o6-err{color:#b91c1c;font-size:.875rem;margin:8px 0 0;min-height:1.25em}
+.o6-empty{color:#64748b;font-size:.9rem;padding:12px 0;text-align:center}
+.o6-load{text-align:center;padding:48px 16px;color:#64748b}
+.o6-btn{display:block;width:100%;box-sizing:border-box;background:#ff7a59;color:#1f1a4d;border:none;border-radius:10px;padding:12px 16px;font-weight:600;font-size:1rem;cursor:pointer;min-height:44px;touch-action:manipulation}
+.o6-btn:disabled{opacity:.55;cursor:not-allowed}
+.o6-btn.sec{background:#eef2ff;color:#1f1a4d;border:1px solid #8a84b8;margin-top:8px}
+.o6-btn.danger{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;margin-top:8px}
+.o6-field{margin-bottom:12px}
+.o6-field label{display:block;font-size:.8rem;font-weight:600;color:#1f1a4d;margin-bottom:4px}
+.o6-field input,.o6-field select{width:100%;box-sizing:border-box;font-size:16px;min-height:44px;padding:10px 12px;border:1px solid #8a84b8;border-radius:10px;touch-action:manipulation}
+.o6-row{display:flex;gap:8px;align-items:center}
+.o6-row input{flex:1}
+.o6-member{border:1px solid #8a84b8;border-radius:12px;padding:12px;margin-bottom:8px}
+.o6-member .meta{font-size:.8rem;color:#64748b}
+.o6-member.inactive{opacity:.55}
+.o6-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.o6-actions button{font-size:.8rem;padding:8px 10px;min-height:40px;border-radius:8px;border:1px solid #8a84b8;background:#fff;color:#1f1a4d;font-weight:600;cursor:pointer;touch-action:manipulation}
+.o6-link{background:none;border:none;color:#4338ca;text-decoration:underline;cursor:pointer;font-size:.875rem;margin-top:12px;padding:8px;min-height:44px}
+@media (max-width:390px){.o6-wrap{padding:16px 12px 32px}}
+
 .empty{text-align:center;padding:24px;color:var(--muted)}
 .emoji-grid,.color-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
 .emoji-btn{width:40px;height:40px;border:2px solid var(--border);border-radius:10px;background:#fff;font-size:1.3rem;cursor:pointer}
@@ -140,6 +168,105 @@ h3{margin-bottom:12px}
     <button class="btn secondary" style="width:100%;margin-top:8px;min-height:44px" type="button" onclick="loginCambiarFamilia()">Cambiar de familia</button>
   </div>
   <!-- v6e E-LG1: no mostrar ningún código/contraseña en el login -->
+  <button type="button" class="o6-link" id="o6LinkDueño" onclick="o6AbrirLoginAdmin()">Soy dueño · email y clave</button>
+</div>
+
+<!-- O6 · flujo invitación /i/<token> + panel admin dueño (solo famly) -->
+<div class="o6-root" id="o6Root" aria-live="polite">
+  <div class="o6-wrap">
+    <div class="o6-brand">FAMLY</div>
+
+    <div id="o6VistaLoad" class="o6-load" style="display:none">Comprobando enlace…</div>
+
+    <div id="o6VistaError" style="display:none" class="o6-card">
+      <h2 class="o6-h">Enlace</h2>
+      <p class="o6-sub" id="o6ErrorMsg">Este enlace no está disponible.</p>
+      <button type="button" class="o6-btn sec" onclick="o6IrEntradaMiembro()">Volver a entrar</button>
+    </div>
+
+    <div id="o6VistaRegistro" style="display:none">
+      <h2 class="o6-h">Crea tu cuenta</h2>
+      <p class="o6-sub">Crea tu cuenta de dueño. Email y clave. No te pedimos confirmar el correo.</p>
+      <div class="o6-card">
+        <div class="o6-field"><label for="o6Email">Email</label>
+          <input id="o6Email" type="email" autocomplete="email" inputmode="email" maxlength="120" placeholder="tu@correo.com"></div>
+        <div class="o6-field"><label for="o6Clave">Clave</label>
+          <input id="o6Clave" type="password" autocomplete="new-password" maxlength="128" placeholder="Mín. 8, letra y número"></div>
+        <div class="o6-field"><label for="o6Clave2">Repite la clave</label>
+          <input id="o6Clave2" type="password" autocomplete="new-password" maxlength="128"></div>
+        <p class="o6-err" id="o6RegErr" role="alert"></p>
+        <button type="button" class="o6-btn" id="o6BtnRegCont" onclick="o6RegistroContinuar()">Continuar</button>
+      </div>
+    </div>
+
+    <div id="o6VistaFamilia" style="display:none">
+      <h2 class="o6-h">Crear tu familia</h2>
+      <p class="o6-sub">Escribe el nombre de tu familia, tu alias y un apodo (5 a 20 caracteres: minúsculas, números y _). Te sugerimos un apodo; puedes cambiarlo.</p>
+      <div class="o6-card">
+        <div class="o6-field"><label for="o6NombreFam">Nombre de la familia</label>
+          <input id="o6NombreFam" maxlength="60" autocomplete="organization" placeholder="ej. Los Bejarano"></div>
+        <div class="o6-field"><label for="o6AliasDueño">Tu alias</label>
+          <input id="o6AliasDueño" maxlength="16" autocapitalize="none" autocomplete="username" placeholder="ej. juanes"></div>
+        <div class="o6-field"><label for="o6Nick">Apodo (nick)</label>
+          <div class="o6-row">
+            <input id="o6Nick" maxlength="20" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="ej. bejarano">
+            <button type="button" class="o6-btn sec" style="width:auto;margin:0;padding:10px 12px" onclick="o6SugerirNick()">Sugerir</button>
+          </div>
+        </div>
+        <p class="o6-err" id="o6FamErr" role="alert"></p>
+        <button type="button" class="o6-btn" id="o6BtnRegistrar" onclick="o6RegistrarAdmin()">Crear familia</button>
+        <button type="button" class="o6-btn sec" onclick="o6Mostrar('registro')">Atrás</button>
+      </div>
+    </div>
+
+    <div id="o6VistaResumen" style="display:none">
+      <h2 class="o6-h">Listo</h2>
+      <p class="o6-sub">Tu familia está lista. Tú entras con email y clave. Los demás, con el apodo de la familia, su alias y su PIN.</p>
+      <div class="o6-card">
+        <button type="button" class="o6-btn" onclick="o6Mostrar('panel')">Administrar personas</button>
+        <button type="button" class="o6-btn sec" onclick="o6IrEntradaMiembro()">Ir a la entrada</button>
+      </div>
+    </div>
+
+    <div id="o6VistaAdminLogin" style="display:none">
+      <h2 class="o6-h">Dueño</h2>
+      <p class="o6-sub">Email y clave de dueño.</p>
+      <div class="o6-card">
+        <div class="o6-field"><label for="o6AdminEmail">Email</label>
+          <input id="o6AdminEmail" type="email" autocomplete="username" maxlength="120"></div>
+        <div class="o6-field"><label for="o6AdminClave">Clave</label>
+          <input id="o6AdminClave" type="password" autocomplete="current-password" maxlength="128"></div>
+        <p class="o6-err" id="o6AdminErr" role="alert"></p>
+        <button type="button" class="o6-btn" id="o6BtnAdminLogin" onclick="o6AdminLogin()">Entrar</button>
+        <button type="button" class="o6-btn sec" onclick="o6IrEntradaMiembro()">Entrar como miembro</button>
+      </div>
+    </div>
+
+    <div id="o6VistaPanel" style="display:none">
+      <h2 class="o6-h">Tu familia</h2>
+      <p class="o6-sub">Añade a papás e hijos. Cada uno tendrá su PIN. Si dejas de usar a alguien, lo desactivas (no se borra).</p>
+      <div class="o6-card" style="margin-bottom:12px">
+        <div id="o6MiembrosLoad" class="o6-load" style="display:none;padding:16px">Cargando…</div>
+        <div id="o6MiembrosEmpty" class="o6-empty" style="display:none">Aún no hay personas. Añade la primera.</div>
+        <div id="o6MiembrosErr" class="o6-err" style="display:none" role="alert"></div>
+        <div id="o6MiembrosList"></div>
+      </div>
+      <div class="o6-card">
+        <h3 style="margin:0 0 10px;font-size:1rem;color:#1f1a4d">Añadir persona</h3>
+        <div class="o6-field"><label for="o6MemNombre">Nombre</label>
+          <input id="o6MemNombre" maxlength="40" autocomplete="name"></div>
+        <div class="o6-field"><label for="o6MemAlias">Alias</label>
+          <input id="o6MemAlias" maxlength="16" autocapitalize="none" autocomplete="off"></div>
+        <div class="o6-field"><label for="o6MemRol">Rol</label>
+          <select id="o6MemRol"><option value="padre">Padre/Madre</option><option value="hijo">Hijo/Hija</option></select></div>
+        <div class="o6-field"><label for="o6MemPin">PIN</label>
+          <input id="o6MemPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="4–8 dígitos"></div>
+        <p class="o6-err" id="o6MemErr" role="alert"></p>
+        <button type="button" class="o6-btn" id="o6BtnMemCrear" onclick="o6MiembroCrear()">Añadir</button>
+        <button type="button" class="o6-btn sec" onclick="o6IrEntradaMiembro()">Listo · ir a entrar</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="app" id="mainApp" style="display:none">
@@ -523,7 +650,8 @@ function familiaAppPath(){
   if(/familia\.html$/i.test(p)) return p;
   if(/familia-v1\.html$/i.test(p)) return p.replace(/familia-v1\.html$/i,'familia.html');
   if(familiaEsFamly()) return '/';
-  if(p==='/'||p===''||/\/index\.html$/i.test(p)||/^\/l\/[^/]+\/?$/.test(p)) return '/';
+  /* O6: /i/<token> también es deep-link de famly (base '/'). */
+  if(p==='/'||p===''||/\/index\.html$/i.test(p)||/^\/l\/[^/]+\/?$/.test(p)||/^\/i\/[^/]+\/?$/.test(p)) return '/';
   /* BuscoEdu sin meta: /familia/l/:token → familia.html (si algún día hay rewrite). */
   if(/^\/familia\/l\/[^/]+\/?$/.test(p)) return '/familia.html';
   return p.endsWith('/')?p:(p.replace(/\/[^/]*$/,'/')||'/');
@@ -552,6 +680,22 @@ function familiaAppOriginPath(){
     }
   }catch(e){}
 })();
+
+/* O6: captura token de invitación /i/<token> (no imprimir token; solo sessionStorage). */
+(function capturarInvitacionO6(){
+  try{
+    const m=String(location.pathname||'').match(/^\/i\/([^/]+)\/?$/);
+    if(!m) return;
+    const tok=decodeURIComponent(m[1]||'');
+    if(!tok) return;
+    sessionStorage.setItem('familia_inv_token', tok);
+    const clean=new URL(location.href);
+    const base=familiaAppPath();
+    clean.pathname=(base==='/'?'/':base);
+    history.replaceState({},'',clean.pathname+(clean.search||'')+clean.hash);
+  }catch(e){}
+})();
+
 
 let state={currentUserId:null,members:[],tasks:[],rewards:[],history:[],config:{},plantillas:[],mensajes:[],solicitudes:[],notifs:[],deberes:[]};
 let notifPanelOpen=false;
@@ -3747,6 +3891,464 @@ function fillLoginMembers(){
     try{const s=localStorage.getItem('familia_nick'); if(s) nick.value=s;}catch(e){}
   }
 }
+
+/* =============================================================================
+   O6 FE · Adaptador RPC invitaciones / admin / miembros (firmas ASSUMED)
+   Aísla todas las llamadas O6. No imprimir tokens ni PINs.
+   Contrato documentado en familia-analisis/multifamilia/contrato-fe-o6.md
+   =============================================================================
+   ASSUMED signatures (param names = assumptions; BE may rename):
+   - familia_rpc_invitacion_validar(p_token text) → jsonb { ok:bool, hint?:text }
+   - familia_rpc_nick_sugerir(p_base text default '') → jsonb { ok:bool, nick:text }
+       fallback: { nick:text } o text plano
+   - familia_rpc_admin_registrar(p_token, p_email, p_clave, p_nick,
+       p_nombre_familia text, p_alias text)
+       → jsonb { ok, token?, familia_id?, admin_id?, miembro_id?, nick?, mensaje?, hint? }
+       (brief nombraba solo 4 params; FE también envía nombre_familia + alias por I6)
+   - familia_rpc_admin_login(p_email, p_clave)
+       → jsonb { ok, token?, familia_id?, admin_id?, miembros?:[], mensaje?, hint? }
+       fail/rate-limit → ok:false o error; FE mensaje genérico
+   - familia_rpc_miembros_listar()  [assumed; sesión x-familia-token]
+       → jsonb { ok, miembros:[{id,nombre,alias,rol,activo,...}] }
+   - familia_rpc_miembro_crear(p_nombre, p_alias, p_rol, p_pin)
+       → jsonb { ok, miembro?, mensaje?, hint? }
+   - familia_rpc_miembro_editar(p_miembro_id, p_nombre, p_alias, p_rol)
+       → jsonb { ok, mensaje?, hint? }
+   - familia_rpc_miembro_pin(p_miembro_id, p_pin)
+       → jsonb { ok, mensaje?, hint? }
+   - familia_rpc_miembro_desactivar(p_miembro_id)
+       → jsonb { ok, mensaje?, hint? }
+   ============================================================================= */
+const O6_NICK_RE=/^[a-z0-9_]{5,20}$/;
+const O6_MAX_MIEMBROS=10;
+let o6Busy=false;
+let o6Draft={email:'',clave:''};
+let o6MiembrosCache=[];
+
+function o6RpcPayload(data){
+  /* Normaliza data jsonb/string de supabase.rpc. */
+  if(data==null) return null;
+  if(typeof data==='string'){
+    try{ return JSON.parse(data); }catch(e){ return {raw:data}; }
+  }
+  return data;
+}
+function o6MsgGenericoInv(){ return 'Este enlace no está disponible.'; }
+function o6MsgLoginFail(){ return 'No se pudo entrar. Inténtalo más tarde.'; }
+
+/* --- Adaptador: una sola puerta a las RPC O6 --- */
+const O6Rpc={
+  async validar(p_token){
+    const {data,error}=await supabase.rpc('familia_rpc_invitacion_validar',{p_token:String(p_token||'')});
+    return {data:o6RpcPayload(data),error};
+  },
+  async nickSugerir(p_base){
+    const {data,error}=await supabase.rpc('familia_rpc_nick_sugerir',{p_base:String(p_base||'')});
+    return {data:o6RpcPayload(data),error};
+  },
+  async adminRegistrar(args){
+    /* ASSUMED: p_token,p_email,p_clave,p_nick + p_nombre_familia,p_alias (I6). */
+    const {data,error}=await supabase.rpc('familia_rpc_admin_registrar',{
+      p_token:String(args.token||''),
+      p_email:String(args.email||''),
+      p_clave:String(args.clave||''),
+      p_nick:String(args.nick||''),
+      p_nombre_familia:String(args.nombre_familia||''),
+      p_alias:String(args.alias||'')
+    });
+    return {data:o6RpcPayload(data),error};
+  },
+  async adminLogin(p_email,p_clave){
+    const {data,error}=await supabase.rpc('familia_rpc_admin_login',{
+      p_email:String(p_email||''),
+      p_clave:String(p_clave||'')
+    });
+    return {data:o6RpcPayload(data),error};
+  },
+  async miembrosListar(){
+    const {data,error}=await supabase.rpc('familia_rpc_miembros_listar',{});
+    return {data:o6RpcPayload(data),error};
+  },
+  async miembroCrear(p_nombre,p_alias,p_rol,p_pin){
+    const {data,error}=await supabase.rpc('familia_rpc_miembro_crear',{
+      p_nombre:String(p_nombre||''),
+      p_alias:String(p_alias||''),
+      p_rol:String(p_rol||''),
+      p_pin:String(p_pin||'')
+    });
+    return {data:o6RpcPayload(data),error};
+  },
+  async miembroEditar(p_miembro_id,p_nombre,p_alias,p_rol){
+    const {data,error}=await supabase.rpc('familia_rpc_miembro_editar',{
+      p_miembro_id:Number(p_miembro_id),
+      p_nombre:String(p_nombre||''),
+      p_alias:String(p_alias||''),
+      p_rol:String(p_rol||'')
+    });
+    return {data:o6RpcPayload(data),error};
+  },
+  async miembroPin(p_miembro_id,p_pin){
+    const {data,error}=await supabase.rpc('familia_rpc_miembro_pin',{
+      p_miembro_id:Number(p_miembro_id),
+      p_pin:String(p_pin||'')
+    });
+    return {data:o6RpcPayload(data),error};
+  },
+  async miembroDesactivar(p_miembro_id){
+    const {data,error}=await supabase.rpc('familia_rpc_miembro_desactivar',{
+      p_miembro_id:Number(p_miembro_id)
+    });
+    return {data:o6RpcPayload(data),error};
+  }
+};
+
+function o6LeerInvToken(){
+  try{ return sessionStorage.getItem('familia_inv_token')||''; }catch(e){ return ''; }
+}
+function o6LimpiarInvToken(){
+  try{ sessionStorage.removeItem('familia_inv_token'); }catch(e){}
+}
+function o6RootEl(){ return document.getElementById('o6Root'); }
+function o6SetErr(id,msg){ const el=document.getElementById(id); if(el) el.textContent=msg||''; }
+function o6ClaveOk(c){
+  /* Orquestador I4: ≥8, una letra y un número (no el ≥10 del brief FE). */
+  const s=String(c||'');
+  if(s.length<8) return false;
+  if(!/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(s)) return false;
+  if(!/[0-9]/.test(s)) return false;
+  return true;
+}
+function o6Mostrar(vista){
+  const root=o6RootEl(); if(!root) return;
+  root.classList.add('show');
+  const login=document.getElementById('loginScreen');
+  if(login) login.style.display='none';
+  const ids=['o6VistaLoad','o6VistaError','o6VistaRegistro','o6VistaFamilia','o6VistaResumen','o6VistaAdminLogin','o6VistaPanel'];
+  ids.forEach(function(id){ const el=document.getElementById(id); if(el) el.style.display='none'; });
+  const map={load:'o6VistaLoad',error:'o6VistaError',registro:'o6VistaRegistro',familia:'o6VistaFamilia',resumen:'o6VistaResumen',adminLogin:'o6VistaAdminLogin',panel:'o6VistaPanel'};
+  const tid=map[vista];
+  if(tid){ const t=document.getElementById(tid); if(t) t.style.display='block'; }
+  if(vista==='panel') o6CargarMiembros();
+}
+function o6Ocultar(){
+  const root=o6RootEl(); if(root) root.classList.remove('show');
+}
+function o6IrEntradaMiembro(){
+  o6Ocultar();
+  const login=document.getElementById('loginScreen');
+  if(login) login.style.display='flex';
+  const pn=document.getElementById('loginPasoNick');
+  const pp=document.getElementById('loginPasoPin');
+  if(pn) pn.style.display='';
+  if(pp) pp.style.display='none';
+}
+function o6AbrirLoginAdmin(){
+  o6SetErr('o6AdminErr','');
+  o6Mostrar('adminLogin');
+}
+async function o6BootSiInvitacion(){
+  const tok=o6LeerInvToken();
+  if(!tok) return false;
+  o6Mostrar('load');
+  try{
+    const {data,error}=await O6Rpc.validar(tok);
+    /* error de red/RPC ≠ vacío: mensaje genérico (I2). ok:false también genérico. */
+    if(error || !data || data.ok!==true){
+      o6SetErr('o6ErrorMsg', o6MsgGenericoInv());
+      document.getElementById('o6ErrorMsg').textContent=o6MsgGenericoInv();
+      o6Mostrar('error');
+      return true;
+    }
+    o6SetErr('o6RegErr','');
+    o6Mostrar('registro');
+    return true;
+  }catch(e){
+    document.getElementById('o6ErrorMsg').textContent=o6MsgGenericoInv();
+    o6Mostrar('error');
+    return true;
+  }
+}
+function o6RegistroContinuar(){
+  if(o6Busy) return;
+  const email=(document.getElementById('o6Email').value||'').trim();
+  const clave=document.getElementById('o6Clave').value||'';
+  const clave2=document.getElementById('o6Clave2').value||'';
+  o6SetErr('o6RegErr','');
+  if(!email || email.indexOf('@')<1){ o6SetErr('o6RegErr','Escribe un email válido.'); return; }
+  if(!o6ClaveOk(clave)){ o6SetErr('o6RegErr','La clave debe tener al menos 8 caracteres, con una letra y un número.'); return; }
+  if(clave!==clave2){ o6SetErr('o6RegErr','Las claves no coinciden.'); return; }
+  o6Draft.email=email; o6Draft.clave=clave;
+  o6SetErr('o6FamErr','');
+  o6Mostrar('familia');
+  o6SugerirNick();
+}
+async function o6SugerirNick(){
+  if(o6Busy) return;
+  const base=(document.getElementById('o6NombreFam').value||'').trim() || (document.getElementById('o6Nick').value||'').trim();
+  o6Busy=true;
+  try{
+    const {data,error}=await O6Rpc.nickSugerir(base);
+    let nick='';
+    if(!error && data){
+      if(typeof data==='string') nick=data;
+      else nick=data.nick||data.sugerencia||data.apodo||'';
+    }
+    nick=String(nick||'').toLowerCase().replace(/[^a-z0-9_]/g,'').slice(0,20);
+    if(nick.length>=5){
+      const inp=document.getElementById('o6Nick');
+      if(inp) inp.value=nick;
+    }
+  }catch(e){ /* sin sugerencia: el usuario escribe */ }
+  finally{ o6Busy=false; }
+}
+async function o6RegistrarAdmin(){
+  if(o6Busy) return;
+  const tok=o6LeerInvToken();
+  if(!tok){ o6Mostrar('error'); document.getElementById('o6ErrorMsg').textContent=o6MsgGenericoInv(); return; }
+  const nombre=(document.getElementById('o6NombreFam').value||'').trim();
+  const alias=(document.getElementById('o6AliasDueño').value||'').trim().toLowerCase();
+  const nick=(document.getElementById('o6Nick').value||'').trim().toLowerCase();
+  o6SetErr('o6FamErr','');
+  if(nombre.length<2){ o6SetErr('o6FamErr','Escribe el nombre de tu familia.'); return; }
+  if(alias.length<2){ o6SetErr('o6FamErr','Escribe tu alias.'); return; }
+  if(!O6_NICK_RE.test(nick)){ o6SetErr('o6FamErr','El apodo debe tener de 5 a 20 caracteres: solo minúsculas, números y guion bajo.'); return; }
+  o6Busy=true;
+  const btn=document.getElementById('o6BtnRegistrar');
+  if(btn) btn.disabled=true;
+  try{
+    const {data,error}=await O6Rpc.adminRegistrar({
+      token:tok, email:o6Draft.email, clave:o6Draft.clave, nick:nick,
+      nombre_familia:nombre, alias:alias
+    });
+    if(error){
+      const h=String((error&&error.hint)||'');
+      const m=String((error&&error.message)||'');
+      if(/email|correo|ya/i.test(h+m) || h==='o6_email_dueño' || h==='o6_email_dueno'){
+        o6SetErr('o6FamErr','Este correo ya tiene una familia. Inicia sesión.');
+      } else if(/nick|apodo/i.test(h+m) || h==='o6_nick'){
+        let sug='';
+        try{
+          const s=await O6Rpc.nickSugerir(nick);
+          if(s.data) sug=(s.data.nick||s.data.sugerencia||'')+'';
+        }catch(e2){}
+        o6SetErr('o6FamErr', sug ? ('Ese apodo ya existe. Prueba con este: '+sug) : 'Ese apodo ya existe. Prueba con otro.');
+      } else if(/inv|enlace|token|o6_inv/i.test(h+m)){
+        document.getElementById('o6ErrorMsg').textContent=o6MsgGenericoInv();
+        o6Mostrar('error');
+      } else {
+        o6SetErr('o6FamErr', m && m.length<120 ? m : 'No se pudo crear la familia. Inténtalo de nuevo.');
+      }
+      return;
+    }
+    if(!data || data.ok===false){
+      const hint=String((data&&(data.hint||data.mensaje))||'');
+      if(/email|correo/i.test(hint) || hint==='email_dueño' || hint==='email_dueno'){
+        o6SetErr('o6FamErr','Este correo ya tiene una familia. Inicia sesión.');
+      } else if(/nick/i.test(hint)){
+        const alt=(data&&data.nick_sugerido)||'';
+        o6SetErr('o6FamErr', alt ? ('Ese apodo ya existe. Prueba con este: '+alt) : 'Ese apodo ya existe. Prueba con otro.');
+      } else {
+        document.getElementById('o6ErrorMsg').textContent=o6MsgGenericoInv();
+        o6Mostrar('error');
+      }
+      return;
+    }
+    /* Éxito: consumir invitación en cliente; guardar sesión admin si viene token. */
+    o6LimpiarInvToken();
+    if(data.token){ guardarTokenFamilia(data.token); supabase=crearClienteSupabase(); }
+    if(data.familia_id){ state.familiaId=+data.familia_id; try{localStorage.setItem('familia_fid',String(data.familia_id));}catch(e){} }
+    if(nick){ try{localStorage.setItem('familia_nick',nick);}catch(e){} }
+    if(data.miembros && Array.isArray(data.miembros)) o6MiembrosCache=data.miembros;
+    o6Draft.clave=''; /* no dejar clave en memoria de draft */
+    o6Mostrar('resumen');
+  }catch(e){
+    o6SetErr('o6FamErr','No se pudo crear la familia. Inténtalo de nuevo.');
+  }finally{
+    o6Busy=false;
+    if(btn) btn.disabled=false;
+  }
+}
+async function o6AdminLogin(){
+  if(o6Busy) return;
+  const email=(document.getElementById('o6AdminEmail').value||'').trim();
+  const clave=document.getElementById('o6AdminClave').value||'';
+  o6SetErr('o6AdminErr','');
+  if(!email||!clave){ o6SetErr('o6AdminErr',o6MsgLoginFail()); return; }
+  o6Busy=true;
+  const btn=document.getElementById('o6BtnAdminLogin');
+  if(btn) btn.disabled=true;
+  try{
+    const {data,error}=await O6Rpc.adminLogin(email,clave);
+    /* I18: fail y rate-limit → mismo mensaje genérico. */
+    if(error || !data || data.ok!==true){
+      o6SetErr('o6AdminErr', o6MsgLoginFail());
+      return;
+    }
+    if(data.token){ guardarTokenFamilia(data.token); supabase=crearClienteSupabase(); }
+    if(data.familia_id){ state.familiaId=+data.familia_id; try{localStorage.setItem('familia_fid',String(data.familia_id));}catch(e){} }
+    if(data.miembros && Array.isArray(data.miembros)) o6MiembrosCache=data.miembros;
+    o6Mostrar('panel');
+  }catch(e){
+    o6SetErr('o6AdminErr', o6MsgLoginFail());
+  }finally{
+    o6Busy=false;
+    if(btn) btn.disabled=false;
+  }
+}
+function o6Esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});
+}
+async function o6CargarMiembros(){
+  const load=document.getElementById('o6MiembrosLoad');
+  const empty=document.getElementById('o6MiembrosEmpty');
+  const err=document.getElementById('o6MiembrosErr');
+  const list=document.getElementById('o6MiembrosList');
+  if(load) load.style.display='block';
+  if(empty) empty.style.display='none';
+  if(err){ err.style.display='none'; err.textContent=''; }
+  if(list) list.innerHTML='';
+  try{
+    const {data,error}=await O6Rpc.miembrosListar();
+    if(error){
+      /* Si la RPC listar aún no existe, usa caché del login/registro. */
+      if(o6MiembrosCache.length){ o6PintarMiembros(o6MiembrosCache); }
+      else {
+        if(err){ err.style.display='block'; err.textContent='No se pudieron cargar las personas.'; }
+      }
+      return;
+    }
+    const rows=(data&&(data.miembros||data.items||data.rows))||(Array.isArray(data)?data:o6MiembrosCache);
+    o6MiembrosCache=Array.isArray(rows)?rows:[];
+    o6PintarMiembros(o6MiembrosCache);
+  }catch(e){
+    if(err){ err.style.display='block'; err.textContent='No se pudieron cargar las personas.'; }
+  }finally{
+    if(load) load.style.display='none';
+  }
+}
+function o6PintarMiembros(rows){
+  const empty=document.getElementById('o6MiembrosEmpty');
+  const list=document.getElementById('o6MiembrosList');
+  if(!list) return;
+  const activos=(rows||[]).filter(function(m){ return m && m.activo!==false; });
+  if(!(rows||[]).length){
+    if(empty) empty.style.display='block';
+    list.innerHTML='';
+    return;
+  }
+  if(empty) empty.style.display='none';
+  list.innerHTML=(rows||[]).map(function(m){
+    const id=m.id;
+    const activo=m.activo!==false;
+    return '<div class="o6-member'+(activo?'':' inactive')+'" data-id="'+o6Esc(id)+'">'+
+      '<div><strong>'+o6Esc(m.nombre||m.alias||('#'+id))+'</strong></div>'+
+      '<div class="meta">Alias: '+o6Esc(m.alias||'—')+' · Rol: '+o6Esc(m.rol||m.rol_v6d||'—')+(activo?'':' · Desactivado')+'</div>'+
+      (activo?('<div class="o6-actions">'+
+        '<button type="button" onclick="o6MiembroEditarUI('+Number(id)+')">Editar</button>'+
+        '<button type="button" onclick="o6MiembroPinUI('+Number(id)+')">PIN</button>'+
+        '<button type="button" onclick="o6MiembroDesactivarUI('+Number(id)+')">Desactivar</button>'+
+      '</div>'):'')+
+    '</div>';
+  }).join('');
+  /* Aviso tope */
+  if(activos.length>=O6_MAX_MIEMBROS){
+    const tip=document.createElement('p');
+    tip.className='o6-err';
+    tip.style.display='block';
+    tip.textContent='Puedes tener hasta 10 personas en tu familia.';
+    list.appendChild(tip);
+  }
+}
+async function o6MiembroCrear(){
+  if(o6Busy) return;
+  const activos=o6MiembrosCache.filter(function(m){ return m&&m.activo!==false; });
+  if(activos.length>=O6_MAX_MIEMBROS){ o6SetErr('o6MemErr','Puedes tener hasta 10 personas en tu familia.'); return; }
+  const nombre=(document.getElementById('o6MemNombre').value||'').trim();
+  const alias=(document.getElementById('o6MemAlias').value||'').trim().toLowerCase();
+  const rol=(document.getElementById('o6MemRol').value||'').trim();
+  const pin=document.getElementById('o6MemPin').value||'';
+  o6SetErr('o6MemErr','');
+  if(nombre.length<2){ o6SetErr('o6MemErr','Escribe el nombre.'); return; }
+  if(alias.length<2){ o6SetErr('o6MemErr','Escribe el alias.'); return; }
+  if(!/^[0-9]{4,8}$/.test(pin)){ o6SetErr('o6MemErr','El PIN debe tener 4 a 8 dígitos.'); return; }
+  o6Busy=true;
+  const btn=document.getElementById('o6BtnMemCrear');
+  if(btn) btn.disabled=true;
+  try{
+    const {data,error}=await O6Rpc.miembroCrear(nombre,alias,rol,pin);
+    if(error || !data || data.ok===false){
+      const msg=(data&&data.mensaje)||(error&&error.message)||'No se pudo añadir.';
+      if(/10|tope|máximo|maximo/i.test(String(msg)+(error&&error.hint||''))){
+        o6SetErr('o6MemErr','Puedes tener hasta 10 personas en tu familia.');
+      } else {
+        o6SetErr('o6MemErr', String(msg).slice(0,140));
+      }
+      return;
+    }
+    document.getElementById('o6MemNombre').value='';
+    document.getElementById('o6MemAlias').value='';
+    document.getElementById('o6MemPin').value='';
+    if(data.miembro) o6MiembrosCache.push(data.miembro);
+    else if(data.miembros) o6MiembrosCache=data.miembros;
+    await o6CargarMiembros();
+  }catch(e){
+    o6SetErr('o6MemErr','No se pudo añadir.');
+  }finally{
+    o6Busy=false;
+    if(btn) btn.disabled=false;
+  }
+}
+async function o6MiembroEditarUI(id){
+  if(o6Busy) return;
+  const m=o6MiembrosCache.find(function(x){ return Number(x.id)===Number(id); });
+  const nombre=prompt('Nombre', m&&m.nombre||'');
+  if(nombre==null) return;
+  const alias=prompt('Alias', m&&m.alias||'');
+  if(alias==null) return;
+  const rol=prompt('Rol', m&&(m.rol||m.rol_v6d)||'hijo');
+  if(rol==null) return;
+  o6Busy=true;
+  try{
+    const {data,error}=await O6Rpc.miembroEditar(id, String(nombre).trim(), String(alias).trim().toLowerCase(), String(rol).trim());
+    if(error || (data&&data.ok===false)){
+      alert((data&&data.mensaje)||'No se pudo guardar.');
+      return;
+    }
+    await o6CargarMiembros();
+  }catch(e){ alert('No se pudo guardar.'); }
+  finally{ o6Busy=false; }
+}
+async function o6MiembroPinUI(id){
+  if(o6Busy) return;
+  const pin=prompt('Nuevo PIN (4–8 dígitos)','');
+  if(pin==null) return;
+  if(!/^[0-9]{4,8}$/.test(pin)){ alert('El PIN debe tener 4 a 8 dígitos.'); return; }
+  o6Busy=true;
+  try{
+    const {data,error}=await O6Rpc.miembroPin(id, pin);
+    if(error || (data&&data.ok===false)){
+      alert((data&&data.mensaje)||'No se pudo cambiar el PIN.');
+      return;
+    }
+    /* no mostrar el PIN */
+  }catch(e){ alert('No se pudo cambiar el PIN.'); }
+  finally{ o6Busy=false; }
+}
+async function o6MiembroDesactivarUI(id){
+  if(o6Busy) return;
+  if(!confirm('¿Desactivar a esta persona? No se borra; solo deja de entrar.')) return;
+  o6Busy=true;
+  try{
+    const {data,error}=await O6Rpc.miembroDesactivar(id);
+    if(error || (data&&data.ok===false)){
+      alert((data&&data.mensaje)||'No se pudo desactivar.');
+      return;
+    }
+    await o6CargarMiembros();
+  }catch(e){ alert('No se pudo desactivar.'); }
+  finally{ o6Busy=false; }
+}
+
 const MEMBER_ROLES={
   hijo:['Hijo','Hija'],
   adulto:['Padre','Madre','Abuelo','Abuela','Tío','Tía','Tutor','Tutora']
@@ -4016,6 +4618,8 @@ async function init(){
     return;
   }
   supabase=crearClienteSupabase();
+  // O6: si hay token de /i/<token>, validar y mostrar registro; no restaurar sesión encima.
+  try{ if(await o6BootSiInvitacion()) return; }catch(e){}
   // MF O2: no cargar miembros ni nombres antes del PIN.
   fillLoginMembers();
   const savedFid=+localStorage.getItem('familia_fid');
