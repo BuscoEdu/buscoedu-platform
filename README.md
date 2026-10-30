@@ -126,6 +126,20 @@ Pantallas de `/admin/ia/multiproveedor` (solo super_admin): asistente de 5 pasos
 ## Explorar — paginación estable de «Mostrar más»
 
 «Mostrar más» en `/explorar` y `/naia` llega a todas las ofertas sin duplicados: `obtenerOfertas` ordena por `creado_en desc, id asc` y la página siguiente sale de las páginas ya pedidas (`src/lib/paginacion-ofertas.ts`, con pruebas). 
+Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: aplicada en prod `familia_mf_o3_fix` (link_emitir→`extensions.gen_random_bytes`; crear_tarea/lote/serie con `familia_id` desde sesión); respaldo defs `respaldos.familia_mf_o3_fix_previo(_bd)`; pts 0/0/99/52/119/77; tareas NULL=0; smoke emitir token OK. **por qué**: Orq GO Part B / OK Jhon t809u. **quién**: BD bot BuscoEdu.
+
+Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: ops O3 QA: borrado miembro QA #52 (+2 tareas); 0 sesiones QA (las de hoy eran de m1, no tocadas); backfill `familia_tareas.familia_id` (ya 0 NULL); alta familia QA2 `qa2mfcasa` (fid=2, m53 admin / m54 hijo, sin Auth/email); PIN en `/home/box/.secrets/qa-buscoedu.env` (600). Migración/ops `familia_mf_o3_ops_qa_familia2`. Pts 0/0/99/52/119/77. **por qué**: Orq GO t809u. **quién**: BD bot BuscoEdu.
+
+Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: aplicada en prod `familia_mf_o3_rpc_scope` (Backend O3): RPC acotadas por `familia_id` + `familia_rpc_link_emitir`/`resolver`; respaldo defs en `respaldos.familia_mf_o3_rpc_previo_bd`; pts 0/0/99/52/119/77; 0 nulos `familia_id`; `familia_links` RLS 0 policies; sin Auth. **por qué**: Orq GO / OK Jhon t809u. **quién**: BD bot BuscoEdu.
+
+Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Multi-familia O3 links: tabla `familia_links` (token hex 32 bytes, RLS sin policies, trigger anti-DELETE, índices token + (familia_id,tipo,ref_id)); migración `familia_mf_o3_links`. RPCs emitir/resolver = Backend. **por qué**: Orq GO O3+O4 links. **quién**: BD bot BuscoEdu.
+
+Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Multi-familia O3 (solo BD): vista `familia_historial_v` con `familia_id`; índices `familia_id` + compuestos (loadAll/filtros); respaldo en `respaldos.familia_mf_o3_*`; migración `familia_mf_o3_db` aplicada en prod. Sin tocar RPCs ni puntos. **por qué**: ola O3 tras #84; OK Jhon t809u. **quién**: BD bot BuscoEdu.
+
+Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Multi-familia O3 RPC scope (aceptar_subasta/tick/lote/serie/mesada/canje/agenda/ranking acotados por familia_id; familia_rpc_link_emitir/resolver DEFINER; email dueño #1 beman27 activo sin Auth). Migración `20261031090000_familia_mf_o3_rpc_scope.sql`. **por qué**: lote O3+O4 aislamiento + contrato FE O4; OK Orq. **quién**: Backend BuscoEdu (bot).
+
+Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Fix O3 QA `familia_rpc_link_emitir` usa `extensions.gen_random_bytes`; crear_tarea/lote/serie escriben `familia_id` desde sesión (migración `20261031100000_familia_mf_o3_fix.sql`). **por qué**: QA PR #85 — pgcrypto en schema extensions + tareas con familia_id NULL. **quién**: Backend BuscoEdu (bot).
+
 Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Multi-familia O1+O2: tabla familia_familias (nick **beman27** case-insensitive), familia_id backfill #1, alias_entrada, RPC resolver/login + C4, pantalla nick→alias→PIN, loadAll por casa. Migración `mf_o1_o2`. **por qué**: OK Jhon t809u. **quién**: Orquestador BuscoEdu / executor.
 
 Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Familia v6e E-AG1 Agenda olas A0–A3 (tablas+RPC+UI día/semana/mes; recordatorios solo hijo; padre no crea; archivar=próximas; cruce BD; VE1 tick→reabrir probado; limpia QA 46–48). Migraciones `v6e_07`/`v6e_08`. **por qué**: OK Jhon t799u construir y publicar. **quién**: Orquestador BuscoEdu / executor.
@@ -548,6 +562,9 @@ Bitácora: 2026-10-19 18:10 (hora Madrid) — **qué**: logos de las 4 aliadas s
 ### Familia (`public/familia.html`) · v3
 - 2026-10-30 · Orquestador BuscoEdu / executor · E-AG1 Agenda A0–A3 publicada (pestaña Agenda; hijo crea; padre edita/archiva; cruce BD; recordatorios solo hijo). · por qué: OK Jhon t799u.
 - 2026-10-30 · Orquestador BuscoEdu / executor · Familia v6e cierre FI1/DU1/canje (rama feat/familia-v6e-fi1): ficha única deber/repetitiva con días + inicio/duración 1–72 h por día; cruce+VA1/VA2 en crear/lote/serie/editar/v1; canje `asignado_a` en RPC; `v6e_05`; `AGENTS.md` en raíz. · por qué: OK Jhon t792u.
+- 2026-10-30 · qué: mf O4 links WhatsApp opacos en familia.html/familia-v1.html (`linkOpaco` + `?l=<token>`; fallback si RPC ausente; resolución tras login; links viejos solo si son de la casa). · por qué: MF-31/MF-32 — ningún id/nick en la URL compartida. · Frontend BuscoEdu
+- 2026-10-30 · qué: mf O4 `familia-v1.html` redirige siempre a `familia.html` (location.replace + meta/link de respaldo; conserva query/hash incl. `?l=` y links viejos). · por qué: aislamiento multi-familia — una sola app FE. · Frontend BuscoEdu
+- 2026-10-30 · qué: mf O4 D5 header `x-familia-token` en cliente supabase-js + `rpcKeepalive`; token de `familia_rpc_login_miembro` en sessionStorage; limpia al salir; sesión inválida (HINT d5_*) → entrada. · por qué: sin header `familia_rpc_link_emitir` no tiene sesión y cae a legacy. · Frontend BuscoEdu
 
 Bitácora: 2026-10-24 — F0 v3: aprobar, cerrar y rechazar una tarea ya no ponen `foto_url`/`foto_2` en null (4 sitios); al devolver se siguen limpiando hasta F1 (`foto_anterior`) — porque la evidencia del hijo se borraba al aprobar y se perdía para el historial — parche de Backend BuscoEdu (bot), aplicado y comentado por Frontend BuscoEdu (bot) con OK de Jhon vía Orquestador. Sin cambios de BD ni deploy (se agrupa por fase).
 
@@ -631,3 +648,4 @@ Bitácora: 2026-10-24 — F0 v3: aprobar, cerrar y rechazar una tarea ya no pone
 - 2026-10-25 · Familia v6d QA-fix D4/D8 en familia-v1.html · qué: título y encabezado FAMLY; «Nueva» sin Deber; «✅ Realizada» en la ficha del padre con familia_rpc_realizada, antidoble toque y Deshacer 10 s (familia_rpc_deshacer_realizada); cambios mínimos y aditivos · por qué: QA D4/D8 FAIL; el Orquestador autorizó tocar la v1 (commit aparte, se puede quitar) · Frontend BuscoEdu
 - 2026-10-25 · Familia v6d QA-fix D6 v1 (familia-v1.html) · qué: isAdmin() = rol_v6d 'padre_admin' (respaldo es_admin); las 48 llamadas de pantallas de padres pasan a esPadre(); «Realizada» solo para padre_admin · por qué: m2 (padre) no debe ver Realizada sin romper sus pantallas · Frontend BuscoEdu
 - 2026-10-25 · Familia v6d D20c (familia.html v3–v6 y v1, familia-v1.html) · qué: en «Hoy» primero lo abierto ordenado por fin asc (sin fin al final) y luego lo que aún no abre por inicio asc; un solo texto «Aún no abre · Abre HH:MM» en la tarjeta (se quita el chip suelto duplicado) · por qué: lo que aún no abría salía antes que lo abierto y el texto se veía duplicado · Frontend BuscoEdu
+- 2026-10-30 · Familia mf O3/O4: declarar `loginBusy` en familia.html · «Continuar» de la entrada fallaba con ReferenceError (QA NO LISTO PR #85) · Frontend BuscoEdu
