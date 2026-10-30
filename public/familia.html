@@ -113,8 +113,8 @@ h3{margin-bottom:12px}
 .v3-modo .v6d-vone,body.v3-modo .form-group.v6d-v1{display:none}   /* v6d D7: en v3–v6 la ficha usa Inicio/Fin */
 .v6d-tarde-b{display:inline-block;font-size:.8rem;font-weight:700;color:#374151;background:#f3f4f6;border:1px solid #9ca3af;border-radius:999px;padding:2px 8px;margin:4px 0}
 </style>
-<!-- v6d control de versión: la misma etiqueta que FAMILIA_VERSION; el chequeo la compara con la página del servidor. -->
-<meta name="familia-version" content="v6d">
+<!-- v6e control de versión: la misma etiqueta que FAMILIA_VERSION; el chequeo la compara con la página del servidor. -->
+<meta name="familia-version" content="v6e">
 </head>
 <body>
 <div class="login-screen" id="loginScreen">
@@ -907,17 +907,21 @@ async function loadAll(opts){
     let [m,t,p,h,c,pl,msg,sol,nt,db]=await Promise.all([
       supabase.from('familia_miembros').select('*').order('id'),
       sinArchivadas(supabase.from('familia_tareas').select(columnasTareas())).order('creado_en',{ascending:false}),
-      supabase.from('familia_premios').select('*').order('costo'),
+      /* v6e E-PR1: el hijo solo descarga premios suyos o «para todos» (no tipo padre). */
+      (()=>{let q=supabase.from('familia_premios').select('*').order('costo');
+        const u0=state.currentUserId&&memberById(state.currentUserId);
+        if(u0&&!esPadre(u0)) q=q.or('asignado_a.is.null,asignado_a.eq.'+u0.id).not('tipo','eq','padre');
+        return q;})(),
       // v6 Mesada final: lectura desde la vista familia_historial_v (trae mesada_estado); las escrituras siguen en familia_historial.
       sinArchivadas(supabase.from('familia_historial_v').select('*')).order('creado_en',{ascending:false}).limit(1000),
       supabase.from('familia_config').select('*').eq('id',1).maybeSingle(),
       supabase.from('familia_plantillas_tareas').select('*'),
       supabase.from('familia_mensajes').select('*').order('creado_en',{ascending:false}).limit(200),
       supabase.from('familia_solicitudes_premios').select('*').order('creado_en',{ascending:false}),
-      /* v6e ARR-AVISOS: si ya hay sesión, solo trae avisos del usuario (no toda la familia) */
+      /* v6e E-NOTIF: NUNCA traer avisos ajenos. Sin sesión → lista vacía (no SELECT *). */
       (state.currentUserId
         ? supabase.from('familia_notificaciones').select('*').eq('para_id',state.currentUserId).order('leida',{ascending:true}).order('creado_en',{ascending:false}).limit(80)
-        : supabase.from('familia_notificaciones').select('*').order('leida',{ascending:true}).order('creado_en',{ascending:false}).limit(80)),
+        : Promise.resolve({data:[],error:null})),
       supabase.from('familia_deberes').select('*').order('id')
     ]);
     // v6 Mesada final: si la vista no existe o falla, se vuelve a la tabla (comportamiento anterior).
@@ -964,7 +968,8 @@ async function loadAll(opts){
     state.plantillas=pl.data||[];
     state.mensajes=msg.data||[];
     state.solicitudes=sol.error?[]:(sol.data||[]);
-    state.notifs=nt.error?[]:(nt.data||[]);
+    // v6e E-NOTIF: filtro defensivo por para_id (por si el SELECT fallara a traer de más).
+    state.notifs=(nt.error?[]:(nt.data||[])).filter(n=>!state.currentUserId||Number(n.para_id)===Number(state.currentUserId));
     state.deberes=db.error?state.deberes:(db.data||[]);
     // v6d D6/D9: matriz de permisos y catálogo de multas; si la BD no las tiene (v6d_01/05), se sigue sin ellas.
     try{const [pm,mu,mn]=await Promise.all([supabase.from('familia_permisos').select('permiso,rol,permitido'),
@@ -3463,13 +3468,12 @@ function doLogin(){
 function enterAs(id){
   state.currentUserId=id;
   originalAdminId=null;
+  // v6e E-NOTIF / E-PR1: limpia avisos y premios ajenos del init previo al login.
+  state.notifs=[]; state.rewards=[];
   localStorage.setItem('familia_current',id);
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('mainApp').style.display='flex';
-  render();
-  consumeDeepLink();
-  maybeAskCycle();
-  entradaV6c(id);   // v6c C11: estado de la familia (pausa / reactivar)
+  loadAll().then(()=>{ render(); consumeDeepLink(); maybeAskCycle(); entradaV6c(id); });
 }
 
 function fillLoginMembers(){
@@ -3947,9 +3951,9 @@ body.v3-modo.tema-rosa,body.v3-modo.tema-rosa #v3App{--v3-cta:#be185d;--v6t-head
 .v6-mb{font-size:.72rem;font-weight:700;border-radius:6px;padding:1px 6px;white-space:nowrap;color:#fff;background:#6b7280}.v6-mb.cargada{background:#b45309}.v6-mb.liberada{background:#15803d}.v6-mb.anulada{background:#b91c1c}.v6-vtag.err{background:#b91c1c}
 .v3-card.ok{border-left-color:var(--v3-ok)}.v3-card.err{border-left-color:var(--v3-err)}.v3-card.rev{border-left-color:var(--v3-azul)}
 /* v6e E-RV1: Por revisar apila título → chips → horas → botones full (thumb zone 390) */
-.v3-card.rev-stack{flex-direction:column;align-items:stretch;gap:8px}
-.v3-card.rev-stack .v3-row{width:100%}
-.v3-card.rev-stack .v3-cta,.v3-card.rev-stack .v3-btn2{flex:1;min-height:44px}
+.v3-card.rev-stack{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+.v3-card.rev-stack .v3-row{width:100%;display:flex;flex-wrap:wrap;gap:8px}
+.v3-card.rev-stack .v3-cta,.v3-card.rev-stack .v3-btn2,.v3-card.rev-stack .v3-full{flex:1 1 100%;width:100%;min-height:44px;box-sizing:border-box}
 .v3-card .v3-grow{flex:1;min-width:0}
 .v3-card .v3-t{font-weight:600;overflow-wrap:anywhere}
 .v3-sub{font-size:.78rem;color:#64748b}
@@ -4408,7 +4412,7 @@ window.FamiliaV3=(function(){
     if(sq.length) h0+='<h2>Solicitudes de tareas</h2>'+sq.map(t=>ficha(t,soloLectura()?'':`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aprobarSolicitud(${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.negarSolicitud(${t.id})">Negar</button></div>`)).join('');
     /* v6e E-AP1: borradores / no liberadas → Liberar para hacer */
     const porLib=state.tasks.filter(t=>!ocultas.has(t.id)&&!t.inmediata&&t.aprobada_para_hacer===false&&['borrador','pendiente'].includes(t.estado)&&!t.en_subasta);
-    if(porLib.length) h0+='<h2>Por aprobar para hacer</h2>'+porLib.map(t=>ficha(t,soloLectura()?'':`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.liberarParaHacer(${t.id})">Aprobar para hacer</button>`)).join('');
+    if(porLib.length) h0+='<h2>Por aprobar para hacer</h2>'+porLib.map(t=>{const html=ficha(t,soloLectura()?'':`<button class="v3-cta v3-full" onclick="event.stopPropagation();FamiliaV3.liberarParaHacer(${t.id})">Aprobar para hacer</button>`);return html.replace('class="v3-card ','class="v3-card rev-stack ');}).join('');
     // v6 Mesada final: ya no se muestran «Mesadas por cargar» (RPC v4 retirada del FE).
     if(false&&mp.length) h0+='<h2>Mesadas por cargar</h2>'+mp.map(t=>ficha(t,soloLectura()?'':`<button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.mesadaPendiente(${t.id})">Cargar</button>`)).join('');
     let h=h0+a.map(t=>{const html=ficha(t,`<div class="v3-row"><button class="v3-cta v6d-aprob" onclick="event.stopPropagation();FamiliaV3.aprobar(${t.id})">✅ Aprobar${Number(t.puntos)?' | +'+Number(t.puntos)+' pts':''}</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.detalle(${t.id})">Devolver</button></div>`);return html.replace('class="v3-card ','class="v3-card rev-stack ');}).join('');
@@ -4496,8 +4500,15 @@ window.FamiliaV3=(function(){
     if(!puede('mesadas')) return showToast('Solo el padre admin puede hacer esto');   // v6d D6: matriz «mesadas»
     if(soloLectura()) return showToast('Modo «Ver como»: solo lectura');
     abrirHoja('<h3>Mesada mensual</h3><p class="v3-sub">Cargando…</p>');
-    await cargarMesadaEst();
-    if(!mesadaEst){abrirHoja('<h3>Mesada mensual</h3><p class="v3-sub v3-st-err">La mesada mensual aún no está disponible en la base de datos.</p>');return;}
+    // v6e E-ME1: fuerza lectura con el actor padre (no el hijo de «Entrar como») y recarga limpia.
+    mesadaEst=null; mesadaCargando=null;
+    const actorMes=originalAdminId||state.currentUserId;
+    let errMes=null;
+    try{
+      const r=await supabase.rpc(MESADA_RPC.estado.fn,MESADA_RPC.estado.args(actorMes,null));
+      if(r.error){errMes=r.error; mesadaEst=null;} else mesadaEst=r.data||null;
+    }catch(e){errMes=e; mesadaEst=null;}
+    if(!mesadaEst){abrirHoja('<h3>Mesada mensual</h3><p class="v3-sub v3-st-err">No se pudo cargar la mesada'+(errMes?': '+esc(msgErrorBD(errMes)):'')+'.</p><button class="v3-btn2 v3-full" style="margin-top:10px" onclick="FamiliaV3.hojaMesadaV6()">Reintentar</button>');return;}
     // v6 Mesada final: periodos_pendientes (lista) y fecha_liberacion principal.
     const c=mesadaEst.config||{}, pend=Array.isArray(mesadaEst.periodos_pendientes)?mesadaEst.periodos_pendientes:[], liberable=pend.some(p=>p.puede_liberar);
     const hijos=state.members.filter(isKid).slice().sort(byName);
@@ -4565,7 +4576,8 @@ window.FamiliaV3=(function(){
     const asc=localStorage.getItem('v3_premios_orden')!=='desc';
     const S=Number(u.puntos)||0;
     // Cada quien ve sus premios: hijo → tipo 'hijo' (o vacío); padre → tipo 'padre'.
-    const lista=state.rewards.filter(r=>r.activo!==false&&((r.tipo||'hijo')==='padre')===esPadre(u)).slice().sort((a,b)=>asc?(a.costo-b.costo):(b.costo-a.costo));
+    // v6e E-PR1: además del tipo, el hijo no ve premios asignados a otro.
+    const lista=state.rewards.filter(r=>r.activo!==false&&((r.tipo||'hijo')==='padre')===esPadre(u)&&(!r.asignado_a||Number(r.asignado_a)===u.id||esPadre(u))).slice().sort((a,b)=>asc?(a.costo-b.costo):(b.costo-a.costo));
     let h=`<button class="v3-btn2" style="margin-bottom:10px" onclick="FamiliaV3.ordenPremios()">Orden: ${asc?'menor → mayor':'mayor → menor'}</button>`;
     h+=lista.map(r=>{
       // v6 Mesada: verde si el TOTAL (incluida la mesada por liberar) alcanza; pedir solo con disponibles (botonPremio).
@@ -4766,14 +4778,13 @@ window.FamiliaV3=(function(){
     // v5 ítem 7: solo Saldo y Ganado, nombres grandes; medallas emoji se quedan (D6). El desglose y la
     // conciliación siguen en el saldo detallado (openBalance) al tocar el nombre.
     // v6c C12: en «Total» solo la fecha («Desde el {fecha}»); sin fecha → «Desde el inicio» (sin la frase de uso de la app).
-    document.getElementById('v4Ranking').innerHTML=`<div class="v3-seg"><button class="${rkModo==='semana'?'on':''}" onclick="FamiliaV3.ranking('semana')">Semana</button><button class="${rkModo==='total'?'on':''}" onclick="FamiliaV3.ranking('total')">Total</button></div>
-      ${desde?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · hora local (${esc((u&&u.zona_horaria)||zonaHoraria())})</p>`:(()=>{const f=fechaInicioApp(); return `<p class="v3-sub">${f?'Desde el '+esc(f.toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'})):'Desde el inicio'}</p>`;
-    /* v6e E-RK1: Semana|Total debajo del cuadro (thumb zone) */
-    {const box=document.getElementById('v4Ranking'), seg=box&&box.querySelector('.v3-seg'); if(seg&&box) box.appendChild(seg);}
-})()}
+    // v6e E-RK1: Semana|Total DEBAJO del cuadro (zona del pulgar en 390).
+    const subRk=desde?`<p class="v3-sub">Desde el dom ${ini.toLocaleDateString('es-CO',{day:'numeric',month:'short'})} · hora local (${esc((u&&u.zona_horaria)||zonaHoraria())})</p>`:(()=>{const f=fechaInicioApp(); return `<p class="v3-sub">${f?'Desde el '+esc(f.toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'})):'Desde el inicio'}</p>`;})();
+    document.getElementById('v4Ranking').innerHTML=`${subRk}
       <div class="v3-card" style="display:block"><div class="v5-rk h"><span></span><span>Hijo</span><span class="n">Ganado</span><span class="n">Saldo</span></div>
       ${filas.map((x,i)=>`<div class="v5-rk" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.abrirV1(()=>openBalance(${x.k.id}))" title="Ver saldo detallado"><span>${MED[i]||(i+1)+'.'}</span><span class="nom">${esc(x.k.nombre)}</span><strong class="n v3-st-ok">${x.g}</strong><span class="n">${x.saldo}</span></div>`).join('')||'<p class="v3-sub">Sin hijos</p>'}
-      <p class="v3-sub" style="margin-top:6px">Orden por Ganado${desde?' de esta semana':''}. Saldo = puntos de hoy. Toca un nombre para ver el detalle.</p></div>`;
+      <p class="v3-sub" style="margin-top:6px">Orden por Ganado${desde?' de esta semana':''}. Saldo = puntos de hoy. Toca un nombre para ver el detalle.</p></div>
+      <div class="v3-seg" style="margin-top:10px;margin-bottom:0"><button class="${rkModo==='semana'?'on':''}" onclick="FamiliaV3.ranking('semana')">Semana</button><button class="${rkModo==='total'?'on':''}" onclick="FamiliaV3.ranking('total')">Total</button></div>`;
   }
 
   /* --- Zona horaria del navegador: se guarda en el dispositivo (no hay columna en BD; ver bitácora). --- */
@@ -6212,12 +6223,15 @@ window.FamiliaV3=(function(){
     if(exigeFoto&&window._v6dSinFotoRpc){const tid=typeof id==='object'?(id.id||id.tarea_id):id; const ef=tid?await reExigeFotoIntentos(tid):{message:'sin id'};
       if(ef) faltaFotoC3b={tid,msg:msgErrorBD(ef)};}
     const who=(memberById(crear.asignada)||{}).nombre||'';
-    const texto=`${d?'Deber':'Tarea'} para ${who}: ${crear.titulo}`;
-    crear={};
-    // WhatsApp SOLO aquí, al crear (opcional para el padre).
-    abrirHoja(`<h3 class="v3-st-ok">Creada</h3><p class="v3-sub" style="margin:8px 0">${esc(texto)}</p>
+    // v6e E-WA1: mensaje con nombre + título + enlace directo a la tarea.
+    {const tid=typeof id==='object'?(id.id||id.tarea_id):id;
+      const link=tid?appUrl({tarea:tid}):(location.origin+location.pathname);
+      const texto=`${d?'Deber':'Tarea'} para ${who}: ${crear.titulo}\n${link}`;
+      crear={};
+      // WhatsApp SOLO aquí, al crear (opcional para el padre).
+      abrirHoja(`<h3 class="v3-st-ok">Creada</h3><p class="v3-sub" style="margin:8px 0">${esc(texto)}</p>
       ${faltaFotoC3b?`<p class="v3-st-err" id="v6cFotoFalta">Quedó sin «Exige foto»: ${esc(faltaFotoC3b.msg)}</p>${faltaFotoC3b.tid?`<button class="v3-btn2 v3-full" style="margin-bottom:8px" onclick="FamiliaV3._reExigeFoto(${Number(faltaFotoC3b.tid)})">Reintentar «Exige foto»</button>`:''}`:''/* v6c C3b */}
-      <div class="v3-row"><a class="v3-btn2" style="text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(texto)}">Avisar por WhatsApp</a><button class="v3-cta" style="flex:1" onclick="FamiliaV3.cerrarHoja()">Listo</button></div>`);
+      <div class="v3-row"><a class="v3-btn2" style="text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(texto)}">Avisar por WhatsApp</a><button class="v3-cta" style="flex:1" onclick="FamiliaV3.cerrarHoja()">Listo</button></div>`);}
     scheduleReload();
   }
 
@@ -6359,8 +6373,17 @@ window.FamiliaV3=(function(){
     }finally{enCurso.delete(k);}
   }
   // Usa las mismas variables de sesión de la v1 (originalAdminId) para que «Volver» funcione igual.
-  function verComo(id){if(!originalAdminId&&esPadre(currentUser())) originalAdminId=state.currentUserId; state.currentUserId=id; seccion='hoy'; cerrarHoja(); render(); showToast('Entraste como '+((memberById(id)||{}).nombre||'')+' (acciones con auditoría)');}
-  function volverAMi(){if(!originalAdminId) return; state.currentUserId=originalAdminId; originalAdminId=null; seccion='yo'; render();}
+  function verComo(id){
+    if(!originalAdminId&&esPadre(currentUser())) originalAdminId=state.currentUserId;
+    state.currentUserId=id; state.notifs=[]; state.rewards=[]; seccion='hoy'; cerrarHoja();
+    // v6e E-NOTIF: recarga avisos/premios del actor (no conserva los del padre).
+    loadAll().then(()=>{ render(); showToast('Entraste como '+((memberById(id)||{}).nombre||'')+' (acciones con auditoría)'); });
+  }
+  function volverAMi(){
+    if(!originalAdminId) return;
+    state.currentUserId=originalAdminId; originalAdminId=null; state.notifs=[]; state.rewards=[]; seccion='yo';
+    loadAll().then(()=>render());
+  }
   function hojaPerfil(){
     const u=currentUser();
     abrirHoja(`<h3>Mi perfil</h3><label>Nombre</label><input id="v3uNom" value="${esc(u.nombre||'')}" maxlength="40">
@@ -6511,7 +6534,7 @@ window.FamiliaV3=(function(){
 /* v6d control de versión: una pestaña o PWA vieja (p. ej. expireWindows de 84ba90f, que escribía no_terminada) debe
    recargarse sola. Cada 5 min y al volver a la pestaña se pide familia.html con no-store y se compara la meta
    familia-version con FAMILIA_VERSION. Si difiere → recarga una sola vez por versión remota (sessionStorage evita bucles). */
-const FAMILIA_VERSION='v6d';
+const FAMILIA_VERSION='v6e';
 (function(){
   const CLAVE='familia_recarga_version';
   let enVuelo=false;
