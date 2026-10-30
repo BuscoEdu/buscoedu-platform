@@ -126,6 +126,8 @@ Pantallas de `/admin/ia/multiproveedor` (solo super_admin): asistente de 5 pasos
 ## Explorar — paginación estable de «Mostrar más»
 
 «Mostrar más» en `/explorar` y `/naia` llega a todas las ofertas sin duplicados: `obtenerOfertas` ordena por `creado_en desc, id asc` y la página siguiente sale de las páginas ya pedidas (`src/lib/paginacion-ofertas.ts`, con pruebas). 
+Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: ops O3 QA: borrado miembro QA #52 (+2 tareas); 0 sesiones QA (las de hoy eran de m1, no tocadas); backfill `familia_tareas.familia_id` (ya 0 NULL); alta familia QA2 `qa2mfcasa` (fid=2, m53 admin / m54 hijo, sin Auth/email); PIN en `/home/box/.secrets/qa-buscoedu.env` (600). Migración/ops `familia_mf_o3_ops_qa_familia2`. Pts 0/0/99/52/119/77. **por qué**: Orq GO t809u. **quién**: BD bot BuscoEdu.
+
 Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: aplicada en prod `familia_mf_o3_rpc_scope` (Backend O3): RPC acotadas por `familia_id` + `familia_rpc_link_emitir`/`resolver`; respaldo defs en `respaldos.familia_mf_o3_rpc_previo_bd`; pts 0/0/99/52/119/77; 0 nulos `familia_id`; `familia_links` RLS 0 policies; sin Auth. **por qué**: Orq GO / OK Jhon t809u. **quién**: BD bot BuscoEdu.
 
 Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: Multi-familia O3 links: tabla `familia_links` (token hex 32 bytes, RLS sin policies, trigger anti-DELETE, índices token + (familia_id,tipo,ref_id)); migración `familia_mf_o3_links`. RPCs emitir/resolver = Backend. **por qué**: Orq GO O3+O4 links. **quién**: BD bot BuscoEdu.
