@@ -37,7 +37,7 @@ BEGIN
   END IF;
 END $$;
 
--- ========== Nick: 5–20, solo [a-z0-9_] (I8; sin guion) ==========
+-- ========== Nick: 5–20, [a-z0-9_-] (regla O1; CON guion) ==========
 -- Alinea CHECK de familia_familias si aún permite '-' u otro patrón.
 DO $$
 DECLARE c text;
@@ -62,7 +62,7 @@ BEGIN
   ) THEN
     ALTER TABLE public.familia_familias
       ADD CONSTRAINT familia_familias_nick_fmt
-      CHECK (nickname ~ '^[a-z0-9_]{5,20}$');
+      CHECK (nickname ~ '^[a-z0-9_-]{5,20}$');
   END IF;
 END $$;
 
