@@ -103,6 +103,23 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .o6-actions button{font-size:.8rem;padding:8px 10px;min-height:40px;border-radius:8px;border:1px solid #8a84b8;background:#fff;color:#1f1a4d;font-weight:600;cursor:pointer;touch-action:manipulation}
 .o6-link{background:none;border:none;color:#4338ca;text-decoration:underline;cursor:pointer;font-size:.875rem;margin-top:12px;padding:8px;min-height:44px}
 @media (max-width:390px){.o6-wrap{padding:16px 12px 32px}}
+/* O6 · modal miembros: sheet accesible; full-width ≤390px. */
+.o6-modal{display:none;position:fixed;inset:0;z-index:700;align-items:flex-end;justify-content:center}
+.o6-modal.show{display:flex}
+.o6-modal-backdrop{position:absolute;inset:0;background:rgba(31,26,77,.45)}
+.o6-modal-sheet{position:relative;z-index:1;width:100%;max-width:420px;max-height:92vh;overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;border:1px solid #8a84b8;border-radius:16px 16px 0 0;padding:16px 16px 24px;box-sizing:border-box;margin:0 auto;outline:none}
+.o6-modal-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.o6-modal-head h3{margin:0;font-size:1.05rem;color:#1f1a4d}
+.o6-modal-x{border:none;background:transparent;font-size:1.5rem;line-height:1;color:#1f1a4d;cursor:pointer;min-width:44px;min-height:44px;touch-action:manipulation}
+.o6-modal-actions{margin-top:8px}
+.o6-modal .o6-err{color:#b91c1c}
+@media (min-width:391px){
+  .o6-modal{align-items:center;padding:16px}
+  .o6-modal-sheet{border-radius:16px;max-height:85vh}
+}
+@media (max-width:390px){
+  .o6-modal-sheet{max-width:100%;border-radius:16px 16px 0 0;border-left:none;border-right:none;border-bottom:none}
+}
 
 .empty{text-align:center;padding:24px;color:var(--muted)}
 .emoji-grid,.color-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
@@ -201,7 +218,7 @@ h3{margin-bottom:12px}
 
     <div id="o6VistaFamilia" style="display:none">
       <h2 class="o6-h">Crear tu familia</h2>
-      <p class="o6-sub">Escribe el nombre de tu familia, tu alias y un apodo (5 a 20 caracteres: minúsculas, números y _). Te sugerimos un apodo; puedes cambiarlo.</p>
+      <p class="o6-sub">Escribe el nombre de tu familia, tu alias y un apodo (5 a 20 caracteres: minúsculas, números, _ y -). Te sugerimos un apodo; puedes cambiarlo.</p>
       <div class="o6-card">
         <div class="o6-field"><label for="o6NombreFam">Nombre de la familia</label>
           <input id="o6NombreFam" maxlength="60" autocomplete="organization" placeholder="ej. Los Bejarano"></div>
@@ -265,6 +282,23 @@ h3{margin-bottom:12px}
         <button type="button" class="o6-btn" id="o6BtnMemCrear" onclick="o6MiembroCrear()">Añadir</button>
         <button type="button" class="o6-btn sec" onclick="o6IrEntradaMiembro()">Listo · ir a entrar</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- O6 · modal editar / PIN (focus trap, Esc, sin prompt; no imprimir PIN). -->
+<div id="o6Modal" class="o6-modal" hidden aria-hidden="true">
+  <div class="o6-modal-backdrop" data-o6-close tabindex="-1"></div>
+  <div class="o6-modal-sheet" role="dialog" aria-modal="true" aria-labelledby="o6ModalTitle" id="o6ModalSheet" tabindex="-1">
+    <div class="o6-modal-head">
+      <h3 id="o6ModalTitle">Editar</h3>
+      <button type="button" class="o6-modal-x" id="o6ModalCloseX" aria-label="Cerrar" data-o6-close>&times;</button>
+    </div>
+    <div id="o6ModalBody"></div>
+    <p class="o6-err" id="o6ModalErr" role="alert"></p>
+    <div class="o6-modal-actions">
+      <button type="button" class="o6-btn" id="o6ModalOk">Guardar</button>
+      <button type="button" class="o6-btn sec" id="o6ModalCancel" data-o6-close>Cancelar</button>
     </div>
   </div>
 </div>
@@ -3902,9 +3936,9 @@ function fillLoginMembers(){
    - familia_rpc_nick_sugerir(p_base text default '') → jsonb { ok:bool, nick:text }
        fallback: { nick:text } o text plano
    - familia_rpc_admin_registrar(p_token, p_email, p_clave, p_nick,
-       p_nombre_familia text, p_alias text)
+       p_nombre_familia text, p_alias_admin text)
        → jsonb { ok, token?, familia_id?, admin_id?, miembro_id?, nick?, mensaje?, hint? }
-       (brief nombraba solo 4 params; FE también envía nombre_familia + alias por I6)
+       (brief nombraba solo 4 params; FE también envía nombre_familia + alias_admin por I6)
    - familia_rpc_admin_login(p_email, p_clave)
        → jsonb { ok, token?, familia_id?, admin_id?, miembros?:[], mensaje?, hint? }
        fail/rate-limit → ok:false o error; FE mensaje genérico
@@ -3919,7 +3953,7 @@ function fillLoginMembers(){
    - familia_rpc_miembro_desactivar(p_miembro_id)
        → jsonb { ok, mensaje?, hint? }
    ============================================================================= */
-const O6_NICK_RE=/^[a-z0-9_]{5,20}$/;
+const O6_NICK_RE=/^[a-z0-9_-]{5,20}$/;
 const O6_MAX_MIEMBROS=10;
 let o6Busy=false;
 let o6Draft={email:'',clave:''};
@@ -3947,14 +3981,14 @@ const O6Rpc={
     return {data:o6RpcPayload(data),error};
   },
   async adminRegistrar(args){
-    /* ASSUMED: p_token,p_email,p_clave,p_nick + p_nombre_familia,p_alias (I6). */
+    /* ASSUMED: p_token,p_email,p_clave,p_nick + p_nombre_familia,p_alias_admin (I6). */
     const {data,error}=await supabase.rpc('familia_rpc_admin_registrar',{
       p_token:String(args.token||''),
       p_email:String(args.email||''),
       p_clave:String(args.clave||''),
       p_nick:String(args.nick||''),
       p_nombre_familia:String(args.nombre_familia||''),
-      p_alias:String(args.alias||'')
+      p_alias_admin:String(args.alias||'')
     });
     return {data:o6RpcPayload(data),error};
   },
@@ -4093,7 +4127,7 @@ async function o6SugerirNick(){
       if(typeof data==='string') nick=data;
       else nick=data.nick||data.sugerencia||data.apodo||'';
     }
-    nick=String(nick||'').toLowerCase().replace(/[^a-z0-9_]/g,'').slice(0,20);
+    nick=String(nick||'').toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,20);
     if(nick.length>=5){
       const inp=document.getElementById('o6Nick');
       if(inp) inp.value=nick;
@@ -4111,7 +4145,7 @@ async function o6RegistrarAdmin(){
   o6SetErr('o6FamErr','');
   if(nombre.length<2){ o6SetErr('o6FamErr','Escribe el nombre de tu familia.'); return; }
   if(alias.length<2){ o6SetErr('o6FamErr','Escribe tu alias.'); return; }
-  if(!O6_NICK_RE.test(nick)){ o6SetErr('o6FamErr','El apodo debe tener de 5 a 20 caracteres: solo minúsculas, números y guion bajo.'); return; }
+  if(!O6_NICK_RE.test(nick)){ o6SetErr('o6FamErr','El apodo debe tener de 5 a 20 caracteres: solo minúsculas, números, guion bajo y guion medio.'); return; }
   o6Busy=true;
   const btn=document.getElementById('o6BtnRegistrar');
   if(btn) btn.disabled=true;
@@ -4298,42 +4332,169 @@ async function o6MiembroCrear(){
     if(btn) btn.disabled=false;
   }
 }
-async function o6MiembroEditarUI(id){
-  if(o6Busy) return;
+/* O6 · modal accesible (focus trap, Esc, restore focus); modos edit|pin. */
+let o6ModalMode=null;
+let o6ModalMemberId=null;
+let o6ModalPrevFocus=null;
+let o6ModalSubmitting=false;
+function o6ModalEl(){ return document.getElementById('o6Modal'); }
+function o6ModalSetErr(msg){
+  const el=document.getElementById('o6ModalErr');
+  if(el){ el.textContent=msg||''; el.style.color='#b91c1c'; }
+}
+function o6ModalFocusables(){
+  const sheet=document.getElementById('o6ModalSheet');
+  if(!sheet) return [];
+  return Array.prototype.slice.call(sheet.querySelectorAll('button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'))
+    .filter(function(el){ return el.offsetParent!==null || el===document.activeElement; });
+}
+function o6ModalOnKey(e){
+  if(!o6ModalEl()||!o6ModalEl().classList.contains('show')) return;
+  if(e.key==='Escape'){ e.preventDefault(); o6ModalCerrar(); return; }
+  if(e.key!=='Tab') return;
+  const list=o6ModalFocusables();
+  if(!list.length) return;
+  const first=list[0], last=list[list.length-1];
+  if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+}
+function o6ModalAbrir(mode,id){
+  /* Abre sheet edit|pin; rellena campos; atrapa foco. */
+  if(o6Busy||o6ModalSubmitting) return;
   const m=o6MiembrosCache.find(function(x){ return Number(x.id)===Number(id); });
-  const nombre=prompt('Nombre', m&&m.nombre||'');
-  if(nombre==null) return;
-  const alias=prompt('Alias', m&&m.alias||'');
-  if(alias==null) return;
-  const rol=prompt('Rol', m&&(m.rol||m.rol_v6d)||'hijo');
-  if(rol==null) return;
-  o6Busy=true;
-  try{
-    const {data,error}=await O6Rpc.miembroEditar(id, String(nombre).trim(), String(alias).trim().toLowerCase(), String(rol).trim());
-    if(error || (data&&data.ok===false)){
-      alert((data&&data.mensaje)||'No se pudo guardar.');
-      return;
-    }
-    await o6CargarMiembros();
-  }catch(e){ alert('No se pudo guardar.'); }
-  finally{ o6Busy=false; }
+  const modal=o6ModalEl();
+  const body=document.getElementById('o6ModalBody');
+  const title=document.getElementById('o6ModalTitle');
+  const ok=document.getElementById('o6ModalOk');
+  if(!modal||!body||!title||!ok) return;
+  o6ModalPrevFocus=document.activeElement;
+  o6ModalMode=mode;
+  o6ModalMemberId=id;
+  o6ModalSetErr('');
+  ok.disabled=false;
+  ok.textContent='Guardar';
+  if(mode==='edit'){
+    title.textContent='Editar persona';
+    const rol=String((m&&(m.rol||m.rol_v6d))||'hijo');
+    const rolNorm=(rol==='padre'||rol==='padre_admin')?'padre':'hijo';
+    body.innerHTML=
+      '<div class="o6-field"><label for="o6EditNombre">Nombre</label>'+
+      '<input id="o6EditNombre" maxlength="40" autocomplete="name" value="'+o6Esc(m&&m.nombre||'')+'"></div>'+
+      '<div class="o6-field"><label for="o6EditAlias">Alias</label>'+
+      '<input id="o6EditAlias" maxlength="16" autocapitalize="none" autocomplete="off" value="'+o6Esc(m&&m.alias||'')+'"></div>'+
+      '<div class="o6-field"><label for="o6EditRol">Rol</label>'+
+      '<select id="o6EditRol">'+
+        '<option value="padre"'+(rolNorm==='padre'?' selected':'')+'>Padre/Madre</option>'+
+        '<option value="hijo"'+(rolNorm==='hijo'?' selected':'')+'>Hijo/Hija</option>'+
+      '</select></div>';
+  } else {
+    title.textContent='Cambiar PIN';
+    body.innerHTML=
+      '<div class="o6-field"><label for="o6EditPin">Nuevo PIN (4–8 dígitos)</label>'+
+      '<input id="o6EditPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="4–8 dígitos"></div>';
+  }
+  modal.hidden=false;
+  modal.setAttribute('aria-hidden','false');
+  modal.classList.add('show');
+  document.addEventListener('keydown', o6ModalOnKey, true);
+  setTimeout(function(){
+    const first=document.getElementById(mode==='edit'?'o6EditNombre':'o6EditPin');
+    if(first) first.focus();
+    else { const s=document.getElementById('o6ModalSheet'); if(s) s.focus(); }
+  },0);
 }
-async function o6MiembroPinUI(id){
-  if(o6Busy) return;
-  const pin=prompt('Nuevo PIN (4–8 dígitos)','');
-  if(pin==null) return;
-  if(!/^[0-9]{4,8}$/.test(pin)){ alert('El PIN debe tener 4 a 8 dígitos.'); return; }
-  o6Busy=true;
-  try{
-    const {data,error}=await O6Rpc.miembroPin(id, pin);
-    if(error || (data&&data.ok===false)){
-      alert((data&&data.mensaje)||'No se pudo cambiar el PIN.');
-      return;
-    }
-    /* no mostrar el PIN */
-  }catch(e){ alert('No se pudo cambiar el PIN.'); }
-  finally{ o6Busy=false; }
+function o6ModalCerrar(){
+  /* Cierra y restaura foco; limpia PIN del DOM. */
+  const modal=o6ModalEl();
+  if(!modal) return;
+  modal.classList.remove('show');
+  modal.hidden=true;
+  modal.setAttribute('aria-hidden','true');
+  document.removeEventListener('keydown', o6ModalOnKey, true);
+  const body=document.getElementById('o6ModalBody');
+  if(body) body.innerHTML='';
+  o6ModalSetErr('');
+  o6ModalMode=null;
+  o6ModalMemberId=null;
+  o6ModalSubmitting=false;
+  const ok=document.getElementById('o6ModalOk');
+  if(ok){ ok.disabled=false; ok.textContent='Guardar'; }
+  const prev=o6ModalPrevFocus;
+  o6ModalPrevFocus=null;
+  if(prev && typeof prev.focus==='function'){ try{ prev.focus(); }catch(e){} }
 }
+async function o6ModalConfirmar(){
+  /* Guarda vía O6Rpc; guarda doble envío + estado loading. */
+  if(o6Busy||o6ModalSubmitting) return;
+  const id=o6ModalMemberId;
+  const mode=o6ModalMode;
+  const okBtn=document.getElementById('o6ModalOk');
+  o6ModalSetErr('');
+  if(mode==='edit'){
+    const nombre=(document.getElementById('o6EditNombre').value||'').trim();
+    const alias=(document.getElementById('o6EditAlias').value||'').trim().toLowerCase();
+    const rol=(document.getElementById('o6EditRol').value||'').trim();
+    if(nombre.length<2){ o6ModalSetErr('Escribe el nombre.'); return; }
+    if(alias.length<2){ o6ModalSetErr('Escribe el alias.'); return; }
+    if(rol!=='padre'&&rol!=='hijo'){ o6ModalSetErr('Elige un rol.'); return; }
+    o6ModalSubmitting=true; o6Busy=true;
+    if(okBtn){ okBtn.disabled=true; okBtn.textContent='Guardando…'; }
+    try{
+      const {data,error}=await O6Rpc.miembroEditar(id, nombre, alias, rol);
+      if(error || (data&&data.ok===false)){
+        o6ModalSetErr(((data&&data.mensaje)||'No se pudo guardar.').toString().slice(0,140));
+        return;
+      }
+      o6ModalCerrar();
+      await o6CargarMiembros();
+    }catch(e){ o6ModalSetErr('No se pudo guardar.'); }
+    finally{
+      o6ModalSubmitting=false; o6Busy=false;
+      if(okBtn && o6ModalEl() && o6ModalEl().classList.contains('show')){
+        okBtn.disabled=false; okBtn.textContent='Guardar';
+      }
+    }
+  } else if(mode==='pin'){
+    const pin=document.getElementById('o6EditPin').value||'';
+    if(!/^[0-9]{4,8}$/.test(pin)){ o6ModalSetErr('El PIN debe tener 4 a 8 dígitos.'); return; }
+    o6ModalSubmitting=true; o6Busy=true;
+    if(okBtn){ okBtn.disabled=true; okBtn.textContent='Guardando…'; }
+    try{
+      const {data,error}=await O6Rpc.miembroPin(id, pin);
+      if(error || (data&&data.ok===false)){
+        o6ModalSetErr(((data&&data.mensaje)||'No se pudo cambiar el PIN.').toString().slice(0,140));
+        return;
+      }
+      /* no mostrar el PIN */
+      o6ModalCerrar();
+    }catch(e){ o6ModalSetErr('No se pudo cambiar el PIN.'); }
+    finally{
+      o6ModalSubmitting=false; o6Busy=false;
+      if(okBtn && o6ModalEl() && o6ModalEl().classList.contains('show')){
+        okBtn.disabled=false; okBtn.textContent='Guardar';
+      }
+    }
+  }
+}
+function o6MiembroEditarUI(id){ o6ModalAbrir('edit', id); }
+function o6MiembroPinUI(id){ o6ModalAbrir('pin', id); }
+/* Bind cierre/confirm una vez el DOM O6 está listo (tras parse). */
+(function o6ModalBind(){
+  function bind(){
+    const modal=o6ModalEl();
+    if(!modal||modal.dataset.bound) return;
+    modal.dataset.bound='1';
+    modal.addEventListener('click', function(e){
+      const t=e.target;
+      if(t && t.getAttribute && t.getAttribute('data-o6-close')!=null){ o6ModalCerrar(); }
+    });
+    const ok=document.getElementById('o6ModalOk');
+    if(ok) ok.addEventListener('click', function(){ o6ModalConfirmar(); });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
 async function o6MiembroDesactivarUI(id){
   if(o6Busy) return;
   if(!confirm('¿Desactivar a esta persona? No se borra; solo deja de entrar.')) return;
