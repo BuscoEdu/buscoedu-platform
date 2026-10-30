@@ -312,7 +312,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.familia_rpc_rate_limit_tocar(text, int, int) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.familia_rpc_rate_limit_tocar(text, int, int) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.familia_rpc_rate_limit_tocar(text, int, int) TO service_role;
 
 -- ========== RPC emitir (I15 · solo service_role · cupo 9) ==========
