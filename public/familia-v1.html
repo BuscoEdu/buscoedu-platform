@@ -251,7 +251,8 @@ h3{margin-bottom:12px}
   <div class="form-group" id="taskPointsWrap"><label>Puntos</label><input type="number" id="taskPoints" value="10"></div>
   <div class="form-group"><label>Penalización por no hacerlo</label><input type="number" id="taskPenalty" min="0" value="0"></div>
   <div class="form-group"><label>Hora de la tarea</label><input type="datetime-local" id="taskDue" onchange="paintDueHint()"></div>
-  <div class="form-group"><label>Ventana para hacerla</label><div style="display:flex;gap:8px"><input type="number" id="taskWindowQty" min="1" value="1" style="width:96px" onchange="paintDueHint()"><select id="taskWindowUnit" onchange="paintDueHint()"><option value="minutos">Minutos</option><option value="horas" selected>Horas</option><option value="dias">Días</option></select></div></div>
+  <div class="form-group"><label>Duración</label><select id="taskDur" onchange="paintDueHint()"></select></div><!-- v6e E-DU1: 1–72 h; Fin = inicio + duración -->
+  <div class="form-group" style="display:none"><label>Ventana para hacerla</label><div style="display:flex;gap:8px"><input type="number" id="taskWindowQty" min="1" value="1" style="width:96px" onchange="paintDueHint()"><select id="taskWindowUnit" onchange="paintDueHint()"><option value="minutos">Minutos</option><option value="horas" selected>Horas</option><option value="dias">Días</option></select></div></div>
   <input type="hidden" id="taskWindow" value="1">
   <input type="hidden" id="taskCount" value="1">
   <input type="hidden" id="taskRecurrent">
@@ -398,8 +399,9 @@ h3{margin-bottom:12px}
   <div class="form-group"><label>Puntos</label><input type="number" id="fichaPuntos"></div>
   <div class="form-group"><label>Asignada a</label><select id="fichaAsignada"></select></div>
   <div class="form-group" id="fichaRecWrap"><label>Cada cuánto</label><select id="fichaRec"><option value="once">Una vez</option><option value="daily">Diaria</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option></select></div>
-  <div class="form-group"><label>Hora de la tarea</label><input type="datetime-local" id="fichaDue"></div>
-  <div class="form-group"><label>Ventana (horas, antes y después)</label><input type="number" id="fichaVentana" min="0.25" step="0.25" max="336" value="1"></div>
+  <div class="form-group"><label>Inicio</label><input type="datetime-local" id="fichaDue"></div>
+  <div class="form-group"><label>Duración</label><select id="fichaDur"></select></div><!-- v6e E-DU1 -->
+  <input type="hidden" id="fichaVentana" value="1">
   <div class="form-group"><label>Resta por cada día de atraso</label><input type="number" id="fichaPen"></div>
   </div>
   <div id="fichaRead" style="display:none"></div>
@@ -1548,11 +1550,12 @@ function paintDueHint(){
   const dueEl=document.getElementById('taskDue');
   if(!help||!dueEl||!dueEl.value) return;
   const centro=parseLocalInput(dueEl.value);
-  const b=windowBounds(centro, windowMinutes());
+  const mins=windowMinutes();
+  const abre=centro, cierra=new Date(centro.getTime()+mins*60000); // v6e E-DU1
   const tipo=document.getElementById('taskTipo')?document.getElementById('taskTipo').value:'tarea';
   const rec=chosenRecurrence();
   const n=tipo==='deber'?projectSlots(centro, rec).length:1;
-  help.textContent='Se abre '+fmtWhen(b.abre.toISOString())+' y se cierra '+fmtWhen(b.cierra.toISOString())+'. '+n+(n===1?' fecha.':' fechas en este mes.');
+  help.textContent='Se abre '+fmtWhen(abre.toISOString())+' y se cierra '+fmtWhen(cierra.toISOString())+'. '+n+(n===1?' fecha.':' fechas en este mes.');
 }
 function windowBounds(centro, minutos){
   return {
@@ -1590,6 +1593,7 @@ const BASE_REWARDS=[
   {nombre:'Día sin oficio de casa',costo:120,icono:'🏠'}
 ];
 function prepareTaskForm(audiencia){
+  {const td=document.getElementById('taskDur'); if(td&&!td.options.length){let h=''; for(let i=1;i<=72;i++) h+=`<option value="${i}" ${i===1?'selected':''}>${i} h</option>`; td.innerHTML=h;}}
   const saved=state.plantillas.filter(p=>plantillaAudiencia(p)===(audiencia==='padres'?'padre':'hijo')&&(p.tipo||'')!=='inmediata');
   const builtins=audiencia==='padres'?PARENT_BUILTINS:KID_BUILTINS;
   const list=builtins.concat(saved).sort(byName);
@@ -1715,6 +1719,9 @@ function sameTaskTooClose(asignado,titulo,when){
   });
 }
 function windowMinutes(){
+  // v6e E-DU1: desplegable 1–72 h manda; fallback al qty/unit legado.
+  const td=document.getElementById('taskDur');
+  if(td&&td.value) return Math.max(1,Math.min(72,parseInt(td.value,10)||1))*60;
   const qtyEl=document.getElementById('taskWindowQty');
   const unitEl=document.getElementById('taskWindowUnit');
   const n=Math.max(1, +(qtyEl&&qtyEl.value)||1);
@@ -1868,8 +1875,11 @@ async function createTask(){
   for(const slot of assigned){
     if(!slot.asignada_a) continue;
     if(sameTaskTooClose(slot.asignada_a,titulo,slot.at.getTime())) continue;
-    const limite=inmediata?new Date(slot.at.getTime()+minutos*60000):windowBounds(slot.at, minutos).cierra;
-    const abre=inmediata?slot.at:windowBounds(slot.at, minutos).abre;
+    // v6e E-DU1: inicio + duración (Fin calculado); ya no centrado ±.
+    const abre=slot.at, limite=new Date(slot.at.getTime()+minutos*60000);
+    if(!inmediata&&abre.getTime()<Date.now()-60000){ showToast('El inicio no puede estar en el pasado'); return; }
+    {const cruza=(state.tasks||[]).find(x=>+x.asignada_a===+slot.asignada_a&&!x.archivada_en&&x.estado!=='completada'&&x.habilita_en&&x.fecha_limite&&new Date(x.habilita_en)<limite&&new Date(x.fecha_limite)>abre);
+      if(cruza){ showToast('En ese horario no es posible: se cruza con «'+(cruza.titulo||'otra')+'»'); return; }}
     const base={
       titulo,puntos,recurrencia,icono,lote,
       fecha_limite:limite.toISOString(),habilita_en:abre.toISOString(),
@@ -2098,6 +2108,9 @@ function openTaskCard(id, fromBalance){
   document.getElementById('fichaDue').value=centroMs?toLocalInput(new Date(centroMs).toISOString()):'';
   const fichaWin=document.getElementById('fichaVentana');
   if(fichaWin) fichaWin.value=(abreMs&&cierraMs)?Math.max(0.25, (cierraMs-abreMs)/2/3600000):(t.ventana_horas||1);
+  // v6e E-DU1: duración 1–72 h en ficha v1.
+  {const fd=document.getElementById('fichaDur'); if(fd){const mins=Number(t.duracion_min)||Number(t.ventana_min)||(abreMs&&cierraMs?Math.round((cierraMs-abreMs)/60000):60);
+    const hrs=Math.max(1,Math.min(72,Math.round(mins/60)||1)); let h=''; for(let i=1;i<=72;i++) h+=`<option value="${i}" ${i===hrs?'selected':''}>${i} h</option>`; fd.innerHTML=h;}}
   document.getElementById('fichaPen').value=t.puntos_penalizacion_dia||0;
   const scored=t.estado==='completada'||!!t.puntos_sumados;
   const closed=isClosedTask(t);
@@ -2210,12 +2223,21 @@ async function saveTaskFicha(id){
   const raw=document.getElementById('fichaTipo')?document.getElementById('fichaTipo').value:'tarea';
   const inmediata=!parentTask&&raw==='inmediata';
   const tipo=raw==='deber'?'deber':'tarea';
-  const ventana=Math.max(0.25,+document.getElementById('fichaVentana').value||t.ventana_horas||1);
+  // v6e E-DU1: Inicio (fichaDue) + duración 1–72 h; Fin calculado. Cruce y VA2 al cambiar inicio.
   const centro=fromLocalInput(document.getElementById('fichaDue').value);
   const centroMs=centro?new Date(centro).getTime():0;
-  const half=ventana*3600000;
-  const habilita=centroMs?new Date(centroMs-half).toISOString():null;
-  const limite=centroMs?new Date(centroMs+half).toISOString():null;
+  const durH=Math.max(1,Math.min(72,parseInt((document.getElementById('fichaDur')||{}).value,10)||Math.ceil(+document.getElementById('fichaVentana').value||t.ventana_horas||1)));
+  const ventana=durH;
+  if(centroMs&&centroMs<Date.now()-60000){
+    const orig=t.habilita_en?new Date(t.habilita_en).getTime():null;
+    if(orig==null||Math.abs(centroMs-orig)>60000) return showToast('El inicio no puede estar en el pasado');
+  }
+  const habilita=centroMs?new Date(centroMs).toISOString():null;
+  const limite=centroMs?new Date(centroMs+durH*3600000).toISOString():null;
+  if(habilita&&limite){
+    const cruza=(state.tasks||[]).find(x=>+x.asignada_a===+document.getElementById('fichaAsignada').value&&+x.id!==+id&&!x.archivada_en&&x.estado!=='completada'&&x.habilita_en&&x.fecha_limite&&new Date(x.habilita_en)<new Date(limite)&&new Date(x.fecha_limite)>new Date(habilita));
+    if(cruza) return showToast('En ese horario no es posible: se cruza con «'+(cruza.titulo||'otra')+'»');
+  }
   const payload={
     titulo,
     puntos:+document.getElementById('fichaPuntos').value||0,
@@ -2226,9 +2248,11 @@ async function saveTaskFicha(id){
     fecha_limite:limite,
     habilita_en:habilita,
     ventana_horas:ventana,
+    ventana_min:ventana*60,
+    duracion_min:ventana*60,
     puntos_penalizacion_dia:+document.getElementById('fichaPen').value||0
   };
-  const reabrir=t.estado==='no_terminada'&&!t.puntos_sumados&&centroMs&&(centroMs+half)>Date.now();
+  const reabrir=t.estado==='no_terminada'&&!t.puntos_sumados&&centroMs&&limite&&new Date(limite)>new Date();
   if(reabrir) payload.estado='pendiente';
   const {error}=await supabase.from('familia_tareas').update(payload).eq('id',id);
   if(error) return showToast(error.message);
