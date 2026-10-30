@@ -513,19 +513,40 @@ const COLORS=['#6366f1','#10b981','#ef4444','#f59e0b','#ec4899','#8b5cf6','#06b6
 
 let supabase;
 
-/* mf O4: captura token opaco de ?l= o /familia/l/<token> antes del login. */
+/* mf O4 famly: base canónica — '/' si meta familia-deploy=famly o rutas de raíz; si no, familia.html. */
+function familiaEsFamly(){
+  try{ return !!document.querySelector('meta[name="familia-deploy"][content="famly"]'); }catch(e){ return false; }
+}
+function familiaAppPath(){
+  const p=String(location.pathname||'/');
+  if(/familia\.html$/i.test(p)) return p;
+  if(/familia-v1\.html$/i.test(p)) return p.replace(/familia-v1\.html$/i,'familia.html');
+  if(familiaEsFamly()) return '/';
+  if(p==='/'||p===''||/\/index\.html$/i.test(p)||/^\/l\/[^/]+\/?$/.test(p)) return '/';
+  /* BuscoEdu sin meta: /familia/l/:token → familia.html (si algún día hay rewrite). */
+  if(/^\/familia\/l\/[^/]+\/?$/.test(p)) return '/familia.html';
+  return p.endsWith('/')?p:(p.replace(/\/[^/]*$/,'/')||'/');
+}
+function familiaAppOriginPath(){
+  const b=familiaAppPath();
+  return location.origin+(b==='/'?'/':b);
+}
+/* mf O4: captura token opaco de ?l=, /l/<token> o /familia/l/<token> antes del login. */
 (function capturarLinkOpacoMF(){
   try{
     const q=new URLSearchParams(location.search);
     let tok=q.get('l');
-    const m=String(location.pathname||'').match(/\/familia\/l\/([^/]+)\/?$/);
+    const m=String(location.pathname||'').match(/\/(?:familia\/)?l\/([^/]+)\/?$/);
     if(!tok&&m) tok=decodeURIComponent(m[1]);
     if(tok){
       sessionStorage.setItem('familia_link_opaco', String(tok));
       const clean=new URL(location.href);
       clean.searchParams.delete('l');
-      // Sin rewrite /familia/l/: si viniera por path, dejamos el path (servidor 404) o normalizamos a familia.html
-      if(m){ clean.pathname=clean.pathname.replace(/\/familia\/l\/[^/]+\/?$/,'/familia.html'); if(!/familia\.html$/.test(clean.pathname)) clean.pathname='/familia.html'; }
+      /* mf O4 famly: path deep-link → base canónica ('/' o familia.html), sin dejar /l/... en la barra. */
+      if(m){
+        const base=familiaAppPath();
+        clean.pathname=(base==='/'?'/':base);
+      }
       history.replaceState({},'',clean.pathname+(clean.search||'')+clean.hash);
     }
   }catch(e){}
@@ -2223,7 +2244,7 @@ async function createTask(){
     const r0=rows[0], kid=(memberById(r0.asignada_a)||{}).nombre||'tu hijo';
     const hh=new Date(r0.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false}), hf=new Date(r0.fecha_limite).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
     let tid=null; try{const {data:dl}=await supabase.from('familia_tareas').select('id').eq('client_req_id',r0.client_req_id).maybeSingle(); tid=dl&&dl.id;}catch(e){}
-    const link=tid?(await appUrl({tarea:tid})):(location.origin+location.pathname);
+    const link=tid?(await appUrl({tarea:tid})):(familiaAppOriginPath());
     const msg='Obligatoria para '+kid+': '+titulo+'\nHora: '+hh+' a '+hf+(desc?'\n'+desc:'')+'\n'+link;
     const num=String((memberById(r0.asignada_a)||{}).telefono||'').replace(/\D/g,'');
     const w=window.open('https://wa.me/'+(num||'')+'?text='+encodeURIComponent(msg),'_blank','noopener');
@@ -3486,16 +3507,19 @@ async function sendMessage(){
 
 /* mf O4: links WhatsApp/deep link con token opaco (sin nickname ni ids en URL cuando la RPC existe). */
 function urlConTokenOpaco(token){
-  const u=new URL(location.href);
-  u.hash='';
-  u.search='';
+  /* mf O4 famly: en raíz emitir /l/<token>; en BuscoEdu familia.html?l=<token>. Nunca /index.html?... */
+  const base=familiaAppPath();
+  if(base==='/') return location.origin+'/l/'+encodeURIComponent(token);
+  const u=new URL(location.origin+base);
+  u.hash=''; u.search='';
   u.searchParams.set('l', token);
   return u.toString();
 }
 function urlLegacyParams(params){
-  const u=new URL(location.href);
-  u.hash='';
-  u.search='';
+  /* mf O4 famly: query sobre base canónica ('/' o familia.html), no sobre /l/... ni /index.html. */
+  const base=familiaAppPath();
+  const u=new URL(location.origin+(base==='/'?'/':base));
+  u.hash=''; u.search='';
   Object.keys(params||{}).forEach(k=>u.searchParams.set(k,params[k]));
   return u.toString();
 }
@@ -5772,7 +5796,7 @@ window.FamiliaV3=(function(){
       showToast(d.idempotente?'Ya estaba aplicado':'Devuelta a '+nom); scheduleReload();
       // v6d D12: botón opcional «Enviar por WhatsApp» (la devolución ya quedó hecha; nunca depende de él).
       {const km=memberById(t.asignada_a)||{}, num=String(km.telefono||km.celular||km.whatsapp||'').replace(/\D/g,'');
-        const txt='Devolví «'+t.titulo+'»'+(c?': '+c:'')+'. Revísala aquí: '+location.origin+location.pathname;
+        const txt='Devolví «'+t.titulo+'»'+(c?': '+c:'')+'. Revísala aquí: '+familiaAppOriginPath();
         const url='https://wa.me/'+(num||'')+'?text='+encodeURIComponent(txt);
         abrirHoja(`<h3 class="v3-st-ok">Devuelta a ${esc(nom)}</h3><a class="v3-cta v3-full" style="display:block;text-align:center;margin-top:10px" href="${esc(url)}" target="_blank" rel="noopener">Enviar por WhatsApp</a><button class="v3-btn2 v3-full" style="margin-top:8px" onclick="FamiliaV3.cerrarHoja()">Listo</button>`);}
     }catch(e){showToast('No se pudo devolver: '+((e&&e.message)||e));}
@@ -6519,7 +6543,7 @@ window.FamiliaV3=(function(){
     const who=(memberById(crear.asignada)||{}).nombre||'';
     // v6e E-WA1: mensaje con nombre + título + enlace directo a la tarea.
     {const tid=typeof id==='object'?(id.id||id.tarea_id):id;
-      const link=tid?(await appUrl({tarea:tid})):(location.origin+location.pathname);
+      const link=tid?(await appUrl({tarea:tid})):(familiaAppOriginPath());
       const texto=`${d?'Deber':'Tarea'} para ${who}: ${crear.titulo}\n${link}`;
       crear={};
       // WhatsApp SOLO aquí, al crear (opcional para el padre).
@@ -7086,14 +7110,16 @@ const FAMILIA_VERSION='mf1';
   async function revisarVersion(){
     if(enVuelo||!navigator.onLine) return; enVuelo=true;
     try{
-      const r=await fetch(location.pathname+'?vchk='+Date.now(),{cache:'no-store'});
+      /* mf O4 famly: vchk siempre contra la base ('/' o familia.html), nunca contra /l/<token>. */
+      const basePath=familiaAppPath()==='/'?'/':familiaAppPath();
+      const r=await fetch(basePath+'?vchk='+Date.now(),{cache:'no-store'});
       if(!r.ok) return;
       const m=(await r.text()).match(/<meta\s+name="familia-version"\s+content="([^"]+)"/i);
       const remota=m&&m[1]; if(!remota||remota===FAMILIA_VERSION) {try{sessionStorage.removeItem(CLAVE);}catch(e){} return;}
       let ya=null; try{ya=sessionStorage.getItem(CLAVE);}catch(e){}
       if(ya===remota) return;   // ya se recargó por esta versión y sigue igual: no entrar en bucle
       try{sessionStorage.setItem(CLAVE,remota);}catch(e){}
-      location.replace(location.pathname+'?fv='+encodeURIComponent(remota)+location.hash);
+      location.replace(basePath+'?fv='+encodeURIComponent(remota)+location.hash);
     }catch(e){}finally{enVuelo=false;}
   }
   window.FamiliaVersion={actual:FAMILIA_VERSION,revisar:revisarVersion};

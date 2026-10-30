@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/l/:token",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/familia/l/:token",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/familia-v1.html",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/familia.html",
+      "destination": "/index.html"
+    }
+  ]
+}
