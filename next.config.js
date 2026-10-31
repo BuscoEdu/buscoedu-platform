@@ -19,6 +19,43 @@ const nextConfig = {
       },
     ],
   },
+
+  // FAMLY Ola 3: Familia ya no vive en el portal; redirigir todo /familia*
+  // de forma permanente (308) a la app independiente en famlyapp.vercel.app.
+  // Next aplica redirects antes del filesystem (public/), así que ganan a los
+  // HTML estáticos. La query string se conserva; el hash lo mantiene el navegador.
+  // Orden: rutas concretas primero, comodín /familia/:path* al final.
+  // Destinos alineados con los rewrites de famly (vercel.json): /l/:token,
+  // /familia.html y /familia-v1.html → index.html en famlyapp.
+  async redirects() {
+    return [
+      {
+        source: '/familia',
+        destination: 'https://famlyapp.vercel.app/',
+        permanent: true,
+      },
+      {
+        source: '/familia/l/:token',
+        destination: 'https://famlyapp.vercel.app/l/:token',
+        permanent: true,
+      },
+      {
+        source: '/familia.html',
+        destination: 'https://famlyapp.vercel.app/familia.html',
+        permanent: true,
+      },
+      {
+        source: '/familia-v1.html',
+        destination: 'https://famlyapp.vercel.app/familia-v1.html',
+        permanent: true,
+      },
+      {
+        source: '/familia/:path*',
+        destination: 'https://famlyapp.vercel.app/:path*',
+        permanent: true,
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig
