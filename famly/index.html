@@ -3074,13 +3074,20 @@ async function createTask(){
   if(!fechaBase&&!inmediata) return showToast('Elige la hora de la tarea');
   let saveTpl=!inmediata&&document.getElementById('taskSaveTemplate').checked;
   if(!inmediata&&!validateMode&&!saveTpl&&confirm('¿Guardar esta tarea en la lista para reutilizarla después?')) saveTpl=true;
-  const start=inmediata?new Date():parseLocalInput(fechaBase);
+  let start=inmediata?new Date():parseLocalInput(fechaBase);   // Ola 8: let → puede pasar a «ahora»
   // v6e E-DU1: en v3–v6 la duración es el desplegable 1–72 h (inicio→fin); en v1 pura sigue el modelo centrado.
   let minutos;
   if(v6bOn()){
     const durH=Math.max(1,Math.min(72,parseInt((document.getElementById('taskDur')||{}).value,10)||1));
     minutos=durH*60;
-    if(!inmediata&&start.getTime()<Date.now()-60000) return showToast('El inicio no puede estar en el pasado');
+    /* Ola 8 · causa raíz del «Guardar sin insert»: el formulario arranca con la hora actual y, si se pasaba >1 min
+       llenándolo o en «Revisa», aquí salía con un toast que en móvil quedaba tapado → nada llegaba a la BD.
+       Ahora: tolerancia 10 min (se ajusta a «ahora» sin preguntar); si pasó más, se pregunta con un diálogo visible. */
+    if(!inmediata&&start.getTime()<Date.now()-60000){
+      if(start.getTime()>=Date.now()-10*60000) start=new Date();
+      else if(confirm('La hora de inicio ('+fmtWhen(start.toISOString())+') ya pasó. ¿Empezar ahora?')) start=new Date();
+      else return alert('No se guardó: elige una hora de inicio futura.');
+    }
   }else{
     minutos=windowMinutes();
   }
@@ -3096,10 +3103,10 @@ async function createTask(){
   let plantillaId=null;
   if(v6bOn()&&taskCreateMode!=='hermano'){const pv=(document.getElementById('taskPlantilla')||{}).value, pp=state.plantillas.find(x=>String(x.id)===String(pv));
     if(pp&&String(pp.titulo||'').trim().toLowerCase()===titulo.toLowerCase()) plantillaId=pp.id;}
-  const rows=[];
+  const rows=[]; let descartadas=0;   // Ola 8: slots omitidos por «misma tarea a <12 h»
   for(const slot of assigned){
     if(!slot.asignada_a) continue;
-    if(sameTaskTooClose(slot.asignada_a,titulo,slot.at.getTime())) continue;
+    if(sameTaskTooClose(slot.asignada_a,titulo,slot.at.getTime())){ descartadas++; continue; }   // Ola 8: se cuenta para avisar
     // v6e E-DU1: v3–v6 = inicio + duración (después); v1 pura = centrado.
     let abre, limite;
     if(inmediata||v6bOn()){ abre=slot.at; limite=new Date(slot.at.getTime()+minutos*60000); }
@@ -3136,13 +3143,14 @@ async function createTask(){
       rows.push({...base,asignada_a:slot.asignada_a,tipo,clase:tipo==='deber'?'deber':'tarea',inmediata,estado:'pendiente'});
     }
   }
-  if(!rows.length) return showToast('No quedó ninguna fecha. Revisa el hijo o el mes.');
+  // Ola 8: error ≠ éxito silencioso → diálogo visible (el toast quedaba tapado en móvil).
+  if(!rows.length) return alert(descartadas?'No se guardó: ya existe «'+titulo+'» para ese hijo a menos de 12 h.':'No se guardó: no quedó ninguna fecha. Revisa el hijo o el mes.');
   if(plantillaId&&rows.some(r=>r.estado!=='borrador')){
     for(const k of [...new Set(rows.map(r=>r.asignada_a))]){const b=await cupoBloqueo(plantillaId,k); if(b) return showToast(((memberById(k)||{}).nombre||'')+': '+b);}
   }
   // v6b: mensajes de BD (B16 «Los padres no tienen deberes», B18 cupo/intervalo) y respaldo sin columnas nuevas.
   const ins=await escribirV6b(f=>supabase.from('familia_tareas').insert(f),rows,['descripcion','plantilla_id','exige_foto']);   // v6c C3: exige_foto
-  if(ins.error) return showToast(msgErrorBD(ins.error));
+  if(ins.error) return alert('No se guardó: '+msgErrorBD(ins.error));   // Ola 8: error visible
   if(ins.sinV6b) showToast('Se guardó sin descripción (falta en la BD)');
   // v6c C6: obligatoria creada → «¿Enviar también por WhatsApp?». Sí abre wa.me con título + hora + descripción; no guarda números ni llama APIs.
   // v6e E-WA1: mensaje con nombre del hijo + enlace a la tarea (post-insert, con id real si se pudo leer).
@@ -7480,6 +7488,9 @@ window.FamiliaV3=(function(){
   }
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible') recargarAlVolver();});
   window.addEventListener('focus',recargarAlVolver);
+  /* Ola 8: el hijo ve tareas nuevas sin recargar → sondeo cada 60 s solo con la app visible y la pestaña Hoy abierta
+     (✗ realtime, decisión del Orquestador). Reusa recargarAlVolver (máx. 1 recarga / 10 s, sin paralelo). */
+  setInterval(()=>{ if(seccion==='hoy'&&document.visibilityState==='visible') recargarAlVolver(); },60000);
 
   /* --- Pintado general: cabecera, nav, contador de bandeja y sección activa. --- */
   function pintar(){
