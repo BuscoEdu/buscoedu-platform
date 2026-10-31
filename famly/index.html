@@ -10,7 +10,7 @@
 <!-- familia-v44 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <style>
-:root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
+/* :root clay → bloque 2a abajo */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;height:100%;overflow:hidden}
 .app{max-width:480px;margin:0 auto;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
@@ -167,6 +167,234 @@ h3{margin-bottom:12px}
 .v6d-antes-t{color:#374151;background:#f3f4f6}
 .v3-modo .v6d-vone,body.v3-modo .form-group.v6d-v1{display:none}   /* v6d D7: en v3–v6 la ficha usa Inicio/Fin */
 .v6d-tarde-b{display:inline-block;font-size:.8rem;font-weight:700;color:#374151;background:#f3f4f6;border:1px solid #9ca3af;border-radius:999px;padding:2px 8px;margin:4px 0}
+/* === Restyle claymorphism 2026-10-31 · 2a: tokens + botones + inputs + chips + toasts + modales === */
+:root{
+  /* Tokens clay · paleta semántica (linea-grafica.md) */
+  --bg:#f7f7f9;
+  --surface:#ffffff;
+  --primary:#7bcfa0;          /* verde · acción principal */
+  --primary-bg:#e3f7ec;
+  --primary-border:#9ddbb8;
+  --danger:#f0a090;           /* coral · peligro / salir */
+  --danger-bg:#fdeae6;
+  --danger-border:#f5bdb0;
+  --success:#f0d66a;          /* amarillo · éxito / premios / pts */
+  --success-bg:#fff8d6;
+  --success-border:#f5e08a;
+  --warn:#c4b5e8;             /* lila · aviso / revisar */
+  --warn-bg:#f0ebfa;
+  --warn-border:#d4c8f0;
+  --info:#8ec5eb;             /* azul · info */
+  --info-bg:#e5f3fb;
+  --info-border:#aed5f0;
+  --disabled:#c4c9d1;         /* gris · deshabilitado */
+  --disabled-bg:#f3f4f6;
+  --disabled-border:#d8dce3;
+  --disabled-text:#4b5563;
+  --text:#1f1a4d;             /* texto oscuro sobre pasteles */
+  --muted:#64748b;
+  --border:#d8dce3;
+  --radius-card:24px;
+  --radius-btn:28px;
+  --radius-input:20px;
+  --radius-chip:999px;
+  --radius-ico:16px;
+  --clay-shadow:
+    0 8px 20px rgba(31, 26, 77, 0.10),
+    inset 0 2px 4px rgba(255, 255, 255, 0.65),
+    inset 0 -3px 6px rgba(31, 26, 77, 0.08);
+  --clay-shadow-lite:
+    0 4px 10px rgba(31, 26, 77, 0.08),
+    inset 0 1px 2px rgba(255, 255, 255, 0.7);
+}
+body{background:var(--bg);color:var(--text)}
+
+/* Botón primario · verde clay + texto oscuro */
+.btn{
+  background:var(--primary);
+  color:var(--text);
+  border:1px solid var(--primary-border);
+  border-radius:var(--radius-btn);
+  min-height:48px;
+  font-weight:700;
+  box-shadow:var(--clay-shadow);
+  padding:12px 18px;
+}
+.btn.small{min-height:36px;padding:8px 12px;border-radius:20px;font-size:.8rem}
+.btn.success{background:var(--success);color:var(--text);border-color:var(--success-border)}
+/* Botón peligro · coral */
+.btn.danger{background:var(--danger);color:var(--text);border-color:var(--danger-border);box-shadow:var(--clay-shadow)}
+/* Botón secundario · blanco + borde */
+.btn.secondary{
+  background:var(--surface);
+  color:var(--text);
+  border:1px solid var(--border);
+  box-shadow:var(--clay-shadow-lite);
+}
+/* Deshabilitado · gris sin elevación */
+.btn:disabled,button:disabled{
+  background:var(--disabled-bg)!important;
+  color:var(--disabled-text)!important;
+  border-color:var(--disabled-border)!important;
+  box-shadow:none!important;
+  opacity:1;
+  pointer-events:none;
+}
+
+/* Inputs · radio 20, font ≥16, focus lila/azul */
+.form-group input,.form-group select,.form-group textarea,
+.o6-field input,.o6-field select,
+.v3-sheet input,.v3-sheet select,.v3-sheet textarea,
+.hallazgo-modal textarea{
+  border-radius:var(--radius-input)!important;
+  border:1px solid var(--border)!important;
+  font-size:16px!important;
+  min-height:44px;
+  color:var(--text);
+  background:var(--surface);
+  box-shadow:inset 0 1px 2px rgba(31,26,77,.04);
+}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus,
+.o6-field input:focus,.o6-field select:focus,
+.v3-sheet input:focus,.v3-sheet select:focus,
+.hallazgo-modal textarea:focus{
+  outline:none;
+  border-color:var(--warn)!important;
+  box-shadow:0 0 0 3px var(--warn-bg), inset 0 1px 2px rgba(31,26,77,.04);
+}
+.form-group label,.o6-field label{color:var(--text)}
+
+/* Chips · pill clay; pts en amarillo */
+.chip{
+  border-radius:var(--radius-chip);
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--text);
+  box-shadow:var(--clay-shadow-lite);
+}
+.chip.on{background:var(--primary-bg);color:var(--text);border-color:var(--primary-border);font-weight:700}
+.tipo-chip,.v3-chip,.pill,.who-tag,.outcome{
+  border-radius:var(--radius-chip);
+  box-shadow:var(--clay-shadow-lite);
+}
+.tipo-tarea{background:var(--info-bg);color:var(--text)}
+.tipo-deber{background:var(--warn-bg);color:var(--text)}
+.tipo-inmediata{background:var(--danger-bg);color:var(--text)}
+.outcome.completada{background:var(--primary-bg);color:var(--text)}
+.pill{background:var(--info-bg);color:var(--text)}
+.pill.warn{background:var(--success-bg);color:var(--text)}
+.pill.danger{background:var(--danger-bg);color:var(--text)}
+.points-badge,.v3-pts{
+  background:var(--success-bg)!important;
+  color:var(--text)!important;
+  border:1px solid var(--success-border);
+  border-radius:var(--radius-chip);
+  box-shadow:var(--clay-shadow-lite);
+  font-weight:700;
+}
+/* Chip de puntos genérico */
+.pts-chip,.reward-item .pts,.task-item .pts{
+  display:inline-block;
+  padding:4px 10px;
+  border-radius:var(--radius-chip);
+  background:var(--success-bg);
+  color:var(--text);
+  border:1px solid var(--success-border);
+  box-shadow:var(--clay-shadow-lite);
+  font-weight:700;
+  font-size:.78rem;
+}
+
+/* Toasts · barra clay; éxito amarillo/verde pastel; error coral pastel */
+.toast{
+  background:var(--surface);
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:var(--radius-chip);
+  box-shadow:var(--clay-shadow);
+  padding:12px 20px;
+}
+.toast.show{opacity:1}
+.toast.ok,.toast.success{background:var(--success-bg);border-color:var(--success-border)}
+.toast.err,.toast.error{background:var(--danger-bg);border-color:var(--danger-border)}
+.v3-toast{
+  background:var(--surface)!important;
+  color:var(--text)!important;
+  border:1px solid var(--border);
+  border-radius:var(--radius-chip);
+  box-shadow:var(--clay-shadow);
+}
+.v3-toast button{color:var(--text)!important;font-weight:700}
+
+/* Modales · sheet radio 24 superior, backdrop suave, X ≥44 */
+.modal{background:rgba(31,26,77,.40)}
+.modal-content,.v3-sheet>div,.block-card{
+  border-radius:var(--radius-card) var(--radius-card) 0 0!important;
+  box-shadow:var(--clay-shadow);
+  border:1px solid var(--border);
+  color:var(--text);
+}
+.o6-modal-backdrop{background:rgba(31,26,77,.40)!important}
+.o6-modal-sheet{
+  border-radius:var(--radius-card) var(--radius-card) 0 0!important;
+  border:1px solid var(--border)!important;
+  box-shadow:var(--clay-shadow);
+}
+.modal-x,.o6-modal-x{
+  min-width:44px;min-height:44px;
+  border-radius:50%;
+  color:var(--text)!important;
+}
+@media (min-width:391px){
+  .modal-content,.o6-modal-sheet,.v3-sheet>div{border-radius:var(--radius-card)!important}
+}
+/* v3 CTA → primario clay (texto oscuro sobre verde) */
+.v3-cta{
+  background:var(--primary)!important;
+  color:var(--text)!important;
+  border:1px solid var(--primary-border);
+  border-radius:var(--radius-btn);
+  min-height:48px;
+  box-shadow:var(--clay-shadow);
+}
+.v3-cta.v6d-aprob{background:var(--success)!important;color:var(--text)!important;border-color:var(--success-border)}
+.v3-cta.v6d-comp{background:var(--info)!important;color:var(--text)!important;border-color:var(--info-border)}
+.v3-btn2{
+  background:var(--surface)!important;
+  color:var(--text)!important;
+  border:1px solid var(--border)!important;
+  border-radius:var(--radius-btn);
+  box-shadow:var(--clay-shadow-lite);
+  min-height:44px;
+}
+.v3-btn2.err{color:var(--text)!important;background:var(--danger-bg)!important;border-color:var(--danger-border)!important}
+.v5-volver button{
+  background:var(--primary-bg)!important;
+  color:var(--text)!important;
+  border-radius:var(--radius-btn);
+  box-shadow:var(--clay-shadow-lite);
+  min-height:44px;
+}
+.o6-btn{
+  background:var(--primary)!important;
+  color:var(--text)!important;
+  border:1px solid var(--primary-border)!important;
+  border-radius:var(--radius-btn)!important;
+  min-height:48px;
+  box-shadow:var(--clay-shadow);
+}
+.o6-btn.sec{
+  background:var(--surface)!important;
+  color:var(--text)!important;
+  border:1px solid var(--border)!important;
+  box-shadow:var(--clay-shadow-lite);
+}
+.o6-btn.danger{
+  background:var(--danger)!important;
+  color:var(--text)!important;
+  border-color:var(--danger-border)!important;
+}
+
 </style>
 <!-- v6e control de versión: la misma etiqueta que FAMILIA_VERSION; el chequeo la compara con la página del servidor. -->
 <meta name="familia-version" content="mf1">
