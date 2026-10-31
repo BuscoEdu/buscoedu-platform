@@ -743,3 +743,9 @@ Bitácora: 2026-10-31 22:50 (hora Madrid, Europe/Madrid) — **qué**: O7b prod:
 - Por qué: el FE (createMember/guardarIntegrante) inserta directo sin alias y esos miembros no podían entrar con PIN.
 - Respaldo: respaldos.famly_o11_miembros_sin_alias_previo. Deshacer: supabase/ops/20261101001500_famly_o11_alias_automatico_deshacer.sql.
 - Pendiente ⏸: cerrar INSERT directo de anon cuando el FE use la RPC en prod.
+
+### 2026-11-01 · O11b · BD BuscoEdu (bot) · APLICADO en prod (Orq GO, OK Jhon t973u)
+- Qué: `REVOKE INSERT ON familia_miembros FROM anon, authenticated`. SELECT/UPDATE, policies y otras tablas ✗ tocados.
+- Por qué: el FE en prod (@e6da6e2) ya crea miembros solo con `familia_rpc_miembro_crear`; se revisaron famly/index.html, public/familia.html, familia-v1, admin.html y app/admin/famly: 0 inserts directos. Las RPC que insertan (miembro_crear, admin_registrar) son SECURITY DEFINER → siguen funcionando.
+- Prueba con rollback: insert directo como anon = denegado · RPC miembro_crear = ok.
+- Respaldo: respaldos.famly_o11b_miembros_grants_previo (15 filas). Deshacer: supabase/ops/20261101002500_famly_o11b_cerrar_insert_miembros_deshacer.sql.
