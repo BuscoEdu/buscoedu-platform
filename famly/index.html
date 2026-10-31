@@ -644,18 +644,136 @@ nav{
   .v3-nav button{min-width:0;flex:1;padding:4px 2px;font-size:.62rem}
 }
 
+/* === Restyle claymorphism 2026-10-31 · 2c: login + O6 /i/ + panel miembros + hallazgos + campana === */
+
+/* Login · fondo app, marca FAMLY, inputs vacíos, CTA verde */
+.login-screen{
+  background:var(--bg)!important;
+  color:var(--text);
+  padding:24px 20px;
+}
+.login-screen .famly-logo,
+.login-screen > div:first-child{
+  font-weight:800;
+  letter-spacing:.1em;
+  color:var(--text)!important;
+  font-size:1.35rem;
+  margin-bottom:8px;
+  text-shadow:0 2px 0 rgba(255,255,255,.8);
+}
+.login-screen h2{color:var(--text);font-weight:700}
+.login-screen .form-group{width:100%;max-width:320px}
+.login-screen .btn{width:100%;max-width:320px}
+.o6-link{
+  color:var(--text)!important;
+  text-decoration:underline;
+  margin-top:16px;
+  min-height:44px;
+  background:transparent!important;
+  border:none;
+}
+
+/* O6 · invitación /i/ + admin + panel miembros */
+.o6-root{background:var(--bg)!important}
+.o6-brand{
+  color:var(--text)!important;
+  font-weight:800;
+  letter-spacing:.1em;
+}
+.o6-h{color:var(--text)!important}
+.o6-sub{color:var(--muted)!important}
+.o6-card{
+  background:var(--surface)!important;
+  border:1px solid var(--border)!important;
+  border-radius:var(--radius-card)!important;
+  box-shadow:var(--clay-shadow)!important;
+}
+.o6-member{
+  background:var(--surface);
+  border-radius:var(--radius-card)!important;
+  box-shadow:var(--clay-shadow-lite);
+}
+.o6-actions button{
+  border-radius:var(--radius-btn)!important;
+  min-height:44px;
+  box-shadow:var(--clay-shadow-lite);
+  background:var(--surface);
+  color:var(--text);
+  border:1px solid var(--border)!important;
+}
+.o6-err{color:#9a3412!important;font-weight:600} /* error ≠ vacío */
+.o6-empty,.o6-load{color:var(--muted)!important}
+.o6-field input,.o6-field select{border-radius:var(--radius-input)!important}
+
+/* Hallazgos · modal + segmentación Error|Sugerencia */
+.hallazgo-seg label{
+  border-radius:var(--radius-btn)!important;
+  border:1px solid var(--border)!important;
+  background:var(--surface);
+  color:var(--text)!important;
+  box-shadow:var(--clay-shadow-lite);
+  min-height:44px;
+}
+.hallazgo-seg label:has(input:checked){
+  background:var(--warn-bg)!important;
+  border-color:var(--warn-border)!important;
+  color:var(--text)!important;
+  box-shadow:var(--clay-shadow);
+}
+.hallazgo-modal textarea{
+  border-radius:var(--radius-input)!important;
+  border-color:var(--border)!important;
+}
+.hallazgo-val{color:#9a3412}
+.hallazgo-cont{color:var(--muted)}
+
+/* Campana · ya revestida en 2b; badge coral */
+#btnBell .badge,#bellCount{
+  background:var(--danger)!important;
+  color:var(--text)!important;
+}
+
+/* Block screen / immediate */
+.block-screen{background:rgba(31,26,77,.55)}
+.block-card{box-shadow:var(--clay-shadow);border-radius:var(--radius-card)!important}
+
+/* v3 sheet labels */
+.v3-sheet label{color:var(--muted)}
+.v6b-rev{
+  background:var(--warn-bg)!important;
+  border-color:var(--warn-border)!important;
+  border-radius:var(--radius-card)!important;
+  box-shadow:var(--clay-shadow-lite);
+}
+.v6c-aviso{
+  background:var(--warn-bg)!important;
+  border-color:var(--warn)!important;
+  border-radius:var(--radius-card)!important;
+}
+.v6c-dia input:checked+span{
+  background:var(--primary)!important;
+  border-color:var(--primary-border)!important;
+  color:var(--text)!important;
+}
+.v3-ag-seg button.on,.v3-ag-md.on{
+  background:var(--primary-bg)!important;
+  color:var(--text)!important;
+  border-color:var(--primary-border)!important;
+}
+.v3-ag-ev{border-radius:var(--radius-input);box-shadow:var(--clay-shadow-lite)}
+
 </style>
 <!-- v6e control de versión: la misma etiqueta que FAMILIA_VERSION; el chequeo la compara con la página del servidor. -->
 <meta name="familia-version" content="mf1">
 </head>
 <body>
 <div class="login-screen" id="loginScreen">
-  <div style="font-weight:800;letter-spacing:.08em;color:#4338ca;margin-bottom:4px">FAMLY</div><!-- v6d D8: marca en la entrada -->
+  <div class="famly-logo" style="margin-bottom:4px">FAMLY</div><!-- v6d D8 · restyle clay: marca entrada -->
   <h2 style="margin-bottom:16px">Entrar</h2>
   <!-- MF O2: nick → alias+PIN (sin listar nombres hasta después del PIN). -->
   <div id="loginPasoNick">
     <div class="form-group" style="width:100%;max-width:320px"><label>Apodo de la familia</label>
-      <input id="loginNick" autocomplete="organization" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" placeholder="ej. beman27" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation">
+      <input id="loginNick" autocomplete="organization" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" placeholder="Apodo de tu familia" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation">
     </div>
     <button class="btn" style="width:100%;max-width:320px;min-height:44px" type="button" onclick="loginResolverNick()">Continuar</button>
   </div>

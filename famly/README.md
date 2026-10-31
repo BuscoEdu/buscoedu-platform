@@ -17,6 +17,7 @@ Origen: `public/familia.html` → `index.html` con meta `familia-deploy=famly`.
 Tras cambiar `public/familia.html`, regenerar `famly/index.html` (copiar + meta famly).
 
 ## Bitácora
+- 2026-10-31 · qué: restyle claymorphism (tokens, botones, inputs, chips, toasts, modales, tarjetas, header 390, nav 4 tabs, login vacío, O6, hallazgos/campana; íconos emoji/SVG en squircles pastel — WebP en ola aparte) · por qué: GO Jhon vía Orquestador, linea-grafica.md · Frontend BuscoEdu
 - 2026-10-30 · qué: Ola 1 FE — cola de toasts (mín. 2,8 s, no se cortan) + `familia_id` en `columnasTareas` (V3_COLS_TAREAS) en `public/familia.html` y `famly/index.html` (sync). · por qué: toasts importantes se pisaban al cargar; select de tareas sin familia_id en modo columnas. · Frontend BuscoEdu
 - 2026-10-30 · qué: O6 FE invitaciones — captura `/i/<token>`, registro admin, login dueño, panel miembros (desactivar≠borrar); adaptador RPC aislado; CTA coral. · por qué: criterios O6 I1–I21 alta por invitación sin correos. · Frontend BuscoEdu
 - 2026-10-31 · qué: copy «Dueño» → «Administrador» en UI visible (login, registro /i/, botón). ✗ cambios en ids, código ni BD. · por qué: pedido de Jhon (vía Orquestador). · Frontend BuscoEdu
