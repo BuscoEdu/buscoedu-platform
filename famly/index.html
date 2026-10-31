@@ -5931,6 +5931,15 @@ details.v3-admin summary{cursor:pointer;font-weight:600}
 .v3-cta.v6d-aprob{background:#15803d;color:#fff}
 .v6d-foto{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}.v6d-foto button{flex:1;min-height:44px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;cursor:pointer;font-size:.9rem}
 .v6d-foto small{flex-basis:100%;color:#64748b}
+/* Restyle Ola 3 fix (QA ALTA): override final de contraste. Todos los CTA verdes/claros
+   llevan texto #1f1a4d (≥4.5:1); va al final para ganar a las reglas v3/v6d con #fff. */
+.v3-cta,.v3-cta:disabled,.v3-cta.v6d-aprob,.v3-cta.v6d-comp,a.v3-cta{color:#1f1a4d!important}
+.v3-cta.v6d-aprob{background:var(--success,#86efac)!important}
+.v3-cta.v6d-comp{background:var(--info,#c7d2fe)!important}
+.v3-cta .v3-ico{stroke:#1f1a4d}
+/* Restyle Ola 3 fix (QA MEDIA): botón hallazgo en la cabecera V3, junto a la campana (solo admin). */
+#v3Hallazgo{display:none;background:var(--warn-bg,#fef3c7)!important;color:#1f1a4d;min-width:44px;min-height:44px;align-items:center;justify-content:center}
+#v3Hallazgo.on{display:inline-flex}
 </style>
 
 <div id="v3App" aria-live="polite">
@@ -5941,6 +5950,8 @@ details.v3-admin summary{cursor:pointer;font-weight:600}
     <span class="v3-pts" id="v3Pts"></span>
     <!-- Campana de avisos de la v1 (openNotifs) con ícono de línea. -->
     <button class="v3-icobtn" id="v4Bell" aria-label="Avisos" onclick="FamiliaV3.abrirV1(()=>openNotifs())"></button>
+    <!-- Restyle Ola 3 fix: reportar hallazgo (solo admin) junto a la campana. -->
+    <button class="v3-icobtn" id="v3Hallazgo" type="button" aria-label="Reportar un hallazgo" title="Reportar un hallazgo" onclick="abrirHallazgo()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></button>
     <button class="v3-icobtn" id="v3InboxBtn" aria-label="Por aprobar" onclick="FamiliaV3.ir('bandeja')"></button>
   </div>
   <div class="v3-main">
@@ -7218,6 +7229,7 @@ window.FamiliaV3=(function(){
     document.getElementById('v4Rol').textContent=(u.rol||'')+(isAdmin(u)?' · Admin':'')/* v6d D6 */+(edad?' · '+edad+' años':'');
     document.getElementById('v4Frase').textContent=u.frase||'';
     const noLeidas=(state.notifs||[]).filter(x=>x.para_id===u.id&&!x.leida).length;
+    {const vh=document.getElementById('v3Hallazgo'); if(vh) vh.classList.toggle('on',!!(typeof isAdmin==='function'&&isAdmin(u)));} /* fix Ola 3: hallazgo solo admin */
     document.getElementById('v4Bell').innerHTML=svg('campana')+(noLeidas?`<span class="v3-dot">${noLeidas}</span>`:'');
     document.body.classList.add('v3-modo');
     // «Ver como»: marca de solo lectura para los paneles y modales de la v1.
