@@ -1,36 +1,20 @@
-<svg viewBox="0 0 280 100" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 140" width="280" height="140">
   <defs>
-    <filter id="s" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity=".1"/>
+    <filter id="soft" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-opacity="0.15"/>
     </filter>
   </defs>
-  <!-- Girl -->
-  <g filter="url(#s)">
-    <circle cx="50" cy="35" r="16" fill="#fde68a"/>
-    <path d="M34 52 Q50 46 66 52 L62 78 H38 Z" fill="#60a5fa"/>
-    <circle cx="44" cy="33" r="3.5" fill="#1f2937"/>
-    <circle cx="56" cy="33" r="3.5" fill="#1f2937"/>
-    <path d="M46 40 Q50 43 54 40" stroke="#1f2937" stroke-width="1.5" fill="none"/>
-    <path d="M36 24 Q50 14 64 24 Q60 20 50 18 Q40 20 36 24" fill="#f472b6"/>
-    <circle cx="42" cy="62" r="6" fill="#f472b6"/>
-  </g>
+  <!-- Kid 1 -->
+  <circle cx="70" cy="55" r="22" fill="#fde68a" filter="url(#soft)"/>
+  <rect x="52" y="75" width="36" height="40" rx="14" fill="#93c5fd" filter="url(#soft)"/>
+  <!-- Kid 2 -->
+  <circle cx="140" cy="50" r="20" fill="#f9a8d4" filter="url(#soft)"/>
+  <rect x="124" y="70" width="32" height="38" rx="12" fill="#86efac" filter="url(#soft)"/>
   <!-- Dog -->
-  <g filter="url(#s)">
-    <ellipse cx="140" cy="62" rx="22" ry="14" fill="#fbbf24"/>
-    <circle cx="124" cy="50" r="10" fill="#fbbf24"/>
-    <circle cx="120" cy="48" r="2.5" fill="#1f2937"/>
-    <circle cx="128" cy="48" r="2.5" fill="#1f2937"/>
-    <ellipse cx="124" cy="53" rx="4" ry="2.5" fill="#f472b6"/>
-    <path d="M118 42 Q124 36 130 42" fill="#fbbf24"/>
-  </g>
-  <!-- Boy -->
-  <g filter="url(#s)">
-    <circle cx="230" cy="35" r="16" fill="#fde68a"/>
-    <path d="M214 52 Q230 46 246 52 L242 78 H218 Z" fill="#34d399"/>
-    <circle cx="224" cy="33" r="3.5" fill="#1f2937"/>
-    <circle cx="236" cy="33" r="3.5" fill="#1f2937"/>
-    <path d="M226 40 Q230 43 234 40" stroke="#1f2937" stroke-width="1.5" fill="none"/>
-    <path d="M216 22 Q230 12 244 22" fill="#1f2937"/>
-    <circle cx="222" cy="62" r="5" fill="#fbbf24"/>
-  </g>
+  <ellipse cx="210" cy="95" rx="28" ry="18" fill="#fbbf24" filter="url(#soft)"/>
+  <circle cx="230" cy="78" r="12" fill="#fbbf24" filter="url(#soft)"/>
+  <circle cx="235" cy="75" r="3" fill="#1f2937"/>
+  <!-- Ears -->
+  <ellipse cx="55" cy="40" rx="8" ry="12" fill="#fde68a" transform="rotate(-20 55 40)" filter="url(#soft)"/>
+  <ellipse cx="155" cy="35" rx="7" ry="11" fill="#f9a8d4" transform="rotate(15 155 35)" filter="url(#soft)"/>
 </svg>
