@@ -445,6 +445,15 @@ header,.v3-head,.v4-panel-top{
   box-shadow:var(--clay-shadow);
   border-bottom:1px solid var(--border);
 }
+/* Ola 10 #5: el restyle dejaba ← Volver del panel Filtros en blanco-sobre-claro (invisible). */
+.v4-panel-top button{
+  background:#eef2ff!important;
+  color:#1f1a4d!important;
+  border:1px solid #c7d2fe!important;
+  font-weight:700;
+  min-height:44px;
+  min-width:44px;
+}
 header{padding:12px 14px}
 .v3-head{padding:10px 14px;display:flex;flex-direction:column;align-items:stretch;gap:8px}
 .v3-head-top{display:flex;align-items:center;gap:10px;min-width:0;width:100%}
@@ -1192,7 +1201,7 @@ nav{
   <div class="form-group"><label>Nombre</label><input id="newMemberName"></div>
   <div class="form-group"><label>Tipo</label><select id="newMemberType" onchange="syncMemberRoles()"><option value="hijo">Hijo</option><option value="adulto">Padre / tutor</option></select></div>
   <div class="form-group"><label>Rol</label><select id="newMemberRole"></select></div>
-  <div class="form-group"><label>Fecha de nacimiento (opcional)</label><input type="date" id="newMemberBirth"></div>
+  <div class="form-group"><label>Fecha de nacimiento (opcional)</label><input type="date" id="newMemberBirth"></div><!-- Ola 10 #16: min/max se fijan en openNewMember -->
   <p id="newMemberProfile" style="font-size:.85rem;color:var(--muted);margin-bottom:12px"></p>
   <button class="btn" style="width:100%" onclick="createMember()">Guardar</button>
   <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-miembro')">← Volver</button>
@@ -1213,7 +1222,7 @@ nav{
   <div class="form-group"><label>Figura</label><div class="emoji-grid" id="profileFigureGrid"></div></div>
   <div class="form-group"><label>Emoji</label><div class="emoji-grid" id="profileEmojiGrid"></div><input type="hidden" id="profEmoji"></div>
   <div class="form-group"><label>Color</label><div class="color-grid" id="profileColorGrid"></div><input type="hidden" id="profColor" value="#6366f1"></div>
-  <div class="form-group"><label>Fecha nacimiento</label><input type="date" id="profBirth"></div>
+  <div class="form-group"><label>Fecha nacimiento</label><input type="date" id="profBirth"></div><!-- Ola 10 #16: min=hoy−100y max=hoy; hermanos no editan -->
   <div class="form-group"><label>Foto (opcional)</label><input type="file" id="profPhoto" accept="image/*"></div>
   <div class="form-group"><label>Nuevo PIN</label><input id="profPin" type="password" maxlength="8" inputmode="numeric"></div>
   <div class="form-group"><label>Confirmar PIN</label><input id="profPin2" type="password" maxlength="8" inputmode="numeric"></div>
@@ -2094,7 +2103,8 @@ function render(){
   document.getElementById('currentName').textContent=u.nombre;
   const age=ageOf(u);
   document.getElementById('currentRole').textContent=(u.rol||'')+(isAdmin(u)?' · Admin':'')/* v6d D6 */+(age?' · '+age+' años':'');
-  document.getElementById('currentFrase').textContent=u.frase||'';
+  /* Ola 10 #16: saludo de cumpleaños (29-feb → 28-feb en no bisiestos). */
+  document.getElementById('currentFrase').textContent=(esCumpleHoy(u)?'🎂 ¡Feliz cumpleaños! ':'')+(u.frase||'');
   document.getElementById('headerPoints').textContent=(u.puntos||0)+' pts';
   /* Hallazgos: icono solo para padre_admin (isAdmin), no para cualquier padre. */
   {const bh=document.getElementById('btnHallazgo'); if(bh) bh.style.display=isAdmin(u)?'':'none';}
@@ -2977,7 +2987,9 @@ function taskFormError(){
   if(!document.getElementById('taskDue').value) return 'Elige cuándo se habilita';
   if(asignado){
     const when=parseLocalInput(document.getElementById('taskDue').value).getTime();
-    if(sameTaskTooClose(asignado, document.getElementById('taskTitle').value, when)) return 'La misma tarea para ese hijo debe quedar al menos 12 horas separada';
+    {const tit=document.getElementById('taskTitle').value; const h=ventanaAntiDupHoras();
+      const pid=(document.getElementById('taskPlantilla')||{}).value||null;
+      if(sameTaskTooClose(asignado,tit,when,{plantillaId:pid||null})) return msgDupTarea(tit,(memberById(asignado)||{}).nombre,pid?(((state.plantillas.find(x=>String(x.id)===String(pid))||{}).intervalo_min_min||0)/60):h);}
   }
   return '';
 }
@@ -2988,14 +3000,40 @@ function parseLocalInput(v){
   const [h,m]=t.split(':').map(Number);
   return new Date(Y,(M||1)-1,D||1,h||0,m||0,0,0);
 }
-function sameTaskTooClose(asignado,titulo,when){
+/* Ola 10 #7: anti-dup suelta lee familia_config.antidup_horas ∈ {0,1,3,6,12,24} (0=Apagado, def 12).
+   Escritura admin: familia_rpc_config_antidup(p_horas, p_actor_id) + x-familia-token.
+   Tarea de plantilla: NO se aplica ventana FE — solo se muestra el mensaje de rechazo de la BD. */
+function ventanaAntiDupHoras(){
+  const v=state.config&&state.config.antidup_horas;
+  if(v===0||v==='0') return 0;
+  const n=Number(v);
+  return [0,1,3,6,12,24].includes(n)?n:12;
+}
+function sameTaskTooClose(asignado,titulo,when,opts){
+  /* Solo tareas sueltas (sin plantilla). Series de la misma serie no se cruzan entre sí. */
+  const o=opts||{};
+  if(o.plantillaId) return false;   // plantilla → BD; FE no aplica ventana fija
   const key=String(titulo||'').trim().toLowerCase();
+  let horas=ventanaAntiDupHoras();
+  if(o.forzarHoras!=null) horas=o.forzarHoras;
+  if(horas===0) return false;
+  const winMs=horas*3600000;
   return state.tasks.some(t=>{
+    if(t.archivada_en) return false;
+    if(['completada','rechazada','no_terminada'].includes(t.estado)&&t.cerrado_en) return false;
     if(Number(t.asignada_a)!==Number(asignado)&&Number(t.conjunto_con)!==Number(asignado)) return false;
     if(String(t.titulo||'').trim().toLowerCase()!==key) return false;
+    if(o.serieId&&t.serie_id&&String(t.serie_id)===String(o.serieId)) return false;
     const a=new Date(t.habilita_en||t.fecha_limite||0).getTime();
-    return a&&Math.abs(a-when)<12*3600000;
+    return a&&Math.abs(a-when)<winMs;
   });
+}
+function msgDupTarea(titulo,hijoNom,horas){
+  return 'Ya hay una tarea "'+titulo+'" para '+(hijoNom||'este hijo')+' a menos de '+horas+' h';
+}
+async function confirmarCrearIgual(titulo,hijoNom,horas){
+  /* Ola 10 #7: nunca descarte silencioso — «Crear igual» / «Cancelar». */
+  return confirm(msgDupTarea(titulo,hijoNom,horas)+'.\n\n¿Crear igual?');
 }
 function windowMinutes(){
   const qtyEl=document.getElementById('taskWindowQty');
@@ -3177,10 +3215,18 @@ async function createTask(){
   let plantillaId=null;
   if(v6bOn()&&taskCreateMode!=='hermano'){const pv=(document.getElementById('taskPlantilla')||{}).value, pp=state.plantillas.find(x=>String(x.id)===String(pv));
     if(pp&&String(pp.titulo||'').trim().toLowerCase()===titulo.toLowerCase()) plantillaId=pp.id;}
-  const rows=[]; let descartadas=0;   // Ola 8: slots omitidos por «misma tarea a <12 h»
+  const rows=[]; let descartadas=0;   // Ola 10 #7: anti-dup con «Crear igual» (nunca silencioso)
+  let forzarDup=false;
   for(const slot of assigned){
     if(!slot.asignada_a) continue;
-    if(sameTaskTooClose(slot.asignada_a,titulo,slot.at.getTime())){ descartadas++; continue; }   // Ola 8: se cuenta para avisar
+    // Ola 10 #7: plantilla → regla de la plantilla; suelta → ventana familiar. Series no se cruzan entre sí aquí.
+    /* Ola 10 #7: suelta → ventana familiar + Crear igual; plantilla → sin chequeo FE (BD rechaza). */
+    if(!plantillaId&&!forzarDup&&sameTaskTooClose(slot.asignada_a,titulo,slot.at.getTime())){
+      const hNom=(memberById(slot.asignada_a)||{}).nombre;
+      const horas=ventanaAntiDupHoras();
+      if(!(await confirmarCrearIgual(titulo,hNom,horas||12))) return;
+      forzarDup=true;
+    }
     // v6e E-DU1: v3–v6 = inicio + duración (después); v1 pura = centrado.
     let abre, limite;
     if(inmediata||v6bOn()){ abre=slot.at; limite=new Date(slot.at.getTime()+minutos*60000); }
@@ -3212,13 +3258,12 @@ async function createTask(){
       // v6 A2b: clase explícita (la app y las RPC deciden deber por clase; sin ella la BD pone 'tarea').
       rows.push({...base,asignada_a:slot.asignada_a,tipo,clase:tipo==='deber'?'deber':'tarea',inmediata:false,estado:'esperando_aprobacion',comentario_completado:'Registrada como hecha'});
     }else{
-      // v6 A2b: clase explícita (la app y las RPC deciden deber por clase; sin ella la BD pone 'tarea').
-      // v6c C8: crear = activar. Tras «¿Crear?» nace pendiente y le llega al hijo (antes: borrador salvo obligatoria).
-      rows.push({...base,asignada_a:slot.asignada_a,tipo,clase:tipo==='deber'?'deber':'tarea',inmediata,estado:'pendiente'});
+      // v6 A2b + Ola 10 #4/#17: padre/admin crea → nace lista para hacer (aprobada_para_hacer=true), sin «Por aprobar para hacer».
+      rows.push({...base,asignada_a:slot.asignada_a,tipo,clase:tipo==='deber'?'deber':'tarea',inmediata,estado:'pendiente',aprobada_para_hacer:true});
     }
   }
-  // Ola 8: error ≠ éxito silencioso → diálogo visible (el toast quedaba tapado en móvil).
-  if(!rows.length) return alert(descartadas?'No se guardó: ya existe «'+titulo+'» para ese hijo a menos de 12 h.':'No se guardó: no quedó ninguna fecha. Revisa el hijo o el mes.');
+  // Ola 8/10: error ≠ éxito silencioso.
+  if(!rows.length) return alert(descartadas?msgDupTarea(titulo,'ese hijo',ventanaAntiDupHoras()||12):'No se guardó: no quedó ninguna fecha. Revisa el hijo o el mes.');
   for(const k of [...new Set(rows.map(r=>r.asignada_a))]){
     const abiertas=(state.tasks||[]).filter(t=>Number(t.asignada_a)===Number(k)&&['pendiente','esperando_aprobacion'].includes(t.estado)&&!t.archivada_en);
     const nt=abiertas.filter(t=>!esDeber(t)).length, nd=abiertas.filter(t=>esDeber(t)).length;
@@ -3233,7 +3278,10 @@ async function createTask(){
   }
   // v6b: mensajes de BD (B16 «Los padres no tienen deberes», B18 cupo/intervalo) y respaldo sin columnas nuevas.
   const ins=await escribirV6b(f=>supabase.from('familia_tareas').insert(f),rows,['descripcion','plantilla_id','exige_foto']);   // v6c C3: exige_foto
-  if(ins.error) return alert('No se guardó: '+msgErrorBD(ins.error));   // Ola 8: error visible
+  if(ins.error){
+    /* Ola 10 #7: si la BD rechaza (cupo/intervalo plantilla u otra regla) se muestra el mensaje del servidor, sin descarte silencioso. */
+    return alert('No se guardó: '+msgErrorBD(ins.error));
+  }
   if(ins.sinV6b) showToast('Se guardó sin descripción (falta en la BD)');
   // v6c C6: obligatoria creada → «¿Enviar también por WhatsApp?». Sí abre wa.me con título + hora + descripción; no guarda números ni llama APIs.
   // v6e E-WA1: mensaje con nombre del hijo + enlace a la tarea (post-insert, con id real si se pudo leer).
@@ -4356,11 +4404,50 @@ function openRewardHistory(){
   openModal('modal-historial-premios');
 }
 
+/* Ola 10 #16: cumpleaños — rango hoy−100y..hoy; 29-feb válido; saludo 28-feb en no bisiestos.
+   BD también rechaza fuera de rango (trigger); FE muestra el mensaje del servidor si falla. */
+function rangoCumple(){
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const max=hoy.toISOString().slice(0,10);
+  const minD=new Date(hoy); minD.setFullYear(minD.getFullYear()-100);
+  const min=minD.toISOString().slice(0,10);
+  return {min,max,hoy};
+}
+function validarCumple(val){
+  if(!val) return null;   // opcional
+  const {min,max}=rangoCumple();
+  if(val<min||val>max) return 'Elige una fecha entre '+min+' y hoy';
+  return null;
+}
+function aplicarLimitesCumple(inputId, editable){
+  const el=document.getElementById(inputId); if(!el) return;
+  const {min,max}=rangoCumple();
+  el.min=min; el.max=max;
+  el.disabled=!editable;
+}
+function esCumpleHoy(m){
+  /* Saludo: 29-feb en no bisiesto → se saluda el 28-feb. */
+  if(!m||!m.fecha_nacimiento) return false;
+  const b=new Date(m.fecha_nacimiento+'T00:00:00'); if(isNaN(b)) return false;
+  const now=new Date();
+  const md=now.getMonth(), dd=now.getDate();
+  const bm=b.getMonth(), bd=b.getDate();
+  if(bm===md&&bd===dd) return true;
+  // 29-feb → 28-feb en años no bisiestos
+  if(bm===1&&bd===29&&md===1&&dd===28){
+    const y=now.getFullYear();
+    const bisiesto=(y%4===0&&y%100!==0)||(y%400===0);
+    return !bisiesto;
+  }
+  return false;
+}
 function openProfile(){
   const u=currentUser();
   document.getElementById('profName').value=u.nombre||'';
   document.getElementById('profFrase').value=u.frase||'';
   document.getElementById('profBirth').value=u.fecha_nacimiento||'';
+  /* Ola 10 #16: el hijo ve y edita SOLO su fecha; un hermano no edita la de otro (perfil = propio). */
+  aplicarLimitesCumple('profBirth', true);
   document.getElementById('profPin').value='';
   document.getElementById('profPin2').value='';
   const photo=document.getElementById('profPhoto');
@@ -4385,6 +4472,8 @@ async function saveProfile(){
   const pin=document.getElementById('profPin').value.trim();
   const pin2=document.getElementById('profPin2').value.trim();
   if(pin&&pin!==pin2) return showToast('Los PIN no coinciden');
+  /* Ola 10 #16: bloqueo FE + mensaje BD si el trigger rechaza. */
+  {const errC=validarCumple(birth); if(errC) return showToast(errC);}
   const upd={nombre,frase,emoji,color,fecha_nacimiento:birth};
   if(pin){ if(!pinSeguroCliente(pin)) return showToast('PIN débil: 4–8 caracteres; no uses 0000, oooo, 1111 ni 1234'); upd.pin=pin; }
   const photoEl=document.getElementById('profPhoto');
@@ -4395,7 +4484,7 @@ async function saveProfile(){
   // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
   if(!confirm('¿Guardar los cambios de tu perfil?')) return;
   const {error}=await supabase.from('familia_miembros').update(upd).eq('id',u.id);
-  if(error) return showToast(error.message);
+  if(error) return showToast(msgErrorBD(error)||error.message);
   if(esPadre(u)){
     const extra=document.getElementById('profFamilyName').value.trim().replace(/^familia\s*/i,'');
     const full=extra?('Familia '+extra):'Familia';
@@ -5678,6 +5767,7 @@ function openNewMember(){
   document.getElementById('newMemberBirth').value='';
   document.getElementById('newMemberType').value='hijo';
   syncMemberRoles();
+  aplicarLimitesCumple('newMemberBirth', true);   // Ola 10 #16
   openModal('modal-miembro');
 }
 async function createMember(){
@@ -5688,12 +5778,13 @@ async function createMember(){
   const rol=document.getElementById('newMemberRole').value;
   const birth=document.getElementById('newMemberBirth').value||null;
   if(!nombre||!rol) return showToast('Escribe el nombre y el rol');
+  {const errC=validarCumple(birth); if(errC) return showToast(errC);}   // Ola 10 #16
   // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
   if(!confirm('¿Crear a '+nombre+' ('+rol+')?')) return;
   const {error}=await supabase.from('familia_miembros').insert({
     nombre,rol,es_admin:tipo==='adulto',pin:'oooo',puntos:0,puntos_historicos:0,fecha_nacimiento:birth,emoji:'👤',color:'#6366f1'
   });
-  if(error) return showToast(error.message);
+  if(error) return showToast(msgErrorBD(error)||error.message);
   showToast(nombre+' creado. Comparte el PIN en privado.');
   closeModal('modal-miembro');
   loadAll();
@@ -6357,7 +6448,8 @@ window.FamiliaV3=(function(){
     return presets.map(m=>`<option value="${m}" ${m===cur?'selected':''}>${m<60?m+' min':(m/60)+' h'}</option>`).join('');
   }
   const PRESET_REABRIR=[15,30,45,60,90,120,180,240];
-  const PRESET_SUBASTA=[30,60,90,120,180,240,360,720,1440];
+  /* Ola 10 #15: cierre subasta = 30 min · 1 h (def) · 2 h · 4 h · 12 h · 24 h. */
+  const PRESET_SUBASTA=[30,60,120,240,720,1440];
   /* v6e E-FI1: lee hora/duración de un día (legado string "HH:MM" o {hora,dur_min}). */
   function horaDiaDe(horas, dow, fallback){
     const x=horas&&horas[String(dow)];
@@ -6555,17 +6647,27 @@ window.FamiliaV3=(function(){
   function esObligatoria(t){return !!(t&&(t.inmediata||t.tipo==='inmediata')&&!cerrada(t));}
   function ficha(t,acciones){
     const e=estadoDe(t), who=memberById(t.asignada_a);
-    // v6 A3: clase y etiqueta de ventana (verde «En su hora» / rojo «Se pasó la hora»).
-    const vv=enVentana(t), vcls=vv?' v6-'+vv:'', vtxt=vv==='dentro'?'<span class="v6-vtag ok">En su hora</span>':vv==='poco'?'<span class="v6-vtag warn">Queda poco</span>':vv==='fuera'?'<span class="v6-vtag err">Se pasó la hora</span>':vv==='antes'?'<span class="v6-vtag v6d-antes-t">Aún no abre'+(t.habilita_en?' | Abre '+esc(new Date(t.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false})):'')+'</span>':'';   // v6d D7 · v6d D20c: «Aún no abre · Abre HH:MM» como texto único
+    const adminVista=esPadre(currentUser());
+    const hh=x=>new Date(x).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+    /* Ola 10 #6: en lista del padre, futuras → «Programada · HH:MM»; vencidas no hechas → «Vencida». */
+    let eTxt=e.txt, eCls=e.cls, eC=e.c;
+    if(adminVista&&!cerrada(t)){
+      const hab=t.habilita_en?new Date(t.habilita_en):null;
+      const lim=t.fecha_limite?new Date(t.fecha_limite):null;
+      const now=new Date();
+      if(hab&&hab>now&&!t.en_subasta){ eTxt='Programada · '+hh(hab); eCls='v3-sub'; eC=''; }
+      else if(lim&&lim<now&&['pendiente','no_terminada','aviso_vencida'].includes(t.estado)&&!t.puntos_sumados){ eTxt='Vencida'; eCls='v3-st-err'; eC='err'; }
+    }
+    const vv=enVentana(t), vcls=vv?' v6-'+vv:'', vtxt=vv==='dentro'?'<span class="v6-vtag ok">En su hora</span>':vv==='poco'?'<span class="v6-vtag warn">Queda poco</span>':vv==='fuera'?'<span class="v6-vtag err">Se pasó la hora</span>':vv==='antes'?'<span class="v6-vtag v6d-antes-t">Aún no abre'+(t.habilita_en?' | Abre '+esc(new Date(t.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false})):'')+'</span>':'';
     const obl=esObligatoria(t);
     /* Restyle Ola 5: ícono clay si el emoji de la tarea está mapeado; si no, sin ícono (layout intacto). */
     /* Restyle Ola 6 ítem 6: tarjetas 40 px (nav 40 / cabecera 28 se mantienen). */
     const icoT=t.icono&&FAMLY_EMOJI_ICO[t.icono]?famlyEmojiIco(t.icono,{w:40,h:40}):'';
-    return `<div class="v3-card ${e.c}${vcls}${obl?' v6b-obl':''}" data-id="${t.id}" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.detalle(${t.id})">
+    return `<div class="v3-card ${eC}${vcls}${obl?' v6b-obl':''}" data-id="${t.id}" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.detalle(${t.id})">
       ${icoT}
       <div class="v3-grow"><div class="v3-t">${esc(t.titulo)}</div>${''/* v6d QA-fix D11: la tarjeta muestra SOLO el nombre; la descripción va en la ficha (detalle) */}
       <div class="v3-sub"><span class="v3-chip ${obl?'obl':esDeber(t)?'deber':''}">${obl?'Obligatoria':esDeber(t)?'Deber':'Tarea'}</span>
-      ${who?etiquetaMiembro(who)+' ':''/* v6d D21 */}<span class="${e.cls}">${esc(e.txt)}</span>${t.puntos?' | '+t.puntos+' pts':''}</div>
+      ${who?etiquetaMiembro(who)+' ':''/* v6d D21 */}<span class="${eCls}">${esc(eTxt)}</span>${t.puntos?' | '+t.puntos+' pts':''}</div>
       ${renglonHora(t)}${vtxt?`<div class="v3-sub" style="margin-top:2px">${vtxt}</div>`:''}</div>
       ${acciones||''}</div>`;
   }
@@ -6618,7 +6720,8 @@ window.FamiliaV3=(function(){
     // v6c C5 + C10: primero los avisos que esperan acción del hijo; luego por hora (fecha_limite asc, sin fecha al final); empate → título.
     const limMs=t=>{const n=t.fecha_limite?new Date(t.fecha_limite).getTime():NaN; return isNaN(n)?Infinity:n;};
     // v6c C10b: las vencidas van primero (antes que el resto de avisos); luego los avisos; luego por hora.
-    const pri=t=>grupoFecha(t)==='vencido'?0:(!admin&&avisoHijo(t)?1:2);
+    /* Ola 10 #15: subastas abiertas primero en Hoy del hijo. */
+    const pri=t=>(!admin&&t.en_subasta&&!t.asignada_a)?-1:(grupoFecha(t)==='vencido'?0:(!admin&&avisoHijo(t)?1:2));
     // v6d D20c: dentro de cada prioridad, primero lo ya abierto (habilita_en ≤ ahora o null) por fin asc; después lo que aún no abre, por inicio (habilita_en) asc.
     const habMs=t=>{const n=t.habilita_en?new Date(t.habilita_en).getTime():NaN; return isNaN(n)?-Infinity:n;};
     const noAbre=t=>habMs(t)>Date.now()?1:0;
@@ -6634,8 +6737,13 @@ window.FamiliaV3=(function(){
       if(!admin&&t.estado==='aviso_aprobada')
         act=`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aceptarAprobada(${t.id})">Aceptar +${Math.max(0,Number(t.puntos_aplicados!=null?t.puntos_aplicados:t.puntos)||0)} pts</button>`;   // v6d QA-fix D17: aviso de puntos → «Aceptar», nunca «Me comprometo»
       // v6d QA-fix D17: «👍 Me comprometo» SOLO en la tarea nueva que le asignaron (pendiente, creada por otro, aún sin comprometerse).
-      if(!admin&&!soloLectura()&&t.en_subasta&&!t.asignada_a)
-        act=`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aceptarSubasta(${t.id})">Aceptar subasta</button>`;
+      /* Ola 10 #15: subastas abiertas arriba con «Aceptar» + tiempo restante. */
+      if(!admin&&!soloLectura()&&t.en_subasta&&!t.asignada_a){
+        const queda=t.subasta_vence_en?Math.max(0,new Date(t.subasta_vence_en)-Date.now()):0;
+        const mins=Math.ceil(queda/60000);
+        const resto=mins>=60?Math.floor(mins/60)+' h '+(mins%60)+' min':mins+' min';
+        act=`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aceptarSubasta(${t.id})">Aceptar</button><span class="v3-sub" style="margin-left:8px">Quedan ${esc(resto)}</span>`;
+      }
       if(!admin&&!soloLectura()&&esNuevaAsignada(t,u))
         act=`<button class="v3-cta v6d-comp" onclick="event.stopPropagation();FamiliaV3.comprometer(${t.id})">👍 Me comprometo</button>`;
       // v6c C10: insignia llamativa encima de la tarjeta cuando espera acción del hijo.
@@ -6710,7 +6818,15 @@ window.FamiliaV3=(function(){
     const sq=state.tasks.filter(t=>t.estado==='solicitada'&&!ocultas.has(t.id));
     if(sq.length) h0+='<h2>Solicitudes de tareas</h2>'+sq.map(t=>ficha(t,soloLectura()?'':`<div class="v3-row"><button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.aprobarSolicitud(${t.id})">Aprobar</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.negarSolicitud(${t.id})">Negar</button></div>`)).join('');
     /* v6e E-AP1: borradores / no liberadas → Liberar para hacer */
-    const porLib=state.tasks.filter(t=>!ocultas.has(t.id)&&!t.inmediata&&t.aprobada_para_hacer===false&&['borrador','pendiente'].includes(t.estado)&&!t.en_subasta);
+    /* Ola 10 #4+#17: «Por aprobar para hacer» solo lo que inició el hijo (✗ creadas por padre/admin → 0 duplicados). */
+    const porLib=state.tasks.filter(t=>{
+      if(ocultas.has(t.id)||t.inmediata||t.en_subasta) return false;
+      if(t.aprobada_para_hacer!==false) return false;
+      if(!['borrador','pendiente'].includes(t.estado)) return false;
+      const cr=memberById(t.creada_por);
+      if(cr&&esPadre(cr)) return false;   // padre/admin nunca en esta bandeja
+      return true;
+    });
     if(porLib.length) h0+='<h2>Por aprobar para hacer</h2>'+porLib.map(t=>{const html=ficha(t,soloLectura()?'':`<button class="v3-cta v3-full" onclick="event.stopPropagation();FamiliaV3.liberarParaHacer(${t.id})">Aprobar para hacer</button>`);return html.replace('class="v3-card ','class="v3-card rev-stack ');}).join('');
     // v6 Mesada final: ya no se muestran «Mesadas por cargar» (RPC v4 retirada del FE).
     if(false&&mp.length) h0+='<h2>Mesadas por cargar</h2>'+mp.map(t=>ficha(t,soloLectura()?'':`<button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.mesadaPendiente(${t.id})">Cargar</button>`)).join('');
@@ -6951,6 +7067,7 @@ window.FamiliaV3=(function(){
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>{openNewReward();const s=document.getElementById('rewardTipo');if(s){s.value='hijo';syncRewardParent();}})">Nuevo premio</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaMesadaV6()">Mesada mensual</button>
         <button class="v3-btn2" onclick="FamiliaV3.agendaDesdeAdmin()">Agenda</button>
+        <button class="v3-btn2" onclick="FamiliaV3.hojaReglasTareas()">Reglas de tareas</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openPenalty())">Descuento</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNewMember())">Integrante</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaPin()">PINs</button><button class="v3-btn2" onclick="FamiliaV3.hojaMovil()">📵 Celulares</button>
@@ -8465,13 +8582,17 @@ window.FamiliaV3=(function(){
   function crearPaso1(){
     // El client_req_id nace al abrir el formulario y se reutiliza en cada reintento hasta que haya éxito.
     crear=Object.assign({clase:'tarea',titulo:'',asignada:'',req:(crypto.randomUUID?crypto.randomUUID():'v3-'+Date.now()+'-'+Math.random().toString(36).slice(2))},crear);
-    // v5 ítem 20: el botón «Crear» es solo de tareas; con clase 'deber' se llega solo desde Deberes (crearDeber).
     const desdeDeberes=crear.clase==='deber';
     const hijos=state.members.filter(m=>!esPadre(m)).slice().sort(byName);
+    /* Ola 10 #15: «Subasta (quien acepte)» junto a cada hijo y «todos» (no es un tipo aparte). */
+    const optsWho=
+      `<option value="__subasta__" ${crear.asignada==='__subasta__'?'selected':''}>Subasta (quien acepte)</option>`+
+      `<option value="todos" ${crear.asignada==='todos'?'selected':''}>Todos los hijos</option>`+
+      hijos.map(m=>`<option value="${m.id}" ${String(crear.asignada)===String(m.id)?'selected':''}>${esc(m.nombre)}</option>`).join('');
     abrirHoja(`<h3>${desdeDeberes?'Nuevo deber':'Nueva tarea'} · paso 1 de 2</h3>
       <p class="v3-sub">${crear.clase==='deber'?'Un deber no suma puntos; si se pasa la hora puede tener Descuento.':'Una tarea suma puntos al aprobarla.'}</p>
-      <label>¿Qué hay que hacer?</label><input id="v3cTit" value="${esc(crear.titulo)}" maxlength="40" oninput="document.getElementById('v3cTitC').textContent=this.value.length+'/40'"><small class="v6b-cont" id="v3cTitC">${String(crear.titulo||'').length}/40</small>${''/* v6d D11 */}
-      <label>¿Para quién?</label><select id="v3cWho">${hijos.map(m=>`<option value="${m.id}" ${String(crear.asignada)===String(m.id)?'selected':''}>${esc(m.nombre)}</option>`).join('')}</select>
+      <label>¿Qué hay que hacer?</label><input id="v3cTit" value="${esc(crear.titulo)}" maxlength="40" oninput="document.getElementById('v3cTitC').textContent=this.value.length+'/40'"><small class="v6b-cont" id="v3cTitC">${String(crear.titulo||'').length}/40</small>
+      <label>¿Para quién?</label><select id="v3cWho">${optsWho}</select>
       <button class="v3-cta v3-full" style="margin-top:14px" onclick="FamiliaV3.crearPaso2()">Siguiente</button>`);
   }
   function guardarPaso1(){const t=document.getElementById('v3cTit'),w=document.getElementById('v3cWho');if(t)crear.titulo=t.value.trim();if(w)crear.asignada=w.value;}
@@ -8480,13 +8601,20 @@ window.FamiliaV3=(function(){
   function crearPaso2(){
     guardarPaso1();
     if(!crear.titulo) return showToast('Escribe qué hay que hacer');
+    if(!crear.asignada) return showToast('Elige para quién');
     const d=crear.clase==='deber';
-    abrirHoja(`<h3>Crear · paso 2 de 2</h3><p class="v3-sub">${esc(crear.titulo)} · ${esc((memberById(crear.asignada)||{}).nombre||'')}</p>
+    const esSub=crear.asignada==='__subasta__';
+    const quienLbl=esSub?'Subasta (quien acepte)':(crear.asignada==='todos'?'Todos los hijos':((memberById(crear.asignada)||{}).nombre||''));
+    /* Ola 10 #15: si eligió Subasta en el selector, muestra cierre (tope = Fin de la tarea). */
+    const L=x=>{const z=new Date(x);return new Date(z-z.getTimezoneOffset()*60000).toISOString().slice(0,16);};
+    const bloqueTiempo=`<label>Inicio</label><input id="v3cIni" type="datetime-local" value="${L(Date.now())}"><label>Duración</label><select id="v3cDur">${optsDuracionHoras(1)}</select><label style="display:flex;align-items:center;gap:8px;margin-top:8px;color:#1e293b"><input type="checkbox" id="v3cCierre" style="width:auto"> Cerrar automáticamente al vencer</label>`+
+      (esSub?`<div id="v3cSubastaWrap"><label>Cierre de subasta</label><select id="v3cSubastaMin">${optsMinutosPreset(60,PRESET_SUBASTA)}</select><p class="v3-sub">Nunca más allá del Fin de la tarea.</p></div>`:'');
+    abrirHoja(`<h3>Crear · paso 2 de 2</h3><p class="v3-sub">${esc(crear.titulo)} · ${esc(quienLbl)}</p>
       ${d?'':'<label>Puntos que gana</label><input id="v3cPts" type="number" min="0" value="10">'}
-      ${(()=>{const L=x=>{const z=new Date(x);return new Date(z-z.getTimezoneOffset()*60000).toISOString().slice(0,16);}, a=Date.now(); return `<label>Inicio</label><input id="v3cIni" type="datetime-local" value="${L(a)}"><label>Duración</label><select id="v3cDur">${optsDuracionHoras(1)}</select><label style="display:flex;align-items:center;gap:8px;margin-top:8px;color:#1e293b"><input type="checkbox" id="v3cCierre" style="width:auto" onchange=""> Cerrar automáticamente al vencer</label><label style="display:flex;align-items:center;gap:8px;color:#1e293b"><input type="checkbox" id="v3cSubasta" style="width:auto" onchange="var w=document.getElementById('v3cSubastaWrap');if(w)w.style.display=this.checked?'':'none'"> Subasta (quien acepte primero)</label><div id="v3cSubastaWrap" style="display:none"><label>Tiempo de subasta</label><select id="v3cSubastaMin">${optsMinutosPreset(60,PRESET_SUBASTA)}</select></div>`;})()/* v6d D7: Inicio + Fin en vez de minutos */}
+      ${bloqueTiempo}
       ${d?'<label>Descuento si se pasa la hora (pts)</label><input id="v3cPierde" type="number" min="0" value="3">':''}
       ${campoDescV3('v3cDesc',crear.desc)}
-      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v3cFoto" style="width:auto"> Exige foto</label>${''/* v6c C3: casilla «Exige foto» */}
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#1e293b"><input type="checkbox" id="v3cFoto" style="width:auto"> Exige foto</label>
       <div class="v3-row" style="margin-top:14px"><button class="v3-btn2" onclick="FamiliaV3.crearPaso1()">Atrás</button><button class="v3-cta" style="flex:1" onclick="FamiliaV3.crearGuardar()">Crear</button></div>`);
   }
   // v6c C3b: marca exige_foto con reintentos (crear_tarea aún no recibe p_exige_foto). Devuelve el error o null.
@@ -8503,58 +8631,66 @@ window.FamiliaV3=(function(){
   }
   async function crearGuardar(){
     const d=crear.clase==='deber', num=id=>{const e=document.getElementById(id);return e?Math.max(0,parseInt(e.value,10)||0):null;};
-    // v6b B15: descripción opcional (texto plano, ≤280).
     const desc=descripcionDe((document.getElementById('v3cDesc')||{}).value); if(descReservada(desc)) return showToast('Escribe una descripción distinta de «META»');
-    const args={p_titulo:crear.titulo,p_creada_por:state.currentUserId,p_asignada_a:Number(crear.asignada),
-      p_client_req_id:crear.req,   // mismo id en reintentos → la RPC devuelve la misma tarea
-      p_puntos:d?0:num('v3cPts'),p_clase:crear.clase,p_tipo:d?'deber':'tarea',p_ventana_min:1,
-      p_pierde_pts:d?num('v3cPierde'):null};
-    if(desc) args.p_descripcion=desc;
-    // v6e E-DU1+E-VA2: inicio + duración (Fin calculado); inicio no pasado al crear (salvo Obligatoria).
-    {const ia=(document.getElementById('v3cIni')||{}).value;
-      const durH=Math.max(1,Math.min(72,parseInt((document.getElementById('v3cDur')||{}).value,10)||1));
-      if(!ia) return showToast('Elige el inicio');
-      const ini=new Date(ia), fin=new Date(ini.getTime()+durH*3600000);
-      if(ini.getTime()<Date.now()-60000) return showToast('El inicio no puede estar en el pasado');
-      const vv=await validarV6d(crear.titulo,ini,fin); if(!vv) return;
-      args.p_habilita_en=ini.toISOString(); args.p_fecha_limite=fin.toISOString();
-      args.p_ventana_min=durH*60; args.p_confirmar_pasado=vv.confirmarPasado;
-      args.p_exige_foto=!!(document.getElementById('v3cFoto')||{}).checked;
-      // v6e E-AP1: nace en borrador hasta que el padre la libere (excepto si es subasta, queda pendiente en subasta).
-      const esSub=!!(document.getElementById('v3cSubasta')||{}).checked;
-      args.p_estado=esSub?'pendiente':'borrador';
+    /* Ola 10 #15: subasta = selector __subasta__; #4 padre crea → pendiente + aprobada_para_hacer (trigger BD también). */
+    const esSub=crear.asignada==='__subasta__';
+    const esTodos=crear.asignada==='todos';
+    const destinos=esSub?[null]:(esTodos?(state.members||[]).filter(m=>!esPadre(m)).map(m=>m.id):[Number(crear.asignada)].filter(x=>x));
+    if(!destinos.length) return showToast('Elige para quién');
+    const ia=(document.getElementById('v3cIni')||{}).value;
+    const durH=Math.max(1,Math.min(72,parseInt((document.getElementById('v3cDur')||{}).value,10)||1));
+    if(!ia) return showToast('Elige el inicio');
+    const ini=new Date(ia), fin=new Date(ini.getTime()+durH*3600000);
+    if(ini.getTime()<Date.now()-60000) return showToast('El inicio no puede estar en el pasado');
+    const vv=await validarV6d(crear.titulo,ini,fin); if(!vv) return;
+    let subMin=60;
+    if(esSub){
+      subMin=Math.max(1,parseInt((document.getElementById('v3cSubastaMin')||{}).value,10)||60);
+      const maxMin=Math.max(1,Math.floor((fin.getTime()-Date.now())/60000));
+      if(subMin>maxMin) subMin=maxMin;   // tope = Fin
     }
-    // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
-    /* v6e: cruce con otra tarea del mismo hijo → bloquea (decisión Jhon 15:00). */
-    if(avisoCruce(tareaCruza(Number(crear.asignada),args.p_habilita_en,args.p_fecha_limite))) return;
-    if(!confirm('¿Crear '+(d?'el deber':'la tarea')+' «'+crear.titulo+'» para '+((memberById(Number(crear.asignada))||{}).nombre||'este hijo')+(d?'':' ('+(args.p_puntos||0)+' pts)')+'?')) return;
+    const quienTxt=esSub?'subasta':(esTodos?'todos los hijos':((memberById(Number(crear.asignada))||{}).nombre||'este hijo'));
+    if(!esSub){
+      for(const aid of destinos){
+        if(avisoCruce(tareaCruza(aid,ini.toISOString(),fin.toISOString()))) return;
+        if(sameTaskTooClose(aid,crear.titulo,ini.getTime())){
+          if(!(await confirmarCrearIgual(crear.titulo,(memberById(aid)||{}).nombre,ventanaAntiDupHoras()||12))) return;
+        }
+      }
+    }
+    if(!confirm('¿Crear '+(d?'el deber':'la tarea')+' «'+crear.titulo+'» para '+quienTxt+(d?'':' ('+(num('v3cPts')||0)+' pts)')+'?')) return;
     if(enCurso.has('crear')) return; enCurso.add('crear');
-    const exigeFoto=!!(document.getElementById('v3cFoto')||{}).checked;   // v6c C3: se lee antes de cerrar la hoja
-    const id=await rpc('familia_rpc_crear_tarea',args); enCurso.delete('crear'); if(id==null) return;   // error: se conserva crear.req
-    // v6e: marca columnas nuevas (cierre_auto, duración, subasta, aprobada_para_hacer).
-    {const tid=typeof id==='object'?(id.id||id.tarea_id):id;
-      if(tid){const durH=Math.max(1,Math.min(72,parseInt((document.getElementById('v3cDur')||{}).value,10)||1));
-        const esSub=!!(document.getElementById('v3cSubasta')||{}).checked;
-        const subMin=Math.max(1,parseInt((document.getElementById('v3cSubastaMin')||{}).value,10)||60);
-        const patch={cierre_auto:!!(document.getElementById('v3cCierre')||{}).checked,duracion_min:durH*60,
-          aprobada_para_hacer:false,en_subasta:esSub};
-        if(esSub){patch.asignada_a=null; patch.subasta_vence_en=new Date(Date.now()+subMin*60000).toISOString(); patch.aprobada_para_hacer=true;}
-        await supabase.from('familia_tareas').update(patch).eq('id',tid);
-      }}
-    // v6c C3: crear_tarea no recibe exige_foto; se marca en la fila recién creada. Si falla, la tarea queda creada y se avisa.
-    // v6c C3b: hasta 3 intentos; si aun así falla, la hoja «Creada» avisa y ofrece «Reintentar Exige foto» (no se pierde).
-    let faltaFotoC3b=null;
-    if(exigeFoto&&window._v6dSinFotoRpc){const tid=typeof id==='object'?(id.id||id.tarea_id):id; const ef=tid?await reExigeFotoIntentos(tid):{message:'sin id'};
-      if(ef) faltaFotoC3b={tid,msg:msgErrorBD(ef)};}
-    const who=(memberById(crear.asignada)||{}).nombre||'';
-    // v6e E-WA1: mensaje con nombre + título + enlace directo a la tarea.
-    {const tid=typeof id==='object'?(id.id||id.tarea_id):id;
+    const exigeFoto=!!(document.getElementById('v3cFoto')||{}).checked;
+    let lastId=null, lastWho='', faltaFotoC3b=null;
+    try{
+      for(const aid of destinos){
+        const args={p_titulo:crear.titulo,p_creada_por:state.currentUserId,p_asignada_a:esSub?null:Number(aid),
+          p_client_req_id:crear.req+(esTodos?('-'+aid):''),
+          p_puntos:d?0:num('v3cPts'),p_clase:crear.clase,p_tipo:d?'deber':'tarea',p_ventana_min:durH*60,
+          p_pierde_pts:d?num('v3cPierde'):null,
+          p_habilita_en:ini.toISOString(), p_fecha_limite:fin.toISOString(),
+          p_confirmar_pasado:vv.confirmarPasado, p_exige_foto:exigeFoto,
+          p_estado:'pendiente'};
+        if(desc) args.p_descripcion=desc;
+        const id=await rpc('familia_rpc_crear_tarea',args);
+        if(id==null) return;   // rpc ya mostró mensaje BD (nunca silencioso)
+        const tid=typeof id==='object'?(id.id||id.tarea_id):id;
+        lastId=tid; lastWho=esSub?'subasta':((memberById(aid)||{}).nombre||'');
+        if(tid){
+          const patch={cierre_auto:!!(document.getElementById('v3cCierre')||{}).checked,duracion_min:durH*60,
+            aprobada_para_hacer:true,en_subasta:esSub};
+          if(esSub){patch.asignada_a=null; patch.subasta_vence_en=new Date(Date.now()+subMin*60000).toISOString();}
+          await supabase.from('familia_tareas').update(patch).eq('id',tid);
+          if(exigeFoto&&window._v6dSinFotoRpc){const ef=await reExigeFotoIntentos(tid); if(ef) faltaFotoC3b={tid,msg:msgErrorBD(ef)};}
+        }
+      }
+    }finally{enCurso.delete('crear');}
+    {const tid=lastId;
       const link=tid?(await appUrl({tarea:tid})):(familiaAppOriginPath());
-      const texto=`${d?'Deber':'Tarea'} para ${who}: ${crear.titulo}\n${link}`;
+      const texto=`${d?'Deber':'Tarea'} para ${lastWho||quienTxt}: ${crear.titulo}\n${link}`;
       crear={};
-      // WhatsApp SOLO aquí, al crear (opcional para el padre).
       abrirHoja(`<h3 class="v3-st-ok">Creada</h3><p class="v3-sub" style="margin:8px 0">${esc(texto)}</p>
-      ${faltaFotoC3b?`<p class="v3-st-err" id="v6cFotoFalta">Quedó sin «Exige foto»: ${esc(faltaFotoC3b.msg)}</p>${faltaFotoC3b.tid?`<button class="v3-btn2 v3-full" style="margin-bottom:8px" onclick="FamiliaV3._reExigeFoto(${Number(faltaFotoC3b.tid)})">Reintentar «Exige foto»</button>`:''}`:''/* v6c C3b */}
+      ${faltaFotoC3b?`<p class="v3-st-err" id="v6cFotoFalta">Quedó sin «Exige foto»: ${esc(faltaFotoC3b.msg)}</p>${faltaFotoC3b.tid?`<button class="v3-btn2 v3-full" style="margin-bottom:8px" onclick="FamiliaV3._reExigeFoto(${Number(faltaFotoC3b.tid)})">Reintentar «Exige foto»</button>`:''}`:''}
       <div class="v3-row"><a class="v3-btn2" style="text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(texto)}">Avisar por WhatsApp</a><button class="v3-cta" style="flex:1" onclick="FamiliaV3.cerrarHoja()">Listo</button></div>`);}
     scheduleReload();
   }
@@ -8605,8 +8741,24 @@ window.FamiliaV3=(function(){
   }
   async function cargarAgenda(){
     const u=currentUser(); if(!u) return;
-    const mid=agHijoId(u); if(!mid){state.agendaEv=[]; return;}
+    /* Ola 10 #13: mid===0 = «Todos» (el UI ya lo ofrecía desde 1b184a6, pero !mid vaciaba el calendario). */
+    const mid=agHijoId(u); if(mid===null||mid===undefined){state.agendaEv=[]; return;}
     const [a,b]=agRango();
+    if(mid===0){
+      const kids=(state.members||[]).filter(m=>!esPadre(m));
+      const all=[];
+      for(const k of kids){
+        const {data,error}=await supabase.rpc('familia_rpc_expandir_agenda',{
+          p_actor_id:state.currentUserId, p_miembro_id:k.id,
+          p_desde:a.toISOString(), p_hasta:b.toISOString()
+        });
+        if(error){ showToast(msgErrorBD(error)); continue; }
+        const arr=Array.isArray(data)?data:(data||[]);
+        arr.forEach(e=>all.push({...e,_miembro:k.id}));
+      }
+      state.agendaEv=all;
+      return;
+    }
     const {data,error}=await supabase.rpc('familia_rpc_expandir_agenda',{
       p_actor_id:state.currentUserId, p_miembro_id:mid,
       p_desde:a.toISOString(), p_hasta:b.toISOString()
@@ -8820,6 +8972,29 @@ window.FamiliaV3=(function(){
   }
 
   /* Restyle Ola 6 ítem 1: salir de sub-opción admin → Yo con Administrar familia abierto. */
+  /* Ola 10 #7: Reglas de tareas — Evitar repetidas (antidup_horas). Admin edita vía familia_rpc_config_antidup; padre no-admin solo lectura. */
+  function hojaReglasTareas(){
+    const cur=ventanaAntiDupHoras();
+    const opts=[0,1,3,6,12,24].map(h=>`<option value="${h}" ${h===cur?'selected':''}>${h===0?'Apagado':h+' h'}</option>`).join('');
+    const solo=!esPadreAdmin(currentUser());   // no-admin padre = read-only
+    abrirHoja(`<h3>Reglas de tareas</h3>
+      <p class="v3-sub">Evita crear la misma tarea suelta para el mismo hijo dentro de una ventana. Las de plantilla siguen la regla de la plantilla en la BD.</p>
+      <label>Evitar tareas repetidas</label>
+      <select id="o10Antidup" ${solo?'disabled':''} style="font-size:16px;min-height:44px;width:100%">${opts}</select>
+      ${solo?'<p class="v3-sub" style="margin-top:8px">Solo el administrador puede cambiar esta regla.</p>':
+        '<button class="v3-cta v3-full" style="margin-top:14px" onclick="FamiliaV3.guardarReglasTareas()">Guardar</button>'}`);
+  }
+  async function guardarReglasTareas(){
+    if(!esPadreAdmin(currentUser())) return showToast('Solo el administrador puede guardar');
+    const h=parseInt((document.getElementById('o10Antidup')||{}).value,10);
+    if(![0,1,3,6,12,24].includes(h)) return showToast('Elige un valor del menú');
+    const d=await rpc('familia_rpc_config_antidup',{p_horas:h,p_actor_id:state.currentUserId});
+    if(d==null) return;   // rpc ya avisó (RPC ausente → mensaje claro)
+    if(d&&d.ok===false) return showToast(d.mensaje||'No se pudo guardar');
+    if(state.config) state.config.antidup_horas=h;
+    showToast('Regla guardada: '+(h===0?'Apagado':h+' h'));
+    cerrarHoja();
+  }
   function abrirAdminMenu(){
     abrirAdminAlPintar=true;
     seccion='yo'; pintar();
@@ -9067,13 +9242,14 @@ window.FamiliaV3=(function(){
   }
   /* v6e E-SU1: hijo acepta subtasta. */
   async function aceptarSubasta(id){
+    /* Ola 10 #15: familia_rpc_aceptar_subasta(p_tarea_id, p_actor_id) → {ok,tomada_por?} | error claro si falta RPC. */
     if(!confirm('¿Aceptar esta tarea de la subasta?')) return;
     const d=await rpc('familia_rpc_aceptar_subasta',{p_tarea_id:id,p_actor_id:state.currentUserId});
-    if(!d) return;
-    if(d.ok===false) return showToast('Ya la tomó '+(d.tomada_por||'otro'));
+    if(!d) return;   // rpc() ya mostró el error (p. ej. función ausente → no silencioso)
+    if(d.ok===false) return showToast('Ya la tomó '+(d.tomada_por||d.ganador_nombre||'otro'));
     showToast('¡Es tuya!'); scheduleReload();
   }
-  return {pintarAgenda,cargarAgenda,agSetVista,agNav,agIrDia,agSetHijo,hojaAgendaNueva,agPickCat,agSyncRec,guardarAgenda,hojaAgendaEv,hojaAgendaEditar,agArchivar,agExcepcion,hojaRoles,guardarRolMiembro,togglePermiso,hojaCambiarPin,guardarPinAjeno,liberarParaHacer,reabrir,aceptarSubasta,comprometer,hojaConvertirSerie,convertirSerie,hojaMultas,multaAplicar,hojaMultaEditar,multaGuardar,multaArchivar,noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,_grupoFecha:grupoFecha,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,agendaDesdeAdmin,volverAdmin,abrirAdminMenu,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {pintarAgenda,cargarAgenda,agSetVista,agNav,agIrDia,agSetHijo,hojaAgendaNueva,agPickCat,agSyncRec,guardarAgenda,hojaAgendaEv,hojaAgendaEditar,agArchivar,agExcepcion,hojaRoles,guardarRolMiembro,togglePermiso,hojaCambiarPin,guardarPinAjeno,liberarParaHacer,reabrir,aceptarSubasta,comprometer,hojaConvertirSerie,convertirSerie,hojaMultas,multaAplicar,hojaMultaEditar,multaGuardar,multaArchivar,noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,_grupoFecha:grupoFecha,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,agendaDesdeAdmin,volverAdmin,abrirAdminMenu,hojaReglasTareas,guardarReglasTareas,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 <script>
