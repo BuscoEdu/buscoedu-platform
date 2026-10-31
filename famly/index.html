@@ -2747,6 +2747,12 @@ function paintDueHint(){
   const n=tipo==='deber'?projectSlots(centro, rec).length:1;
   help.textContent='Se abre '+fmtWhen(abre.toISOString())+' y se cierra '+fmtWhen(cierra.toISOString())+'. '+n+(n===1?' fecha.':' fechas en este mes.');
 }
+/* Ola 8 fix «Nueva»: única fuente de la duración (minutos) para resumen y guardado.
+   v3–v6: desplegable #taskDur (1–72 h). v1 pura: ventana #taskWindowQty/#taskWindowUnit. */
+function durMinNueva(){
+  if(typeof v6bOn==='function'&&v6bOn()) return Math.max(1,Math.min(72,parseInt((document.getElementById('taskDur')||{}).value,10)||1))*60;
+  return windowMinutes();
+}
 function windowBounds(centro, minutos){
   return {
     abre:new Date(centro.getTime()-minutos*60000),
@@ -3030,13 +3036,15 @@ function reviewTask(){
   const inmediata=taskCreateMode!=='padres'&&raw==='inmediata';
   const rec=chosenRecurrence();
   const start=inmediata?new Date():parseLocalInput(document.getElementById('taskDue').value);
-  const minutos=windowMinutes();
+  // Ola 8 fix «Nueva»: el resumen usa la MISMA duración que createTask (v3–v6 = #taskDur; v1 = ventana oculta).
+  const minutos=durMinNueva();
   const slots=raw==='deber'?projectSlots(start, rec):[start];
   const assigned=slotAssignees(slots);
   const puntos=(raw==='deber'||inmediata)?0:(+document.getElementById('taskPoints').value||0);
   const modo=document.getElementById('taskDeberModo')?document.getElementById('taskDeberModo').value:'individual';
   const lineas=assigned.map((s,i)=>{
-    const b=inmediata?{abre:s.at,cierra:new Date(s.at.getTime()+minutos*60000)}:windowBounds(s.at, minutos);
+    // Ola 8: en v3–v6 inicio+duración (igual que el guardado); centrado solo en v1 pura.
+    const b=(inmediata||v6bOn())?{abre:s.at,cierra:new Date(s.at.getTime()+minutos*60000)}:windowBounds(s.at, minutos);
     const quien=memberById(s.asignada_a);
     return '<p>'+(i+1)+'. '+esc(quien?.nombre||'Sin hijo')+' · abre '+esc(fmtWhen(b.abre.toISOString()))+' · cierra '+esc(fmtWhen(b.cierra.toISOString()))+'</p>';
   }).join('');
@@ -3107,8 +3115,10 @@ async function createTask(){
       ventana_min:v6bOn()?minutos:undefined,
       duracion_min:v6bOn()?minutos:undefined,
       max_negativo:0,resta_por_minuto:0,puntos_penalizacion_dia:penal,
-      creada_por:state.currentUserId,puntos_sumados:false
+      creada_por:state.currentUserId,puntos_sumados:false,
+      familia_id:state.familiaId||undefined   // Ola 8: sin familia_id la tarea quedaba NULL y eqFam la ocultaba en Hoy
     };
+    if(base.familia_id==null) delete base.familia_id;
     if(base.ventana_min==null) delete base.ventana_min;
     if(base.duracion_min==null) delete base.duracion_min;
     if(desc) base.descripcion=desc;
@@ -3172,7 +3182,7 @@ async function createTask(){
   closeModal('modal-tarea');
   closeModal('modal-tarea-revisar');
   prepareTaskForm(taskCreateMode||'hijo');
-  loadAll();
+  await loadAll();   // Ola 8: refresca Hoy (padre) apenas termina el insert
 }
 function openValidate(){
   const wrap=document.getElementById('nuevaKindWrap');
@@ -5618,6 +5628,7 @@ async function solicitarTarea(i){
     creada_por:u.id,puntos_sumados:false,
     habilita_en:now.toISOString(),fecha_limite:limite.toISOString(),ventana_horas:2
   };
+  if(state.familiaId) row.familia_id=state.familiaId;   // Ola 8: insert directo siempre con la familia
   // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
   if(!confirm('¿Solicitar «'+p.titulo+'»'+(Number(p.puntos)?' por '+p.puntos+' pts':'')+'? Tendrás 2 h para hacerla.')) return;
   const {data,error}=await supabase.from('familia_tareas').insert(row).select('*').single();
@@ -5769,7 +5780,8 @@ function dutyRow(item,kidId,by,lote){
     titulo:item.titulo,puntos:0,tipo:'deber',clase:'deber',asignada_a:kidId,creada_por:by,
     recurrencia:item.rec,estado:'pendiente',icono:'📚',lote,   // v6c C8: deberes base repartidos nacen activos
     habilita_en:item.when.toISOString(),fecha_limite:limite.toISOString(),
-    ventana_horas:item.ventana,puntos_sumados:false,inmediata:false
+    ventana_horas:item.ventana,puntos_sumados:false,inmediata:false,
+    ...(state.familiaId?{familia_id:state.familiaId}:{})   // Ola 8: deberes base con la familia
   };
 }
 async function repartirDeberes(){
@@ -7412,6 +7424,7 @@ window.FamiliaV3=(function(){
       const row={titulo:p.titulo,puntos:deber?0:(Number(p.puntos)||0),recurrencia:'once',icono:'🙋',asignada_a:u.id,
         tipo:deber?'deber':'tarea',clase:deber?'deber':'tarea',inmediata:false,estado:'pendiente',creada_por:u.id,puntos_sumados:false,
         habilita_en:now.toISOString(),fecha_limite:limite.toISOString(),ventana_horas:2,client_req_id:reqId(k)};
+      if(state.familiaId) row.familia_id=state.familiaId;   // Ola 8: solicitud v3 con la familia
       // v6b B18: si es una plantilla guardada se envía plantilla_id y se revisa el cupo antes de preguntar.
       const pid=state.plantillas.some(x=>x.id===p.id)?p.id:null;
       if(pid){const b=await cupoBloqueo(pid,u.id); if(b) return showToast(b);}
