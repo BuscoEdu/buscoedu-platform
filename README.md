@@ -126,6 +126,8 @@ Pantallas de `/admin/ia/multiproveedor` (solo super_admin): asistente de 5 pasos
 ## Explorar — paginación estable de «Mostrar más»
 
 «Mostrar más» en `/explorar` y `/naia` llega a todas las ofertas sin duplicados: `obtenerOfertas` ordena por `creado_en desc, id asc` y la página siguiente sale de las páginas ya pedidas (`src/lib/paginacion-ofertas.ts`, con pruebas). 
+Bitácora: 2026-10-31 (hora Madrid, Europe/Madrid) — **qué**: RPC `familia_rpc_admin_hallazgo_crear` sobre tabla BD `famly_hallazgos` (migración `20261101094500`; sin recrear DDL); rate 20/h; sesión `x-familia-token`; contrato actualizado (sin `admin_id`; soft `borrado_en`); QA PG17 **12/12 PASS**. **por qué**: FE hallazgos admin. **quién**: Backend BuscoEdu (bot).
+
 Bitácora: 2026-10-31 (hora Madrid, Europe/Madrid) — **qué**: fix O6 `familia_miembros.rol` NOT NULL (T06/T10/T26): `admin_registrar`/`miembro_crear`/`miembro_editar` setean `rol='Padre'|'Hijo'` vía `familia_mf_o6_rol_etiqueta` (fuente `mf_o3_ops_qa_familia2.sql:205/211`); migración `20261031245000_famly_o6_fix_miembro_rol` + deshacer→acd5e37; mock QA con `rol NOT NULL`; repro 23502→OK; QA 36/36 PASS. **por qué**: registrar fallaba 23502 rol NULL (solo rol_v6d). **quién**: Backend BuscoEdu (bot).
 
 Bitácora: 2026-10-30 (hora Madrid, Europe/Madrid) — **qué**: O6 BE nick alineado a O1 Orq `^[a-z0-9_-]{5,20}$` (CON guion) en `familia_mf_o6_nick_ok` / nick_sugerir / registrar + CHECK mock; QA + contrato-be-o6. **por qué**: corrección Orquestador (BD también corrige 230000). **quién**: Backend BuscoEdu (bot).
