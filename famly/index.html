@@ -781,20 +781,52 @@ nav{
 }
 .v3-ag-ev{border-radius:var(--radius-input);box-shadow:var(--clay-shadow-lite)}
 
+
+/* === Claymorphism 2026-10-31 === */
+:root {
+  --clay-pink: #f9a8d4;
+  --clay-yellow: #fde68a;
+  --clay-green: #86efac;
+  --clay-blue: #93c5fd;
+  --clay-lavender: #c4b5fd;
+  --clay-coral: #fca5a5;
+  --clay-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+.clay-card { background: #fff; border-radius: 16px; box-shadow: var(--clay-shadow); padding: 14px; }
+.clay-btn { border: 0; border-radius: 16px; padding: 14px 20px; font-weight: 700; font-size: 1rem; cursor: pointer; min-height: 48px; }
+.clay-btn-primary { background: #f87171; color: #fff; box-shadow: 0 4px 12px rgba(248,113,113,.3); }
+.clay-btn-success { background: #fde68a; color: #1f2937; }
+.clay-btn-secondary { background: #fca5a5; color: #fff; }
+.login-clay { background: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 24px 120px; }
+.login-house { width: 120px; height: 100px; margin-bottom: 16px; }
+.login-logo { display: flex; gap: 2px; font-size: 2.2rem; font-weight: 800; margin-bottom: 4px; }
+.login-logo span:nth-child(1) { color: #fbbf24; }
+.login-logo span:nth-child(2) { color: #fb923c; }
+.login-logo span:nth-child(3) { color: #34d399; }
+.login-logo span:nth-child(4) { color: #60a5fa; }
+.login-logo span:nth-child(5) { color: #a78bfa; }
+.login-tagline { color: #6b7280; font-size: .9rem; margin-bottom: 24px; }
+.login-input-wrap { display: flex; align-items: center; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 4px 12px; width: 100%; max-width: 320px; margin-bottom: 16px; box-shadow: var(--clay-shadow); }
+.login-input-wrap input { border: 0; flex: 1; padding: 12px 8px; font-size: 1rem; outline: none; }
+.login-links { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; width: 100%; max-width: 320px; }
+.login-link { display: flex; align-items: center; gap: 10px; color: #3b82f6; font-weight: 600; text-decoration: none; }
+.login-illustration { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 200px; }
+
 </style>
 <!-- v6e control de versión: la misma etiqueta que FAMILIA_VERSION; el chequeo la compara con la página del servidor. -->
 <meta name="familia-version" content="mf1">
 </head>
 <body>
-<div class="login-screen" id="loginScreen">
-  <div class="famly-logo" style="margin-bottom:4px">FAMLY</div><!-- v6d D8 · restyle clay: marca entrada -->
-  <h2 style="margin-bottom:16px">Entrar</h2>
-  <!-- Ola 7 ítem 1: nick → select integrantes + PIN (sin datos de casa antes del apodo). -->
+<div class="login-screen login-clay" id="loginScreen">
+  <img src="iconos/clay/house.svg" class="login-house" alt="">
+  <div class="login-logo"><span>F</span><span>A</span><span>M</span><span>L</span><span>Y</span></div>
+  <div class="login-tagline">Tu familia, conectada siempre. ❤️</div>
   <div id="loginPasoNick">
-    <div class="form-group" style="width:100%;max-width:320px"><label>Apodo de la familia</label>
-      <input id="loginNick" autocomplete="organization" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" placeholder="Apodo de tu familia" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation">
+    <div class="login-input-wrap">
+      <span>🔒</span>
+      <input id="loginNick" autocomplete="organization" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" placeholder="Código de familia">
     </div>
-    <button class="btn" style="width:100%;max-width:320px;min-height:44px" type="button" onclick="loginResolverNick()">Continuar</button>
+    <button class="clay-btn clay-btn-primary" style="width:100%;max-width:320px" type="button" onclick="loginResolverNick()">Entrar →</button>
   </div>
   <div id="loginPasoPin" style="display:none;width:100%;max-width:320px">
     <!-- Ola 7 ítem 1: tras apodo → select integrantes (inicial+nombre) + PIN; alias solo fallback si falta RPC. -->
@@ -812,11 +844,15 @@ nav{
     <div class="form-group"><label for="loginPin">PIN</label>
       <input id="loginPin" type="password" placeholder="PIN" maxlength="8" inputmode="numeric" autocomplete="current-password" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation">
     </div>
-    <button class="btn" style="width:100%;min-height:44px" type="button" onclick="doLogin()">Entrar</button>
+    <button class="clay-btn clay-btn-primary" style="width:100%" type="button" onclick="doLogin()">Entrar →</button>
     <button class="btn secondary" style="width:100%;margin-top:8px;min-height:44px" type="button" onclick="loginCambiarFamilia()">Cambiar de familia</button>
   </div>
   <!-- v6e E-LG1: no mostrar ningún código/contraseña en el login -->
-  <button type="button" class="o6-link" id="o6LinkDueño" onclick="o6AbrirLoginAdmin()">Soy administrador · email y clave</button>
+  <div class="login-links">
+    <a class="login-link" onclick="o6AbrirLoginAdmin()">🏠 Iniciar sesión</a>
+    <a class="login-link" style="color:#34d399" onclick="o6AbrirLoginAdmin()">👥 Crear familia</a>
+  </div>
+  <img src="iconos/clay/kids.svg" class="login-illustration" alt="">
 </div>
 
 <!-- O6 · flujo invitación /i/<token> + panel admin dueño (solo famly) · copy «Dueño»→«Administrador» solo en textos visibles (ids/BD intactos) -->

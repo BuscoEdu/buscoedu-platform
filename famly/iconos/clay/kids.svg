@@ -1,0 +1,22 @@
+<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg">
+  <!-- Girl -->
+  <circle cx="40" cy="30" r="12" fill="#fcd34d"/>
+  <path d="M28 42 Q40 38 52 42 L48 60 H32 Z" fill="#60a5fa"/>
+  <circle cx="34" cy="28" r="3" fill="#1f2937"/>
+  <circle cx="46" cy="28" r="3" fill="#1f2937"/>
+  <path d="M36 34 Q40 36 44 34" stroke="#1f2937" stroke-width="1" fill="none"/>
+  <path d="M30 22 Q40 16 50 22" fill="#f472b6"/>
+  <!-- Dog -->
+  <ellipse cx="100" cy="50" rx="18" ry="12" fill="#fbbf24"/>
+  <circle cx="88" cy="42" r="8" fill="#fbbf24"/>
+  <circle cx="85" cy="40" r="2" fill="#1f2937"/>
+  <circle cx="91" cy="40" r="2" fill="#1f2937"/>
+  <ellipse cx="88" cy="44" rx="3" ry="2" fill="#f472b6"/>
+  <!-- Boy -->
+  <circle cx="160" cy="30" r="12" fill="#fcd34d"/>
+  <path d="M148 42 Q160 38 172 42 L168 60 H152 Z" fill="#34d399"/>
+  <circle cx="154" cy="28" r="3" fill="#1f2937"/>
+  <circle cx="166" cy="28" r="3" fill="#1f2937"/>
+  <path d="M156 34 Q160 36 164 34" stroke="#1f2937" stroke-width="1" fill="none"/>
+  <path d="M150 22 Q160 14 170 22" fill="#1f2937"/>
+</svg>
