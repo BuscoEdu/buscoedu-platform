@@ -395,6 +395,255 @@ body{background:var(--bg);color:var(--text)}
   border-color:var(--danger-border)!important;
 }
 
+/* === Restyle claymorphism 2026-10-31 · 2b: tarjetas + pantallas + encabezado compacto + nav 4 tabs === */
+
+/* Tarjetas de tarea / premio / miembro · radio 24, sombra doble clay */
+.card,.task-item,.reward-item,.member-item,.v3-card,.o6-member,.o6-card{
+  background:var(--surface)!important;
+  border-radius:var(--radius-card)!important;
+  border:1px solid var(--border)!important;
+  box-shadow:var(--clay-shadow)!important;
+  color:var(--text);
+}
+.task-item,.reward-item,.member-item,.v3-card{
+  border-left-width:4px!important;
+  border-left-style:solid!important;
+  margin-bottom:10px;
+  padding:14px 12px;
+}
+/* Tonos semánticos de borde (sin romper estados existentes) */
+.task-item{border-left-color:var(--primary)!important}
+.task-item.tone-kid,.reward-item.kid{border-left-color:var(--info)!important;background:var(--info-bg)!important}
+.task-item.tone-parent,.reward-item.parent{border-left-color:var(--info-border)!important;background:var(--info-bg)!important}
+.task-item.tone-deber{border-left-color:var(--warn)!important;background:var(--warn-bg)!important}
+.task-item.tone-inmediata,.v3-card.v6b-obl{border-left-color:var(--danger)!important;background:var(--danger-bg)!important}
+.task-item.tone-ontime,.v3-card.v6-dentro,.v3-card.ok{border-left-color:var(--primary)!important;background:var(--primary-bg)!important}
+.task-item.tone-late,.v3-card.v6-fuera,.v3-card.err{border-left-color:var(--danger)!important;background:var(--danger-bg)!important}
+.v3-card.esp,.v3-card.v6-poco{border-left-color:var(--success)!important;background:var(--success-bg)!important}
+.v3-card.dev{border-left-color:#fb923c!important}
+.v3-card.rev{border-left-color:var(--warn)!important;background:var(--warn-bg)!important}
+.v3-card.v6-antes{background:var(--surface)!important;border-left-color:var(--disabled)!important}
+.reward-item{border-left-color:var(--success)!important}
+.v3-modo .reward-item.tpl-hijo{background:var(--info-bg)!important;border-left-color:var(--info)!important;color:var(--text)!important}
+.v3-modo .reward-item.tpl-padre{background:var(--info-bg)!important;border-left-color:#6ba8d4!important;color:var(--text)!important}
+.v3-modo .reward-item.tpl-deber{background:var(--warn-bg)!important;border-left-color:var(--warn)!important;color:var(--text)!important}
+
+/* Checks / acciones táctiles ≥44 */
+.task-actions .btn{min-height:44px}
+.v3-card .v3-cta,.v3-card .v3-btn2{min-height:44px}
+
+/* Vacío vs error · estados distintos */
+.empty,.o6-empty{color:var(--muted);text-align:center;padding:24px}
+.o6-err,.hallazgo-val,#hallazgoErr,.v3-st-err{color:#9a3412} /* error distinto del vacío muted */
+.state._tareasError,.err-banner{background:var(--danger-bg);border:1px solid var(--danger-border);color:var(--text);border-radius:var(--radius-input);padding:10px 12px;margin:8px 0}
+
+/* Encabezado compacto @390 · logo FAMLY + campana + hallazgos + pts */
+header,.v3-head,.v4-panel-top{
+  background:var(--surface)!important;
+  color:var(--text)!important;
+  border-radius:0 0 var(--radius-card) var(--radius-card)!important;
+  box-shadow:var(--clay-shadow);
+  border-bottom:1px solid var(--border);
+}
+header{padding:12px 14px}
+.v3-head{padding:10px 14px}
+.header-top #familyTitle,.v4-fam,#familyTitle{
+  font-weight:800;
+  letter-spacing:.06em;
+  color:var(--text);
+  font-size:.95rem;
+}
+/* Logo tipográfico compacto FAMLY */
+.famly-logo{
+  font-weight:800;
+  letter-spacing:.1em;
+  font-size:1rem;
+  color:var(--text);
+  line-height:1;
+}
+.current-user{margin-top:8px}
+.avatar,.v4-av{
+  width:44px;height:44px;
+  border-radius:50%;
+  background:var(--primary-bg);
+  border:1px solid var(--primary-border);
+  box-shadow:var(--clay-shadow-lite);
+  color:var(--text);
+}
+.bell-btn,.v3-icobtn{
+  color:var(--text)!important;
+  min-width:44px;min-height:44px;
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:var(--radius-ico);
+  background:var(--info-bg);
+  border:1px solid var(--info-border);
+  box-shadow:var(--clay-shadow-lite);
+  padding:6px;
+}
+#btnHallazgo{
+  background:var(--warn-bg)!important;
+  border-color:var(--warn-border)!important;
+}
+.v3-icobtn .v3-ico{stroke:var(--text);width:22px;height:22px}
+.v3-dot,.badge{
+  background:var(--danger)!important;
+  color:var(--text)!important;
+  border:1px solid var(--danger-border);
+  font-weight:700;
+}
+@media (max-width:390px){
+  header{padding:10px 12px}
+  .current-user h2{font-size:1rem}
+  .current-user p,.current-user small{font-size:.72rem}
+  .header-top{gap:6px}
+  .app,.section{overflow-x:hidden}
+  body{overflow-x:hidden}
+}
+
+/* Nav inferior · 4 tabs (Tareas Premios Ranking Yo) · Orquestador override */
+nav{
+  background:var(--surface)!important;
+  border-top:1px solid var(--border);
+  box-shadow:0 -4px 16px rgba(31,26,77,.06);
+  padding:6px 4px calc(8px + env(safe-area-inset-bottom));
+}
+.nav-btn{
+  min-width:64px;
+  min-height:52px;
+  padding:6px 8px;
+  gap:4px;
+  color:#6b7280;
+  font-weight:500;
+  border-radius:14px;
+  background:transparent;
+}
+.nav-btn .nav-ico{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:40px;height:40px;
+  min-width:40px;
+  border-radius:var(--radius-ico);
+  font-size:1.2rem;
+  background:var(--disabled-bg);
+  border:1px solid var(--disabled-border);
+  box-shadow:none;
+  filter:grayscale(.35);
+  opacity:.85;
+}
+/* Activo · color semántico + pastel + bold */
+.nav-btn.active{
+  color:var(--text);
+  font-weight:700;
+  background:transparent;
+}
+.nav-btn.active .nav-ico{
+  filter:none;
+  opacity:1;
+  box-shadow:var(--clay-shadow);
+}
+/* Tareas → verde */
+.nav-btn:nth-child(1).active .nav-ico,
+.nav-btn.active:nth-child(1) .nav-ico{
+  background:var(--primary-bg);
+  border-color:var(--primary-border);
+}
+.nav-btn:nth-child(1).active{color:#1f5c3a}
+/* Premios → amarillo */
+.nav-btn:nth-child(2).active .nav-ico{
+  background:var(--success-bg);
+  border-color:var(--success-border);
+}
+.nav-btn:nth-child(2).active{color:#7a5f00}
+/* Ranking → verde/amarillo trofeo */
+.nav-btn:nth-child(3).active .nav-ico{
+  background:var(--success-bg);
+  border-color:var(--primary-border);
+}
+.nav-btn:nth-child(3).active{color:#1f5c3a}
+/* Yo → azul */
+.nav-btn:nth-child(4).active .nav-ico{
+  background:var(--info-bg);
+  border-color:var(--info-border);
+}
+.nav-btn:nth-child(4).active{color:#1e4a6e}
+
+/* Nav v3 · mismo look clay (pestañas existentes; no se inventan tabs) */
+.v3-nav{
+  background:var(--surface)!important;
+  border-top:1px solid var(--border);
+  box-shadow:0 -4px 16px rgba(31,26,77,.06);
+  padding:6px 2px calc(8px + env(safe-area-inset-bottom));
+}
+.v3-nav button{
+  color:#6b7280!important;
+  min-width:56px;
+  min-height:52px;
+  padding:6px 6px;
+  border-radius:14px;
+  font-weight:500;
+}
+.v3-nav button .v3-ico{
+  width:40px;height:40px;
+  padding:8px;
+  box-sizing:border-box;
+  border-radius:var(--radius-ico);
+  background:var(--disabled-bg);
+  border:1px solid var(--disabled-border);
+  stroke:#6b7280;
+  display:block;
+  margin:0 auto 2px;
+}
+.v3-nav button.on{
+  color:var(--text)!important;
+  font-weight:700;
+  background:transparent!important;
+}
+.v3-nav button.on .v3-ico{
+  background:var(--primary-bg);
+  border-color:var(--primary-border);
+  stroke:var(--text);
+  box-shadow:var(--clay-shadow);
+}
+
+/* Pantallas · tipografía y aire */
+.section,.v3-main{background:var(--bg)}
+.section h3,.v3-sec h2{color:var(--text);font-weight:700}
+.section-label{color:var(--muted)}
+.v3-sub{color:var(--muted)}
+.v3-t{color:var(--text)}
+.v5-rk,.v3-rk,.v4-rk{border-bottom-color:var(--border)!important}
+.v5-rk .nom{color:var(--text)}
+.hist-bad{background:var(--disabled-bg);border-radius:var(--radius-input);border-left-color:var(--text)}
+.v6d-sticky{background:var(--surface)!important;border-radius:0;box-shadow:var(--clay-shadow-lite)}
+.v3-seg{border-radius:var(--radius-btn);border-color:var(--border);overflow:hidden;box-shadow:var(--clay-shadow-lite)}
+.v3-seg button.on{background:var(--primary)!important;color:var(--text)!important}
+.figure-btn,.emoji-btn{
+  border-radius:var(--radius-ico);
+  box-shadow:var(--clay-shadow-lite);
+  background:var(--surface);
+}
+.figure-btn.selected,.emoji-btn.selected{
+  border-color:var(--primary);
+  background:var(--primary-bg);
+}
+.filter-row select{
+  border-radius:var(--radius-chip)!important;
+  min-height:36px;
+  font-size:16px;
+  border-color:var(--border);
+  color:var(--text);
+}
+#v3App{background:var(--bg)!important;color:var(--text)!important}
+/* Sin scroll horizontal a 390 */
+@media (max-width:390px){
+  .section,.v3-main,.modal-content,.o6-wrap{max-width:100vw;overflow-x:hidden}
+  .filter-row{gap:4px}
+  .task-actions{flex-wrap:wrap}
+  .nav-btn{min-width:0;flex:1}
+  .v3-nav button{min-width:0;flex:1;padding:4px 2px;font-size:.62rem}
+}
+
 </style>
 <!-- v6e control de versión: la misma etiqueta que FAMILIA_VERSION; el chequeo la compara con la página del servidor. -->
 <meta name="familia-version" content="mf1">
@@ -543,7 +792,7 @@ body{background:var(--bg);color:var(--text)}
 <div class="app" id="mainApp" style="display:none">
   <header>
     <div class="header-top">
-      <div id="familyTitle">FAMLY · Familia</div><!-- v6d D8 -->
+      <div id="familyTitle" class="famly-logo">FAMLY · Familia</div><!-- v6d D8 · logo tipográfico clay -->
       <div style="display:flex;align-items:center;gap:8px">
         <button type="button" class="bell-btn" id="btnBell" onclick="openNotifs()" aria-label="Notificaciones"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="bellCount" class="badge" style="display:none">0</span></button>
         <button type="button" class="bell-btn" id="btnHallazgo" onclick="abrirHallazgo()" aria-label="Reportar un hallazgo" style="display:none" title="Reportar un hallazgo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></button>
