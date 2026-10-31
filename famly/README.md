@@ -22,3 +22,4 @@ Tras cambiar `public/familia.html`, regenerar `famly/index.html` (copiar + meta 
 - 2026-10-31 · qué: copy «Dueño» → «Administrador» en UI visible (login, registro /i/, botón). ✗ cambios en ids, código ni BD. · por qué: pedido de Jhon (vía Orquestador). · Frontend BuscoEdu
 - 2026-10-30 · qué: O6 modal edit/PIN accesible (sin prompt); `p_alias_admin`; nick con guion medio. · por qué: criterios panel + firma RPC. · Frontend BuscoEdu
 - 2026-10-30 · qué: O6 FE alineado a contrato BE (O6Rpc hints jsonb, login miembros[], tope 10 deshabilita alta, desactivar vía modal sin confirm/alert). · por qué: firmas/retornos migración 235000 + UX admin. · Frontend BuscoEdu
+- 2026-10-31 · qué: hallazgos admin — icono junto a campana (solo padre_admin) + modal Error/Sugerencia → RPC `familia_rpc_admin_hallazgo_crear` (desc 5..2000, contador /2000). · por qué: pedido de Jhon vía Orquestador (contrato-hallazgos.md) · Frontend BuscoEdu

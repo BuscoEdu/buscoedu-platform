@@ -136,6 +136,15 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .pill.danger{background:#fee2e2;color:#991b1b}
 .who-tag{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px;background:#e0e7ff;color:#3730a3;margin:0 6px 4px 0}
 .bell-btn{position:relative;background:transparent;border:none;color:#fff;font-size:1.35rem;line-height:1;cursor:pointer;padding:4px 8px}
+
+/* Hallazgos admin · icono + modal Error/Sugerencia (contrato-hallazgos). */
+.hallazgo-seg{display:flex;gap:8px;margin:4px 0 12px}
+.hallazgo-seg label{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border:1px solid #8a84b8;border-radius:10px;padding:8px 10px;font-size:16px;font-weight:600;color:#1f1a4d;cursor:pointer;box-sizing:border-box;touch-action:manipulation;user-select:none}
+.hallazgo-seg input{position:absolute;opacity:0;pointer-events:none}
+.hallazgo-seg label:has(input:checked){background:#eef2ff;border-color:#4338ca;color:#4338ca}
+.hallazgo-val{color:#92400e;font-size:.875rem;margin:6px 0 0;min-height:1.25em}
+.hallazgo-cont{display:block;text-align:right;font-size:.75rem;color:#64748b;margin-top:4px}
+.hallazgo-modal textarea{width:100%;box-sizing:border-box;font-size:16px;min-height:120px;padding:10px 12px;border:1px solid #8a84b8;border-radius:10px;resize:vertical;touch-action:manipulation}
 .section-label{margin:8px 0;font-size:.85rem;color:var(--muted);font-weight:600}
 .actions{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .photo-preview{width:100%;border-radius:12px;margin-top:8px;max-height:240px;object-fit:cover}
@@ -309,6 +318,7 @@ h3{margin-bottom:12px}
       <div id="familyTitle">FAMLY · Familia</div><!-- v6d D8 -->
       <div style="display:flex;align-items:center;gap:8px">
         <button type="button" class="bell-btn" id="btnBell" onclick="openNotifs()" aria-label="Notificaciones"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="bellCount" class="badge" style="display:none">0</span></button>
+        <button type="button" class="bell-btn" id="btnHallazgo" onclick="abrirHallazgo()" aria-label="Reportar un hallazgo" style="display:none" title="Reportar un hallazgo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></button>
         <div class="points-badge" id="headerPoints">0 pts</div>
       </div>
     </div>
@@ -590,6 +600,36 @@ h3{margin-bottom:12px}
   <div id="notifList"></div>
   <button class="btn secondary" style="width:100%;margin-top:12px" onclick="closeNotifs()">Cerrar</button>
 </div></div>
+
+<!-- Hallazgos admin · modal Error/Sugerencia (solo padre_admin; RPC familia_rpc_admin_hallazgo_crear). -->
+<div id="hallazgoModal" class="o6-modal hallazgo-modal" hidden aria-hidden="true">
+  <div class="o6-modal-backdrop" data-hallazgo-close tabindex="-1"></div>
+  <div class="o6-modal-sheet" role="dialog" aria-modal="true" aria-labelledby="hallazgoTitle" id="hallazgoSheet" tabindex="-1">
+    <div class="o6-modal-head">
+      <h3 id="hallazgoTitle">Reportar un hallazgo</h3>
+      <button type="button" class="o6-modal-x" aria-label="Cerrar" data-hallazgo-close>&times;</button>
+    </div>
+    <div class="o6-field">
+      <span style="display:block;font-size:.8rem;font-weight:600;color:#1f1a4d;margin-bottom:4px">Tipo</span>
+      <div class="hallazgo-seg" role="radiogroup" aria-label="Tipo de hallazgo">
+        <label><input type="radio" name="hallazgoTipo" value="error" checked> Error</label>
+        <label><input type="radio" name="hallazgoTipo" value="sugerencia"> Sugerencia</label>
+      </div>
+    </div>
+    <div class="o6-field">
+      <label for="hallazgoDesc">Descripción</label>
+      <textarea id="hallazgoDesc" maxlength="2000" rows="5" placeholder="Cuéntanos qué pasó o qué mejorarías…" aria-describedby="hallazgoCont hallazgoVal"></textarea>
+      <small class="hallazgo-cont" id="hallazgoCont">0/2000</small>
+      <p class="hallazgo-val" id="hallazgoVal" role="status"></p>
+    </div>
+    <p class="o6-err" id="hallazgoErr" role="alert"></p>
+    <div class="o6-modal-actions">
+      <button type="button" class="o6-btn" id="hallazgoEnviar" onclick="enviarHallazgo()">Enviar</button>
+      <button type="button" class="o6-btn sec" data-hallazgo-close>Cancelar</button>
+    </div>
+  </div>
+</div>
+
 
 <div class="modal" id="modal-ficha"><div class="modal-content">
   <h3 id="fichaTitle">Tarea</h3>
@@ -1328,6 +1368,8 @@ function render(){
   document.getElementById('currentRole').textContent=(u.rol||'')+(isAdmin(u)?' · Admin':'')/* v6d D6 */+(age?' · '+age+' años':'');
   document.getElementById('currentFrase').textContent=u.frase||'';
   document.getElementById('headerPoints').textContent=(u.puntos||0)+' pts';
+  /* Hallazgos: icono solo para padre_admin (isAdmin), no para cualquier padre. */
+  {const bh=document.getElementById('btnHallazgo'); if(bh) bh.style.display=isAdmin(u)?'':'none';}
   document.getElementById('btnNueva').style.display=admin?'':'none';
   const taskEditBtn=document.getElementById('btnEditTasks');
   if(!admin) taskEditMode=false;
@@ -4052,8 +4094,140 @@ const O6Rpc={
       p_miembro_id:Number(p_miembro_id)
     });
     return {data:o6RpcPayload(data),error};
+  },
+  /* Hallazgos admin · contrato familia_rpc_admin_hallazgo_crear(p_tipo, p_descripcion). */
+  async hallazgoCrear(p_tipo, p_descripcion){
+    const {data,error}=await supabase.rpc('familia_rpc_admin_hallazgo_crear',{
+      p_tipo:String(p_tipo||''),
+      p_descripcion:String(p_descripcion||'')
+    });
+    return {data:o6RpcPayload(data),error};
   }
 };
+
+
+/* --- Hallazgos admin (Error/Sugerencia) · FE sobre contrato-hallazgos.md --- */
+let hallazgoBusy=false;
+function hallazgoMsgHint(data){
+  /* Mapea hints del contrato a copy ES (tú, Colombia); prefiere mensaje BE. */
+  const h=String((data&&data.hint)||'').trim();
+  const m=String((data&&data.mensaje)||'').trim();
+  if(h==='tipo') return m || 'Elige error o sugerencia.';
+  if(h==='descripcion') return m || 'La descripción debe tener entre 5 y 2000 caracteres.';
+  if(h==='bloqueado') return m || 'Demasiados envíos. Inténtalo más tarde.';
+  if(h==='sesion') return m || 'No se pudo guardar.';
+  if(m) return m.slice(0,160);
+  return 'No se pudo enviar. Inténtalo de nuevo.';
+}
+function hallazgoSetVal(msg){
+  const el=document.getElementById('hallazgoVal');
+  if(el) el.textContent=msg||'';
+}
+function hallazgoSetErr(msg){
+  const el=document.getElementById('hallazgoErr');
+  if(el) el.textContent=msg||'';
+}
+function hallazgoContar(){
+  const ta=document.getElementById('hallazgoDesc');
+  const c=document.getElementById('hallazgoCont');
+  if(c&&ta) c.textContent=(ta.value||'').length+'/2000';
+}
+function hallazgoTipoSel(){
+  const el=document.querySelector('input[name="hallazgoTipo"]:checked');
+  return el ? String(el.value||'') : '';
+}
+function abrirHallazgo(){
+  /* Solo admin dueño (padre_admin); doble guarda UI + handler. */
+  const u=currentUser();
+  if(!isAdmin(u)){ showToast('Solo el administrador puede reportar hallazgos'); return; }
+  hallazgoBusy=false;
+  hallazgoSetVal('');
+  hallazgoSetErr('');
+  const ta=document.getElementById('hallazgoDesc');
+  if(ta) ta.value='';
+  const errRadio=document.querySelector('input[name="hallazgoTipo"][value="error"]');
+  if(errRadio) errRadio.checked=true;
+  hallazgoContar();
+  const btn=document.getElementById('hallazgoEnviar');
+  if(btn){ btn.disabled=false; btn.textContent='Enviar'; }
+  const modal=document.getElementById('hallazgoModal');
+  if(!modal) return;
+  modal.hidden=false;
+  modal.setAttribute('aria-hidden','false');
+  modal.classList.add('show');
+  const sheet=document.getElementById('hallazgoSheet');
+  setTimeout(function(){ if(ta) ta.focus(); else if(sheet) sheet.focus(); }, 30);
+}
+function cerrarHallazgo(){
+  const modal=document.getElementById('hallazgoModal');
+  if(!modal) return;
+  modal.classList.remove('show');
+  modal.hidden=true;
+  modal.setAttribute('aria-hidden','true');
+  hallazgoBusy=false;
+}
+async function enviarHallazgo(){
+  if(hallazgoBusy) return;
+  const u=currentUser();
+  if(!isAdmin(u)){ hallazgoSetErr('Solo el administrador puede reportar hallazgos'); return; }
+  hallazgoSetVal('');
+  hallazgoSetErr('');
+  const tipo=hallazgoTipoSel();
+  const descRaw=document.getElementById('hallazgoDesc') ? document.getElementById('hallazgoDesc').value : '';
+  const desc=String(descRaw||'').trim();
+  /* Validación local distinta del error RPC (hint en ámbar vs rojo). */
+  if(!tipo || (tipo!=='error' && tipo!=='sugerencia')){
+    hallazgoSetVal('Elige Error o Sugerencia.');
+    return;
+  }
+  if(!desc){
+    hallazgoSetVal('Escribe una descripción.');
+    return;
+  }
+  if(desc.length < 5 || desc.length > 2000){
+    hallazgoSetVal('La descripción debe tener entre 5 y 2000 caracteres.');
+    return;
+  }
+  hallazgoBusy=true;
+  const btn=document.getElementById('hallazgoEnviar');
+  if(btn){ btn.disabled=true; btn.textContent='Enviando...'; }
+  try{
+    const {data,error}=await O6Rpc.hallazgoCrear(tipo, desc);
+    if(error && (!data || data.ok==null)){
+      hallazgoSetErr('No se pudo enviar. Revisa tu conexión e inténtalo de nuevo.');
+      return;
+    }
+    if(!data || data.ok!==true){
+      const hint=String((data&&data.hint)||'').trim();
+      hallazgoSetErr(hallazgoMsgHint(data));
+      if(hint==='sesion'){
+        cerrarHallazgo();
+        try{ o6AbrirLoginAdmin(); }catch(e){}
+      }
+      return;
+    }
+    showToast('Gracias, lo revisaremos');
+    cerrarHallazgo();
+  }catch(e){
+    hallazgoSetErr('No se pudo enviar. Revisa tu conexión e inténtalo de nuevo.');
+  }finally{
+    hallazgoBusy=false;
+    if(btn){ btn.disabled=false; btn.textContent='Enviar'; }
+  }
+}
+(function hallazgoBind(){
+  /* Esc, backdrop y Cancelar; contador en vivo. */
+  const modal=document.getElementById('hallazgoModal');
+  if(!modal) return;
+  modal.addEventListener('click', function(e){
+    if(e.target && e.target.hasAttribute && e.target.hasAttribute('data-hallazgo-close')) cerrarHallazgo();
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Escape' && modal.classList.contains('show')) cerrarHallazgo();
+  });
+  const ta=document.getElementById('hallazgoDesc');
+  if(ta) ta.addEventListener('input', function(){ hallazgoContar(); hallazgoSetVal(''); hallazgoSetErr(''); });
+})();
 
 function o6LeerInvToken(){
   try{ return sessionStorage.getItem('familia_inv_token')||''; }catch(e){ return ''; }
