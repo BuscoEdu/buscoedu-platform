@@ -789,7 +789,7 @@ nav{
 <div class="login-screen" id="loginScreen">
   <div class="famly-logo" style="margin-bottom:4px">FAMLY</div><!-- v6d D8 · restyle clay: marca entrada -->
   <h2 style="margin-bottom:16px">Entrar</h2>
-  <!-- MF O2: nick → alias+PIN (sin listar nombres hasta después del PIN). -->
+  <!-- Ola 7 ítem 1: nick → select integrantes + PIN (sin datos de casa antes del apodo). -->
   <div id="loginPasoNick">
     <div class="form-group" style="width:100%;max-width:320px"><label>Apodo de la familia</label>
       <input id="loginNick" autocomplete="organization" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" placeholder="Apodo de tu familia" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation">
@@ -797,11 +797,19 @@ nav{
     <button class="btn" style="width:100%;max-width:320px;min-height:44px" type="button" onclick="loginResolverNick()">Continuar</button>
   </div>
   <div id="loginPasoPin" style="display:none;width:100%;max-width:320px">
+    <!-- Ola 7 ítem 1: tras apodo → select integrantes (inicial+nombre) + PIN; alias solo fallback si falta RPC. -->
     <p class="v3-sub" id="loginFamOk" style="margin:0 0 10px;color:#6b7280">Familia encontrada</p>
-    <div class="form-group"><label>Tu alias</label>
+    <div class="form-group" id="loginIntegranteWrap">
+      <label for="loginIntegrante">¿Quién eres?</label>
+      <select id="loginIntegrante" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation" aria-label="Elige quién eres">
+        <option value="">Elige tu nombre</option>
+      </select>
+    </div>
+    <p id="loginEmptyHint" class="v3-sub" style="display:none;margin:0 0 10px;color:#b91c1c" role="status"></p>
+    <div class="form-group" id="loginAliasWrap" style="display:none"><label for="loginAlias">Tu alias</label>
       <input id="loginAlias" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="16" placeholder="ej. juanes" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation">
     </div>
-    <div class="form-group"><label>PIN</label>
+    <div class="form-group"><label for="loginPin">PIN</label>
       <input id="loginPin" type="password" placeholder="PIN" maxlength="8" inputmode="numeric" autocomplete="current-password" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation">
     </div>
     <button class="btn" style="width:100%;min-height:44px" type="button" onclick="doLogin()">Entrar</button>
@@ -863,8 +871,9 @@ nav{
       <h2 class="o6-h">Listo</h2>
       <p class="o6-sub">Tu familia está lista. Tú entras con email y clave. Los demás, con el apodo de la familia, su alias y su PIN.</p>
       <div class="o6-card">
-        <button type="button" class="o6-btn" onclick="o6Mostrar('panel')">Administrar personas</button>
-        <button type="button" class="o6-btn sec" onclick="o6IrEntradaMiembro()">Ir a la entrada</button>
+        <!-- Ola 7 ítem 3: CTA primario entra a mainApp con sesión admin (no al login). -->
+        <button type="button" class="o6-btn" onclick="o6EntrarApp()">Entrar a la app</button>
+        <button type="button" class="o6-btn sec" onclick="o6Mostrar('panel')">Administrar personas</button>
       </div>
     </div>
 
@@ -898,12 +907,13 @@ nav{
         <div class="o6-field"><label for="o6MemAlias">Alias</label>
           <input id="o6MemAlias" maxlength="16" autocapitalize="none" autocomplete="off"></div>
         <div class="o6-field"><label for="o6MemRol">Rol</label>
-          <select id="o6MemRol"><option value="padre">Padre/Madre</option><option value="hijo">Hijo/Hija</option></select></div>
+          <select id="o6MemRol"><option value="hijo">Hijo/Hija</option><option value="padre">Padre/Madre</option></select></div>
         <div class="o6-field"><label for="o6MemPin">PIN</label>
           <input id="o6MemPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="4–8 dígitos"></div>
         <p class="o6-err" id="o6MemErr" role="alert"></p>
         <button type="button" class="o6-btn" id="o6BtnMemCrear" onclick="o6MiembroCrear()">Añadir</button>
-        <button type="button" class="o6-btn sec" onclick="o6IrEntradaMiembro()">Listo · ir a entrar</button>
+        <!-- Ola 7 ítem 3: al terminar de añadir personas, entrar con sesión admin. -->
+        <button type="button" class="o6-btn" onclick="o6EntrarApp()">Entrar a la app</button>
       </div>
     </div>
   </div>
@@ -1389,6 +1399,8 @@ let state={currentUserId:null,members:[],tasks:[],rewards:[],history:[],config:{
 let notifPanelOpen=false;
 /* mf O3/O4 fix: bandera anti doble clic de la entrada (nick→alias→PIN); antes no estaba declarada y «Continuar» lanzaba ReferenceError. */
 let loginBusy=false;
+/* Ola 7: true = RPC O7 ausente → camino viejo alias+familia_rpc_login_miembro. */
+let loginFallbackAlias=false;
 let notifSeenIds=[];
 let pendingTaskId=null;
 let pendingTransferId=null;
@@ -4547,43 +4559,157 @@ async function consumeDeepLink(){
 function loginCambiarFamilia(){
   /* mf O4 D5: al cambiar de casa se limpia el token de sesión. */
   loginFamId=null; state.familiaId=null;
+  loginFallbackAlias=false;
   limpiarTokenFamilia();
   document.getElementById('loginPasoNick').style.display='';
   document.getElementById('loginPasoPin').style.display='none';
+  const pin=document.getElementById('loginPin'); if(pin) pin.value='';
+  const sel=document.getElementById('loginIntegrante'); if(sel) sel.innerHTML='<option value="">Elige tu nombre</option>';
+  const hint=document.getElementById('loginEmptyHint'); if(hint){ hint.style.display='none'; hint.textContent=''; }
+  const nick=document.getElementById('loginNick'); if(nick) nick.value='';
   try{localStorage.removeItem('familia_nick');}catch(e){}
   try{localStorage.removeItem('familia_current');localStorage.removeItem('familia_fid');}catch(e){}
 }
+function loginRpcAusente(err){
+  /* Ola 7: RPC O7 no desplegada (404 / PGRST202 / 42883) → fallback alias. */
+  if(!err) return false;
+  if(typeof rpcLinkAusente==='function' && rpcLinkAusente(err)) return true;
+  const c=String(err.code||''), st=String(err.status||err.statusCode||'');
+  const m=String(err.message||'')+' '+String(err.details||'');
+  return c==='PGRST202'||c==='42883'||st==='404'||/404|could not find the function|function .* does not exist|schema cache/i.test(m);
+}
+function loginMsgRateLimit(data,error){
+  /* Rate-limit: hint bloqueado (jsonb) o error de red; mensaje amable ≠ vacío. */
+  const h=String((data&&data.hint)||'');
+  if(h==='bloqueado') return String((data&&data.mensaje)||'').trim() || 'Demasiados intentos. Espera un momento e inténtalo de nuevo.';
+  if(error){
+    const m=String(error.message||'')+' '+String(error.hint||'');
+    if(/rate|limit|too many|429|bloqueado/i.test(m)) return 'Demasiados intentos. Espera un momento e inténtalo de nuevo.';
+  }
+  return '';
+}
+function loginPintarIntegrantes(rows){
+  /* Rellena #loginIntegrante con inicial · nombre (sin avatar; contrato O7). */
+  const sel=document.getElementById('loginIntegrante');
+  const wrap=document.getElementById('loginIntegranteWrap');
+  const aliasWrap=document.getElementById('loginAliasWrap');
+  const hint=document.getElementById('loginEmptyHint');
+  if(wrap) wrap.style.display='';
+  if(aliasWrap) aliasWrap.style.display='none';
+  const list=Array.isArray(rows)?rows:[];
+  if(!list.length){
+    if(sel){ sel.innerHTML='<option value="" disabled selected>No hay personas</option>'; sel.disabled=true; }
+    if(hint){ hint.style.display='block'; hint.textContent='Esta familia aún no tiene personas. Pide al administrador que te añada.'; }
+    return;
+  }
+  if(hint){ hint.style.display='none'; hint.textContent=''; }
+  if(sel){
+    sel.disabled=false;
+    sel.innerHTML='<option value="">Elige tu nombre</option>'+list.map(function(m){
+      const id=m.miembro_id!=null?m.miembro_id:m.id;
+      const nom=String(m.nombre||('#'+id));
+      const ini=String(m.inicial||nom.charAt(0)||'?').toUpperCase().slice(0,1);
+      return '<option value="'+esc(id)+'">'+esc(ini)+' · '+esc(nom)+'</option>';
+    }).join('');
+  }
+}
+function loginMostrarPasoPinSelect(){
+  document.getElementById('loginPasoNick').style.display='none';
+  document.getElementById('loginPasoPin').style.display='block';
+  const wrap=document.getElementById('loginIntegranteWrap'); if(wrap) wrap.style.display='';
+  const aliasWrap=document.getElementById('loginAliasWrap'); if(aliasWrap) aliasWrap.style.display='none';
+  const sel=document.getElementById('loginIntegrante'); if(sel&&!sel.disabled) try{sel.focus();}catch(e){}
+}
+function loginMostrarPasoPinAlias(){
+  /* Fallback legacy: alias tipado + PIN (si falta familia_rpc_miembros_por_nick). */
+  loginFallbackAlias=true;
+  document.getElementById('loginPasoNick').style.display='none';
+  document.getElementById('loginPasoPin').style.display='block';
+  const wrap=document.getElementById('loginIntegranteWrap'); if(wrap) wrap.style.display='none';
+  const aliasWrap=document.getElementById('loginAliasWrap'); if(aliasWrap) aliasWrap.style.display='';
+  const hint=document.getElementById('loginEmptyHint'); if(hint){ hint.style.display='none'; hint.textContent=''; }
+  const al=document.getElementById('loginAlias');
+  if(al){ try{const s=localStorage.getItem('familia_alias')||''; if(s) al.value=s;}catch(e){} try{al.focus();}catch(e){} }
+}
+async function loginResolverNickLegacy(nick){
+  /* Camino O2: resolver_nickname → alias+PIN (solo si RPC O7 ausente). */
+  const {data,error}=await supabase.rpc('familia_rpc_resolver_nickname',{p_nickname:nick});
+  if(error) return showToast(msgErrorBD(error));
+  if(!data||!data.ok) return showToast('No encontramos esa familia');
+  loginFamId=+data.familia_id;
+  state.familiaId=loginFamId;
+  try{localStorage.setItem('familia_nick',nick.toLowerCase());}catch(e){}
+  loginMostrarPasoPinAlias();
+}
 async function loginResolverNick(){
+  /* Ola 7 ítem 1: familia_rpc_miembros_por_nick(p_nickname) → select; fallback si RPC falta. */
   if(loginBusy) return;
   const nick=(document.getElementById('loginNick').value||'').trim();
   if(nick.length<5) return showToast('Escribe el apodo de la familia');
   loginBusy=true;
   try{
-    const {data,error}=await supabase.rpc('familia_rpc_resolver_nickname',{p_nickname:nick});
-    if(error) return showToast(msgErrorBD(error));
-    if(!data||!data.ok) return showToast('No encontramos esa familia');
-    loginFamId=+data.familia_id;
+    const {data,error}=await supabase.rpc('familia_rpc_miembros_por_nick',{p_nickname:nick});
+    if(error){
+      if(loginRpcAusente(error)){ await loginResolverNickLegacy(nick); return; }
+      const rl=loginMsgRateLimit(null,error);
+      if(rl) return showToast(rl);
+      return showToast(msgErrorBD(error)||'No se pudo comprobar el apodo. Inténtalo de nuevo.');
+    }
+    let d=data;
+    if(typeof d==='string'){ try{d=JSON.parse(d);}catch(e){d=null;} }
+    if(!d||d.ok!==true){
+      const rl=loginMsgRateLimit(d,null);
+      if(rl) return showToast(rl);
+      const h=String((d&&d.hint)||'');
+      if(h==='nick_invalido') return showToast('Escribe el apodo de la familia');
+      return showToast('No encontramos esa familia');
+    }
+    loginFallbackAlias=false;
+    loginFamId=+d.familia_id;
     state.familiaId=loginFamId;
     try{localStorage.setItem('familia_nick',nick.toLowerCase());}catch(e){}
-    document.getElementById('loginPasoNick').style.display='none';
-    document.getElementById('loginPasoPin').style.display='block';
-    const al=document.getElementById('loginAlias'); if(al){ const s=localStorage.getItem('familia_alias')||''; if(s) al.value=s; al.focus(); }
+    loginPintarIntegrantes(d.miembros||[]);
+    loginMostrarPasoPinSelect();
   }finally{loginBusy=false;}
 }
 async function doLogin(){
+  /* Ola 7: login_miembro_id(fid, miembro_id, pin); fallback login_miembro(alias,pin). */
   if(loginBusy) return;
   if(!loginFamId&&!state.familiaId) return showToast('Indica primero el apodo de la familia');
   const fid=loginFamId||state.familiaId;
-  const alias=(document.getElementById('loginAlias').value||'').trim();
   const pin=document.getElementById('loginPin').value;
-  if(!alias||!pin) return showToast('Escribe tu alias y PIN');
+  if(loginFallbackAlias){
+    const alias=(document.getElementById('loginAlias').value||'').trim();
+    if(!alias||!pin) return showToast('Escribe tu alias y PIN');
+    loginBusy=true;
+    try{
+      const {data,error}=await supabase.rpc('familia_rpc_login_miembro',{p_familia_id:fid,p_alias:alias,p_pin:pin});
+      if(error) return showToast(msgErrorBD(error));
+      if(!data||!data.ok) return showToast((data&&data.mensaje)||'Datos incorrectos');
+      try{ localStorage.setItem('familia_alias',alias.toLowerCase()); }catch(e){}
+      if(data.token){ guardarTokenFamilia(data.token); supabase=crearClienteSupabase(); }
+      state.familiaId=+data.familia_id;
+      enterAs(+data.miembro_id);
+      if(data.pin_debil) setTimeout(()=>showToast('Tu PIN es débil: cámbialo en tu perfil (evita oooo/0000/1234)'),800);
+    }finally{loginBusy=false;}
+    return;
+  }
+  const mid=+(document.getElementById('loginIntegrante')&&document.getElementById('loginIntegrante').value);
+  if(!mid) return showToast('Elige quién eres');
+  if(!pin) return showToast('Escribe tu PIN');
   loginBusy=true;
   try{
-    const {data,error}=await supabase.rpc('familia_rpc_login_miembro',{p_familia_id:fid,p_alias:alias,p_pin:pin});
-    if(error) return showToast(msgErrorBD(error));
+    const {data,error}=await supabase.rpc('familia_rpc_login_miembro_id',{p_familia_id:fid,p_miembro_id:mid,p_pin:pin});
+    if(error){
+      if(loginRpcAusente(error)){
+        /* RPC login_id ausente: pedir alias y reintentar vía legacy. */
+        loginMostrarPasoPinAlias();
+        return showToast('Escribe tu alias para entrar');
+      }
+      return showToast(msgErrorBD(error));
+    }
     if(!data||!data.ok) return showToast((data&&data.mensaje)||'Datos incorrectos');
-    try{ localStorage.setItem('familia_alias',alias.toLowerCase()); }catch(e){}
-    /* mf O4 D5: token de familia_rpc_login_miembro → sessionStorage + header del cliente. */
+    /* Éxito = misma vía que login miembro: token + familia_id + enterAs(miembro_id). */
     if(data.token){ guardarTokenFamilia(data.token); supabase=crearClienteSupabase(); }
     state.familiaId=+data.familia_id;
     enterAs(+data.miembro_id);
@@ -4603,11 +4729,9 @@ function enterAs(id){
 }
 
 function fillLoginMembers(){
-  /* MF: ya no hay desplegable de nombres en el login. */
+  /* Ola 7 O1.1: apodo vacío al abrir; sin prellenar nick ni listar integrantes antes de Continuar. */
   const nick=document.getElementById('loginNick');
-  if(nick&&!nick.value){
-    try{const s=localStorage.getItem('familia_nick'); if(s) nick.value=s;}catch(e){}
-  }
+  if(nick) nick.value='';
 }
 
 /* =============================================================================
@@ -4632,7 +4756,7 @@ function fillLoginMembers(){
 const O6_NICK_RE=/^[a-z0-9_-]{5,20}$/;
 const O6_MAX_MIEMBROS=10;
 let o6Busy=false;
-let o6Draft={email:'',clave:''};
+let o6Draft={email:'',clave:'',miembroId:null,entrarAppTrasLogin:false};
 let o6MiembrosCache=[];
 
 function o6RpcPayload(data){
@@ -4897,7 +5021,11 @@ function o6Mostrar(vista){
   const map={load:'o6VistaLoad',error:'o6VistaError',registro:'o6VistaRegistro',familia:'o6VistaFamilia',resumen:'o6VistaResumen',adminLogin:'o6VistaAdminLogin',panel:'o6VistaPanel'};
   const tid=map[vista];
   if(tid){ const t=document.getElementById(tid); if(t) t.style.display='block'; }
-  if(vista==='panel') o6CargarMiembros();
+  if(vista==='panel'){
+    /* Ola 7 ítem 2: alta en panel siempre arranca con rol Hijo (editar existentes no pasa por aquí). */
+    const rolEl=document.getElementById('o6MemRol'); if(rolEl && !rolEl.disabled) rolEl.value='hijo';
+    o6CargarMiembros();
+  }
 }
 function o6Ocultar(){
   const root=o6RootEl(); if(root) root.classList.remove('show');
@@ -4910,6 +5038,27 @@ function o6IrEntradaMiembro(){
   const pp=document.getElementById('loginPasoPin');
   if(pn) pn.style.display='';
   if(pp) pp.style.display='none';
+}
+/* Ola 7 ítem 3: «Entrar a la app» — reutiliza sesión admin (token x-familia-token + familia_id +
+   miembro_id de admin_registrar/admin_login → misma familia_sesiones que login miembro).
+   Si faltan campos → fallback login admin con email prellenado (sin inventar API). */
+function o6EntrarApp(){
+  const tok=leerTokenFamilia();
+  const mid=Number(o6Draft.miembroId)||0;
+  if(tok && mid){
+    o6Ocultar();
+    const login=document.getElementById('loginScreen');
+    if(login) login.style.display='none';
+    enterAs(mid);
+    return;
+  }
+  o6Draft.entrarAppTrasLogin=true;
+  o6SetErr('o6AdminErr','');
+  const em=document.getElementById('o6AdminEmail');
+  if(em) em.value=o6Draft.email||'';
+  const cl=document.getElementById('o6AdminClave');
+  if(cl) cl.value='';
+  o6Mostrar('adminLogin');
 }
 function o6AbrirLoginAdmin(){
   o6SetErr('o6AdminErr','');
@@ -5010,10 +5159,11 @@ async function o6RegistrarAdmin(){
       }
       return;
     }
-    /* Éxito: limpiar inv; sesión admin; nick local. Registrar no trae miembros[]. */
+    /* Éxito: limpiar inv; sesión admin (token+familia_id+miembro_id = misma vía que adminLogin). */
     o6LimpiarInvToken();
     if(data.token){ guardarTokenFamilia(data.token); supabase=crearClienteSupabase(); }
     if(data.familia_id){ state.familiaId=+data.familia_id; try{localStorage.setItem('familia_fid',String(data.familia_id));}catch(e){} }
+    if(data.miembro_id){ o6Draft.miembroId=+data.miembro_id; }
     if(nick){ try{localStorage.setItem('familia_nick',nick);}catch(e){} }
     o6Draft.clave=''; /* no dejar clave en memoria de draft */
     o6Mostrar('resumen');
@@ -5046,8 +5196,18 @@ async function o6AdminLogin(){
     }
     if(data.token){ guardarTokenFamilia(data.token); supabase=crearClienteSupabase(); }
     if(data.familia_id){ state.familiaId=+data.familia_id; try{localStorage.setItem('familia_fid',String(data.familia_id));}catch(e){} }
+    if(data.miembro_id){ o6Draft.miembroId=+data.miembro_id; }
     /* Login trae miembros[]; pintar ya y refrescar con miembros_listar en panel. */
     if(data.miembros && Array.isArray(data.miembros)) o6MiembrosCache=data.miembros;
+    /* Ola 7: si veníamos del CTA Entrar a la app sin sesión → mainApp (no panel). */
+    if(o6Draft.entrarAppTrasLogin && data.miembro_id){
+      o6Draft.entrarAppTrasLogin=false;
+      o6Ocultar();
+      const login=document.getElementById('loginScreen');
+      if(login) login.style.display='none';
+      enterAs(+data.miembro_id);
+      return;
+    }
     o6Mostrar('panel');
   }catch(e){
     o6SetErr('o6AdminErr', o6MsgLoginFail());
@@ -5169,6 +5329,8 @@ async function o6MiembroCrear(){
     document.getElementById('o6MemNombre').value='';
     document.getElementById('o6MemAlias').value='';
     document.getElementById('o6MemPin').value='';
+    /* Ola 7 ítem 2: tras alta, el formulario vuelve a default Hijo (no altera existentes). */
+    const rolEl=document.getElementById('o6MemRol'); if(rolEl) rolEl.value='hijo';
     if(data.miembro) o6MiembrosCache.push(data.miembro);
     else if(data.miembros) o6MiembrosCache=data.miembros;
     await o6CargarMiembros();
@@ -5669,10 +5831,7 @@ async function init(){
     /* mf O4 D5: sin token de sesión no se restaura en silencio (haría fallar link_emitir → legacy). */
     if(!leerTokenFamilia()){
       try{localStorage.removeItem('familia_current');}catch(e){}
-      if(localStorage.getItem('familia_nick')){
-        document.getElementById('loginPasoNick').style.display='none';
-        document.getElementById('loginPasoPin').style.display='block';
-      }
+      /* Ola 7: sin sesión no saltar a PIN (hace falta resolver apodo → select). */
     } else {
     // Revalidar sesión silenciosa: cargar solo si el miembro sigue en esa casa.
     const {data:mm}=await eqFam(supabase.from('familia_miembros').select('id')).eq('id',saved).maybeSingle();
@@ -5680,10 +5839,7 @@ async function init(){
     else {
       try{localStorage.removeItem('familia_current');}catch(e){}
       limpiarTokenFamilia();
-      if(localStorage.getItem('familia_nick')){
-        document.getElementById('loginPasoNick').style.display='none';
-        document.getElementById('loginPasoPin').style.display='block';
-      }
+      /* Ola 7: miembro ausente → quedarse en paso apodo (select requiere RPC). */
     }
     }
   } else if(localStorage.getItem('familia_nick')){
