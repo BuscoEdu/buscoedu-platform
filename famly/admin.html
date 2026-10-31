@@ -52,14 +52,7 @@ main{padding:16px}
 </style>
 </head>
 <body>
-<div class="login" id="login">
-  <h1>🛡️ Admin</h1>
-  <input type="password" id="pass" placeholder="Clave" autofocus>
-  <button onclick="entrar()">Entrar</button>
-  <p id="err" style="color:#ef4444;font-size:.85rem;margin-top:8px;text-align:center"></p>
-</div>
-
-<div class="app" id="app">
+<div class="app" id="app" style="display:block">
   <header>
     <h1>FAMLY Admin</h1>
     <button onclick="salir()">Salir</button>
@@ -97,14 +90,7 @@ const PASS='famly-super-2026';
 const sb=window.supabase.createClient(URL,KEY);
 let fams=[], mems=[], halls=[], admins=[], cfgs=[];
 
-function entrar(){
-  if(document.getElementById('pass').value!==PASS){document.getElementById('err').textContent='Clave incorrecta';return;}
-  sessionStorage.setItem('sa','1');
-  document.getElementById('login').style.display='none';
-  document.getElementById('app').style.display='block';
-  load();
-}
-function salir(){sessionStorage.removeItem('sa');location.reload();}
+function salir(){location.reload();}
 function sec(id,btn){
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
@@ -212,11 +198,7 @@ function renderAdm(){
   }).join('');
 }
 
-if(sessionStorage.getItem('sa')==='1'){
-  document.getElementById('login').style.display='none';
-  document.getElementById('app').style.display='block';
-  load();
-}
+load();
 </script>
 </body>
 </html>
