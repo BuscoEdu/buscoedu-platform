@@ -185,10 +185,10 @@ h3{margin-bottom:12px}
     <button class="btn secondary" style="width:100%;margin-top:8px;min-height:44px" type="button" onclick="loginCambiarFamilia()">Cambiar de familia</button>
   </div>
   <!-- v6e E-LG1: no mostrar ningún código/contraseña en el login -->
-  <button type="button" class="o6-link" id="o6LinkDueño" onclick="o6AbrirLoginAdmin()">Soy dueño · email y clave</button>
+  <button type="button" class="o6-link" id="o6LinkDueño" onclick="o6AbrirLoginAdmin()">Soy administrador · email y clave</button>
 </div>
 
-<!-- O6 · flujo invitación /i/<token> + panel admin dueño (solo famly) -->
+<!-- O6 · flujo invitación /i/<token> + panel admin dueño (solo famly) · copy «Dueño»→«Administrador» solo en textos visibles (ids/BD intactos) -->
 <div class="o6-root" id="o6Root" aria-live="polite">
   <div class="o6-wrap">
     <div class="o6-brand">FAMLY</div>
@@ -203,7 +203,7 @@ h3{margin-bottom:12px}
 
     <div id="o6VistaRegistro" style="display:none">
       <h2 class="o6-h">Crea tu cuenta</h2>
-      <p class="o6-sub">Crea tu cuenta de dueño. Email y clave. No te pedimos confirmar el correo.</p>
+      <p class="o6-sub">Crea tu cuenta de administrador. Email y clave. No te pedimos confirmar el correo.</p>
       <div class="o6-card">
         <div class="o6-field"><label for="o6Email">Email</label>
           <input id="o6Email" type="email" autocomplete="email" inputmode="email" maxlength="120" placeholder="tu@correo.com"></div>
@@ -246,8 +246,8 @@ h3{margin-bottom:12px}
     </div>
 
     <div id="o6VistaAdminLogin" style="display:none">
-      <h2 class="o6-h">Dueño</h2>
-      <p class="o6-sub">Email y clave de dueño.</p>
+      <h2 class="o6-h">Administrador</h2>
+      <p class="o6-sub">Email y clave de administrador.</p>
       <div class="o6-card">
         <div class="o6-field"><label for="o6AdminEmail">Email</label>
           <input id="o6AdminEmail" type="email" autocomplete="username" maxlength="120"></div>
