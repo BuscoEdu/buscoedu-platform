@@ -446,7 +446,9 @@ header,.v3-head,.v4-panel-top{
   border-bottom:1px solid var(--border);
 }
 header{padding:12px 14px}
-.v3-head{padding:10px 14px}
+.v3-head{padding:10px 14px;display:flex;flex-direction:column;align-items:stretch;gap:8px}
+.v3-head-top{display:flex;align-items:center;gap:10px;min-width:0;width:100%}
+.v3-head-bot{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;width:100%}
 .header-top #familyTitle,.v4-fam,#familyTitle{
   font-weight:800;
   letter-spacing:.06em;
@@ -620,7 +622,7 @@ nav{
 .v3-nav button.on .v3-ico-img{box-shadow:var(--clay-shadow,0 8px 20px rgba(31,26,77,.10))}
 .v3-icobtn .v3-ico-img{width:28px;height:28px;object-fit:contain;display:block}
 .famly-emoji-ico{width:28px;height:28px;vertical-align:-6px;object-fit:contain;display:inline-block;margin-right:4px}
-.v3-card .famly-emoji-ico{width:36px;height:36px;margin-right:8px;flex:none}
+.v3-card .famly-emoji-ico{width:40px;height:40px;margin-right:8px;flex:none}
 
 
 /* Pantallas · tipografía y aire */
@@ -1078,7 +1080,7 @@ nav{
   <button class="btn" id="btnCreateTask" style="width:100%" onclick="reviewTask()">Crear</button>
   </div>
   <!-- Hotfix v5: al cerrar se apaga el modo «Validar hecha», para que no quede pegado a la siguiente creación. -->
-  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="validateMode=false;closeModal('modal-tarea')">Cerrar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="validateMode=false;closeModal('modal-tarea')">← Volver</button>
 </div></div>
 
 <div class="modal" id="modal-tarea-revisar"><div class="modal-content">
@@ -1106,7 +1108,7 @@ nav{
   <div class="form-group reward-edit"><label>Icono</label><div class="emoji-grid" id="rewardEmojiGrid"></div><input type="hidden" id="rewardEmoji" value="🎁"></div>
   <div id="rewardFalta" style="margin-bottom:12px"></div>
   <div class="actions" id="rewardActions"></div>
-  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-premio')">Cerrar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-premio')">← Volver</button>
 </div></div>
 
 <div class="modal" id="modal-elemento"><div class="modal-content">
@@ -1142,7 +1144,7 @@ nav{
   <div class="form-group"><label>Fecha de nacimiento (opcional)</label><input type="date" id="newMemberBirth"></div>
   <p id="newMemberProfile" style="font-size:.85rem;color:var(--muted);margin-bottom:12px"></p>
   <button class="btn" style="width:100%" onclick="createMember()">Guardar</button>
-  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-miembro')">Cerrar</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-miembro')">← Volver</button>
 </div></div>
 
 <div class="modal" id="modal-evidencia"><div class="modal-content"><h3>Ya la hice</h3>
@@ -5764,12 +5766,15 @@ init();
 #v3App.v3-on{display:flex}
 /* Cabecera con íconos de línea blanca. */
 /* v4 · ajuste 5: cabecera alegre de la v1 (degradado violeta) con avatar, nombre, rol, frase y puntos. */
-.v3-head{background:var(--v6t-head,linear-gradient(135deg,#6366f1,#8b5cf6));color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;flex:none;border-radius:0 0 20px 20px}
+/* Restyle Ola 6 · cabecera admin en 2 niveles: arriba identidad, abajo acciones centradas. */
+.v3-head{background:var(--v6t-head,linear-gradient(135deg,#6366f1,#8b5cf6));color:#fff;padding:12px 14px;display:flex;flex-direction:column;align-items:stretch;gap:8px;flex:none;border-radius:0 0 20px 20px}
+.v3-head-top{display:flex;align-items:center;gap:10px;min-width:0;width:100%}
+.v3-head-bot{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;width:100%}
 .v4-av{width:44px;height:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex:none;overflow:hidden;color:#1e293b}
 .v4-who{flex:1;min-width:0}.v4-who b{display:block;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .v4-who small{display:block;font-size:.75rem;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .v4-fam{font-size:.72rem;opacity:.85}
-.v3-head .v3-pts{background:rgba(255,255,255,.2);padding:6px 10px;border-radius:999px}
+.v3-head .v3-pts{background:rgba(255,255,255,.2);padding:6px 12px;border-radius:999px;min-height:44px;display:inline-flex;align-items:center}
 /* v4 · ajuste 5: paleta de estados (gris pendiente, verde hecho, amarillo esperando, naranja suave devuelta, rojo SOLO vencida sin enviar). */
 .v3-card.esp{border-left-color:#ca8a04}.v3-card.dev{border-left-color:#fb923c}
 .v3-st-esp{color:#a16207}.v3-st-dev{color:#b45309;font-weight:600}
@@ -5777,7 +5782,7 @@ init();
 .v4-panel{position:fixed;inset:0;background:#f8fafc;z-index:2400;display:none;flex-direction:column}
 .v4-panel.on{display:flex}
 .v4-panel-top{background:var(--v6t-head,linear-gradient(135deg,#6366f1,#8b5cf6));color:#fff;padding:12px 16px;display:flex;gap:10px;align-items:center}
-.v4-panel-top button{background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer}
+.v4-panel-top button{background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer;min-height:44px;min-width:44px;font-weight:600}
 .v4-panel-body{flex:1;overflow-y:auto;max-width:720px;width:100%;margin:0 auto}
 .v4-panel-body .section{display:block!important}
 /* En modo v3 los modales de la v1 deben quedar por encima del panel y de la hoja. */
@@ -5882,10 +5887,17 @@ body.v3-modo.tema-rosa,body.v3-modo.tema-rosa #v3App{--v3-cta:#be185d;--v6t-head
 .v6-mfila{display:grid;grid-template-columns:minmax(0,1fr) 96px auto;gap:8px;align-items:center;margin:6px 0}.v6-mfila .v3-grow{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.v6-mfila input[type=number]{width:96px}.v6-mp{display:flex!important;gap:4px;align-items:center;margin:0!important;color:#1e293b!important;white-space:nowrap}
 .v6-mb{font-size:.72rem;font-weight:700;border-radius:6px;padding:1px 6px;white-space:nowrap;color:#fff;background:#6b7280}.v6-mb.cargada{background:#b45309}.v6-mb.liberada{background:#15803d}.v6-mb.anulada{background:#b91c1c}.v6-vtag.err{background:#b91c1c}
 .v3-card.ok{border-left-color:var(--v3-ok)}.v3-card.err{border-left-color:var(--v3-err)}.v3-card.rev{border-left-color:var(--v3-azul)}
-/* v6e E-RV1: Por revisar apila título → chips → horas → botones full (thumb zone 390) */
-.v3-card.rev-stack{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+/* v6e E-RV1 + Restyle Ola 6 ítem 4: Revisar en 2 filas — arriba ícono+título+chips+hora; abajo acciones. */
+.v3-card.rev-stack{display:grid;grid-template-columns:auto 1fr;align-items:start;gap:8px 10px}
+.v3-card.rev-stack > .famly-emoji-ico{grid-column:1;grid-row:1;align-self:center}
+.v3-card.rev-stack > .v3-grow{grid-column:2;grid-row:1;min-width:0}
+.v3-card.rev-stack > .v3-row,
+.v3-card.rev-stack > .v3-cta,
+.v3-card.rev-stack > .v3-btn2,
+.v3-card.rev-stack > .v3-full,
+.v3-card.rev-stack > .v3-sub{grid-column:1 / -1}
 .v3-card.rev-stack .v3-row{width:100%;display:flex;flex-wrap:wrap;gap:8px}
-.v3-card.rev-stack .v3-cta,.v3-card.rev-stack .v3-btn2,.v3-card.rev-stack .v3-full{flex:1 1 100%;width:100%;min-height:44px;box-sizing:border-box}
+.v3-card.rev-stack .v3-cta,.v3-card.rev-stack .v3-btn2,.v3-card.rev-stack .v3-full{flex:1 1 calc(50% - 4px);min-width:120px;min-height:44px;box-sizing:border-box}
 
 /* v6e E-AG1 Agenda: web + 390 (lista en semana; targets ≥44px; sin hover-only). */
 .v3-ag-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
@@ -5935,13 +5947,19 @@ body.v3-modo.tema-rosa,body.v3-modo.tema-rosa #v3App{--v3-cta:#be185d;--v6t-head
 .v3-btn2.err{color:var(--v3-err);border-color:#fecaca}
 .v3-full{width:100%}
 .v3-row{display:flex;gap:8px;flex-wrap:wrap}
+/* Restyle Ola 6 ítem 2: + Rápida · Nueva · Filtros · Multas en UNA fila a 390. */
+.v3-hoy-acciones{display:flex;flex-wrap:nowrap;gap:6px;margin-bottom:12px;align-items:stretch}
+.v3-hoy-acciones .v3-cta,.v3-hoy-acciones .v3-btn2{flex:1 1 0;min-width:0;min-height:44px;padding:8px 4px;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box}
+.v3-hoy-acciones .v3-ico{width:14px;height:14px;vertical-align:-2px}
 /* Barra retro de premios: 20 cuadritos pegados. */
 .v3-bar{display:grid;grid-template-columns:repeat(20,1fr);gap:1px;margin:8px 0 4px}
 .v3-bar i{height:12px;background:var(--v3-vacio)}
 .v3-bar i.f{background:var(--v3-gris)}.v3-bar.full i{background:var(--v3-ok)}
 /* Selector segmentado (Semana | Total, Tarea | Deber). */
-.v3-seg{display:inline-flex;border:1px solid #cbd5e1;border-radius:10px;overflow:hidden;margin-bottom:10px}
-.v3-seg button{background:#fff;border:0;padding:7px 14px;cursor:pointer;font-size:.85rem}
+/* Restyle Ola 6 · Semana/Total centrado en Ranking. */
+.v3-seg{display:inline-flex;border:1px solid #cbd5e1;border-radius:10px;overflow:hidden;margin:0 auto 10px;justify-content:center}
+#v4Ranking .v3-seg,#v3-ranking .v3-seg{display:flex;width:fit-content;max-width:100%;margin-left:auto;margin-right:auto}
+.v3-seg button{background:#fff;border:0;padding:10px 18px;cursor:pointer;font-size:.85rem;min-height:44px}
 .v3-seg button.on{background:#1f1a4d;color:#fff}
 /* Navegación inferior con íconos de línea. */
 .v3-nav{display:flex;justify-content:space-around;background:var(--v6t-nav,#1f1a4d);padding:6px 0 calc(6px + env(safe-area-inset-bottom));flex:none}
@@ -5989,16 +6007,20 @@ details.v3-admin summary{cursor:pointer;font-weight:600}
 
 <div id="v3App" aria-live="polite">
   <!-- Cabecera: familia, saldo, bandeja (padres) y salir. -->
+  <!-- Restyle Ola 6 ítem 5: cabecera en 2 niveles (identidad / acciones centradas). -->
   <div class="v3-head">
-    <div class="v4-av" id="v4Av" aria-hidden="true">👤</div>
-    <div class="v4-who"><span class="v4-fam" id="v3Fam">FAMLY · Familia</span><!-- v6d D8 --><b id="v4Nom"></b><small id="v4Rol"></small><small id="v4Frase"></small></div>
-    <span class="v3-pts" id="v3Pts"></span>
-    <!-- Campana de avisos de la v1 (openNotifs) con ícono de línea. -->
-    <button class="v3-icobtn" id="v4Bell" aria-label="Notificaciones" onclick="FamiliaV3.abrirV1(()=>openNotifs())"></button>
-    <!-- Restyle Ola 3 fix: reportar hallazgo (solo admin) junto a la campana. -->
-    <!-- Restyle Ola 5: hallazgo clay WebP; fallback SVG en pintar(). -->
-    <button class="v3-icobtn" id="v3Hallazgo" type="button" aria-label="Reportar un hallazgo" title="Reportar un hallazgo" onclick="abrirHallazgo()"></button>
-    <button class="v3-icobtn" id="v3InboxBtn" aria-label="Por aprobar" onclick="FamiliaV3.ir('bandeja')"></button>
+    <div class="v3-head-top">
+      <div class="v4-av" id="v4Av" aria-hidden="true">👤</div>
+      <div class="v4-who"><span class="v4-fam" id="v3Fam">FAMLY · Familia</span><!-- v6d D8 --><b id="v4Nom"></b><small id="v4Rol"></small><small id="v4Frase"></small></div>
+    </div>
+    <div class="v3-head-bot">
+      <span class="v3-pts" id="v3Pts"></span>
+      <!-- Campana de avisos de la v1 (openNotifs) con ícono de línea. -->
+      <button class="v3-icobtn" id="v4Bell" aria-label="Notificaciones" onclick="FamiliaV3.abrirV1(()=>openNotifs())"></button>
+      <!-- Restyle Ola 3/5: hallazgo clay WebP; solo admin. -->
+      <button class="v3-icobtn" id="v3Hallazgo" type="button" aria-label="Reportar un hallazgo" title="Reportar un hallazgo" onclick="abrirHallazgo()"></button>
+      <button class="v3-icobtn" id="v3InboxBtn" aria-label="Por aprobar" onclick="FamiliaV3.ir('bandeja')"></button>
+    </div>
   </div>
   <div class="v3-main">
     <section class="v3-sec on" id="v3-hoy"><h2>Hoy</h2><div id="v3Hoy"></div></section>
@@ -6054,6 +6076,8 @@ window.FamiliaV3=(function(){
 
   /* --- Estado propio de la v3 (no se mezcla con el de la v1). --- */
   let seccion='hoy';            // pestaña activa
+  let desdeAdmin=false;         // Restyle Ola 6: Agenda (u otra) abierta desde Administrar familia
+  let abrirAdminAlPintar=false; // Restyle Ola 6: reabrir <details.v3-admin> tras Volver
 
   /* v6e E-DU1 / E-VE1 / E-SU1: menús de tiempo preestablecidos (hora en hora hasta 72 h; reabrir/subasta). */
   function optsDuracionHoras(sel){
@@ -6268,7 +6292,8 @@ window.FamiliaV3=(function(){
     const vv=enVentana(t), vcls=vv?' v6-'+vv:'', vtxt=vv==='dentro'?'<span class="v6-vtag ok">En su hora</span>':vv==='poco'?'<span class="v6-vtag warn">Queda poco</span>':vv==='fuera'?'<span class="v6-vtag err">Se pasó la hora</span>':vv==='antes'?'<span class="v6-vtag v6d-antes-t">Aún no abre'+(t.habilita_en?' | Abre '+esc(new Date(t.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false})):'')+'</span>':'';   // v6d D7 · v6d D20c: «Aún no abre · Abre HH:MM» como texto único
     const obl=esObligatoria(t);
     /* Restyle Ola 5: ícono clay si el emoji de la tarea está mapeado; si no, sin ícono (layout intacto). */
-    const icoT=t.icono&&FAMLY_EMOJI_ICO[t.icono]?famlyEmojiIco(t.icono,{w:36,h:36}):'';
+    /* Restyle Ola 6 ítem 6: tarjetas 40 px (nav 40 / cabecera 28 se mantienen). */
+    const icoT=t.icono&&FAMLY_EMOJI_ICO[t.icono]?famlyEmojiIco(t.icono,{w:40,h:40}):'';
     return `<div class="v3-card ${e.c}${vcls}${obl?' v6b-obl':''}" data-id="${t.id}" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.detalle(${t.id})">
       ${icoT}
       <div class="v3-grow"><div class="v3-t">${esc(t.titulo)}</div>${''/* v6d QA-fix D11: la tarjeta muestra SOLO el nombre; la descripción va en la ficha (detalle) */}
@@ -6369,7 +6394,8 @@ window.FamiliaV3=(function(){
     // «Junto con», entre padres, inmediata, penalización, repetición de deberes).
     // v5 ítem 1: el hijo solicita tareas (y pasa a un hermano) desde Hoy, no desde «Yo → Más».
     let hHijo=!admin&&!soloLectura()?`<div class="v3-row" style="margin-bottom:12px"><button class="v3-cta" style="flex:1" onclick="FamiliaV3.hojaSolicitar()">Solicitar tarea</button><button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openSiblingTask())">Para un hermano</button></div>`:'';
-    let h=hHijo+(admin&&!soloLectura()?`<div class="v3-row" style="margin-bottom:12px"><button class="v3-cta" style="flex:1" onclick="FamiliaV3.crearTarea()">${svg('mas').replace('v3-ico','v3-ico" style="vertical-align:-5px')} Crear</button><button class="v3-btn2" onclick="FamiliaV3.crearCompleto()">Crear completo</button><button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Tareas: filtros, plantillas y borradores')">Filtros</button>${puede('aplicar_multa')||puede('administrar_multas')?'<button class="v3-btn2" onclick="FamiliaV3.hojaMultas()">⚖️ Multas</button>':''/* v6d D9 */}</div>`:'');
+    /* Restyle Ola 6 ítem 2: «+ Rápida» / «Nueva»; 4 CTAs en una fila (.v3-hoy-acciones) a 390. */
+    let h=hHijo+(admin&&!soloLectura()?`<div class="v3-hoy-acciones"><button class="v3-cta" onclick="FamiliaV3.crearTarea()">+ Rápida</button><button class="v3-btn2" onclick="FamiliaV3.crearCompleto()">Nueva</button><button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Tareas: filtros, plantillas y borradores')">Filtros</button>${puede('aplicar_multa')||puede('administrar_multas')?'<button class="v3-btn2" onclick="FamiliaV3.hojaMultas()">Multas</button>':''/* v6d D9 */}</div>`:'');
     // v6c C10b: «Vencidos» va ANTES de «Hoy» (primero en la pantalla). El hijo los ve aquí; el padre también los ve
     // con su acción (v6c C7c) y además siguen en «Revisar».
     if(venc.length) h+=`<h2 style="margin-top:4px">Vencidos</h2>`+venc.map(fila).join('')+(admin?`<p class="v3-sub">${venc.length} en «Revisar».</p>`:'');
@@ -6425,8 +6451,10 @@ window.FamiliaV3=(function(){
     if(v.length){
       h+='<h2 style="margin-top:16px">Vencidos</h2>';
       // F2c: se decide en cualquier estado vencido (por_decidir, pendiente_hijo o formato viejo).
+      /* Restyle Ola 6 ítem 4: vencidas en 2 filas (rev-stack). */
       h+=v.map(t=>{const listo=true;
-        return ficha(t,listo?`<div class="v3-row"><button class="v3-btn2 err" onclick="event.stopPropagation();FamiliaV3.descontar(${t.id})">Descontar${t.pierde_pts?' −'+t.pierde_pts:''}</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.perdonar(${t.id})">Perdonar</button>${t.estado_vencida==='descontada'||t.vencida_origen==='cierre_auto'?`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.reabrir(${t.id})">Reabrir</button>`:''}</div>`:'<span class="v3-sub">Falta que lo vea</span>');}).join('');
+        const html=ficha(t,listo?`<div class="v3-row"><button class="v3-btn2 err" onclick="event.stopPropagation();FamiliaV3.descontar(${t.id})">Descontar${t.pierde_pts?' −'+t.pierde_pts:''}</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.perdonar(${t.id})">Perdonar</button>${t.estado_vencida==='descontada'||t.vencida_origen==='cierre_auto'?`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.reabrir(${t.id})">Reabrir</button>`:''}</div>`:'<span class="v3-sub">Falta que lo vea</span>');
+        return html.replace('class="v3-card ','class="v3-card rev-stack ');}).join('');
     }
     // Premios pedidos por los hijos: Aprobar = familia_rpc_canjear_premio (resta puntos en BD).
     const sol=solicitudesPendientes();
@@ -6589,7 +6617,7 @@ window.FamiliaV3=(function(){
       // v6 Mesada: verde si el TOTAL (incluida la mesada por liberar) alcanza; pedir solo con disponibles (botonPremio).
       const C=Math.max(1,Number(r.costo)||0), T=esPadre(u)?S:mesadaDe(u.id).total, llenos=Math.round(20*Math.min(T,C)/C), full=T>=C;
       const celdas=Array.from({length:20},(_,i)=>`<i class="${i<llenos?'f':''}"></i>`).join('');
-      return `<div class="v3-card" style="display:block"><div class="v3-row" style="justify-content:space-between;align-items:center"><span class="v3-t">${famlyEmojiIco(r.icono||'🎁',{w:36,h:36})} ${esc(r.nombre)}</span><span class="v3-sub">${C} pts</span></div>
+      return `<div class="v3-card" style="display:block"><div class="v3-row" style="justify-content:space-between;align-items:center"><span class="v3-t">${famlyEmojiIco(r.icono||'🎁',{w:40,h:40})} ${esc(r.nombre)}</span><span class="v3-sub">${C} pts</span></div>
         <div class="v3-bar ${full?'full':''}" role="progressbar" aria-valuemin="0" aria-valuemax="${C}" aria-valuenow="${Math.min(S,C)}" aria-label="${Math.min(S,C)} de ${C}">${celdas}</div>
         ${full?`<div class="v3-row" style="justify-content:space-between;align-items:center"><span class="v3-st-ok">${!esPadre(u)&&faltaDisponible(u.id,C)?'Te alcanza con tu mesada':'¡Ya lo puedes canjear!'}</span>${botonPremio(u,r)}</div>${!esPadre(u)&&faltaDisponible(u.id,C)?`<p class="v3-sub" style="margin-top:4px">${esc(faltaDisponible(u.id,C))}</p>`:''}`:`<span class="v3-sub">Te faltan ${C-T} pts</span>`}</div>`;
     }).join('');
@@ -6643,7 +6671,8 @@ window.FamiliaV3=(function(){
     if(admin){
       // v5 ítems 3, 5 y 8 (D1): cuadrícula de 2 columnas, nombres cortos; «Editar tareas» (asignadas, ficha para
       // editar/eliminar) y «Catálogo» (plantillas de la v1 en modo Definiciones). Resetear en rojo, al final y a lo ancho.
-      h+=`<details class="v3-admin"><summary>Administrar familia</summary><div class="v5-grid">
+      /* Restyle Ola 6: si venimos de «← Volver», el bloque admin queda abierto. */
+      h+=`<details class="v3-admin"${abrirAdminAlPintar?' open':''}><summary>Administrar familia</summary><div class="v5-grid">
         <button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Editar tareas')">Editar tareas</button>
         <button class="v3-btn2" onclick="FamiliaV3.catalogo()">Catálogo</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaDeberes()">Deberes</button>
@@ -6651,7 +6680,7 @@ window.FamiliaV3=(function(){
         <button class="v3-btn2" onclick="FamiliaV3.panelV1('section-premios','Premios')">Premios</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>{openNewReward();const s=document.getElementById('rewardTipo');if(s){s.value='hijo';syncRewardParent();}})">Nuevo premio</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaMesadaV6()">Mesada mensual</button>
-        <button class="v3-btn2" onclick="FamiliaV3.ir('agenda')">Agenda</button>
+        <button class="v3-btn2" onclick="FamiliaV3.agendaDesdeAdmin()">Agenda</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openPenalty())">Descuento</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNewMember())">Integrante</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaPin()">PINs</button><button class="v3-btn2" onclick="FamiliaV3.hojaMovil()">📵 Celulares</button>
@@ -6676,6 +6705,7 @@ window.FamiliaV3=(function(){
     h+=selectorTema(u);
     h+=`<button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.salir()">Salir</button>`;
     document.getElementById('v3Yo').innerHTML=h;
+    abrirAdminAlPintar=false;
     ajustarCajasLuego();
   }
 
@@ -8320,7 +8350,9 @@ window.FamiliaV3=(function(){
     else if(agVista==='semana'){const f=new Date(b); f.setDate(f.getDate()-1); tit=a.toLocaleDateString('es-CO',{day:'numeric',month:'short'})+' – '+f.toLocaleDateString('es-CO',{day:'numeric',month:'short'});}
     else tit=agCursor.toLocaleDateString('es-CO',{month:'long',year:'numeric'});
     const puedeCrear=!esPadre(u)&&!soloLectura();
-    box.innerHTML=`<div class="v3-ag-top">${selHijo}
+    /* Restyle Ola 6 ítem 1/O1.3: «← Volver» al menú Administrar familia si se entró desde ahí. */
+    const barAdmin=desdeAdmin?`<div class="v5-volver" style="position:static;top:auto;margin:0 0 10px -0px"><button type="button" onclick="FamiliaV3.volverAdmin()">← Volver</button></div>`:'';
+    box.innerHTML=`${barAdmin}<div class="v3-ag-top">${selHijo}
       <div class="v3-ag-seg" role="tablist">
         <button type="button" class="${agVista==='dia'?'on':''}" onclick="FamiliaV3.agSetVista('dia')">Día</button>
         <button type="button" class="${agVista==='semana'?'on':''}" onclick="FamiliaV3.agSetVista('semana')">Semana</button>
@@ -8511,7 +8543,15 @@ window.FamiliaV3=(function(){
     cerrarHoja(); showToast('Listo'); await cargarAgenda(); pintar();
   }
 
-    function ir(s){seccion=s;pintar();if(s==='yo')cargarHistorial().then(pintar);if(s==='yo'||s==='premios')cargarMesadaEst().then(pintar);if(s==='agenda')cargarAgenda().then(pintar);}
+  /* Restyle Ola 6 ítem 1: salir de sub-opción admin → Yo con Administrar familia abierto. */
+  function abrirAdminMenu(){
+    abrirAdminAlPintar=true;
+    seccion='yo'; pintar();
+    try{const d=document.querySelector('#v3Yo details.v3-admin'); if(d) d.scrollIntoView({block:'nearest'});}catch(e){}
+  }
+  function agendaDesdeAdmin(){desdeAdmin=true; ir('agenda');}
+  function volverAdmin(){desdeAdmin=false; cerrarHoja(); cerrarPanel(); abrirAdminMenu();}
+  function ir(s){if(s!=='agenda') desdeAdmin=false; seccion=s;pintar();if(s==='yo')cargarHistorial().then(pintar);if(s==='yo'||s==='premios')cargarMesadaEst().then(pintar);if(s==='agenda')cargarAgenda().then(pintar);}
   function ranking(m){rkModo=m;pintar();}
   function ordenPremios(){localStorage.setItem('v3_premios_orden',localStorage.getItem('v3_premios_orden')==='desc'?'asc':'desc');pintar();}
   /* --- Administración v3 (MED 4): hojas propias; cada escritura es UNA fila (sin pasos encadenados). --- */
@@ -8757,7 +8797,7 @@ window.FamiliaV3=(function(){
     if(d.ok===false) return showToast('Ya la tomó '+(d.tomada_por||'otro'));
     showToast('¡Es tuya!'); scheduleReload();
   }
-  return {pintarAgenda,cargarAgenda,agSetVista,agNav,agIrDia,agSetHijo,hojaAgendaNueva,agPickCat,agSyncRec,guardarAgenda,hojaAgendaEv,hojaAgendaEditar,agArchivar,agExcepcion,hojaRoles,guardarRolMiembro,togglePermiso,hojaCambiarPin,guardarPinAjeno,liberarParaHacer,reabrir,aceptarSubasta,comprometer,hojaConvertirSerie,convertirSerie,hojaMultas,multaAplicar,hojaMultaEditar,multaGuardar,multaArchivar,noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,_grupoFecha:grupoFecha,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {pintarAgenda,cargarAgenda,agSetVista,agNav,agIrDia,agSetHijo,hojaAgendaNueva,agPickCat,agSyncRec,guardarAgenda,hojaAgendaEv,hojaAgendaEditar,agArchivar,agExcepcion,hojaRoles,guardarRolMiembro,togglePermiso,hojaCambiarPin,guardarPinAjeno,liberarParaHacer,reabrir,aceptarSubasta,comprometer,hojaConvertirSerie,convertirSerie,hojaMultas,multaAplicar,hojaMultaEditar,multaGuardar,multaArchivar,noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,_grupoFecha:grupoFecha,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,agendaDesdeAdmin,volverAdmin,abrirAdminMenu,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 <script>
