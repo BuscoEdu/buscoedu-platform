@@ -690,3 +690,5 @@ Bitácora: 2026-10-24 — F0 v3: aprobar, cerrar y rechazar una tarea ya no pone
 - 2026-10-30 · qué: O6 FE alineado a contrato BE (O6Rpc hints jsonb, login miembros[], tope 10 deshabilita alta, desactivar vía modal sin confirm/alert). · por qué: firmas/retornos migración 235000 + UX admin. · Frontend BuscoEdu
 
 Bitácora: 2026-10-31 (hora Madrid, Europe/Madrid) — **qué**: cupo reales 9→10 en `familia_rpc_invitacion_emitir` + emitida inv real `id=17` (30 d); URL en `/home/box/.secrets/famly-invitacion-real-10.txt` (600); respaldos `familia_o6_inv10_*`; deshacer `docs/famly/inv10_deshacer.sql`. **por qué**: Orq GO / Jhon t906u. **quién**: BD bot BuscoEdu.
+
+- 2026-10-31 · O7 punto 1: RPC `familia_rpc_miembros_por_nick` + `familia_rpc_login_miembro_id` (lista desplegable sin exponer alias/PIN; rate limit) + deshacer · por qué: Jhon t907u · quién: Backend BuscoEdu (bot)
