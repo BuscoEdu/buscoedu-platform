@@ -494,7 +494,31 @@ function headersFamiliaExtra(){
 }
 function crearClienteSupabase(){
   /* mf O4 D5: cliente con header global; se recrea tras login para aplicar el token. */
-  return window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global:{ headers: headersFamiliaExtra() } });
+  return conTrazaFamilia(window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global:{ headers: headersFamiliaExtra() } }));
+}
+/* Ola 9b · traza de familia (mismo criterio que famly/index.html; este archivo es origen/legado,
+   el servido en famly es index.html). Envoltorio sobre supabase.from() para tablas con familia_id. */
+const TABLAS_CON_FAMILIA=new Set(['familia_tareas','familia_historial','familia_historial_v','familia_miembros','familia_notificaciones',
+  'familia_premios','familia_plantillas_tareas','familia_solicitudes_premios','familia_mensajes','familia_config','familia_deberes',
+  'familia_multas','familia_series','familia_permisos','familia_multas_niveles']);
+function conTrazaFamilia(cli){
+  const fromOrig=cli.from.bind(cli);
+  cli.from=function(tabla){
+    const qb=fromOrig(tabla);
+    if(!TABLAS_CON_FAMILIA.has(tabla)) return qb;
+    const fid=()=>(typeof state!=='undefined'&&state&&state.familiaId)?state.familiaId:null;
+    const conFid=v=>{const f=fid(); if(!f) return v; const uno=o=>(o&&typeof o==='object'&&o.familia_id==null)?Object.assign({},o,{familia_id:f}):o; return Array.isArray(v)?v.map(uno):uno(v);};
+    const filtra=q=>{const f=fid(); return (f&&q&&typeof q.eq==='function')?q.eq('familia_id',f):q;};
+    const ins=qb.insert.bind(qb), ups=qb.upsert.bind(qb), sel=qb.select.bind(qb), upd=qb.update.bind(qb), del=qb.delete.bind(qb);
+    qb.insert=(v,o)=>ins(conFid(v),o);
+    qb.upsert=(v,o)=>ups(conFid(v),o);
+    // Ola 9b: premios archivados no se leen.
+    qb.select=(c,o)=>{const q=filtra(sel(c,o)); return (tabla==='familia_premios'&&q&&typeof q.is==='function')?q.is('archivado_en',null):q;};
+    qb.update=(v,o)=>filtra(upd(v,o));
+    qb.delete=o=>filtra(del(o));
+    return qb;
+  };
+  return cli;
 }
 function sesionInvalidaErr(err){
   if(!err) return false;
@@ -1044,7 +1068,8 @@ async function loadAll(opts){
       /* v6e E-PR1: el hijo solo descarga premios suyos o «para todos» (no tipo padre). */
       (()=>{let q=eqFam(supabase.from('familia_premios').select('*')).order('costo');
         const u0=state.currentUserId&&memberById(state.currentUserId);
-        if(u0&&!esPadre(u0)) q=q.or('asignado_a.is.null,asignado_a.eq.'+u0.id).not('tipo','eq','padre');
+        // Ola 9b: hijo solo activos; padre ve desactivados para reactivar.
+        if(u0&&!esPadre(u0)) q=q.or('asignado_a.is.null,asignado_a.eq.'+u0.id).not('tipo','eq','padre').eq('activo',true);
         return q;})(),
       // v6 Mesada final: lectura desde la vista familia_historial_v (trae mesada_estado); las escrituras siguen en familia_historial.
       eqFam(sinArchivadas(supabase.from('familia_historial_v').select('*'))).order('creado_en',{ascending:false}).limit(1000),
@@ -3442,10 +3467,10 @@ async function saveProfile(){
 
 async function confirmResetAll(){
   if(!confirm('Esto borra puntos, historial y tareas actuales. ¿Continuar?')) return;
-  await supabase.from('familia_tareas').delete().neq('id',0);
-  await supabase.from('familia_historial').delete().neq('id',0);
-  await supabase.from('familia_miembros').update({puntos:0,puntos_historicos:0}).neq('id',0);
-  showToast('Reseteado');
+  /* Ola 9b: RPC soft + x-familia-token vía headers del cliente (headersFamiliaExtra). */
+  const {error}=await supabase.rpc('familia_rpc_resetear_todo',{p_confirmacion:'RESETEAR'});
+  if(error) return alert('No se pudo resetear: '+(msgErrorBD(error)||'inténtalo de nuevo'));
+  showToast('Reseteado (archivado)');
   loadAll();
 }
 async function resetOneKidPin(){
@@ -5529,6 +5554,7 @@ window.FamiliaV3=(function(){
   }
   async function confirmarReset(){
     const c=document.getElementById('v4rConf').value.trim(); if(c!=='RESETEAR') return showToast('Escribe RESETEAR');
+    /* Ola 9b: x-familia-token via cliente (headersFamiliaExtra). */
     const d=await rpcIntento('reset','familia_rpc_resetear_todo',{p_confirmacion:c}); if(!d) return;
     // Resumen con los conteos que devuelve la RPC (filas archivadas, no borradas).
     abrirHoja(`<h3>${d.idempotente?'Ya estaba aplicado':'Listo: todo archivado'}</h3><p class="v3-sub" style="margin:8px 0">Tareas archivadas: ${Number(d.tareas)||0} · Movimientos del historial: ${Number(d.historial)||0} · Integrantes con puntos en 0: ${Number(d.miembros)||0}</p>
