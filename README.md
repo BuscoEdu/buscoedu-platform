@@ -707,3 +707,10 @@ Bitácora: 2026-10-31 22:50 (hora Madrid, Europe/Madrid) — **qué**: O7b prod:
 - **Respaldo:** `respaldos.familia_o9b_historial_fid_null_previo`, `respaldos.familia_o9c_{notificaciones,plantillas,premios,v6c_aplicaciones}_previo` (sin grants para anon/authenticated).
 - **Deshacer:** `supabase/ops/20261031230500_famly_o9b_historial_familia_id_deshacer.sql` y `20261031231500_famly_o9c_traza_familia_deshacer.sql` (O9c probado con rollback).
 - **Verificación:** 0 NULL en las 5 tablas · 0 cruces entre familias · grupo de guardas 0 conflictos · ✗ NOT NULL todavía.
+
+### 2026-10-31 23:20 · O9d · Reset solo de la familia de la sesión (BD BuscoEdu, bot)
+- **Qué:** `familia_rpc_resetear_todo` pasa a una sola firma `(p_confirmacion text, p_actor_id int DEFAULT NULL, p_client_req_id text DEFAULT NULL)`, SECURITY DEFINER; toma el fid de `familia_mf_sesion_ctx()` (header x-familia-token), exige un admin activo de esa familia, archiva (`archivada_en`) tareas e historial y pone puntos en 0 SOLO en ese fid; ✗ delete físico.
+- **Por qué:** la versión previa reseteaba TODAS las familias y confiaba en el p_actor_id del cliente. Pedido del Orquestador (Ola 9b).
+- **Respaldo:** `respaldos.familia_o9d_fn_previo` (definición anterior). **Deshacer:** `supabase/ops/20261031232000_famly_o9d_resetear_por_familia_deshacer.sql` (probado con rollback).
+- **Prueba (rollback):** sin sesión ✗ · hijo ✗ · admin fid 2 ✓ · fid 1 intacto.
+- **Tablas permisos, multas, multas_niveles y series:** ya tenían familia_id (0 NULL); multas y series con trigger O9c.
