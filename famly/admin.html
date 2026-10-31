@@ -87,7 +87,18 @@ main{padding:16px}
 const URL='https://khnrnnoxyzuulagemfbh.supabase.co';
 const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtobnJubm94eXp1dWxhZ2VtZmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MzM1NTMsImV4cCI6MjA5ODEwOTU1M30.uN8Vm9H-Na92r6UPOsP39F6pGwU6M_K6C4HJ5Tq-2Ts';
 const PASS='famly-super-2026';
-const sb=window.supabase.createClient(URL,KEY);
+const sb={
+  from: (table) => ({
+    select: (cols) => ({
+      order: (col, opts) => fetch(`${URL}/rest/v1/${table}?select=${cols}&order=${col}.${opts?.ascending===false?'desc':'asc'}`, {
+        headers: {'apikey': KEY, 'Authorization': 'Bearer '+KEY}
+      }).then(r => r.json()).then(data => ({data, error: null})).catch(e => ({data: null, error: e})),
+      eq: (col, val) => fetch(`${URL}/rest/v1/${table}?${col}=eq.${val}&select=${cols}`, {
+        headers: {'apikey': KEY, 'Authorization': 'Bearer '+KEY}
+      }).then(r => r.json()).then(data => ({data, error: null})).catch(e => ({data: null, error: e}))
+    })
+  })
+};
 let fams=[], mems=[], halls=[], admins=[], cfgs=[];
 
 function salir(){location.reload();}
@@ -102,15 +113,22 @@ function sec(id,btn){
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2000);}
 
 async function load(){
-  const [f,m,h,a,c]=await Promise.all([
-    sb.from('familia_familias').select('*').order('id'),
-    sb.from('familia_miembros').select('id,nombre,rol,es_admin,familia_id,puntos'),
-    sb.from('famly_hallazgos').select('*').order('creado_en',{ascending:false}),
-    sb.from('familia_admins').select('*'),
-    sb.from('familia_config').select('*')
-  ]);
-  fams=f.data||[]; mems=m.data||[]; halls=h.data||[]; admins=a.data||[]; cfgs=c.data||[];
-  renderDash();
+  const h = {'apikey': KEY, 'Authorization': 'Bearer '+KEY};
+  try {
+    const [f,m,ha,a,c] = await Promise.all([
+      fetch(URL+'/rest/v1/familia_familias?select=*&order=id', {headers:h}).then(r=>r.json()),
+      fetch(URL+'/rest/v1/familia_miembros?select=id,nombre,rol,es_admin,familia_id,puntos', {headers:h}).then(r=>r.json()),
+      fetch(URL+'/rest/v1/famly_hallazgos?select=*&order=creado_en.desc', {headers:h}).then(r=>r.json()),
+      fetch(URL+'/rest/v1/familia_admins?select=*', {headers:h}).then(r=>r.json()),
+      fetch(URL+'/rest/v1/familia_config?select=*', {headers:h}).then(r=>r.json())
+    ]);
+    fams = Array.isArray(f) ? f : [];
+    mems = Array.isArray(m) ? m : [];
+    halls = Array.isArray(ha) ? ha : [];
+    admins = Array.isArray(a) ? a : [];
+    cfgs = Array.isArray(c) ? c : [];
+    renderDash();
+  } catch(e) { console.error(e); document.getElementById('grid').innerHTML='<div class="card">Error</div>'; }
 }
 
 function renderDash(){
@@ -181,7 +199,11 @@ function renderHall(){
 }
 
 async function marcar(id){
-  await sb.from('famly_hallazgos').update({estado:'revisado'}).eq('id',id);
+  await fetch(URL+'/rest/v1/famly_hallazgos?id=eq.'+id, {
+    method:'PATCH',
+    headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+    body:JSON.stringify({estado:'revisado'})
+  });
   toast('Marcado');
   const h=halls.find(x=>x.id===id); if(h) h.estado='revisado';
   renderHall();
