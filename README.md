@@ -737,3 +737,9 @@ Bitácora: 2026-10-31 22:50 (hora Madrid, Europe/Madrid) — **qué**: O7b prod:
 - Qué: famly_hallazgos 4,5,6,7,8,13,15,16,17 → resuelto + resuelto_en + nota «Ola 10 · commit aacc4b7 · dpl_B2CoCkvT · QA PASS» (id 7 + «verificación padre no-admin solo lectura pendiente»). Sugerencias 9,10,11,12,14 ✗ tocadas.
 - Por qué: smoke PROD aacc4b7 PASS 21/0.
 - Respaldo: respaldos.famly_o10c_hallazgos_previo (9 filas). Deshacer: supabase/ops/20261101000500_famly_o10c_hallazgos_resueltos_deshacer.sql.
+
+### 2026-11-01 · O11 · BD BuscoEdu (bot) · APLICADO en prod (Orq GO, OK Jhon t968u)
+- Qué: trigger `familia_miembros_z_o11_alias` (BEFORE INSERT/UPDATE): si llega un miembro activo sin `alias_entrada` le genera uno único por familia (regla de `familia_rpc_miembro_crear` + sin tildes); si llega sin `rol_v6d` lo deduce del rol (Padre/Madre→padre, Hijo/Hija→hijo; nunca padre_admin automático). Backfill: 2 activos (fid 20 ids 94/95). fid 1 (beman27) = 0 filas tocadas.
+- Por qué: el FE (createMember/guardarIntegrante) inserta directo sin alias y esos miembros no podían entrar con PIN.
+- Respaldo: respaldos.famly_o11_miembros_sin_alias_previo. Deshacer: supabase/ops/20261101001500_famly_o11_alias_automatico_deshacer.sql.
+- Pendiente ⏸: cerrar INSERT directo de anon cuando el FE use la RPC en prod.
