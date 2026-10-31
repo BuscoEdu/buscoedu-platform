@@ -2252,6 +2252,16 @@ async function createTask(){
     }
   }
   if(!rows.length) return showToast('No quedó ninguna fecha. Revisa el hijo o el mes.');
+  // Límite: máx 3 tareas, 3 deberes o 5 en total abiertos por hijo.
+  for(const k of [...new Set(rows.map(r=>r.asignada_a))]){
+    const abiertas=(state.tasks||[]).filter(t=>Number(t.asignada_a)===Number(k)&&['pendiente','esperando_aprobacion'].includes(t.estado)&&!t.archivada_en);
+    const nt=abiertas.filter(t=>!esDeber(t)).length, nd=abiertas.filter(t=>esDeber(t)).length;
+    const addT=rows.filter(r=>Number(r.asignada_a)===Number(k)&&r.clase!=='deber').length;
+    const addD=rows.filter(r=>Number(r.asignada_a)===Number(k)&&r.clase==='deber').length;
+    if(nt+addT>3) return showToast(((memberById(k)||{}).nombre||'Hijo')+': máximo 3 tareas abiertas');
+    if(nd+addD>3) return showToast(((memberById(k)||{}).nombre||'Hijo')+': máximo 3 deberes abiertos');
+    if(nt+nd+addT+addD>5) return showToast(((memberById(k)||{}).nombre||'Hijo')+': máximo 5 abiertas en total');
+  }
   if(plantillaId&&rows.some(r=>r.estado!=='borrador')){
     for(const k of [...new Set(rows.map(r=>r.asignada_a))]){const b=await cupoBloqueo(plantillaId,k); if(b) return showToast(((memberById(k)||{}).nombre||'')+': '+b);}
   }
@@ -4134,7 +4144,7 @@ init();
 .v4-panel{position:fixed;inset:0;background:#f8fafc;z-index:2400;display:none;flex-direction:column}
 .v4-panel.on{display:flex}
 .v4-panel-top{background:var(--v6t-head,linear-gradient(135deg,#6366f1,#8b5cf6));color:#fff;padding:12px 16px;display:flex;gap:10px;align-items:center}
-.v4-panel-top button{background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer}
+.v4-panel-top button{background:rgba(255,255,255,.35);color:#fff;border:0;border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700;font-size:1rem;min-height:44px}
 .v4-panel-body{flex:1;overflow-y:auto;max-width:720px;width:100%;margin:0 auto}
 .v4-panel-body .section{display:block!important}
 /* En modo v3 los modales de la v1 deben quedar por encima del panel y de la hoja. */
@@ -4905,12 +4915,15 @@ window.FamiliaV3=(function(){
     }finally{enCurso.delete(k);}
   }
   function pintarPremios(u){
+    const verPadre = localStorage.getItem("v3_premios_ver") === "padre";
+    const esAdmin = esPadre(u);
     const asc=localStorage.getItem('v3_premios_orden')!=='desc';
     const S=Number(u.puntos)||0;
     // Cada quien ve sus premios: hijo → tipo 'hijo' (o vacío); padre → tipo 'padre'.
     // v6e E-PR1: además del tipo, el hijo no ve premios asignados a otro.
-    const lista=state.rewards.filter(r=>r.activo!==false&&((r.tipo||'hijo')==='padre')===esPadre(u)&&(!r.asignado_a||Number(r.asignado_a)===u.id||esPadre(u))).slice().sort((a,b)=>asc?(a.costo-b.costo):(b.costo-a.costo));
+    const lista=state.rewards.filter(r=>r.activo!==false&&((r.tipo||'hijo')==='padre')===(esAdmin?verPadre:esPadre(u))&&(!r.asignado_a||Number(r.asignado_a)===u.id||esAdmin)).slice().sort((a,b)=>asc?(a.costo-b.costo):(b.costo-a.costo));
     let h=`<button class="v3-btn2" style="margin-bottom:10px" onclick="FamiliaV3.ordenPremios()">Orden: ${asc?'menor → mayor':'mayor → menor'}</button>`;
+    if(esAdmin) h+=`<button class="v3-btn2" style="margin-bottom:10px;margin-left:6px" onclick="localStorage.setItem('v3_premios_ver',localStorage.getItem('v3_premios_ver')==='padre'?'hijo':'padre');FamiliaV3.pintar();">Ver: ${verPadre?'Padres':'Hijos'}</button>`;
     h+=lista.map(r=>{
       // v6 Mesada: verde si el TOTAL (incluida la mesada por liberar) alcanza; pedir solo con disponibles (botonPremio).
       const C=Math.max(1,Number(r.costo)||0), T=esPadre(u)?S:mesadaDe(u.id).total, llenos=Math.round(20*Math.min(T,C)/C), full=T>=C;
@@ -6592,6 +6605,7 @@ window.FamiliaV3=(function(){
   function agHijoId(u){
     if(!esPadre(u)) return u.id;
     const kids=(state.members||[]).filter(m=>!esPadre(m)).slice().sort(byName);
+    if(agMiembro===0) return 0; // Todos
     if(agMiembro&&kids.some(k=>k.id===agMiembro)) return agMiembro;
     agMiembro=kids[0]?kids[0].id:null;
     return agMiembro;
@@ -6619,8 +6633,22 @@ window.FamiliaV3=(function(){
   }
   async function cargarAgenda(){
     const u=currentUser(); if(!u) return;
-    const mid=agHijoId(u); if(!mid){state.agendaEv=[]; return;}
+    const mid=agHijoId(u); if(mid===null){state.agendaEv=[]; return;}
     const [a,b]=agRango();
+    if(mid===0){
+      // Todos: cargar de cada hijo y combinar
+      const kids=(state.members||[]).filter(m=>!esPadre(m));
+      let all=[];
+      for(const k of kids){
+        const {data}=await supabase.rpc('familia_rpc_expandir_agenda',{
+          p_actor_id:state.currentUserId, p_miembro_id:k.id,
+          p_desde:a.toISOString(), p_hasta:b.toISOString()
+        });
+        if(data) all=all.concat(data.map(e=>({...e, _hijo:k.nombre, _color:k.color||'#64748b'})));
+      }
+      state.agendaEv=all;
+      return;
+    }
     const {data,error}=await supabase.rpc('familia_rpc_expandir_agenda',{
       p_actor_id:state.currentUserId, p_miembro_id:mid,
       p_desde:a.toISOString(), p_hasta:b.toISOString()
@@ -6633,7 +6661,7 @@ window.FamiliaV3=(function(){
     const box=document.getElementById('v3Agenda'); if(!box) return;
     const kids=(state.members||[]).filter(m=>!esPadre(m)).slice().sort(byName);
     const mid=agHijoId(u);
-    const selHijo=esPadre(u)?`<select id="agHijo" onchange="FamiliaV3.agSetHijo(+this.value)">${kids.map(k=>`<option value="${k.id}" ${k.id===mid?'selected':''}>${esc(k.nombre)}</option>`).join('')}</select>`:'';
+    const selHijo=esPadre(u)?`<select id="agHijo" onchange="FamiliaV3.agSetHijo(+this.value)"><option value="0" ${mid===0?'selected':''}>Todos</option>${kids.map(k=>`<option value="${k.id}" ${k.id===mid?'selected':''}>${esc(k.nombre)}</option>`).join('')}</select>`:'';
     const [a,b]=agRango();
     let tit='';
     if(agVista==='dia') tit=agCursor.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'short'});
@@ -6666,10 +6694,11 @@ window.FamiliaV3=(function(){
       const col=e.color||'#64748b';
       const cls=e.origen==='tarea'?'tarea':'';
       const tap=e.origen==='tarea'?`FamiliaV3.detalle(${e.tarea_id})`:`FamiliaV3.hojaAgendaEv('${String(e.actividad_id)}','${agYMD(e.inicio)}')`;
+      const who=e._hijo?` · ${esc(e._hijo)}`:'';
       return `<div class="v3-ag-slot"><div class="v3-ag-hh">${hh}</div>
-        <button type="button" class="v3-ag-ev ${cls}" style="border-left-color:${col}" onclick="${tap}">
+        <button type="button" class="v3-ag-ev ${cls}" style="border-left-color:${e._color||col}" onclick="${tap}">
           <strong>${e.origen==='tarea'?'📋 ':''}${esc(e.titulo||'')}</strong>
-          <span class="sub">${hh}–${hf}${e.categoria?' · '+esc(e.categoria):''}</span>
+          <span class="sub">${hh}–${hf}${e.categoria?' · '+esc(e.categoria):''}${who}</span>
         </button></div>`;
     }).join('')+'</div>';
   }
@@ -7151,4 +7180,5 @@ const FAMILIA_VERSION='mf1';
 </script>
 </body>
 </html>
+
 
