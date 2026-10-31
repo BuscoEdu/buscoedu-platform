@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAMLY · Super Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1e293b}
+.login{max-width:360px;margin:80px auto;background:#fff;padding:32px;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.login h1{font-size:1.4rem;margin-bottom:16px;color:#6366f1}
+.login input{width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;font-size:1rem}
+.login button{width:100%;padding:12px;background:#6366f1;color:#fff;border:0;border-radius:10px;font-weight:700;cursor:pointer}
+.login button:hover{background:#4f46e5}
+.app{display:none}
+header{background:#1e293b;color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center}
+header h1{font-size:1.2rem}
+header button{background:#ef4444;color:#fff;border:0;padding:8px 16px;border-radius:8px;cursor:pointer}
+nav{background:#fff;border-bottom:1px solid #e2e8f0;display:flex;gap:4px;padding:8px 24px}
+nav button{background:none;border:0;padding:10px 16px;border-radius:8px;cursor:pointer;font-weight:600;color:#64748b}
+nav button.on{background:#eef2ff;color:#6366f1}
+main{padding:24px;max-width:1200px;margin:0 auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.card{background:#fff;border-radius:12px;padding:20px;border:1px solid #e2e8f0}
+.card h3{font-size:.85rem;color:#64748b;margin-bottom:8px}
+.card .num{font-size:2rem;font-weight:700;color:#1e293b}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0}
+th,td{padding:12px 16px;text-align:left;border-bottom:1px solid #e2e8f0}
+th{background:#f8fafc;font-weight:600;color:#64748b;font-size:.85rem}
+tr:hover{background:#f8fafc}
+.btn{background:#6366f1;color:#fff;border:0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:.8rem}
+.btn.danger{background:#ef4444}
+.btn.secondary{background:#e2e8f0;color:#1e293b}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.75rem;font-weight:600}
+.badge.activa{background:#dcfce7;color:#166534}
+.badge.pausada{background:#fef3c7;color:#92400e}
+.badge.error{background:#fee2e2;color:#991b1b}
+.badge.sugerencia{background:#dbeafe;color:#1e40af}
+.badge.nuevo{background:#fef3c7;color:#92400e}
+.detail{background:#fff;border-radius:12px;padding:20px;border:1px solid #e2e8f0;margin-top:16px}
+.detail h2{margin-bottom:16px}
+.row{display:flex;gap:16px;margin-bottom:12px}
+.row label{width:140px;color:#64748b}
+.search{margin-bottom:16px}
+.search input{padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;width:300px}
+.toast{position:fixed;bottom:20px;right:20px;background:#1e293b;color:#fff;padding:12px 20px;border-radius:10px;display:none}
+</style>
+</head>
+<body>
+<div class="login" id="login">
+  <h1>🛡️ Super Admin</h1>
+  <input type="password" id="pass" placeholder="Clave de acceso" autofocus>
+  <button onclick="entrar()">Entrar</button>
+  <p id="loginErr" style="color:#ef4444;margin-top:8px;font-size:.85rem"></p>
+</div>
+
+<div class="app" id="app">
+  <header>
+    <h1>FAMLY · Super Admin</h1>
+    <button onclick="salir()">Salir</button>
+  </header>
+  <nav>
+    <button class="on" onclick="seccion('dash',this)">Dashboard</button>
+    <button onclick="seccion('familias',this)">Familias</button>
+    <button onclick="seccion('hallazgos',this)">Hallazgos</button>
+    <button onclick="seccion('admins',this)">Admins</button>
+  </nav>
+  <main>
+    <div id="sec-dash">
+      <div class="grid" id="dashGrid"></div>
+    </div>
+    <div id="sec-familias" style="display:none">
+      <div class="search"><input id="filtroFam" placeholder="Buscar familia..." oninput="renderFamilias()"></div>
+      <table id="tablaFam"><thead><tr><th>ID</th><th>Nombre</th><th>Nickname</th><th>Estado</th><th>Miembros</th><th>Creada</th><th>Acciones</th></tr></thead><tbody></tbody></table>
+      <div id="detalleFam" class="detail" style="display:none"></div>
+    </div>
+    <div id="sec-hallazgos" style="display:none">
+      <div class="search"><input id="filtroHall" placeholder="Buscar..." oninput="renderHallazgos()"></div>
+      <table id="tablaHall"><thead><tr><th>ID</th><th>Familia</th><th>Tipo</th><th>Descripción</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div id="sec-admins" style="display:none">
+      <table id="tablaAdmins"><thead><tr><th>ID</th><th>Email</th><th>Familia</th><th>Creado</th><th>Acciones</th></tr></thead><tbody></tbody></table>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://khnrnnoxyzuulagemfbh.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtobnJubm94eXp1dWxhZ2VtZmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MzM1NTMsImV4cCI6MjA5ODEwOTU1M30.uN8Vm9H-Na92r6UPOsP39F6pGwU6M_K6C4HJ5Tq-2Ts';
+const SUPER_PASS='famly-super-2026';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let familias=[], miembros=[], hallazgos=[], admins=[], configs=[];
+
+function entrar(){
+  const p=document.getElementById('pass').value;
+  if(p!==SUPER_PASS){document.getElementById('loginErr').textContent='Clave incorrecta';return;}
+  sessionStorage.setItem('super','1');
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+  cargar();
+}
+function salir(){sessionStorage.removeItem('super');location.reload();}
+function seccion(id,btn){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['dash','familias','hallazgos','admins'].forEach(s=>document.getElementById('sec-'+s).style.display=s===id?'block':'none');
+  if(id==='familias') renderFamilias();
+  if(id==='hallazgos') renderHallazgos();
+  if(id==='admins') renderAdmins();
+}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2500);}
+
+async function cargar(){
+  const [f,m,h,a,c]=await Promise.all([
+    sb.from('familia_familias').select('*').order('id'),
+    sb.from('familia_miembros').select('id,nombre,rol,es_admin,familia_id,puntos'),
+    sb.from('famly_hallazgos').select('*').order('creado_en',{ascending:false}),
+    sb.from('familia_admins').select('*'),
+    sb.from('familia_config').select('*')
+  ]);
+  familias=f.data||[]; miembros=m.data||[]; hallazgos=h.data||[]; admins=a.data||[]; configs=c.data||[];
+  renderDash();
+}
+
+function renderDash(){
+  const activas=familias.filter(f=>f.estado==='activa').length;
+  const totalMiembros=miembros.length;
+  const hallazgosNuevos=hallazgos.filter(h=>!h.borrado_en&&h.estado==='nuevo').length;
+  const tareasHoy=0;
+  document.getElementById('dashGrid').innerHTML=`
+    <div class="card"><h3>Familias</h3><div class="num">${familias.length}</div><small>${activas} activas</small></div>
+    <div class="card"><h3>Miembros</h3><div class="num">${totalMiembros}</div></div>
+    <div class="card"><h3>Hallazgos nuevos</h3><div class="num">${hallazgosNuevos}</div></div>
+    <div class="card"><h3>Admins</h3><div class="num">${admins.length}</div></div>
+  `;
+}
+
+function renderFamilias(){
+  const q=(document.getElementById('filtroFam').value||'').toLowerCase();
+  const rows=familias.filter(f=>(f.nombre_visible||'').toLowerCase().includes(q)||(f.nickname||'').toLowerCase().includes(q));
+  document.querySelector('#tablaFam tbody').innerHTML=rows.map(f=>{
+    const nm=miembros.filter(m=>m.familia_id===f.id).length;
+    const cfg=configs.find(c=>c.familia_id===f.id);
+    return `<tr>
+      <td>${f.id}</td>
+      <td>${f.nombre_visible||'—'}</td>
+      <td>${f.nickname||'—'}</td>
+      <td><span class="badge ${f.estado}">${f.estado||'—'}</span></td>
+      <td>${nm}</td>
+      <td>${f.creado_en?new Date(f.creado_en).toLocaleDateString('es'):'—'}</td>
+      <td>
+        <button class="btn" onclick="verFamilia(${f.id})">Ver</button>
+        <button class="btn secondary" onclick="entrarComo(${f.id})">Entrar</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function verFamilia(id){
+  const f=familias.find(x=>x.id===id);
+  const ms=miembros.filter(m=>m.familia_id===id);
+  const cfg=configs.find(c=>c.familia_id===id);
+  const det=document.getElementById('detalleFam');
+  det.style.display='block';
+  det.innerHTML=`<h2>${f.nombre_visible||'Familia '+id}</h2>
+    <div class="row"><label>Nickname</label><span>${f.nickname||'—'}</span></div>
+    <div class="row"><label>Estado</label><span class="badge ${f.estado}">${f.estado}</span></div>
+    <div class="row"><label>Versión app</label><span>${cfg?cfg.version_app:'—'}</span></div>
+    <div class="row"><label>Zona horaria</label><span>${cfg?cfg.zona_horaria:'—'}</span></div>
+    <h3 style="margin:16px 0 8px">Miembros (${ms.length})</h3>
+    <table><thead><tr><th>Nombre</th><th>Rol</th><th>Admin</th><th>Puntos</th></tr></thead>
+    <tbody>${ms.map(m=>`<tr><td>${m.nombre}</td><td>${m.rol||'—'}</td><td>${m.es_admin?'Sí':'No'}</td><td>${m.puntos||0}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function entrarComo(id){
+  const f=familias.find(x=>x.id===id);
+  if(!f||!f.nickname) return toast('Sin nickname');
+  window.open('/?nick='+encodeURIComponent(f.nickname),'_blank');
+}
+
+function renderHallazgos(){
+  const q=(document.getElementById('filtroHall').value||'').toLowerCase();
+  const rows=hallazgos.filter(h=>!h.borrado_en&&(h.descripcion||'').toLowerCase().includes(q));
+  document.querySelector('#tablaHall tbody').innerHTML=rows.map(h=>{
+    const f=familias.find(x=>x.id===h.familia_id);
+    return `<tr>
+      <td>${h.id}</td>
+      <td>${f?f.nombre_visible:'#'+h.familia_id}</td>
+      <td><span class="badge ${h.tipo}">${h.tipo}</span></td>
+      <td style="max-width:400px">${(h.descripcion||'').slice(0,120)}</td>
+      <td><span class="badge ${h.estado}">${h.estado}</span></td>
+      <td>${h.creado_en?new Date(h.creado_en).toLocaleDateString('es'):'—'}</td>
+      <td><button class="btn secondary" onclick="marcarHallazgo(${h.id})">Marcar revisado</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function marcarHallazgo(id){
+  await sb.from('famly_hallazgos').update({estado:'revisado'}).eq('id',id);
+  toast('Marcado');
+  const h=hallazgos.find(x=>x.id===id); if(h) h.estado='revisado';
+  renderHallazgos();
+}
+
+function renderAdmins(){
+  document.querySelector('#tablaAdmins tbody').innerHTML=admins.map(a=>{
+    const f=familias.find(x=>x.id===a.familia_id);
+    return `<tr>
+      <td>${a.id}</td>
+      <td>${a.email||'—'}</td>
+      <td>${f?f.nombre_visible:'#'+a.familia_id}</td>
+      <td>${a.creado_en?new Date(a.creado_en).toLocaleDateString('es'):'—'}</td>
+      <td><button class="btn secondary" onclick="entrarComo(${a.familia_id})">Entrar</button></td>
+    </tr>`;
+  }).join('');
+}
+
+if(sessionStorage.getItem('super')==='1'){
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+  cargar();
+}
+</script>
+</body>
+</html>
