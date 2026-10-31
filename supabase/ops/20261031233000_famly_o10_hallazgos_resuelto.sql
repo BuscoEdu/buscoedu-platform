@@ -1,6 +1,6 @@
 -- =====================================================================
 -- O10 · famly_hallazgos: marcar resuelto con fecha y nota + archivar la tarea vencida 496
--- Autor: BD BuscoEdu (bot) · 2026-10-31 · PROPUESTA, ✗ aplicada (espera GO del Orq)
+-- Autor: BD BuscoEdu (bot) · 2026-10-31 · APLICADA en prod 2026-10-31 (GO Orq, OK Jhon t954u)
 -- Idempotente · aditivo · ✗ DELETE. Deshacer: 20261031233000_famly_o10_hallazgos_resuelto_deshacer.sql
 -- =====================================================================
 BEGIN;

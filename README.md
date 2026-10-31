@@ -714,3 +714,9 @@ Bitácora: 2026-10-31 22:50 (hora Madrid, Europe/Madrid) — **qué**: O7b prod:
 - **Respaldo:** `respaldos.familia_o9d_fn_previo` (definición anterior). **Deshacer:** `supabase/ops/20261031232000_famly_o9d_resetear_por_familia_deshacer.sql` (probado con rollback).
 - **Prueba (rollback):** sin sesión ✗ · hijo ✗ · admin fid 2 ✓ · fid 1 intacto.
 - **Tablas permisos, multas, multas_niveles y series:** ya tenían familia_id (0 NULL); multas y series con trigger O9c.
+
+### 2026-10-31 · O10 + O10b (Ola 10) · BD BuscoEdu (bot) · APLICADO en prod (GO Orq, OK Jhon t954u)
+- Qué: famly_hallazgos +resuelto_en +nota_resolucion; tarea 496 archivada (soft); trigger b_familia_tareas_o10b_aph_padre (tarea de padre/admin con hijo → aprobada_para_hacer=true); familia_config.antidup_horas (0/1/3/6/12/24, default 12) + RPC familia_rpc_config_antidup (solo admin, fid de sesión); trigger z_familia_tareas_o10b_subasta_sin_tomar (aviso a padres al archivar subasta sin tomar, sin descuento); trigger b_familia_miembros_o10b_nacimiento (hoy−100 años..hoy, solo al crear/cambiar).
+- Por qué: criterios Producto Ola 10 (#4/#17, #7, #8, #15, #16). Subasta: aceptar ya era atómico (familia_rpc_aceptar_subasta).
+- Backfill tareas viejas de padre: 0 abiertas (fid1 0, fid2 0, fid20 0); 690 (fid20 vencida) y 694 (fid1 completada) cerradas, ✗ tocadas.
+- Respaldos: respaldos.familia_o10_tarea_496_previo, respaldos.familia_o10b_tareas_aph_previo. Deshacer: *_o10_*_deshacer.sql, *_o10b_*_deshacer.sql (probados con rollback).
