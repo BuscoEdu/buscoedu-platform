@@ -606,6 +606,23 @@ nav{
   box-shadow:var(--clay-shadow);
 }
 
+/* Restyle Ola 5 · íconos clay WebP (nav / cabecera / emoji mapeado) */
+.v3-nav button .v3-ico-img{
+  width:40px;height:40px;
+  padding:4px;
+  box-sizing:border-box;
+  border-radius:var(--radius-ico,16px);
+  background:transparent;
+  display:block;
+  margin:0 auto 2px;
+  object-fit:contain;
+}
+.v3-nav button.on .v3-ico-img{box-shadow:var(--clay-shadow,0 8px 20px rgba(31,26,77,.10))}
+.v3-icobtn .v3-ico-img{width:28px;height:28px;object-fit:contain;display:block}
+.famly-emoji-ico{width:28px;height:28px;vertical-align:-6px;object-fit:contain;display:inline-block;margin-right:4px}
+.v3-card .famly-emoji-ico{width:36px;height:36px;margin-right:8px;flex:none}
+
+
 /* Pantallas · tipografía y aire */
 .section,.v3-main{background:var(--bg)}
 .section h3,.v3-sec h2{color:var(--text);font-weight:700}
@@ -1600,6 +1617,34 @@ function plantillaAudiencia(p){
   if(p.audiencia==='padre'||p.audiencia==='hijo') return p.audiencia;
   return p.icono==='padre'?'padre':'hijo';
 }
+
+/* Restyle Ola 5 · mapa emoji de semilla/defaults → WebP clay (fallback al emoji). */
+const FAMLY_EMOJI_ICO={
+  '📱':['premio-pantalla','Pantalla extra'],
+  '🎬':['premio-pelicula','Elegir la película'],
+  '🍦':['premio-helado','Helado o postre'],
+  '🌳':['premio-parque','Salida al parque'],
+  '🌙':['premio-noche','Quedarse despierto más tarde'],
+  '🍕':['premio-cena','Elegir la cena'],
+  '💰':['premio-dinero','Dinero para un antojo'],
+  '🎮':['premio-juegos','Tarde de juegos'],
+  '🚲':['premio-bici','Salida en bici'],
+  '🏠':['premio-casa','Día sin oficio de casa'],
+  '📋':['tarea-lista','Tarea'],
+  '📚':['tarea-deber','Deber'],
+  '🙋':['tarea-solicitar','Solicitud'],
+  '🎁':['premio-regalo','Premio']
+};
+function famlyEmojiIco(emoji, opts){
+  const e=emoji||'';
+  const m=FAMLY_EMOJI_ICO[e];
+  if(!m) return e;
+  const w=(opts&&opts.w)||28, h=(opts&&opts.h)||28;
+  const alt=(opts&&opts.alt!=null)?opts.alt:m[1];
+  const fb=String(e).replace(/"/g,'&quot;');
+  return '<img class="famly-emoji-ico" src="iconos/'+m[0]+'.webp" width="'+w+'" height="'+h+'" loading="lazy" decoding="async" alt="'+String(alt).replace(/"/g,'&quot;')+'" data-fb="'+encodeURIComponent(e)+'" onerror="(function(el){el.onerror=null;try{el.replaceWith(document.createTextNode(decodeURIComponent(el.getAttribute(\'data-fb\')||\'\')));}catch(x){}})(this)">';
+}
+
 function plantillaIcon(p){
   return p&&p.icono&&p.icono!=='hijo'&&p.icono!=='padre'?p.icono:'📋';
 }
@@ -2102,7 +2147,7 @@ function taskCard(t){
   const rec=(t.recurrencia&&t.recurrencia!=='once')?'Se repite':'Una vez';
   const tone=taskTone(t);
   const done=t.estado==='completada'?' done':'';
-  const icon=t.icono?esc(t.icono)+' ':'';
+  const icon=t.icono?(famlyEmojiIco(t.icono,{w:28,h:28})+' '):'';
   const start=t.habilita_en?fmtDate(t.habilita_en):'';
   const end=t.fecha_limite?fmtDate(t.fecha_limite):'';
   return `<div class="task-item ${tone}${done}" onclick="openTaskCard(${t.id})">
@@ -2211,7 +2256,7 @@ function renderRewards(){
     const falta=Math.max(0,(r.costo||0)-(u.puntos||0));
     const faltaTxt=off?'<br><strong>Inactivo</strong>':(falta>0?`<br><small style="color:#ef4444">Faltan ${falta} pts</small>`:'<br><small style="color:#10b981">Ya puedes canjearlo</small>');
     const tone=(r.tipo||'hijo')==='padre'?' parent':' kid';
-    return `<div class="reward-item${tone}${off?' inactive':''}" onclick="openReward(${r.id})"><div style="flex:1">${r.icono||'🎁'} <strong>${esc(r.nombre)}</strong><br><small>${r.costo} pts${r.stock>=0?' · stock '+r.stock:''}</small>${faltaTxt}</div></div>`;
+    return `<div class="reward-item${tone}${off?' inactive':''}" onclick="openReward(${r.id})"><div style="flex:1">${famlyEmojiIco(r.icono||'🎁',{w:28,h:28})} <strong>${esc(r.nombre)}</strong><br><small>${r.costo} pts${r.stock>=0?' · stock '+r.stock:''}</small>${faltaTxt}</div></div>`;
   }).join('');
 }
 function toggleRewardSort(){
@@ -4061,7 +4106,7 @@ function openKidReward(r,u){
   const pending=!esPadre(u)&&state.solicitudes.some(s=>s.estado==='pendiente'&&s.miembro_id===u.id&&s.premio_id===r.id);
   const puede=r.activo!==false&&r.stock!==0&&tiene>=costo&&!pending;
   const porque=pending?'Ya está esperando a un padre':r.activo===false?'Este premio no está disponible':r.stock===0?'Ya no queda':('Te faltan '+(costo-tiene)+' pts');
-  document.getElementById('rewardFalta').innerHTML='<p>'+(r.icono||'🎁')+' <strong>'+esc(r.nombre)+'</strong><br>Cuesta <strong>'+costo+' pts</strong>. Tú tienes <strong>'+tiene+' pts</strong>.</p>'+(puede?'':'<p>'+esc(porque)+'</p>');
+  document.getElementById('rewardFalta').innerHTML='<p>'+famlyEmojiIco(r.icono||'🎁',{w:28,h:28})+' <strong>'+esc(r.nombre)+'</strong><br>Cuesta <strong>'+costo+' pts</strong>. Tú tienes <strong>'+tiene+' pts</strong>.</p>'+(puede?'':'<p>'+esc(porque)+'</p>');
   const label=esPadre(u)?'Reclamar premio':'Pedir premio';
   document.getElementById('rewardActions').innerHTML='<button class="btn success" id="btnReclamar"'+(puede?'':' disabled')+'>'+label+'</button>';
   const btn=document.getElementById('btnReclamar');
@@ -5949,9 +5994,10 @@ details.v3-admin summary{cursor:pointer;font-weight:600}
     <div class="v4-who"><span class="v4-fam" id="v3Fam">FAMLY · Familia</span><!-- v6d D8 --><b id="v4Nom"></b><small id="v4Rol"></small><small id="v4Frase"></small></div>
     <span class="v3-pts" id="v3Pts"></span>
     <!-- Campana de avisos de la v1 (openNotifs) con ícono de línea. -->
-    <button class="v3-icobtn" id="v4Bell" aria-label="Avisos" onclick="FamiliaV3.abrirV1(()=>openNotifs())"></button>
+    <button class="v3-icobtn" id="v4Bell" aria-label="Notificaciones" onclick="FamiliaV3.abrirV1(()=>openNotifs())"></button>
     <!-- Restyle Ola 3 fix: reportar hallazgo (solo admin) junto a la campana. -->
-    <button class="v3-icobtn" id="v3Hallazgo" type="button" aria-label="Reportar un hallazgo" title="Reportar un hallazgo" onclick="abrirHallazgo()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></button>
+    <!-- Restyle Ola 5: hallazgo clay WebP; fallback SVG en pintar(). -->
+    <button class="v3-icobtn" id="v3Hallazgo" type="button" aria-label="Reportar un hallazgo" title="Reportar un hallazgo" onclick="abrirHallazgo()"></button>
     <button class="v3-icobtn" id="v3InboxBtn" aria-label="Por aprobar" onclick="FamiliaV3.ir('bandeja')"></button>
   </div>
   <div class="v3-main">
@@ -5977,7 +6023,7 @@ details.v3-admin summary{cursor:pointer;font-weight:600}
 window.FamiliaV3=(function(){
   'use strict';
 
-  /* --- Íconos SVG de línea (trazo 1.5, color heredado = blanco en cabecera/nav). --- */
+  /* --- Íconos SVG de línea (fallback si falta el WebP clay). --- */
   const ICO={
     hoy:'<path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/>',
     bandeja:'<path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 2h6l1-2h5"/>',
@@ -5986,9 +6032,25 @@ window.FamiliaV3=(function(){
     mas:'<path d="M12 5v14M5 12h14"/>',
     trofeo:'<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8"/>',
     campana:'<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
-    agenda:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>'
+    agenda:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>',
+    /* Bandera hallazgos (mismo trazo que el SVG previo de #v3Hallazgo). */
+    hallazgos:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>'
   };
   function svg(n){return '<svg class="v3-ico" viewBox="0 0 24 24" aria-hidden="true">'+ICO[n]+'</svg>';}
+  /* Restyle Ola 5 · mapa tab ICO → id de archivo WebP (sin -activo/-inactivo). */
+  const NAV_WEBP={hoy:'nav-hoy',bandeja:'nav-revisar',agenda:'nav-agenda',premio:'nav-premios',trofeo:'nav-ranking',yo:'nav-yo'};
+  /* Inserta <img> clay; si falla la carga, restaura el SVG inline (data-fb). */
+  function icoWebp(file,w,h,alt,fallbackHtml,eager){
+    const fb=encodeURIComponent(fallbackHtml||'');
+    const load=eager?'eager':'lazy';
+    const a=alt==null?'':String(alt).replace(/"/g,'&quot;');
+    return '<img class="v3-ico-img" src="iconos/'+file+'.webp" width="'+w+'" height="'+h+'" loading="'+load+'" decoding="async" alt="'+a+'" data-fb="'+fb+'" onerror="(function(el){el.onerror=null;try{var s=decodeURIComponent(el.getAttribute(\'data-fb\')||\'\');var t=document.createElement(\'span\');t.innerHTML=s;if(t.firstChild)el.replaceWith(t.firstChild);}catch(e){}})(this)">';
+  }
+  function icoNav(key,activo){
+    const base=NAV_WEBP[key];
+    if(!base) return svg(key);
+    return icoWebp(base+(activo?'-activo':'-inactivo'),40,40,'',svg(key),!!activo);
+  }
 
   /* --- Estado propio de la v3 (no se mezcla con el de la v1). --- */
   let seccion='hoy';            // pestaña activa
@@ -6205,7 +6267,10 @@ window.FamiliaV3=(function(){
     // v6 A3: clase y etiqueta de ventana (verde «En su hora» / rojo «Se pasó la hora»).
     const vv=enVentana(t), vcls=vv?' v6-'+vv:'', vtxt=vv==='dentro'?'<span class="v6-vtag ok">En su hora</span>':vv==='poco'?'<span class="v6-vtag warn">Queda poco</span>':vv==='fuera'?'<span class="v6-vtag err">Se pasó la hora</span>':vv==='antes'?'<span class="v6-vtag v6d-antes-t">Aún no abre'+(t.habilita_en?' | Abre '+esc(new Date(t.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false})):'')+'</span>':'';   // v6d D7 · v6d D20c: «Aún no abre · Abre HH:MM» como texto único
     const obl=esObligatoria(t);
+    /* Restyle Ola 5: ícono clay si el emoji de la tarea está mapeado; si no, sin ícono (layout intacto). */
+    const icoT=t.icono&&FAMLY_EMOJI_ICO[t.icono]?famlyEmojiIco(t.icono,{w:36,h:36}):'';
     return `<div class="v3-card ${e.c}${vcls}${obl?' v6b-obl':''}" data-id="${t.id}" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.detalle(${t.id})">
+      ${icoT}
       <div class="v3-grow"><div class="v3-t">${esc(t.titulo)}</div>${''/* v6d QA-fix D11: la tarjeta muestra SOLO el nombre; la descripción va en la ficha (detalle) */}
       <div class="v3-sub"><span class="v3-chip ${obl?'obl':esDeber(t)?'deber':''}">${obl?'Obligatoria':esDeber(t)?'Deber':'Tarea'}</span>
       ${who?etiquetaMiembro(who)+' ':''/* v6d D21 */}<span class="${e.cls}">${esc(e.txt)}</span>${t.puntos?' | '+t.puntos+' pts':''}</div>
@@ -6524,7 +6589,7 @@ window.FamiliaV3=(function(){
       // v6 Mesada: verde si el TOTAL (incluida la mesada por liberar) alcanza; pedir solo con disponibles (botonPremio).
       const C=Math.max(1,Number(r.costo)||0), T=esPadre(u)?S:mesadaDe(u.id).total, llenos=Math.round(20*Math.min(T,C)/C), full=T>=C;
       const celdas=Array.from({length:20},(_,i)=>`<i class="${i<llenos?'f':''}"></i>`).join('');
-      return `<div class="v3-card" style="display:block"><div class="v3-row" style="justify-content:space-between"><span class="v3-t">${esc(r.nombre)}</span><span class="v3-sub">${C} pts</span></div>
+      return `<div class="v3-card" style="display:block"><div class="v3-row" style="justify-content:space-between;align-items:center"><span class="v3-t">${famlyEmojiIco(r.icono||'🎁',{w:36,h:36})} ${esc(r.nombre)}</span><span class="v3-sub">${C} pts</span></div>
         <div class="v3-bar ${full?'full':''}" role="progressbar" aria-valuemin="0" aria-valuemax="${C}" aria-valuenow="${Math.min(S,C)}" aria-label="${Math.min(S,C)} de ${C}">${celdas}</div>
         ${full?`<div class="v3-row" style="justify-content:space-between;align-items:center"><span class="v3-st-ok">${!esPadre(u)&&faltaDisponible(u.id,C)?'Te alcanza con tu mesada':'¡Ya lo puedes canjear!'}</span>${botonPremio(u,r)}</div>${!esPadre(u)&&faltaDisponible(u.id,C)?`<p class="v3-sub" style="margin-top:4px">${esc(faltaDisponible(u.id,C))}</p>`:''}`:`<span class="v3-sub">Te faltan ${C-T} pts</span>`}</div>`;
     }).join('');
@@ -7229,8 +7294,12 @@ window.FamiliaV3=(function(){
     document.getElementById('v4Rol').textContent=(u.rol||'')+(isAdmin(u)?' · Admin':'')/* v6d D6 */+(edad?' · '+edad+' años':'');
     document.getElementById('v4Frase').textContent=u.frase||'';
     const noLeidas=(state.notifs||[]).filter(x=>x.para_id===u.id&&!x.leida).length;
-    {const vh=document.getElementById('v3Hallazgo'); if(vh) vh.classList.toggle('on',!!(typeof isAdmin==='function'&&isAdmin(u)));} /* fix Ola 3: hallazgo solo admin */
-    document.getElementById('v4Bell').innerHTML=svg('campana')+(noLeidas?`<span class="v3-dot">${noLeidas}</span>`:'');
+    {const vh=document.getElementById('v3Hallazgo'); if(vh){ vh.classList.toggle('on',!!(typeof isAdmin==='function'&&isAdmin(u))); /* fix Ola 3: hallazgo solo admin */
+      /* Restyle Ola 5: bandera clay; fallback SVG. */
+      vh.innerHTML=icoWebp('header-hallazgos',28,28,'',svg('hallazgos'),true);
+    }}
+    /* Restyle Ola 5: campana clay + badge. */
+    document.getElementById('v4Bell').innerHTML=icoWebp('header-campana',28,28,'',svg('campana'),true)+(noLeidas?`<span class="v3-dot">${noLeidas}</span>`:'');
     document.body.classList.add('v3-modo');
     // «Ver como»: marca de solo lectura para los paneles y modales de la v1.
     document.body.classList.toggle('v4-ro',soloLectura());
@@ -7248,7 +7317,8 @@ window.FamiliaV3=(function(){
     const tabs=[['hoy','Hoy','hoy'],['agenda','Agenda','agenda'],['premios','Premios','premio'],['ranking','Ranking','trofeo'],['yo','Yo','yo']];
     if(admin) tabs.splice(1,0,['bandeja','Revisar','bandeja']);
     if(!admin&&seccion==='bandeja') seccion='hoy';
-    document.getElementById('v3Nav').innerHTML=tabs.map(([k,l,i])=>`<button class="${seccion===k?'on':''}" onclick="FamiliaV3.ir('${k}')" aria-label="${l}">${svg(i)}${l}</button>`).join('');
+    /* Restyle Ola 5: nav clay activo/inactivo; aria-label en el botón (img decorativo). */
+    document.getElementById('v3Nav').innerHTML=tabs.map(([k,l,i])=>`<button class="${seccion===k?'on':''}" onclick="FamiliaV3.ir('${k}')" aria-label="${l}">${icoNav(i,seccion===k)}${l}</button>`).join('');
     document.querySelectorAll('#v3App .v3-sec').forEach(s=>s.classList.toggle('on',s.id==='v3-'+seccion));
     if(seccion==='hoy') pintarHoy(u);
     if(seccion==='bandeja') pintarBandeja();
