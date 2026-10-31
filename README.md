@@ -733,3 +733,7 @@ Bitácora: 2026-10-31 22:50 (hora Madrid, Europe/Madrid) — **qué**: O7b prod:
 - Respaldos: respaldos.familia_o10_tarea_496_previo, respaldos.familia_o10b_tareas_aph_previo. Deshacer: *_o10_*_deshacer.sql, *_o10b_*_deshacer.sql (probados con rollback).
 
 - 2026-10-31 23:20 (Madrid) · qué: merge en `feat/famly-o9b` de los commits SQL + bitácora de BD (O7–O10b, ya aplicados en prod) sobre FE Ola 9b + Ola 10; conflicto de README resuelto conservando ambas bitácoras. · por qué: 1 solo deploy para 9b + 10 sobre la base de FAMLY Bot (41281af). · quién: Orquestador BuscoEdu (bot).
+### 2026-11-01 · O10c · BD BuscoEdu (bot) · APLICADO en prod (orden Orq, OK Jhon t954u)
+- Qué: famly_hallazgos 4,5,6,7,8,13,15,16,17 → resuelto + resuelto_en + nota «Ola 10 · commit aacc4b7 · dpl_B2CoCkvT · QA PASS» (id 7 + «verificación padre no-admin solo lectura pendiente»). Sugerencias 9,10,11,12,14 ✗ tocadas.
+- Por qué: smoke PROD aacc4b7 PASS 21/0.
+- Respaldo: respaldos.famly_o10c_hallazgos_previo (9 filas). Deshacer: supabase/ops/20261101000500_famly_o10c_hallazgos_resueltos_deshacer.sql.
