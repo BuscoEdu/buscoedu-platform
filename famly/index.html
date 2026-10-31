@@ -2,7 +2,6 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="familia-deploy" content="famly"><!-- mf O4 famly: deploy raíz (/, /l/:token, /familia/l/:token) -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -10,7 +9,7 @@
 <!-- familia-v44 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <style>
-/* :root clay → bloque 2a abajo */
+:root{--bg:#f8fafc;--primary:#6366f1;--success:#10b981;--danger:#ef4444;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;height:100%;overflow:hidden}
 .app{max-width:480px;margin:0 auto;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
@@ -76,51 +75,6 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:12px;z-index:400;opacity:0;transition:opacity .3s;font-size:.9rem;max-width:90%}
 .toast.show{opacity:1}
 .login-screen{position:fixed;inset:0;background:#fff;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
-/* O6 invitación: CTA coral, errores y bordes de criterios; overlay sobre login. */
-.o6-root{display:none;position:fixed;inset:0;z-index:600;background:#fff;overflow:auto;-webkit-overflow-scrolling:touch}
-.o6-root.show{display:block}
-.o6-wrap{max-width:420px;margin:0 auto;padding:24px 16px 40px;min-height:100%;box-sizing:border-box}
-.o6-brand{font-weight:800;letter-spacing:.08em;color:#4338ca;margin-bottom:4px;text-align:center}
-.o6-h{margin:0 0 8px;font-size:1.25rem;color:#1f1a4d;text-align:center}
-.o6-sub{margin:0 0 16px;color:#64748b;font-size:.9rem;line-height:1.4;text-align:center}
-.o6-card{border:1px solid #8a84b8;border-radius:14px;padding:16px;background:#fff}
-.o6-err{color:#b91c1c;font-size:.875rem;margin:8px 0 0;min-height:1.25em}
-.o6-empty{color:#64748b;font-size:.9rem;padding:12px 0;text-align:center}
-.o6-load{text-align:center;padding:48px 16px;color:#64748b}
-.o6-btn{display:block;width:100%;box-sizing:border-box;background:#ff7a59;color:#1f1a4d;border:none;border-radius:10px;padding:12px 16px;font-weight:600;font-size:1rem;cursor:pointer;min-height:44px;touch-action:manipulation}
-.o6-btn:disabled{opacity:.55;cursor:not-allowed}
-.o6-btn.sec{background:#eef2ff;color:#1f1a4d;border:1px solid #8a84b8;margin-top:8px}
-.o6-btn.danger{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;margin-top:8px}
-.o6-field{margin-bottom:12px}
-.o6-field label{display:block;font-size:.8rem;font-weight:600;color:#1f1a4d;margin-bottom:4px}
-.o6-field input,.o6-field select{width:100%;box-sizing:border-box;font-size:16px;min-height:44px;padding:10px 12px;border:1px solid #8a84b8;border-radius:10px;touch-action:manipulation}
-.o6-row{display:flex;gap:8px;align-items:center}
-.o6-row input{flex:1}
-.o6-member{border:1px solid #8a84b8;border-radius:12px;padding:12px;margin-bottom:8px}
-.o6-member .meta{font-size:.8rem;color:#64748b}
-.o6-member.inactive{opacity:.55}
-.o6-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.o6-actions button{font-size:.8rem;padding:8px 10px;min-height:40px;border-radius:8px;border:1px solid #8a84b8;background:#fff;color:#1f1a4d;font-weight:600;cursor:pointer;touch-action:manipulation}
-.o6-link{background:none;border:none;color:#4338ca;text-decoration:underline;cursor:pointer;font-size:.875rem;margin-top:12px;padding:8px;min-height:44px}
-@media (max-width:390px){.o6-wrap{padding:16px 12px 32px}}
-/* O6 · modal miembros: sheet accesible; full-width ≤390px. */
-.o6-modal{display:none;position:fixed;inset:0;z-index:700;align-items:flex-end;justify-content:center}
-.o6-modal.show{display:flex}
-.o6-modal-backdrop{position:absolute;inset:0;background:rgba(31,26,77,.45)}
-.o6-modal-sheet{position:relative;z-index:1;width:100%;max-width:420px;max-height:92vh;overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;border:1px solid #8a84b8;border-radius:16px 16px 0 0;padding:16px 16px 24px;box-sizing:border-box;margin:0 auto;outline:none}
-.o6-modal-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
-.o6-modal-head h3{margin:0;font-size:1.05rem;color:#1f1a4d}
-.o6-modal-x{border:none;background:transparent;font-size:1.5rem;line-height:1;color:#1f1a4d;cursor:pointer;min-width:44px;min-height:44px;touch-action:manipulation}
-.o6-modal-actions{margin-top:8px}
-.o6-modal .o6-err{color:#b91c1c}
-@media (min-width:391px){
-  .o6-modal{align-items:center;padding:16px}
-  .o6-modal-sheet{border-radius:16px;max-height:85vh}
-}
-@media (max-width:390px){
-  .o6-modal-sheet{max-width:100%;border-radius:16px 16px 0 0;border-left:none;border-right:none;border-bottom:none}
-}
-
 .empty{text-align:center;padding:24px;color:var(--muted)}
 .emoji-grid,.color-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
 .emoji-btn{width:40px;height:40px;border:2px solid var(--border);border-radius:10px;background:#fff;font-size:1.3rem;cursor:pointer}
@@ -136,15 +90,6 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .pill.danger{background:#fee2e2;color:#991b1b}
 .who-tag{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px;background:#e0e7ff;color:#3730a3;margin:0 6px 4px 0}
 .bell-btn{position:relative;background:transparent;border:none;color:#fff;font-size:1.35rem;line-height:1;cursor:pointer;padding:4px 8px}
-
-/* Hallazgos admin · icono + modal Error/Sugerencia (contrato-hallazgos). */
-.hallazgo-seg{display:flex;gap:8px;margin:4px 0 12px}
-.hallazgo-seg label{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border:1px solid #8a84b8;border-radius:10px;padding:8px 10px;font-size:16px;font-weight:600;color:#1f1a4d;cursor:pointer;box-sizing:border-box;touch-action:manipulation;user-select:none}
-.hallazgo-seg input{position:absolute;opacity:0;pointer-events:none}
-.hallazgo-seg label:has(input:checked){background:#eef2ff;border-color:#4338ca;color:#4338ca}
-.hallazgo-val{color:#92400e;font-size:.875rem;margin:6px 0 0;min-height:1.25em}
-.hallazgo-cont{display:block;text-align:right;font-size:.75rem;color:#64748b;margin-top:4px}
-.hallazgo-modal textarea{width:100%;box-sizing:border-box;font-size:16px;min-height:120px;padding:10px 12px;border:1px solid #8a84b8;border-radius:10px;resize:vertical;touch-action:manipulation}
 .section-label{margin:8px 0;font-size:.85rem;color:var(--muted);font-weight:600}
 .actions{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .photo-preview{width:100%;border-radius:12px;margin-top:8px;max-height:240px;object-fit:cover}
@@ -167,782 +112,41 @@ h3{margin-bottom:12px}
 .v6d-antes-t{color:#374151;background:#f3f4f6}
 .v3-modo .v6d-vone,body.v3-modo .form-group.v6d-v1{display:none}   /* v6d D7: en v3–v6 la ficha usa Inicio/Fin */
 .v6d-tarde-b{display:inline-block;font-size:.8rem;font-weight:700;color:#374151;background:#f3f4f6;border:1px solid #9ca3af;border-radius:999px;padding:2px 8px;margin:4px 0}
-/* === Restyle claymorphism 2026-10-31 · 2a: tokens + botones + inputs + chips + toasts + modales === */
-:root{
-  /* Tokens clay · paleta semántica (linea-grafica.md) */
-  --bg:#f7f7f9;
-  --surface:#ffffff;
-  --primary:#7bcfa0;          /* verde · acción principal */
-  --primary-bg:#e3f7ec;
-  --primary-border:#9ddbb8;
-  --danger:#f0a090;           /* coral · peligro / salir */
-  --danger-bg:#fdeae6;
-  --danger-border:#f5bdb0;
-  --success:#f0d66a;          /* amarillo · éxito / premios / pts */
-  --success-bg:#fff8d6;
-  --success-border:#f5e08a;
-  --warn:#c4b5e8;             /* lila · aviso / revisar */
-  --warn-bg:#f0ebfa;
-  --warn-border:#d4c8f0;
-  --info:#8ec5eb;             /* azul · info */
-  --info-bg:#e5f3fb;
-  --info-border:#aed5f0;
-  --disabled:#c4c9d1;         /* gris · deshabilitado */
-  --disabled-bg:#f3f4f6;
-  --disabled-border:#d8dce3;
-  --disabled-text:#4b5563;
-  --text:#1f1a4d;             /* texto oscuro sobre pasteles */
-  --muted:#64748b;
-  --border:#d8dce3;
-  --radius-card:24px;
-  --radius-btn:28px;
-  --radius-input:20px;
-  --radius-chip:999px;
-  --radius-ico:16px;
-  --clay-shadow:
-    0 8px 20px rgba(31, 26, 77, 0.10),
-    inset 0 2px 4px rgba(255, 255, 255, 0.65),
-    inset 0 -3px 6px rgba(31, 26, 77, 0.08);
-  --clay-shadow-lite:
-    0 4px 10px rgba(31, 26, 77, 0.08),
-    inset 0 1px 2px rgba(255, 255, 255, 0.7);
-}
-body{background:var(--bg);color:var(--text)}
-
-/* Botón primario · verde clay + texto oscuro */
-.btn{
-  background:var(--primary);
-  color:var(--text);
-  border:1px solid var(--primary-border);
-  border-radius:var(--radius-btn);
-  min-height:48px;
-  font-weight:700;
-  box-shadow:var(--clay-shadow);
-  padding:12px 18px;
-}
-.btn.small{min-height:36px;padding:8px 12px;border-radius:20px;font-size:.8rem}
-.btn.success{background:var(--success);color:var(--text);border-color:var(--success-border)}
-/* Botón peligro · coral */
-.btn.danger{background:var(--danger);color:var(--text);border-color:var(--danger-border);box-shadow:var(--clay-shadow)}
-/* Botón secundario · blanco + borde */
-.btn.secondary{
-  background:var(--surface);
-  color:var(--text);
-  border:1px solid var(--border);
-  box-shadow:var(--clay-shadow-lite);
-}
-/* Deshabilitado · gris sin elevación */
-.btn:disabled,button:disabled{
-  background:var(--disabled-bg)!important;
-  color:var(--disabled-text)!important;
-  border-color:var(--disabled-border)!important;
-  box-shadow:none!important;
-  opacity:1;
-  pointer-events:none;
-}
-
-/* Inputs · radio 20, font ≥16, focus lila/azul */
-.form-group input,.form-group select,.form-group textarea,
-.o6-field input,.o6-field select,
-.v3-sheet input,.v3-sheet select,.v3-sheet textarea,
-.hallazgo-modal textarea{
-  border-radius:var(--radius-input)!important;
-  border:1px solid var(--border)!important;
-  font-size:16px!important;
-  min-height:44px;
-  color:var(--text);
-  background:var(--surface);
-  box-shadow:inset 0 1px 2px rgba(31,26,77,.04);
-}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus,
-.o6-field input:focus,.o6-field select:focus,
-.v3-sheet input:focus,.v3-sheet select:focus,
-.hallazgo-modal textarea:focus{
-  outline:none;
-  border-color:var(--warn)!important;
-  box-shadow:0 0 0 3px var(--warn-bg), inset 0 1px 2px rgba(31,26,77,.04);
-}
-.form-group label,.o6-field label{color:var(--text)}
-
-/* Chips · pill clay; pts en amarillo */
-.chip{
-  border-radius:var(--radius-chip);
-  border:1px solid var(--border);
-  background:var(--surface);
-  color:var(--text);
-  box-shadow:var(--clay-shadow-lite);
-}
-.chip.on{background:var(--primary-bg);color:var(--text);border-color:var(--primary-border);font-weight:700}
-.tipo-chip,.v3-chip,.pill,.who-tag,.outcome{
-  border-radius:var(--radius-chip);
-  box-shadow:var(--clay-shadow-lite);
-}
-.tipo-tarea{background:var(--info-bg);color:var(--text)}
-.tipo-deber{background:var(--warn-bg);color:var(--text)}
-.tipo-inmediata{background:var(--danger-bg);color:var(--text)}
-.outcome.completada{background:var(--primary-bg);color:var(--text)}
-.pill{background:var(--info-bg);color:var(--text)}
-.pill.warn{background:var(--success-bg);color:var(--text)}
-.pill.danger{background:var(--danger-bg);color:var(--text)}
-.points-badge,.v3-pts{
-  background:var(--success-bg)!important;
-  color:var(--text)!important;
-  border:1px solid var(--success-border);
-  border-radius:var(--radius-chip);
-  box-shadow:var(--clay-shadow-lite);
-  font-weight:700;
-}
-/* Chip de puntos genérico */
-.pts-chip,.reward-item .pts,.task-item .pts{
-  display:inline-block;
-  padding:4px 10px;
-  border-radius:var(--radius-chip);
-  background:var(--success-bg);
-  color:var(--text);
-  border:1px solid var(--success-border);
-  box-shadow:var(--clay-shadow-lite);
-  font-weight:700;
-  font-size:.78rem;
-}
-
-/* Toasts · barra clay; éxito amarillo/verde pastel; error coral pastel */
-.toast{
-  background:var(--surface);
-  color:var(--text);
-  border:1px solid var(--border);
-  border-radius:var(--radius-chip);
-  box-shadow:var(--clay-shadow);
-  padding:12px 20px;
-}
-.toast.show{opacity:1}
-.toast.ok,.toast.success{background:var(--success-bg);border-color:var(--success-border)}
-.toast.err,.toast.error{background:var(--danger-bg);border-color:var(--danger-border)}
-.v3-toast{
-  background:var(--surface)!important;
-  color:var(--text)!important;
-  border:1px solid var(--border);
-  border-radius:var(--radius-chip);
-  box-shadow:var(--clay-shadow);
-}
-.v3-toast button{color:var(--text)!important;font-weight:700}
-
-/* Modales · sheet radio 24 superior, backdrop suave, X ≥44 */
-.modal{background:rgba(31,26,77,.40)}
-.modal-content,.v3-sheet>div,.block-card{
-  border-radius:var(--radius-card) var(--radius-card) 0 0!important;
-  box-shadow:var(--clay-shadow);
-  border:1px solid var(--border);
-  color:var(--text);
-}
-.o6-modal-backdrop{background:rgba(31,26,77,.40)!important}
-.o6-modal-sheet{
-  border-radius:var(--radius-card) var(--radius-card) 0 0!important;
-  border:1px solid var(--border)!important;
-  box-shadow:var(--clay-shadow);
-}
-.modal-x,.o6-modal-x{
-  min-width:44px;min-height:44px;
-  border-radius:50%;
-  color:var(--text)!important;
-}
-@media (min-width:391px){
-  .modal-content,.o6-modal-sheet,.v3-sheet>div{border-radius:var(--radius-card)!important}
-}
-/* v3 CTA → primario clay (texto oscuro sobre verde) */
-.v3-cta{
-  background:var(--primary)!important;
-  color:var(--text)!important;
-  border:1px solid var(--primary-border);
-  border-radius:var(--radius-btn);
-  min-height:48px;
-  box-shadow:var(--clay-shadow);
-}
-.v3-cta.v6d-aprob{background:var(--success)!important;color:var(--text)!important;border-color:var(--success-border)}
-.v3-cta.v6d-comp{background:var(--info)!important;color:var(--text)!important;border-color:var(--info-border)}
-.v3-btn2{
-  background:var(--surface)!important;
-  color:var(--text)!important;
-  border:1px solid var(--border)!important;
-  border-radius:var(--radius-btn);
-  box-shadow:var(--clay-shadow-lite);
-  min-height:44px;
-}
-.v3-btn2.err{color:var(--text)!important;background:var(--danger-bg)!important;border-color:var(--danger-border)!important}
-.v5-volver button{
-  background:var(--primary-bg)!important;
-  color:var(--text)!important;
-  border-radius:var(--radius-btn);
-  box-shadow:var(--clay-shadow-lite);
-  min-height:44px;
-}
-.o6-btn{
-  background:var(--primary)!important;
-  color:var(--text)!important;
-  border:1px solid var(--primary-border)!important;
-  border-radius:var(--radius-btn)!important;
-  min-height:48px;
-  box-shadow:var(--clay-shadow);
-}
-.o6-btn.sec{
-  background:var(--surface)!important;
-  color:var(--text)!important;
-  border:1px solid var(--border)!important;
-  box-shadow:var(--clay-shadow-lite);
-}
-.o6-btn.danger{
-  background:var(--danger)!important;
-  color:var(--text)!important;
-  border-color:var(--danger-border)!important;
-}
-
-/* === Restyle claymorphism 2026-10-31 · 2b: tarjetas + pantallas + encabezado compacto + nav 4 tabs === */
-
-/* Tarjetas de tarea / premio / miembro · radio 24, sombra doble clay */
-.card,.task-item,.reward-item,.member-item,.v3-card,.o6-member,.o6-card{
-  background:var(--surface)!important;
-  border-radius:var(--radius-card)!important;
-  border:1px solid var(--border)!important;
-  box-shadow:var(--clay-shadow)!important;
-  color:var(--text);
-}
-.task-item,.reward-item,.member-item,.v3-card{
-  border-left-width:4px!important;
-  border-left-style:solid!important;
-  margin-bottom:10px;
-  padding:14px 12px;
-}
-/* Tonos semánticos de borde (sin romper estados existentes) */
-.task-item{border-left-color:var(--primary)!important}
-.task-item.tone-kid,.reward-item.kid{border-left-color:var(--info)!important;background:var(--info-bg)!important}
-.task-item.tone-parent,.reward-item.parent{border-left-color:var(--info-border)!important;background:var(--info-bg)!important}
-.task-item.tone-deber{border-left-color:var(--warn)!important;background:var(--warn-bg)!important}
-.task-item.tone-inmediata,.v3-card.v6b-obl{border-left-color:var(--danger)!important;background:var(--danger-bg)!important}
-.task-item.tone-ontime,.v3-card.v6-dentro,.v3-card.ok{border-left-color:var(--primary)!important;background:var(--primary-bg)!important}
-.task-item.tone-late,.v3-card.v6-fuera,.v3-card.err{border-left-color:var(--danger)!important;background:var(--danger-bg)!important}
-.v3-card.esp,.v3-card.v6-poco{border-left-color:var(--success)!important;background:var(--success-bg)!important}
-.v3-card.dev{border-left-color:#fb923c!important}
-.v3-card.rev{border-left-color:var(--warn)!important;background:var(--warn-bg)!important}
-.v3-card.v6-antes{background:var(--surface)!important;border-left-color:var(--disabled)!important}
-.reward-item{border-left-color:var(--success)!important}
-.v3-modo .reward-item.tpl-hijo{background:var(--info-bg)!important;border-left-color:var(--info)!important;color:var(--text)!important}
-.v3-modo .reward-item.tpl-padre{background:var(--info-bg)!important;border-left-color:#6ba8d4!important;color:var(--text)!important}
-.v3-modo .reward-item.tpl-deber{background:var(--warn-bg)!important;border-left-color:var(--warn)!important;color:var(--text)!important}
-
-/* Checks / acciones táctiles ≥44 */
-.task-actions .btn{min-height:44px}
-.v3-card .v3-cta,.v3-card .v3-btn2{min-height:44px}
-
-/* Vacío vs error · estados distintos */
-.empty,.o6-empty{color:var(--muted);text-align:center;padding:24px}
-.o6-err,.hallazgo-val,#hallazgoErr,.v3-st-err{color:#9a3412} /* error distinto del vacío muted */
-.state._tareasError,.err-banner{background:var(--danger-bg);border:1px solid var(--danger-border);color:var(--text);border-radius:var(--radius-input);padding:10px 12px;margin:8px 0}
-
-/* Encabezado compacto @390 · logo FAMLY + campana + hallazgos + pts */
-header,.v3-head,.v4-panel-top{
-  background:var(--surface)!important;
-  color:var(--text)!important;
-  border-radius:0 0 var(--radius-card) var(--radius-card)!important;
-  box-shadow:var(--clay-shadow);
-  border-bottom:1px solid var(--border);
-}
-header{padding:12px 14px}
-.v3-head{padding:10px 14px;display:flex;flex-direction:column;align-items:stretch;gap:8px}
-.v3-head-top{display:flex;align-items:center;gap:10px;min-width:0;width:100%}
-.v3-head-bot{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;width:100%}
-.header-top #familyTitle,.v4-fam,#familyTitle{
-  font-weight:800;
-  letter-spacing:.06em;
-  color:var(--text);
-  font-size:.95rem;
-}
-/* Logo tipográfico compacto FAMLY */
-.famly-logo{
-  font-weight:800;
-  letter-spacing:.1em;
-  font-size:1rem;
-  color:var(--text);
-  line-height:1;
-}
-.current-user{margin-top:8px}
-.avatar,.v4-av{
-  width:44px;height:44px;
-  border-radius:50%;
-  background:var(--primary-bg);
-  border:1px solid var(--primary-border);
-  box-shadow:var(--clay-shadow-lite);
-  color:var(--text);
-}
-.bell-btn,.v3-icobtn{
-  color:var(--text)!important;
-  min-width:44px;min-height:44px;
-  display:inline-flex;align-items:center;justify-content:center;
-  border-radius:var(--radius-ico);
-  background:var(--info-bg);
-  border:1px solid var(--info-border);
-  box-shadow:var(--clay-shadow-lite);
-  padding:6px;
-}
-#btnHallazgo{
-  background:var(--warn-bg)!important;
-  border-color:var(--warn-border)!important;
-}
-.v3-icobtn .v3-ico{stroke:var(--text);width:22px;height:22px}
-.v3-dot,.badge{
-  background:var(--danger)!important;
-  color:var(--text)!important;
-  border:1px solid var(--danger-border);
-  font-weight:700;
-}
-@media (max-width:390px){
-  header{padding:10px 12px}
-  .current-user h2{font-size:1rem}
-  .current-user p,.current-user small{font-size:.72rem}
-  .header-top{gap:6px}
-  .app,.section{overflow-x:hidden}
-  body{overflow-x:hidden}
-}
-
-/* Nav inferior · 4 tabs (Tareas Premios Ranking Yo) · Orquestador override */
-nav{
-  background:var(--surface)!important;
-  border-top:1px solid var(--border);
-  box-shadow:0 -4px 16px rgba(31,26,77,.06);
-  padding:6px 4px calc(8px + env(safe-area-inset-bottom));
-}
-.nav-btn{
-  min-width:64px;
-  min-height:52px;
-  padding:6px 8px;
-  gap:4px;
-  color:#6b7280;
-  font-weight:500;
-  border-radius:14px;
-  background:transparent;
-}
-.nav-btn .nav-ico{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  width:40px;height:40px;
-  min-width:40px;
-  border-radius:var(--radius-ico);
-  font-size:1.2rem;
-  background:var(--disabled-bg);
-  border:1px solid var(--disabled-border);
-  box-shadow:none;
-  filter:grayscale(.35);
-  opacity:.85;
-}
-/* Activo · color semántico + pastel + bold */
-.nav-btn.active{
-  color:var(--text);
-  font-weight:700;
-  background:transparent;
-}
-.nav-btn.active .nav-ico{
-  filter:none;
-  opacity:1;
-  box-shadow:var(--clay-shadow);
-}
-/* Tareas → verde */
-.nav-btn:nth-child(1).active .nav-ico,
-.nav-btn.active:nth-child(1) .nav-ico{
-  background:var(--primary-bg);
-  border-color:var(--primary-border);
-}
-.nav-btn:nth-child(1).active{color:#1f5c3a}
-/* Premios → amarillo */
-.nav-btn:nth-child(2).active .nav-ico{
-  background:var(--success-bg);
-  border-color:var(--success-border);
-}
-.nav-btn:nth-child(2).active{color:#7a5f00}
-/* Ranking → verde/amarillo trofeo */
-.nav-btn:nth-child(3).active .nav-ico{
-  background:var(--success-bg);
-  border-color:var(--primary-border);
-}
-.nav-btn:nth-child(3).active{color:#1f5c3a}
-/* Yo → azul */
-.nav-btn:nth-child(4).active .nav-ico{
-  background:var(--info-bg);
-  border-color:var(--info-border);
-}
-.nav-btn:nth-child(4).active{color:#1e4a6e}
-
-/* Nav v3 · mismo look clay (pestañas existentes; no se inventan tabs) */
-.v3-nav{
-  background:var(--surface)!important;
-  border-top:1px solid var(--border);
-  box-shadow:0 -4px 16px rgba(31,26,77,.06);
-  padding:6px 2px calc(8px + env(safe-area-inset-bottom));
-}
-.v3-nav button{
-  color:#6b7280!important;
-  min-width:56px;
-  min-height:52px;
-  padding:6px 6px;
-  border-radius:14px;
-  font-weight:500;
-}
-.v3-nav button .v3-ico{
-  width:40px;height:40px;
-  padding:8px;
-  box-sizing:border-box;
-  border-radius:var(--radius-ico);
-  background:var(--disabled-bg);
-  border:1px solid var(--disabled-border);
-  stroke:#6b7280;
-  display:block;
-  margin:0 auto 2px;
-}
-.v3-nav button.on{
-  color:var(--text)!important;
-  font-weight:700;
-  background:transparent!important;
-}
-.v3-nav button.on .v3-ico{
-  background:var(--primary-bg);
-  border-color:var(--primary-border);
-  stroke:var(--text);
-  box-shadow:var(--clay-shadow);
-}
-
-/* Restyle Ola 5 · íconos clay WebP (nav / cabecera / emoji mapeado) */
-.v3-nav button .v3-ico-img{
-  width:40px;height:40px;
-  padding:4px;
-  box-sizing:border-box;
-  border-radius:var(--radius-ico,16px);
-  background:transparent;
-  display:block;
-  margin:0 auto 2px;
-  object-fit:contain;
-}
-.v3-nav button.on .v3-ico-img{box-shadow:var(--clay-shadow,0 8px 20px rgba(31,26,77,.10))}
-.v3-icobtn .v3-ico-img{width:28px;height:28px;object-fit:contain;display:block}
-.famly-emoji-ico{width:28px;height:28px;vertical-align:-6px;object-fit:contain;display:inline-block;margin-right:4px}
-.v3-card .famly-emoji-ico{width:40px;height:40px;margin-right:8px;flex:none}
-
-
-/* Pantallas · tipografía y aire */
-.section,.v3-main{background:var(--bg)}
-.section h3,.v3-sec h2{color:var(--text);font-weight:700}
-.section-label{color:var(--muted)}
-.v3-sub{color:var(--muted)}
-.v3-t{color:var(--text)}
-.v5-rk,.v3-rk,.v4-rk{border-bottom-color:var(--border)!important}
-.v5-rk .nom{color:var(--text)}
-.hist-bad{background:var(--disabled-bg);border-radius:var(--radius-input);border-left-color:var(--text)}
-.v6d-sticky{background:var(--surface)!important;border-radius:0;box-shadow:var(--clay-shadow-lite)}
-.v3-seg{border-radius:var(--radius-btn);border-color:var(--border);overflow:hidden;box-shadow:var(--clay-shadow-lite)}
-.v3-seg button.on{background:var(--primary)!important;color:var(--text)!important}
-.figure-btn,.emoji-btn{
-  border-radius:var(--radius-ico);
-  box-shadow:var(--clay-shadow-lite);
-  background:var(--surface);
-}
-.figure-btn.selected,.emoji-btn.selected{
-  border-color:var(--primary);
-  background:var(--primary-bg);
-}
-.filter-row select{
-  border-radius:var(--radius-chip)!important;
-  min-height:36px;
-  font-size:16px;
-  border-color:var(--border);
-  color:var(--text);
-}
-#v3App{background:var(--bg)!important;color:var(--text)!important}
-/* Sin scroll horizontal a 390 */
-@media (max-width:390px){
-  .section,.v3-main,.modal-content,.o6-wrap{max-width:100vw;overflow-x:hidden}
-  .filter-row{gap:4px}
-  .task-actions{flex-wrap:wrap}
-  .nav-btn{min-width:0;flex:1}
-  .v3-nav button{min-width:0;flex:1;padding:4px 2px;font-size:.62rem}
-}
-
-/* === Restyle claymorphism 2026-10-31 · 2c: login + O6 /i/ + panel miembros + hallazgos + campana === */
-
-/* Login · fondo app, marca FAMLY, inputs vacíos, CTA verde */
-.login-screen{
-  background:var(--bg)!important;
-  color:var(--text);
-  padding:24px 20px;
-}
-.login-screen .famly-logo,
-.login-screen > div:first-child{
-  font-weight:800;
-  letter-spacing:.1em;
-  color:var(--text)!important;
-  font-size:1.35rem;
-  margin-bottom:8px;
-  text-shadow:0 2px 0 rgba(255,255,255,.8);
-}
-.login-screen h2{color:var(--text);font-weight:700}
-.login-screen .form-group{width:100%;max-width:320px}
-.login-screen .btn{width:100%;max-width:320px}
-.o6-link{
-  color:var(--text)!important;
-  text-decoration:underline;
-  margin-top:16px;
-  min-height:44px;
-  background:transparent!important;
-  border:none;
-}
-
-/* O6 · invitación /i/ + admin + panel miembros */
-.o6-root{background:var(--bg)!important}
-.o6-brand{
-  color:var(--text)!important;
-  font-weight:800;
-  letter-spacing:.1em;
-}
-.o6-h{color:var(--text)!important}
-.o6-sub{color:var(--muted)!important}
-.o6-card{
-  background:var(--surface)!important;
-  border:1px solid var(--border)!important;
-  border-radius:var(--radius-card)!important;
-  box-shadow:var(--clay-shadow)!important;
-}
-.o6-member{
-  background:var(--surface);
-  border-radius:var(--radius-card)!important;
-  box-shadow:var(--clay-shadow-lite);
-}
-.o6-actions button{
-  border-radius:var(--radius-btn)!important;
-  min-height:44px;
-  box-shadow:var(--clay-shadow-lite);
-  background:var(--surface);
-  color:var(--text);
-  border:1px solid var(--border)!important;
-}
-.o6-err{color:#9a3412!important;font-weight:600} /* error ≠ vacío */
-.o6-empty,.o6-load{color:var(--muted)!important}
-.o6-field input,.o6-field select{border-radius:var(--radius-input)!important}
-
-/* Hallazgos · modal + segmentación Error|Sugerencia */
-.hallazgo-seg label{
-  border-radius:var(--radius-btn)!important;
-  border:1px solid var(--border)!important;
-  background:var(--surface);
-  color:var(--text)!important;
-  box-shadow:var(--clay-shadow-lite);
-  min-height:44px;
-}
-.hallazgo-seg label:has(input:checked){
-  background:var(--warn-bg)!important;
-  border-color:var(--warn-border)!important;
-  color:var(--text)!important;
-  box-shadow:var(--clay-shadow);
-}
-.hallazgo-modal textarea{
-  border-radius:var(--radius-input)!important;
-  border-color:var(--border)!important;
-}
-.hallazgo-val{color:#9a3412}
-.hallazgo-cont{color:var(--muted)}
-
-/* Campana · ya revestida en 2b; badge coral */
-#btnBell .badge,#bellCount{
-  background:var(--danger)!important;
-  color:var(--text)!important;
-}
-
-/* Block screen / immediate */
-.block-screen{background:rgba(31,26,77,.55)}
-.block-card{box-shadow:var(--clay-shadow);border-radius:var(--radius-card)!important}
-
-/* v3 sheet labels */
-.v3-sheet label{color:var(--muted)}
-.v6b-rev{
-  background:var(--warn-bg)!important;
-  border-color:var(--warn-border)!important;
-  border-radius:var(--radius-card)!important;
-  box-shadow:var(--clay-shadow-lite);
-}
-.v6c-aviso{
-  background:var(--warn-bg)!important;
-  border-color:var(--warn)!important;
-  border-radius:var(--radius-card)!important;
-}
-.v6c-dia input:checked+span{
-  background:var(--primary)!important;
-  border-color:var(--primary-border)!important;
-  color:var(--text)!important;
-}
-.v3-ag-seg button.on,.v3-ag-md.on{
-  background:var(--primary-bg)!important;
-  color:var(--text)!important;
-  border-color:var(--primary-border)!important;
-}
-.v3-ag-ev{border-radius:var(--radius-input);box-shadow:var(--clay-shadow-lite)}
-
 </style>
 <!-- v6e control de versión: la misma etiqueta que FAMILIA_VERSION; el chequeo la compara con la página del servidor. -->
 <meta name="familia-version" content="mf1">
 </head>
 <body>
 <div class="login-screen" id="loginScreen">
-  <div class="famly-logo" style="margin-bottom:4px">FAMLY</div><!-- v6d D8 · restyle clay: marca entrada -->
+  <div style="font-weight:800;letter-spacing:.08em;color:#4338ca;margin-bottom:4px">FAMLY</div><!-- v6d D8: marca en la entrada -->
   <h2 style="margin-bottom:16px">Entrar</h2>
-  <!-- Ola 7 ítem 1: nick → select integrantes + PIN (sin datos de casa antes del apodo). -->
+  <!-- MF O2: nick → alias+PIN (sin listar nombres hasta después del PIN). -->
   <div id="loginPasoNick">
     <div class="form-group" style="width:100%;max-width:320px"><label>Apodo de la familia</label>
-      <input id="loginNick" autocomplete="organization" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" placeholder="Apodo de tu familia" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation">
+      <input id="loginNick" autocomplete="organization" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" placeholder="ej. beman27" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation">
     </div>
     <button class="btn" style="width:100%;max-width:320px;min-height:44px" type="button" onclick="loginResolverNick()">Continuar</button>
   </div>
   <div id="loginPasoPin" style="display:none;width:100%;max-width:320px">
-    <!-- Ola 7 ítem 1: tras apodo → select integrantes (inicial+nombre) + PIN; alias solo fallback si falta RPC. -->
     <p class="v3-sub" id="loginFamOk" style="margin:0 0 10px;color:#6b7280">Familia encontrada</p>
-    <div class="form-group" id="loginIntegranteWrap">
-      <label for="loginIntegrante">¿Quién eres?</label>
-      <select id="loginIntegrante" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation" aria-label="Elige quién eres">
-        <option value="">Elige tu nombre</option>
-      </select>
-    </div>
-    <p id="loginEmptyHint" class="v3-sub" style="display:none;margin:0 0 10px;color:#b91c1c" role="status"></p>
-    <div class="form-group" id="loginAliasWrap" style="display:none"><label for="loginAlias">Tu alias</label>
+    <div class="form-group"><label>Tu alias</label>
       <input id="loginAlias" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="16" placeholder="ej. juanes" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation">
     </div>
-    <div class="form-group"><label for="loginPin">PIN</label>
+    <div class="form-group"><label>PIN</label>
       <input id="loginPin" type="password" placeholder="PIN" maxlength="8" inputmode="numeric" autocomplete="current-password" style="font-size:16px;min-height:44px;width:100%;touch-action:manipulation">
     </div>
     <button class="btn" style="width:100%;min-height:44px" type="button" onclick="doLogin()">Entrar</button>
     <button class="btn secondary" style="width:100%;margin-top:8px;min-height:44px" type="button" onclick="loginCambiarFamilia()">Cambiar de familia</button>
   </div>
   <!-- v6e E-LG1: no mostrar ningún código/contraseña en el login -->
-  <button type="button" class="o6-link" id="o6LinkDueño" onclick="o6AbrirLoginAdmin()">Soy administrador · email y clave</button>
-</div>
-
-<!-- O6 · flujo invitación /i/<token> + panel admin dueño (solo famly) · copy «Dueño»→«Administrador» solo en textos visibles (ids/BD intactos) -->
-<div class="o6-root" id="o6Root" aria-live="polite">
-  <div class="o6-wrap">
-    <div class="o6-brand">FAMLY</div>
-
-    <div id="o6VistaLoad" class="o6-load" style="display:none">Comprobando enlace…</div>
-
-    <div id="o6VistaError" style="display:none" class="o6-card">
-      <h2 class="o6-h">Enlace</h2>
-      <p class="o6-sub" id="o6ErrorMsg">Este enlace no está disponible.</p>
-      <button type="button" class="o6-btn sec" onclick="o6IrEntradaMiembro()">Volver a entrar</button>
-    </div>
-
-    <div id="o6VistaRegistro" style="display:none">
-      <h2 class="o6-h">Crea tu cuenta</h2>
-      <p class="o6-sub">Crea tu cuenta de administrador. Email y clave. No te pedimos confirmar el correo.</p>
-      <div class="o6-card">
-        <div class="o6-field"><label for="o6Email">Email</label>
-          <input id="o6Email" type="email" autocomplete="email" inputmode="email" maxlength="120" placeholder="tu@correo.com"></div>
-        <div class="o6-field"><label for="o6Clave">Clave</label>
-          <input id="o6Clave" type="password" autocomplete="new-password" maxlength="128" placeholder="Mín. 8, letra y número"></div>
-        <div class="o6-field"><label for="o6Clave2">Repite la clave</label>
-          <input id="o6Clave2" type="password" autocomplete="new-password" maxlength="128"></div>
-        <p class="o6-err" id="o6RegErr" role="alert"></p>
-        <button type="button" class="o6-btn" id="o6BtnRegCont" onclick="o6RegistroContinuar()">Continuar</button>
-      </div>
-    </div>
-
-    <div id="o6VistaFamilia" style="display:none">
-      <h2 class="o6-h">Crear tu familia</h2>
-      <p class="o6-sub">Escribe el nombre de tu familia, tu alias y un apodo (5 a 20 caracteres: minúsculas, números, _ y -). Te sugerimos un apodo; puedes cambiarlo.</p>
-      <div class="o6-card">
-        <div class="o6-field"><label for="o6NombreFam">Nombre de la familia</label>
-          <input id="o6NombreFam" maxlength="60" autocomplete="organization" placeholder="ej. Los Bejarano"></div>
-        <div class="o6-field"><label for="o6AliasDueño">Tu alias</label>
-          <input id="o6AliasDueño" maxlength="16" autocapitalize="none" autocomplete="username" placeholder="ej. juanes"></div>
-        <div class="o6-field"><label for="o6Nick">Apodo (nick)</label>
-          <div class="o6-row">
-            <input id="o6Nick" maxlength="20" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="ej. bejarano">
-            <button type="button" class="o6-btn sec" style="width:auto;margin:0;padding:10px 12px" onclick="o6SugerirNick()">Sugerir</button>
-          </div>
-        </div>
-        <p class="o6-err" id="o6FamErr" role="alert"></p>
-        <button type="button" class="o6-btn" id="o6BtnRegistrar" onclick="o6RegistrarAdmin()">Crear familia</button>
-        <button type="button" class="o6-btn sec" onclick="o6Mostrar('registro')">Atrás</button>
-      </div>
-    </div>
-
-    <div id="o6VistaResumen" style="display:none">
-      <h2 class="o6-h">Listo</h2>
-      <p class="o6-sub">Tu familia está lista. Tú entras con email y clave. Los demás, con el apodo de la familia, su alias y su PIN.</p>
-      <div class="o6-card">
-        <!-- Ola 7 ítem 3: CTA primario entra a mainApp con sesión admin (no al login). -->
-        <button type="button" class="o6-btn" onclick="o6EntrarApp()">Entrar a la app</button>
-        <button type="button" class="o6-btn sec" onclick="o6Mostrar('panel')">Administrar personas</button>
-      </div>
-    </div>
-
-    <div id="o6VistaAdminLogin" style="display:none">
-      <h2 class="o6-h">Administrador</h2>
-      <p class="o6-sub">Email y clave de administrador.</p>
-      <div class="o6-card">
-        <div class="o6-field"><label for="o6AdminEmail">Email</label>
-          <input id="o6AdminEmail" type="email" autocomplete="username" maxlength="120"></div>
-        <div class="o6-field"><label for="o6AdminClave">Clave</label>
-          <input id="o6AdminClave" type="password" autocomplete="current-password" maxlength="128"></div>
-        <p class="o6-err" id="o6AdminErr" role="alert"></p>
-        <button type="button" class="o6-btn" id="o6BtnAdminLogin" onclick="o6AdminLogin()">Entrar</button>
-        <button type="button" class="o6-btn sec" onclick="o6IrEntradaMiembro()">Entrar como miembro</button>
-      </div>
-    </div>
-
-    <div id="o6VistaPanel" style="display:none">
-      <h2 class="o6-h">Tu familia</h2>
-      <p class="o6-sub">Añade a papás e hijos. Cada uno tendrá su PIN. Si dejas de usar a alguien, lo desactivas (no se borra).</p>
-      <div class="o6-card" style="margin-bottom:12px">
-        <div id="o6MiembrosLoad" class="o6-load" style="display:none;padding:16px">Cargando…</div>
-        <div id="o6MiembrosEmpty" class="o6-empty" style="display:none">Aún no hay personas. Añade la primera.</div>
-        <div id="o6MiembrosErr" class="o6-err" style="display:none" role="alert"></div>
-        <div id="o6MiembrosList"></div>
-      </div>
-      <div class="o6-card">
-        <h3 style="margin:0 0 10px;font-size:1rem;color:#1f1a4d">Añadir persona</h3>
-        <div class="o6-field"><label for="o6MemNombre">Nombre</label>
-          <input id="o6MemNombre" maxlength="40" autocomplete="name"></div>
-        <div class="o6-field"><label for="o6MemAlias">Alias</label>
-          <input id="o6MemAlias" maxlength="16" autocapitalize="none" autocomplete="off"></div>
-        <div class="o6-field"><label for="o6MemRol">Rol</label>
-          <select id="o6MemRol"><option value="hijo">Hijo/Hija</option><option value="padre">Padre/Madre</option></select></div>
-        <div class="o6-field"><label for="o6MemPin">PIN</label>
-          <input id="o6MemPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="4–8 dígitos"></div>
-        <p class="o6-err" id="o6MemErr" role="alert"></p>
-        <button type="button" class="o6-btn" id="o6BtnMemCrear" onclick="o6MiembroCrear()">Añadir</button>
-        <!-- Ola 7 ítem 3: al terminar de añadir personas, entrar con sesión admin. -->
-        <button type="button" class="o6-btn" onclick="o6EntrarApp()">Entrar a la app</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- O6 · modal editar / PIN (focus trap, Esc, sin prompt; no imprimir PIN). -->
-<div id="o6Modal" class="o6-modal" hidden aria-hidden="true">
-  <div class="o6-modal-backdrop" data-o6-close tabindex="-1"></div>
-  <div class="o6-modal-sheet" role="dialog" aria-modal="true" aria-labelledby="o6ModalTitle" id="o6ModalSheet" tabindex="-1">
-    <div class="o6-modal-head">
-      <h3 id="o6ModalTitle">Editar</h3>
-      <button type="button" class="o6-modal-x" id="o6ModalCloseX" aria-label="Cerrar" data-o6-close>&times;</button>
-    </div>
-    <div id="o6ModalBody"></div>
-    <p class="o6-err" id="o6ModalErr" role="alert"></p>
-    <div class="o6-modal-actions">
-      <button type="button" class="o6-btn" id="o6ModalOk">Guardar</button>
-      <button type="button" class="o6-btn sec" id="o6ModalCancel" data-o6-close>Cancelar</button>
-    </div>
-  </div>
 </div>
 
 <div class="app" id="mainApp" style="display:none">
   <header>
     <div class="header-top">
-      <div id="familyTitle" class="famly-logo">FAMLY · Familia</div><!-- v6d D8 · logo tipográfico clay -->
+      <div id="familyTitle">FAMLY · Familia</div><!-- v6d D8 -->
       <div style="display:flex;align-items:center;gap:8px">
         <button type="button" class="bell-btn" id="btnBell" onclick="openNotifs()" aria-label="Notificaciones"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="bellCount" class="badge" style="display:none">0</span></button>
-        <button type="button" class="bell-btn" id="btnHallazgo" onclick="abrirHallazgo()" aria-label="Reportar un hallazgo" style="display:none" title="Reportar un hallazgo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></button>
         <div class="points-badge" id="headerPoints">0 pts</div>
       </div>
     </div>
@@ -1090,7 +294,7 @@ nav{
   <button class="btn" id="btnCreateTask" style="width:100%" onclick="reviewTask()">Crear</button>
   </div>
   <!-- Hotfix v5: al cerrar se apaga el modo «Validar hecha», para que no quede pegado a la siguiente creación. -->
-  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="validateMode=false;closeModal('modal-tarea')">← Volver</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="validateMode=false;closeModal('modal-tarea')">Cerrar</button>
 </div></div>
 
 <div class="modal" id="modal-tarea-revisar"><div class="modal-content">
@@ -1118,7 +322,7 @@ nav{
   <div class="form-group reward-edit"><label>Icono</label><div class="emoji-grid" id="rewardEmojiGrid"></div><input type="hidden" id="rewardEmoji" value="🎁"></div>
   <div id="rewardFalta" style="margin-bottom:12px"></div>
   <div class="actions" id="rewardActions"></div>
-  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-premio')">← Volver</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-premio')">Cerrar</button>
 </div></div>
 
 <div class="modal" id="modal-elemento"><div class="modal-content">
@@ -1154,7 +358,7 @@ nav{
   <div class="form-group"><label>Fecha de nacimiento (opcional)</label><input type="date" id="newMemberBirth"></div>
   <p id="newMemberProfile" style="font-size:.85rem;color:var(--muted);margin-bottom:12px"></p>
   <button class="btn" style="width:100%" onclick="createMember()">Guardar</button>
-  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-miembro')">← Volver</button>
+  <button class="btn secondary" style="width:100%;margin-top:8px" onclick="closeModal('modal-miembro')">Cerrar</button>
 </div></div>
 
 <div class="modal" id="modal-evidencia"><div class="modal-content"><h3>Ya la hice</h3>
@@ -1224,36 +428,6 @@ nav{
   <div id="notifList"></div>
   <button class="btn secondary" style="width:100%;margin-top:12px" onclick="closeNotifs()">Cerrar</button>
 </div></div>
-
-<!-- Hallazgos admin · modal Error/Sugerencia (solo padre_admin; RPC familia_rpc_admin_hallazgo_crear). -->
-<div id="hallazgoModal" class="o6-modal hallazgo-modal" hidden aria-hidden="true">
-  <div class="o6-modal-backdrop" data-hallazgo-close tabindex="-1"></div>
-  <div class="o6-modal-sheet" role="dialog" aria-modal="true" aria-labelledby="hallazgoTitle" id="hallazgoSheet" tabindex="-1">
-    <div class="o6-modal-head">
-      <h3 id="hallazgoTitle">Reportar un hallazgo</h3>
-      <button type="button" class="o6-modal-x" aria-label="Cerrar" data-hallazgo-close>&times;</button>
-    </div>
-    <div class="o6-field">
-      <span style="display:block;font-size:.8rem;font-weight:600;color:#1f1a4d;margin-bottom:4px">Tipo</span>
-      <div class="hallazgo-seg" role="radiogroup" aria-label="Tipo de hallazgo">
-        <label><input type="radio" name="hallazgoTipo" value="error" checked> Error</label>
-        <label><input type="radio" name="hallazgoTipo" value="sugerencia"> Sugerencia</label>
-      </div>
-    </div>
-    <div class="o6-field">
-      <label for="hallazgoDesc">Descripción</label>
-      <textarea id="hallazgoDesc" maxlength="2000" rows="5" placeholder="Cuéntanos qué pasó o qué mejorarías…" aria-describedby="hallazgoCont hallazgoVal"></textarea>
-      <small class="hallazgo-cont" id="hallazgoCont">0/2000</small>
-      <p class="hallazgo-val" id="hallazgoVal" role="status"></p>
-    </div>
-    <p class="o6-err" id="hallazgoErr" role="alert"></p>
-    <div class="o6-modal-actions">
-      <button type="button" class="o6-btn" id="hallazgoEnviar" onclick="enviarHallazgo()">Enviar</button>
-      <button type="button" class="o6-btn sec" data-hallazgo-close>Cancelar</button>
-    </div>
-  </div>
-</div>
-
 
 <div class="modal" id="modal-ficha"><div class="modal-content">
   <h3 id="fichaTitle">Tarea</h3>
@@ -1348,8 +522,7 @@ function familiaAppPath(){
   if(/familia\.html$/i.test(p)) return p;
   if(/familia-v1\.html$/i.test(p)) return p.replace(/familia-v1\.html$/i,'familia.html');
   if(familiaEsFamly()) return '/';
-  /* O6: /i/<token> también es deep-link de famly (base '/'). */
-  if(p==='/'||p===''||/\/index\.html$/i.test(p)||/^\/l\/[^/]+\/?$/.test(p)||/^\/i\/[^/]+\/?$/.test(p)) return '/';
+  if(p==='/'||p===''||/\/index\.html$/i.test(p)||/^\/l\/[^/]+\/?$/.test(p)) return '/';
   /* BuscoEdu sin meta: /familia/l/:token → familia.html (si algún día hay rewrite). */
   if(/^\/familia\/l\/[^/]+\/?$/.test(p)) return '/familia.html';
   return p.endsWith('/')?p:(p.replace(/\/[^/]*$/,'/')||'/');
@@ -1379,28 +552,10 @@ function familiaAppOriginPath(){
   }catch(e){}
 })();
 
-/* O6: captura token de invitación /i/<token> (no imprimir token; solo sessionStorage). */
-(function capturarInvitacionO6(){
-  try{
-    const m=String(location.pathname||'').match(/^\/i\/([^/]+)\/?$/);
-    if(!m) return;
-    const tok=decodeURIComponent(m[1]||'');
-    if(!tok) return;
-    sessionStorage.setItem('familia_inv_token', tok);
-    const clean=new URL(location.href);
-    const base=familiaAppPath();
-    clean.pathname=(base==='/'?'/':base);
-    history.replaceState({},'',clean.pathname+(clean.search||'')+clean.hash);
-  }catch(e){}
-})();
-
-
 let state={currentUserId:null,members:[],tasks:[],rewards:[],history:[],config:{},plantillas:[],mensajes:[],solicitudes:[],notifs:[],deberes:[]};
 let notifPanelOpen=false;
 /* mf O3/O4 fix: bandera anti doble clic de la entrada (nick→alias→PIN); antes no estaba declarada y «Continuar» lanzaba ReferenceError. */
 let loginBusy=false;
-/* Ola 7: true = RPC O7 ausente → camino viejo alias+familia_rpc_login_miembro. */
-let loginFallbackAlias=false;
 let notifSeenIds=[];
 let pendingTaskId=null;
 let pendingTransferId=null;
@@ -1631,34 +786,6 @@ function plantillaAudiencia(p){
   if(p.audiencia==='padre'||p.audiencia==='hijo') return p.audiencia;
   return p.icono==='padre'?'padre':'hijo';
 }
-
-/* Restyle Ola 5 · mapa emoji de semilla/defaults → WebP clay (fallback al emoji). */
-const FAMLY_EMOJI_ICO={
-  '📱':['premio-pantalla','Pantalla extra'],
-  '🎬':['premio-pelicula','Elegir la película'],
-  '🍦':['premio-helado','Helado o postre'],
-  '🌳':['premio-parque','Salida al parque'],
-  '🌙':['premio-noche','Quedarse despierto más tarde'],
-  '🍕':['premio-cena','Elegir la cena'],
-  '💰':['premio-dinero','Dinero para un antojo'],
-  '🎮':['premio-juegos','Tarde de juegos'],
-  '🚲':['premio-bici','Salida en bici'],
-  '🏠':['premio-casa','Día sin oficio de casa'],
-  '📋':['tarea-lista','Tarea'],
-  '📚':['tarea-deber','Deber'],
-  '🙋':['tarea-solicitar','Solicitud'],
-  '🎁':['premio-regalo','Premio']
-};
-function famlyEmojiIco(emoji, opts){
-  const e=emoji||'';
-  const m=FAMLY_EMOJI_ICO[e];
-  if(!m) return e;
-  const w=(opts&&opts.w)||28, h=(opts&&opts.h)||28;
-  const alt=(opts&&opts.alt!=null)?opts.alt:m[1];
-  const fb=String(e).replace(/"/g,'&quot;');
-  return '<img class="famly-emoji-ico" src="iconos/'+m[0]+'.webp" width="'+w+'" height="'+h+'" loading="lazy" decoding="async" alt="'+String(alt).replace(/"/g,'&quot;')+'" data-fb="'+encodeURIComponent(e)+'" onerror="(function(el){el.onerror=null;try{el.replaceWith(document.createTextNode(decodeURIComponent(el.getAttribute(\'data-fb\')||\'\')));}catch(x){}})(this)">';
-}
-
 function plantillaIcon(p){
   return p&&p.icono&&p.icono!=='hijo'&&p.icono!=='padre'?p.icono:'📋';
 }
@@ -2022,8 +1149,6 @@ function render(){
   document.getElementById('currentRole').textContent=(u.rol||'')+(isAdmin(u)?' · Admin':'')/* v6d D6 */+(age?' · '+age+' años':'');
   document.getElementById('currentFrase').textContent=u.frase||'';
   document.getElementById('headerPoints').textContent=(u.puntos||0)+' pts';
-  /* Hallazgos: icono solo para padre_admin (isAdmin), no para cualquier padre. */
-  {const bh=document.getElementById('btnHallazgo'); if(bh) bh.style.display=isAdmin(u)?'':'none';}
   document.getElementById('btnNueva').style.display=admin?'':'none';
   const taskEditBtn=document.getElementById('btnEditTasks');
   if(!admin) taskEditMode=false;
@@ -2161,7 +1286,7 @@ function taskCard(t){
   const rec=(t.recurrencia&&t.recurrencia!=='once')?'Se repite':'Una vez';
   const tone=taskTone(t);
   const done=t.estado==='completada'?' done':'';
-  const icon=t.icono?(famlyEmojiIco(t.icono,{w:28,h:28})+' '):'';
+  const icon=t.icono?esc(t.icono)+' ':'';
   const start=t.habilita_en?fmtDate(t.habilita_en):'';
   const end=t.fecha_limite?fmtDate(t.fecha_limite):'';
   return `<div class="task-item ${tone}${done}" onclick="openTaskCard(${t.id})">
@@ -2270,7 +1395,7 @@ function renderRewards(){
     const falta=Math.max(0,(r.costo||0)-(u.puntos||0));
     const faltaTxt=off?'<br><strong>Inactivo</strong>':(falta>0?`<br><small style="color:#ef4444">Faltan ${falta} pts</small>`:'<br><small style="color:#10b981">Ya puedes canjearlo</small>');
     const tone=(r.tipo||'hijo')==='padre'?' parent':' kid';
-    return `<div class="reward-item${tone}${off?' inactive':''}" onclick="openReward(${r.id})"><div style="flex:1">${famlyEmojiIco(r.icono||'🎁',{w:28,h:28})} <strong>${esc(r.nombre)}</strong><br><small>${r.costo} pts${r.stock>=0?' · stock '+r.stock:''}</small>${faltaTxt}</div></div>`;
+    return `<div class="reward-item${tone}${off?' inactive':''}" onclick="openReward(${r.id})"><div style="flex:1">${r.icono||'🎁'} <strong>${esc(r.nombre)}</strong><br><small>${r.costo} pts${r.stock>=0?' · stock '+r.stock:''}</small>${faltaTxt}</div></div>`;
   }).join('');
 }
 function toggleRewardSort(){
@@ -2747,12 +1872,6 @@ function paintDueHint(){
   const n=tipo==='deber'?projectSlots(centro, rec).length:1;
   help.textContent='Se abre '+fmtWhen(abre.toISOString())+' y se cierra '+fmtWhen(cierra.toISOString())+'. '+n+(n===1?' fecha.':' fechas en este mes.');
 }
-/* Ola 8 fix «Nueva»: única fuente de la duración (minutos) para resumen y guardado.
-   v3–v6: desplegable #taskDur (1–72 h). v1 pura: ventana #taskWindowQty/#taskWindowUnit. */
-function durMinNueva(){
-  if(typeof v6bOn==='function'&&v6bOn()) return Math.max(1,Math.min(72,parseInt((document.getElementById('taskDur')||{}).value,10)||1))*60;
-  return windowMinutes();
-}
 function windowBounds(centro, minutos){
   return {
     abre:new Date(centro.getTime()-minutos*60000),
@@ -3036,15 +2155,13 @@ function reviewTask(){
   const inmediata=taskCreateMode!=='padres'&&raw==='inmediata';
   const rec=chosenRecurrence();
   const start=inmediata?new Date():parseLocalInput(document.getElementById('taskDue').value);
-  // Ola 8 fix «Nueva»: el resumen usa la MISMA duración que createTask (v3–v6 = #taskDur; v1 = ventana oculta).
-  const minutos=durMinNueva();
+  const minutos=windowMinutes();
   const slots=raw==='deber'?projectSlots(start, rec):[start];
   const assigned=slotAssignees(slots);
   const puntos=(raw==='deber'||inmediata)?0:(+document.getElementById('taskPoints').value||0);
   const modo=document.getElementById('taskDeberModo')?document.getElementById('taskDeberModo').value:'individual';
   const lineas=assigned.map((s,i)=>{
-    // Ola 8: en v3–v6 inicio+duración (igual que el guardado); centrado solo en v1 pura.
-    const b=(inmediata||v6bOn())?{abre:s.at,cierra:new Date(s.at.getTime()+minutos*60000)}:windowBounds(s.at, minutos);
+    const b=inmediata?{abre:s.at,cierra:new Date(s.at.getTime()+minutos*60000)}:windowBounds(s.at, minutos);
     const quien=memberById(s.asignada_a);
     return '<p>'+(i+1)+'. '+esc(quien?.nombre||'Sin hijo')+' · abre '+esc(fmtWhen(b.abre.toISOString()))+' · cierra '+esc(fmtWhen(b.cierra.toISOString()))+'</p>';
   }).join('');
@@ -3074,20 +2191,13 @@ async function createTask(){
   if(!fechaBase&&!inmediata) return showToast('Elige la hora de la tarea');
   let saveTpl=!inmediata&&document.getElementById('taskSaveTemplate').checked;
   if(!inmediata&&!validateMode&&!saveTpl&&confirm('¿Guardar esta tarea en la lista para reutilizarla después?')) saveTpl=true;
-  let start=inmediata?new Date():parseLocalInput(fechaBase);   // Ola 8: let → puede pasar a «ahora»
+  const start=inmediata?new Date():parseLocalInput(fechaBase);
   // v6e E-DU1: en v3–v6 la duración es el desplegable 1–72 h (inicio→fin); en v1 pura sigue el modelo centrado.
   let minutos;
   if(v6bOn()){
     const durH=Math.max(1,Math.min(72,parseInt((document.getElementById('taskDur')||{}).value,10)||1));
     minutos=durH*60;
-    /* Ola 8 · causa raíz del «Guardar sin insert»: el formulario arranca con la hora actual y, si se pasaba >1 min
-       llenándolo o en «Revisa», aquí salía con un toast que en móvil quedaba tapado → nada llegaba a la BD.
-       Ahora: tolerancia 10 min (se ajusta a «ahora» sin preguntar); si pasó más, se pregunta con un diálogo visible. */
-    if(!inmediata&&start.getTime()<Date.now()-60000){
-      if(start.getTime()>=Date.now()-10*60000) start=new Date();
-      else if(confirm('La hora de inicio ('+fmtWhen(start.toISOString())+') ya pasó. ¿Empezar ahora?')) start=new Date();
-      else return alert('No se guardó: elige una hora de inicio futura.');
-    }
+    if(!inmediata&&start.getTime()<Date.now()-60000) return showToast('El inicio no puede estar en el pasado');
   }else{
     minutos=windowMinutes();
   }
@@ -3103,10 +2213,10 @@ async function createTask(){
   let plantillaId=null;
   if(v6bOn()&&taskCreateMode!=='hermano'){const pv=(document.getElementById('taskPlantilla')||{}).value, pp=state.plantillas.find(x=>String(x.id)===String(pv));
     if(pp&&String(pp.titulo||'').trim().toLowerCase()===titulo.toLowerCase()) plantillaId=pp.id;}
-  const rows=[]; let descartadas=0;   // Ola 8: slots omitidos por «misma tarea a <12 h»
+  const rows=[];
   for(const slot of assigned){
     if(!slot.asignada_a) continue;
-    if(sameTaskTooClose(slot.asignada_a,titulo,slot.at.getTime())){ descartadas++; continue; }   // Ola 8: se cuenta para avisar
+    if(sameTaskTooClose(slot.asignada_a,titulo,slot.at.getTime())) continue;
     // v6e E-DU1: v3–v6 = inicio + duración (después); v1 pura = centrado.
     let abre, limite;
     if(inmediata||v6bOn()){ abre=slot.at; limite=new Date(slot.at.getTime()+minutos*60000); }
@@ -3122,10 +2232,8 @@ async function createTask(){
       ventana_min:v6bOn()?minutos:undefined,
       duracion_min:v6bOn()?minutos:undefined,
       max_negativo:0,resta_por_minuto:0,puntos_penalizacion_dia:penal,
-      creada_por:state.currentUserId,puntos_sumados:false,
-      familia_id:state.familiaId||undefined   // Ola 8: sin familia_id la tarea quedaba NULL y eqFam la ocultaba en Hoy
+      creada_por:state.currentUserId,puntos_sumados:false
     };
-    if(base.familia_id==null) delete base.familia_id;
     if(base.ventana_min==null) delete base.ventana_min;
     if(base.duracion_min==null) delete base.duracion_min;
     if(desc) base.descripcion=desc;
@@ -3143,14 +2251,23 @@ async function createTask(){
       rows.push({...base,asignada_a:slot.asignada_a,tipo,clase:tipo==='deber'?'deber':'tarea',inmediata,estado:'pendiente'});
     }
   }
-  // Ola 8: error ≠ éxito silencioso → diálogo visible (el toast quedaba tapado en móvil).
-  if(!rows.length) return alert(descartadas?'No se guardó: ya existe «'+titulo+'» para ese hijo a menos de 12 h.':'No se guardó: no quedó ninguna fecha. Revisa el hijo o el mes.');
+  if(!rows.length) return showToast('No quedó ninguna fecha. Revisa el hijo o el mes.');
+  // Límite: máx 3 tareas, 3 deberes o 5 en total abiertos por hijo.
+  for(const k of [...new Set(rows.map(r=>r.asignada_a))]){
+    const abiertas=(state.tasks||[]).filter(t=>Number(t.asignada_a)===Number(k)&&['pendiente','esperando_aprobacion'].includes(t.estado)&&!t.archivada_en);
+    const nt=abiertas.filter(t=>!esDeber(t)).length, nd=abiertas.filter(t=>esDeber(t)).length;
+    const addT=rows.filter(r=>Number(r.asignada_a)===Number(k)&&r.clase!=='deber').length;
+    const addD=rows.filter(r=>Number(r.asignada_a)===Number(k)&&r.clase==='deber').length;
+    if(nt+addT>3) return showToast(((memberById(k)||{}).nombre||'Hijo')+': máximo 3 tareas abiertas');
+    if(nd+addD>3) return showToast(((memberById(k)||{}).nombre||'Hijo')+': máximo 3 deberes abiertos');
+    if(nt+nd+addT+addD>5) return showToast(((memberById(k)||{}).nombre||'Hijo')+': máximo 5 abiertas en total');
+  }
   if(plantillaId&&rows.some(r=>r.estado!=='borrador')){
     for(const k of [...new Set(rows.map(r=>r.asignada_a))]){const b=await cupoBloqueo(plantillaId,k); if(b) return showToast(((memberById(k)||{}).nombre||'')+': '+b);}
   }
   // v6b: mensajes de BD (B16 «Los padres no tienen deberes», B18 cupo/intervalo) y respaldo sin columnas nuevas.
   const ins=await escribirV6b(f=>supabase.from('familia_tareas').insert(f),rows,['descripcion','plantilla_id','exige_foto']);   // v6c C3: exige_foto
-  if(ins.error) return alert('No se guardó: '+msgErrorBD(ins.error));   // Ola 8: error visible
+  if(ins.error) return showToast(msgErrorBD(ins.error));
   if(ins.sinV6b) showToast('Se guardó sin descripción (falta en la BD)');
   // v6c C6: obligatoria creada → «¿Enviar también por WhatsApp?». Sí abre wa.me con título + hora + descripción; no guarda números ni llama APIs.
   // v6e E-WA1: mensaje con nombre del hijo + enlace a la tarea (post-insert, con id real si se pudo leer).
@@ -3190,7 +2307,7 @@ async function createTask(){
   closeModal('modal-tarea');
   closeModal('modal-tarea-revisar');
   prepareTaskForm(taskCreateMode||'hijo');
-  await loadAll();   // Ola 8: refresca Hoy (padre) apenas termina el insert
+  loadAll();
 }
 function openValidate(){
   const wrap=document.getElementById('nuevaKindWrap');
@@ -4138,7 +3255,7 @@ function openKidReward(r,u){
   const pending=!esPadre(u)&&state.solicitudes.some(s=>s.estado==='pendiente'&&s.miembro_id===u.id&&s.premio_id===r.id);
   const puede=r.activo!==false&&r.stock!==0&&tiene>=costo&&!pending;
   const porque=pending?'Ya está esperando a un padre':r.activo===false?'Este premio no está disponible':r.stock===0?'Ya no queda':('Te faltan '+(costo-tiene)+' pts');
-  document.getElementById('rewardFalta').innerHTML='<p>'+famlyEmojiIco(r.icono||'🎁',{w:28,h:28})+' <strong>'+esc(r.nombre)+'</strong><br>Cuesta <strong>'+costo+' pts</strong>. Tú tienes <strong>'+tiene+' pts</strong>.</p>'+(puede?'':'<p>'+esc(porque)+'</p>');
+  document.getElementById('rewardFalta').innerHTML='<p>'+(r.icono||'🎁')+' <strong>'+esc(r.nombre)+'</strong><br>Cuesta <strong>'+costo+' pts</strong>. Tú tienes <strong>'+tiene+' pts</strong>.</p>'+(puede?'':'<p>'+esc(porque)+'</p>');
   const label=esPadre(u)?'Reclamar premio':'Pedir premio';
   document.getElementById('rewardActions').innerHTML='<button class="btn success" id="btnReclamar"'+(puede?'':' disabled')+'>'+label+'</button>';
   const btn=document.getElementById('btnReclamar');
@@ -4577,157 +3694,43 @@ async function consumeDeepLink(){
 function loginCambiarFamilia(){
   /* mf O4 D5: al cambiar de casa se limpia el token de sesión. */
   loginFamId=null; state.familiaId=null;
-  loginFallbackAlias=false;
   limpiarTokenFamilia();
   document.getElementById('loginPasoNick').style.display='';
   document.getElementById('loginPasoPin').style.display='none';
-  const pin=document.getElementById('loginPin'); if(pin) pin.value='';
-  const sel=document.getElementById('loginIntegrante'); if(sel) sel.innerHTML='<option value="">Elige tu nombre</option>';
-  const hint=document.getElementById('loginEmptyHint'); if(hint){ hint.style.display='none'; hint.textContent=''; }
-  const nick=document.getElementById('loginNick'); if(nick) nick.value='';
   try{localStorage.removeItem('familia_nick');}catch(e){}
   try{localStorage.removeItem('familia_current');localStorage.removeItem('familia_fid');}catch(e){}
 }
-function loginRpcAusente(err){
-  /* Ola 7: RPC O7 no desplegada (404 / PGRST202 / 42883) → fallback alias. */
-  if(!err) return false;
-  if(typeof rpcLinkAusente==='function' && rpcLinkAusente(err)) return true;
-  const c=String(err.code||''), st=String(err.status||err.statusCode||'');
-  const m=String(err.message||'')+' '+String(err.details||'');
-  return c==='PGRST202'||c==='42883'||st==='404'||/404|could not find the function|function .* does not exist|schema cache/i.test(m);
-}
-function loginMsgRateLimit(data,error){
-  /* Rate-limit: hint bloqueado (jsonb) o error de red; mensaje amable ≠ vacío. */
-  const h=String((data&&data.hint)||'');
-  if(h==='bloqueado') return String((data&&data.mensaje)||'').trim() || 'Demasiados intentos. Espera un momento e inténtalo de nuevo.';
-  if(error){
-    const m=String(error.message||'')+' '+String(error.hint||'');
-    if(/rate|limit|too many|429|bloqueado/i.test(m)) return 'Demasiados intentos. Espera un momento e inténtalo de nuevo.';
-  }
-  return '';
-}
-function loginPintarIntegrantes(rows){
-  /* Rellena #loginIntegrante con inicial · nombre (sin avatar; contrato O7). */
-  const sel=document.getElementById('loginIntegrante');
-  const wrap=document.getElementById('loginIntegranteWrap');
-  const aliasWrap=document.getElementById('loginAliasWrap');
-  const hint=document.getElementById('loginEmptyHint');
-  if(wrap) wrap.style.display='';
-  if(aliasWrap) aliasWrap.style.display='none';
-  const list=Array.isArray(rows)?rows:[];
-  if(!list.length){
-    if(sel){ sel.innerHTML='<option value="" disabled selected>No hay personas</option>'; sel.disabled=true; }
-    if(hint){ hint.style.display='block'; hint.textContent='Esta familia aún no tiene personas. Pide al administrador que te añada.'; }
-    return;
-  }
-  if(hint){ hint.style.display='none'; hint.textContent=''; }
-  if(sel){
-    sel.disabled=false;
-    sel.innerHTML='<option value="">Elige tu nombre</option>'+list.map(function(m){
-      const id=m.miembro_id!=null?m.miembro_id:m.id;
-      const nom=String(m.nombre||('#'+id));
-      const ini=String(m.inicial||nom.charAt(0)||'?').toUpperCase().slice(0,1);
-      return '<option value="'+esc(id)+'">'+esc(ini)+' · '+esc(nom)+'</option>';
-    }).join('');
-  }
-}
-function loginMostrarPasoPinSelect(){
-  document.getElementById('loginPasoNick').style.display='none';
-  document.getElementById('loginPasoPin').style.display='block';
-  const wrap=document.getElementById('loginIntegranteWrap'); if(wrap) wrap.style.display='';
-  const aliasWrap=document.getElementById('loginAliasWrap'); if(aliasWrap) aliasWrap.style.display='none';
-  const sel=document.getElementById('loginIntegrante'); if(sel&&!sel.disabled) try{sel.focus();}catch(e){}
-}
-function loginMostrarPasoPinAlias(){
-  /* Fallback legacy: alias tipado + PIN (si falta familia_rpc_miembros_por_nick). */
-  loginFallbackAlias=true;
-  document.getElementById('loginPasoNick').style.display='none';
-  document.getElementById('loginPasoPin').style.display='block';
-  const wrap=document.getElementById('loginIntegranteWrap'); if(wrap) wrap.style.display='none';
-  const aliasWrap=document.getElementById('loginAliasWrap'); if(aliasWrap) aliasWrap.style.display='';
-  const hint=document.getElementById('loginEmptyHint'); if(hint){ hint.style.display='none'; hint.textContent=''; }
-  const al=document.getElementById('loginAlias');
-  if(al){ try{const s=localStorage.getItem('familia_alias')||''; if(s) al.value=s;}catch(e){} try{al.focus();}catch(e){} }
-}
-async function loginResolverNickLegacy(nick){
-  /* Camino O2: resolver_nickname → alias+PIN (solo si RPC O7 ausente). */
-  const {data,error}=await supabase.rpc('familia_rpc_resolver_nickname',{p_nickname:nick});
-  if(error) return showToast(msgErrorBD(error));
-  if(!data||!data.ok) return showToast('No encontramos esa familia');
-  loginFamId=+data.familia_id;
-  state.familiaId=loginFamId;
-  try{localStorage.setItem('familia_nick',nick.toLowerCase());}catch(e){}
-  loginMostrarPasoPinAlias();
-}
 async function loginResolverNick(){
-  /* Ola 7 ítem 1: familia_rpc_miembros_por_nick(p_nickname) → select; fallback si RPC falta. */
   if(loginBusy) return;
   const nick=(document.getElementById('loginNick').value||'').trim();
   if(nick.length<5) return showToast('Escribe el apodo de la familia');
   loginBusy=true;
   try{
-    const {data,error}=await supabase.rpc('familia_rpc_miembros_por_nick',{p_nickname:nick});
-    if(error){
-      if(loginRpcAusente(error)){ await loginResolverNickLegacy(nick); return; }
-      const rl=loginMsgRateLimit(null,error);
-      if(rl) return showToast(rl);
-      return showToast(msgErrorBD(error)||'No se pudo comprobar el apodo. Inténtalo de nuevo.');
-    }
-    let d=data;
-    if(typeof d==='string'){ try{d=JSON.parse(d);}catch(e){d=null;} }
-    if(!d||d.ok!==true){
-      const rl=loginMsgRateLimit(d,null);
-      if(rl) return showToast(rl);
-      const h=String((d&&d.hint)||'');
-      if(h==='nick_invalido') return showToast('Escribe el apodo de la familia');
-      return showToast('No encontramos esa familia');
-    }
-    loginFallbackAlias=false;
-    loginFamId=+d.familia_id;
+    const {data,error}=await supabase.rpc('familia_rpc_resolver_nickname',{p_nickname:nick});
+    if(error) return showToast(msgErrorBD(error));
+    if(!data||!data.ok) return showToast('No encontramos esa familia');
+    loginFamId=+data.familia_id;
     state.familiaId=loginFamId;
     try{localStorage.setItem('familia_nick',nick.toLowerCase());}catch(e){}
-    loginPintarIntegrantes(d.miembros||[]);
-    loginMostrarPasoPinSelect();
+    document.getElementById('loginPasoNick').style.display='none';
+    document.getElementById('loginPasoPin').style.display='block';
+    const al=document.getElementById('loginAlias'); if(al){ const s=localStorage.getItem('familia_alias')||''; if(s) al.value=s; al.focus(); }
   }finally{loginBusy=false;}
 }
 async function doLogin(){
-  /* Ola 7: login_miembro_id(fid, miembro_id, pin); fallback login_miembro(alias,pin). */
   if(loginBusy) return;
   if(!loginFamId&&!state.familiaId) return showToast('Indica primero el apodo de la familia');
   const fid=loginFamId||state.familiaId;
+  const alias=(document.getElementById('loginAlias').value||'').trim();
   const pin=document.getElementById('loginPin').value;
-  if(loginFallbackAlias){
-    const alias=(document.getElementById('loginAlias').value||'').trim();
-    if(!alias||!pin) return showToast('Escribe tu alias y PIN');
-    loginBusy=true;
-    try{
-      const {data,error}=await supabase.rpc('familia_rpc_login_miembro',{p_familia_id:fid,p_alias:alias,p_pin:pin});
-      if(error) return showToast(msgErrorBD(error));
-      if(!data||!data.ok) return showToast((data&&data.mensaje)||'Datos incorrectos');
-      try{ localStorage.setItem('familia_alias',alias.toLowerCase()); }catch(e){}
-      if(data.token){ guardarTokenFamilia(data.token); supabase=crearClienteSupabase(); }
-      state.familiaId=+data.familia_id;
-      enterAs(+data.miembro_id);
-      if(data.pin_debil) setTimeout(()=>showToast('Tu PIN es débil: cámbialo en tu perfil (evita oooo/0000/1234)'),800);
-    }finally{loginBusy=false;}
-    return;
-  }
-  const mid=+(document.getElementById('loginIntegrante')&&document.getElementById('loginIntegrante').value);
-  if(!mid) return showToast('Elige quién eres');
-  if(!pin) return showToast('Escribe tu PIN');
+  if(!alias||!pin) return showToast('Escribe tu alias y PIN');
   loginBusy=true;
   try{
-    const {data,error}=await supabase.rpc('familia_rpc_login_miembro_id',{p_familia_id:fid,p_miembro_id:mid,p_pin:pin});
-    if(error){
-      if(loginRpcAusente(error)){
-        /* RPC login_id ausente: pedir alias y reintentar vía legacy. */
-        loginMostrarPasoPinAlias();
-        return showToast('Escribe tu alias para entrar');
-      }
-      return showToast(msgErrorBD(error));
-    }
+    const {data,error}=await supabase.rpc('familia_rpc_login_miembro',{p_familia_id:fid,p_alias:alias,p_pin:pin});
+    if(error) return showToast(msgErrorBD(error));
     if(!data||!data.ok) return showToast((data&&data.mensaje)||'Datos incorrectos');
-    /* Éxito = misma vía que login miembro: token + familia_id + enterAs(miembro_id). */
+    try{ localStorage.setItem('familia_alias',alias.toLowerCase()); }catch(e){}
+    /* mf O4 D5: token de familia_rpc_login_miembro → sessionStorage + header del cliente. */
     if(data.token){ guardarTokenFamilia(data.token); supabase=crearClienteSupabase(); }
     state.familiaId=+data.familia_id;
     enterAs(+data.miembro_id);
@@ -4747,828 +3750,12 @@ function enterAs(id){
 }
 
 function fillLoginMembers(){
-  /* Ola 7 O1.1: apodo vacío al abrir; sin prellenar nick ni listar integrantes antes de Continuar. */
+  /* MF: ya no hay desplegable de nombres en el login. */
   const nick=document.getElementById('loginNick');
-  if(nick) nick.value='';
-}
-
-/* =============================================================================
-   O6 FE · Adaptador RPC invitaciones / admin / miembros
-   Alineado con BE: familia-analisis/multifamilia/contrato-be-o6.md
-   + migración 20261031235000_famly_o6_admin_rpc.sql
-   Errores de negocio = jsonb { ok:false, hint, mensaje }; no imprimir tokens/PIN.
-   =============================================================================
-   Firmas BE (params / retorno):
-   - familia_rpc_invitacion_validar(p_token) → { ok, hint?, vence_en? } | no_disponible
-   - familia_rpc_nick_sugerir(p_base) → { ok, nick }  (^ [a-z0-9_-]{5,20} $)
-   - familia_rpc_admin_registrar(p_token,p_email,p_clave,p_nick,p_nombre_familia,p_alias_admin)
-       → ok+token+ids+nick+alias+nombre_familia | hints: email_dueño, clave, nick_fmt, nick_dup(+sugerencia), no_disponible
-   - familia_rpc_admin_login(p_email,p_clave)
-       → ok+token+ids+miembros[{id,nombre,alias,rol,activo}] | hints: credenciales|bloqueado|datos (copy genérico)
-   - familia_rpc_miembros_listar() → { ok, miembros[], familia_id }
-   - familia_rpc_miembro_crear(p_nombre,p_alias,p_rol,p_pin) → { ok, miembro } | tope_miembros|c4_pin|…
-   - familia_rpc_miembro_editar(p_miembro_id,p_nombre,p_alias,p_rol) → { ok }
-   - familia_rpc_miembro_pin(p_miembro_id,p_pin) → { ok } | c4_pin
-   - familia_rpc_miembro_desactivar(p_miembro_id) → { ok } soft
-   ============================================================================= */
-const O6_NICK_RE=/^[a-z0-9_-]{5,20}$/;
-const O6_MAX_MIEMBROS=10;
-let o6Busy=false;
-let o6Draft={email:'',clave:'',miembroId:null,entrarAppTrasLogin:false};
-let o6MiembrosCache=[];
-
-function o6RpcPayload(data){
-  /* Normaliza data jsonb/string de supabase.rpc. */
-  if(data==null) return null;
-  if(typeof data==='string'){
-    try{ return JSON.parse(data); }catch(e){ return {raw:data}; }
-  }
-  return data;
-}
-function o6MsgGenericoInv(){ return 'Este enlace no está disponible.'; }
-function o6MsgLoginFail(){ return 'No se pudo entrar. Inténtalo más tarde.'; }
-function o6MsgEmailDueño(){ return 'Este correo ya tiene una familia. Inicia sesión.'; }
-function o6MsgTope(){ return 'Puedes tener hasta 10 personas en tu familia.'; }
-function o6Hint(data){
-  /* hint de negocio desde jsonb ok:false (BE). */
-  return String((data&&data.hint)||'').trim();
-}
-function o6MensajeNegocio(data, fallback){
-  /* Prefiere mensaje BE; mapea hints clave a copy corta ES. */
-  const h=o6Hint(data);
-  const m=String((data&&data.mensaje)||'').trim();
-  if(h==='email_dueño'||h==='email_dueno') return o6MsgEmailDueño();
-  if(h==='no_disponible') return o6MsgGenericoInv();
-  if(h==='credenciales'||h==='bloqueado'||h==='datos') return o6MsgLoginFail();
-  if(h==='tope_miembros') return o6MsgTope();
-  if(h==='nick_dup'){
-    const sug=String((data&&data.sugerencia)||'').trim();
-    if(sug) return (m && m.indexOf(sug)>=0) ? m : ('Ese apodo ya existe. Prueba con este: '+sug);
-    return m || 'Ese apodo ya existe. Prueba con otro.';
-  }
-  if(h==='clave') return m || 'La clave debe tener al menos 8 caracteres, con una letra y un número.';
-  if(h==='nick_fmt') return m || 'El apodo debe tener de 5 a 20 caracteres: solo minúsculas, números, guion bajo o guion medio.';
-  if(h==='c4_pin') return m || 'Elige un PIN de 4 a 8 caracteres. No uses 0000, 1111 ni 1234.';
-  if(m) return m.slice(0,160);
-  return fallback||'No se pudo completar. Inténtalo de nuevo.';
-}
-
-/* --- Adaptador: una sola puerta a las RPC O6 (nombres = contrato BE) --- */
-const O6Rpc={
-  async validar(p_token){
-    const {data,error}=await supabase.rpc('familia_rpc_invitacion_validar',{p_token:String(p_token||'')});
-    return {data:o6RpcPayload(data),error};
-  },
-  async nickSugerir(p_base){
-    /* p_base DEFAULT NULL en BE; enviamos string (vacío ok). */
-    const {data,error}=await supabase.rpc('familia_rpc_nick_sugerir',{p_base:String(p_base||'')});
-    return {data:o6RpcPayload(data),error};
-  },
-  async adminRegistrar(args){
-    /* Params exactos BE: p_token,p_email,p_clave,p_nick,p_nombre_familia,p_alias_admin. */
-    const {data,error}=await supabase.rpc('familia_rpc_admin_registrar',{
-      p_token:String(args.token||''),
-      p_email:String(args.email||''),
-      p_clave:String(args.clave||''),
-      p_nick:String(args.nick||''),
-      p_nombre_familia:String(args.nombre_familia||''),
-      p_alias_admin:String(args.alias||'')
-    });
-    return {data:o6RpcPayload(data),error};
-  },
-  async adminLogin(p_email,p_clave){
-    const {data,error}=await supabase.rpc('familia_rpc_admin_login',{
-      p_email:String(p_email||''),
-      p_clave:String(p_clave||'')
-    });
-    return {data:o6RpcPayload(data),error};
-  },
-  async miembrosListar(){
-    /* Refresco panel; login ya trae miembros[]. */
-    const {data,error}=await supabase.rpc('familia_rpc_miembros_listar',{});
-    return {data:o6RpcPayload(data),error};
-  },
-  async miembroCrear(p_nombre,p_alias,p_rol,p_pin){
-    const {data,error}=await supabase.rpc('familia_rpc_miembro_crear',{
-      p_nombre:String(p_nombre||''),
-      p_alias:String(p_alias||''),
-      p_rol:String(p_rol||''),
-      p_pin:String(p_pin||'')
-    });
-    return {data:o6RpcPayload(data),error};
-  },
-  async miembroEditar(p_miembro_id,p_nombre,p_alias,p_rol){
-    const {data,error}=await supabase.rpc('familia_rpc_miembro_editar',{
-      p_miembro_id:Number(p_miembro_id),
-      p_nombre:String(p_nombre||''),
-      p_alias:String(p_alias||''),
-      p_rol:String(p_rol||'')
-    });
-    return {data:o6RpcPayload(data),error};
-  },
-  async miembroPin(p_miembro_id,p_pin){
-    const {data,error}=await supabase.rpc('familia_rpc_miembro_pin',{
-      p_miembro_id:Number(p_miembro_id),
-      p_pin:String(p_pin||'')
-    });
-    return {data:o6RpcPayload(data),error};
-  },
-  async miembroDesactivar(p_miembro_id){
-    const {data,error}=await supabase.rpc('familia_rpc_miembro_desactivar',{
-      p_miembro_id:Number(p_miembro_id)
-    });
-    return {data:o6RpcPayload(data),error};
-  },
-  /* Hallazgos admin · contrato familia_rpc_admin_hallazgo_crear(p_tipo, p_descripcion). */
-  async hallazgoCrear(p_tipo, p_descripcion){
-    const {data,error}=await supabase.rpc('familia_rpc_admin_hallazgo_crear',{
-      p_tipo:String(p_tipo||''),
-      p_descripcion:String(p_descripcion||'')
-    });
-    return {data:o6RpcPayload(data),error};
-  }
-};
-
-
-/* --- Hallazgos admin (Error/Sugerencia) · FE sobre contrato-hallazgos.md --- */
-let hallazgoBusy=false;
-function hallazgoMsgHint(data){
-  /* Mapea hints del contrato a copy ES (tú, Colombia); prefiere mensaje BE. */
-  const h=String((data&&data.hint)||'').trim();
-  const m=String((data&&data.mensaje)||'').trim();
-  if(h==='tipo') return m || 'Elige error o sugerencia.';
-  if(h==='descripcion') return m || 'La descripción debe tener entre 5 y 2000 caracteres.';
-  if(h==='bloqueado') return m || 'Demasiados envíos. Inténtalo más tarde.';
-  if(h==='sesion') return m || 'No se pudo guardar.';
-  if(m) return m.slice(0,160);
-  return 'No se pudo enviar. Inténtalo de nuevo.';
-}
-function hallazgoSetVal(msg){
-  const el=document.getElementById('hallazgoVal');
-  if(el) el.textContent=msg||'';
-}
-function hallazgoSetErr(msg){
-  const el=document.getElementById('hallazgoErr');
-  if(el) el.textContent=msg||'';
-}
-function hallazgoContar(){
-  const ta=document.getElementById('hallazgoDesc');
-  const c=document.getElementById('hallazgoCont');
-  if(c&&ta) c.textContent=(ta.value||'').length+'/2000';
-}
-function hallazgoTipoSel(){
-  const el=document.querySelector('input[name="hallazgoTipo"]:checked');
-  return el ? String(el.value||'') : '';
-}
-function abrirHallazgo(){
-  /* Solo admin dueño (padre_admin); doble guarda UI + handler. */
-  const u=currentUser();
-  if(!isAdmin(u)){ showToast('Solo el administrador puede reportar hallazgos'); return; }
-  hallazgoBusy=false;
-  hallazgoSetVal('');
-  hallazgoSetErr('');
-  const ta=document.getElementById('hallazgoDesc');
-  if(ta) ta.value='';
-  const errRadio=document.querySelector('input[name="hallazgoTipo"][value="error"]');
-  if(errRadio) errRadio.checked=true;
-  hallazgoContar();
-  const btn=document.getElementById('hallazgoEnviar');
-  if(btn){ btn.disabled=false; btn.textContent='Enviar'; }
-  const modal=document.getElementById('hallazgoModal');
-  if(!modal) return;
-  modal.hidden=false;
-  modal.setAttribute('aria-hidden','false');
-  modal.classList.add('show');
-  const sheet=document.getElementById('hallazgoSheet');
-  setTimeout(function(){ if(ta) ta.focus(); else if(sheet) sheet.focus(); }, 30);
-}
-function cerrarHallazgo(){
-  const modal=document.getElementById('hallazgoModal');
-  if(!modal) return;
-  modal.classList.remove('show');
-  modal.hidden=true;
-  modal.setAttribute('aria-hidden','true');
-  hallazgoBusy=false;
-}
-async function enviarHallazgo(){
-  if(hallazgoBusy) return;
-  const u=currentUser();
-  if(!isAdmin(u)){ hallazgoSetErr('Solo el administrador puede reportar hallazgos'); return; }
-  hallazgoSetVal('');
-  hallazgoSetErr('');
-  const tipo=hallazgoTipoSel();
-  const descRaw=document.getElementById('hallazgoDesc') ? document.getElementById('hallazgoDesc').value : '';
-  const desc=String(descRaw||'').trim();
-  /* Validación local distinta del error RPC (hint en ámbar vs rojo). */
-  if(!tipo || (tipo!=='error' && tipo!=='sugerencia')){
-    hallazgoSetVal('Elige Error o Sugerencia.');
-    return;
-  }
-  if(!desc){
-    hallazgoSetVal('Escribe una descripción.');
-    return;
-  }
-  if(desc.length < 5 || desc.length > 2000){
-    hallazgoSetVal('La descripción debe tener entre 5 y 2000 caracteres.');
-    return;
-  }
-  hallazgoBusy=true;
-  const btn=document.getElementById('hallazgoEnviar');
-  if(btn){ btn.disabled=true; btn.textContent='Enviando...'; }
-  try{
-    const {data,error}=await O6Rpc.hallazgoCrear(tipo, desc);
-    if(error && (!data || data.ok==null)){
-      hallazgoSetErr('No se pudo enviar. Revisa tu conexión e inténtalo de nuevo.');
-      return;
-    }
-    if(!data || data.ok!==true){
-      const hint=String((data&&data.hint)||'').trim();
-      hallazgoSetErr(hallazgoMsgHint(data));
-      if(hint==='sesion'){
-        cerrarHallazgo();
-        try{ o6AbrirLoginAdmin(); }catch(e){}
-      }
-      return;
-    }
-    showToast('Gracias, lo revisaremos');
-    cerrarHallazgo();
-  }catch(e){
-    hallazgoSetErr('No se pudo enviar. Revisa tu conexión e inténtalo de nuevo.');
-  }finally{
-    hallazgoBusy=false;
-    if(btn){ btn.disabled=false; btn.textContent='Enviar'; }
+  if(nick&&!nick.value){
+    try{const s=localStorage.getItem('familia_nick'); if(s) nick.value=s;}catch(e){}
   }
 }
-(function hallazgoBind(){
-  /* Esc, backdrop y Cancelar; contador en vivo. */
-  const modal=document.getElementById('hallazgoModal');
-  if(!modal) return;
-  modal.addEventListener('click', function(e){
-    if(e.target && e.target.hasAttribute && e.target.hasAttribute('data-hallazgo-close')) cerrarHallazgo();
-  });
-  document.addEventListener('keydown', function(e){
-    if(e.key==='Escape' && modal.classList.contains('show')) cerrarHallazgo();
-  });
-  const ta=document.getElementById('hallazgoDesc');
-  if(ta) ta.addEventListener('input', function(){ hallazgoContar(); hallazgoSetVal(''); hallazgoSetErr(''); });
-})();
-
-function o6LeerInvToken(){
-  try{ return sessionStorage.getItem('familia_inv_token')||''; }catch(e){ return ''; }
-}
-function o6LimpiarInvToken(){
-  try{ sessionStorage.removeItem('familia_inv_token'); }catch(e){}
-}
-function o6RootEl(){ return document.getElementById('o6Root'); }
-function o6SetErr(id,msg){ const el=document.getElementById(id); if(el) el.textContent=msg||''; }
-function o6ClaveOk(c){
-  /* Orquestador I4: ≥8, una letra y un número (no el ≥10 del brief FE). */
-  const s=String(c||'');
-  if(s.length<8) return false;
-  if(!/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(s)) return false;
-  if(!/[0-9]/.test(s)) return false;
-  return true;
-}
-function o6Mostrar(vista){
-  const root=o6RootEl(); if(!root) return;
-  root.classList.add('show');
-  const login=document.getElementById('loginScreen');
-  if(login) login.style.display='none';
-  const ids=['o6VistaLoad','o6VistaError','o6VistaRegistro','o6VistaFamilia','o6VistaResumen','o6VistaAdminLogin','o6VistaPanel'];
-  ids.forEach(function(id){ const el=document.getElementById(id); if(el) el.style.display='none'; });
-  const map={load:'o6VistaLoad',error:'o6VistaError',registro:'o6VistaRegistro',familia:'o6VistaFamilia',resumen:'o6VistaResumen',adminLogin:'o6VistaAdminLogin',panel:'o6VistaPanel'};
-  const tid=map[vista];
-  if(tid){ const t=document.getElementById(tid); if(t) t.style.display='block'; }
-  if(vista==='panel'){
-    /* Ola 7 ítem 2: alta en panel siempre arranca con rol Hijo (editar existentes no pasa por aquí). */
-    const rolEl=document.getElementById('o6MemRol'); if(rolEl && !rolEl.disabled) rolEl.value='hijo';
-    o6CargarMiembros();
-  }
-}
-function o6Ocultar(){
-  const root=o6RootEl(); if(root) root.classList.remove('show');
-}
-function o6IrEntradaMiembro(){
-  o6Ocultar();
-  const login=document.getElementById('loginScreen');
-  if(login) login.style.display='flex';
-  const pn=document.getElementById('loginPasoNick');
-  const pp=document.getElementById('loginPasoPin');
-  if(pn) pn.style.display='';
-  if(pp) pp.style.display='none';
-}
-/* Ola 7 ítem 3: «Entrar a la app» — reutiliza sesión admin (token x-familia-token + familia_id +
-   miembro_id de admin_registrar/admin_login → misma familia_sesiones que login miembro).
-   Si faltan campos → fallback login admin con email prellenado (sin inventar API). */
-function o6EntrarApp(){
-  const tok=leerTokenFamilia();
-  const mid=Number(o6Draft.miembroId)||0;
-  if(tok && mid){
-    o6Ocultar();
-    const login=document.getElementById('loginScreen');
-    if(login) login.style.display='none';
-    enterAs(mid);
-    return;
-  }
-  o6Draft.entrarAppTrasLogin=true;
-  o6SetErr('o6AdminErr','');
-  const em=document.getElementById('o6AdminEmail');
-  if(em) em.value=o6Draft.email||'';
-  const cl=document.getElementById('o6AdminClave');
-  if(cl) cl.value='';
-  o6Mostrar('adminLogin');
-}
-function o6AbrirLoginAdmin(){
-  o6SetErr('o6AdminErr','');
-  o6Mostrar('adminLogin');
-}
-async function o6BootSiInvitacion(){
-  const tok=o6LeerInvToken();
-  if(!tok) return false;
-  o6Mostrar('load');
-  try{
-    const {data,error}=await O6Rpc.validar(tok);
-    /* error de red/RPC ≠ vacío: mensaje genérico (I2). ok:false también genérico. */
-    if(error || !data || data.ok!==true){
-      o6SetErr('o6ErrorMsg', o6MsgGenericoInv());
-      document.getElementById('o6ErrorMsg').textContent=o6MsgGenericoInv();
-      o6Mostrar('error');
-      return true;
-    }
-    o6SetErr('o6RegErr','');
-    o6Mostrar('registro');
-    return true;
-  }catch(e){
-    document.getElementById('o6ErrorMsg').textContent=o6MsgGenericoInv();
-    o6Mostrar('error');
-    return true;
-  }
-}
-function o6RegistroContinuar(){
-  if(o6Busy) return;
-  const email=(document.getElementById('o6Email').value||'').trim();
-  const clave=document.getElementById('o6Clave').value||'';
-  const clave2=document.getElementById('o6Clave2').value||'';
-  o6SetErr('o6RegErr','');
-  if(!email || email.indexOf('@')<1){ o6SetErr('o6RegErr','Escribe un email válido.'); return; }
-  if(!o6ClaveOk(clave)){ o6SetErr('o6RegErr','La clave debe tener al menos 8 caracteres, con una letra y un número.'); return; }
-  if(clave!==clave2){ o6SetErr('o6RegErr','Las claves no coinciden.'); return; }
-  o6Draft.email=email; o6Draft.clave=clave;
-  o6SetErr('o6FamErr','');
-  o6Mostrar('familia');
-  o6SugerirNick();
-}
-async function o6SugerirNick(){
-  if(o6Busy) return;
-  const base=(document.getElementById('o6NombreFam').value||'').trim() || (document.getElementById('o6Nick').value||'').trim();
-  o6Busy=true;
-  try{
-    const {data,error}=await O6Rpc.nickSugerir(base);
-    let nick='';
-    if(!error && data){
-      if(typeof data==='string') nick=data;
-      else nick=data.nick||data.sugerencia||data.apodo||'';
-    }
-    nick=String(nick||'').toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,20);
-    if(nick.length>=5){
-      const inp=document.getElementById('o6Nick');
-      if(inp) inp.value=nick;
-    }
-  }catch(e){ /* sin sugerencia: el usuario escribe */ }
-  finally{ o6Busy=false; }
-}
-async function o6RegistrarAdmin(){
-  if(o6Busy) return;
-  const tok=o6LeerInvToken();
-  if(!tok){ o6Mostrar('error'); document.getElementById('o6ErrorMsg').textContent=o6MsgGenericoInv(); return; }
-  const nombre=(document.getElementById('o6NombreFam').value||'').trim();
-  const alias=(document.getElementById('o6AliasDueño').value||'').trim().toLowerCase();
-  const nick=(document.getElementById('o6Nick').value||'').trim().toLowerCase();
-  o6SetErr('o6FamErr','');
-  if(nombre.length<2){ o6SetErr('o6FamErr','Escribe el nombre de tu familia.'); return; }
-  if(alias.length<2){ o6SetErr('o6FamErr','Escribe tu alias.'); return; }
-  if(!O6_NICK_RE.test(nick)){ o6SetErr('o6FamErr','El apodo debe tener de 5 a 20 caracteres: solo minúsculas, números, guion bajo y guion medio.'); return; }
-  o6Busy=true;
-  const btn=document.getElementById('o6BtnRegistrar');
-  if(btn) btn.disabled=true;
-  try{
-    const {data,error}=await O6Rpc.adminRegistrar({
-      token:tok, email:o6Draft.email, clave:o6Draft.clave, nick:nick,
-      nombre_familia:nombre, alias:alias
-    });
-    /* Negocio BE = jsonb ok:false + hint (no RAISE). Red/RPC → genérico. */
-    if(error && (!data || data.ok==null)){
-      o6SetErr('o6FamErr','No se pudo crear la familia. Inténtalo de nuevo.');
-      return;
-    }
-    if(!data || data.ok===false){
-      const h=o6Hint(data);
-      if(h==='no_disponible'){
-        document.getElementById('o6ErrorMsg').textContent=o6MsgGenericoInv();
-        o6Mostrar('error');
-      } else if(h==='email_dueño'||h==='email_dueno'){
-        o6SetErr('o6FamErr', o6MsgEmailDueño());
-      } else {
-        o6SetErr('o6FamErr', o6MensajeNegocio(data, 'No se pudo crear la familia. Inténtalo de nuevo.'));
-        if(h==='nick_dup' && data && data.sugerencia){
-          const inp=document.getElementById('o6Nick');
-          if(inp && !inp.value) inp.value=String(data.sugerencia);
-        }
-      }
-      return;
-    }
-    /* Éxito: limpiar inv; sesión admin (token+familia_id+miembro_id = misma vía que adminLogin). */
-    o6LimpiarInvToken();
-    if(data.token){ guardarTokenFamilia(data.token); supabase=crearClienteSupabase(); }
-    if(data.familia_id){ state.familiaId=+data.familia_id; try{localStorage.setItem('familia_fid',String(data.familia_id));}catch(e){} }
-    if(data.miembro_id){ o6Draft.miembroId=+data.miembro_id; }
-    if(nick){ try{localStorage.setItem('familia_nick',nick);}catch(e){} }
-    o6Draft.clave=''; /* no dejar clave en memoria de draft */
-    o6Mostrar('resumen');
-  }catch(e){
-    o6SetErr('o6FamErr','No se pudo crear la familia. Inténtalo de nuevo.');
-  }finally{
-    o6Busy=false;
-    if(btn) btn.disabled=false;
-  }
-}
-async function o6AdminLogin(){
-  if(o6Busy) return;
-  const email=(document.getElementById('o6AdminEmail').value||'').trim();
-  const clave=document.getElementById('o6AdminClave').value||'';
-  o6SetErr('o6AdminErr','');
-  if(!email||!clave){ o6SetErr('o6AdminErr',o6MsgLoginFail()); return; }
-  o6Busy=true;
-  const btn=document.getElementById('o6BtnAdminLogin');
-  if(btn) btn.disabled=true;
-  try{
-    const {data,error}=await O6Rpc.adminLogin(email,clave);
-    /* I18: fail/rate-limit/credenciales/bloqueado/datos → copy genérico (jsonb ok:false). */
-    if(error && (!data || data.ok==null)){
-      o6SetErr('o6AdminErr', o6MsgLoginFail());
-      return;
-    }
-    if(!data || data.ok!==true){
-      o6SetErr('o6AdminErr', o6MsgLoginFail());
-      return;
-    }
-    if(data.token){ guardarTokenFamilia(data.token); supabase=crearClienteSupabase(); }
-    if(data.familia_id){ state.familiaId=+data.familia_id; try{localStorage.setItem('familia_fid',String(data.familia_id));}catch(e){} }
-    if(data.miembro_id){ o6Draft.miembroId=+data.miembro_id; }
-    /* Login trae miembros[]; pintar ya y refrescar con miembros_listar en panel. */
-    if(data.miembros && Array.isArray(data.miembros)) o6MiembrosCache=data.miembros;
-    /* Ola 7: si veníamos del CTA Entrar a la app sin sesión → mainApp (no panel). */
-    if(o6Draft.entrarAppTrasLogin && data.miembro_id){
-      o6Draft.entrarAppTrasLogin=false;
-      o6Ocultar();
-      const login=document.getElementById('loginScreen');
-      if(login) login.style.display='none';
-      enterAs(+data.miembro_id);
-      return;
-    }
-    o6Mostrar('panel');
-  }catch(e){
-    o6SetErr('o6AdminErr', o6MsgLoginFail());
-  }finally{
-    o6Busy=false;
-    if(btn) btn.disabled=false;
-  }
-}
-function o6Esc(s){
-  return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});
-}
-async function o6CargarMiembros(){
-  /* Refresco vía miembros_listar; si hay caché (p.ej. login) pinta de inmediato. */
-  const load=document.getElementById('o6MiembrosLoad');
-  const empty=document.getElementById('o6MiembrosEmpty');
-  const err=document.getElementById('o6MiembrosErr');
-  const list=document.getElementById('o6MiembrosList');
-  if(o6MiembrosCache.length) o6PintarMiembros(o6MiembrosCache);
-  if(load) load.style.display='block';
-  if(empty) empty.style.display='none';
-  if(err){ err.style.display='none'; err.textContent=''; }
-  try{
-    const {data,error}=await O6Rpc.miembrosListar();
-    if(error || !data || data.ok===false){
-      if(o6MiembrosCache.length){ o6PintarMiembros(o6MiembrosCache); }
-      else if(err){ err.style.display='block'; err.textContent='No se pudieron cargar las personas.'; }
-      return;
-    }
-    const rows=(data&&data.miembros)||[];
-    o6MiembrosCache=Array.isArray(rows)?rows:[];
-    o6PintarMiembros(o6MiembrosCache);
-  }catch(e){
-    if(o6MiembrosCache.length) o6PintarMiembros(o6MiembrosCache);
-    else if(err){ err.style.display='block'; err.textContent='No se pudieron cargar las personas.'; }
-  }finally{
-    if(load) load.style.display='none';
-  }
-}
-function o6PintarMiembros(rows){
-  const empty=document.getElementById('o6MiembrosEmpty');
-  const list=document.getElementById('o6MiembrosList');
-  if(!list) return;
-  const activos=(rows||[]).filter(function(m){ return m && m.activo!==false; });
-  if(!(rows||[]).length){
-    if(empty) empty.style.display='block';
-    list.innerHTML='';
-    return;
-  }
-  if(empty) empty.style.display='none';
-  list.innerHTML=(rows||[]).map(function(m){
-    const id=m.id;
-    const activo=m.activo!==false;
-    return '<div class="o6-member'+(activo?'':' inactive')+'" data-id="'+o6Esc(id)+'">'+
-      '<div><strong>'+o6Esc(m.nombre||m.alias||('#'+id))+'</strong></div>'+
-      '<div class="meta">Alias: '+o6Esc(m.alias||'—')+' · Rol: '+o6Esc(m.rol||m.rol_v6d||'—')+(activo?'':' · Desactivado')+'</div>'+
-      (activo?('<div class="o6-actions">'+
-        '<button type="button" onclick="o6MiembroEditarUI('+Number(id)+')">Editar</button>'+
-        '<button type="button" onclick="o6MiembroPinUI('+Number(id)+')">PIN</button>'+
-        '<button type="button" onclick="o6MiembroDesactivarUI('+Number(id)+')">Desactivar</button>'+
-      '</div>'):'')+
-    '</div>';
-  }).join('');
-  /* Tope 10: deshabilitar alta + aviso (I20). */
-  o6SyncTopeAlta(activos.length);
-  if(activos.length>=O6_MAX_MIEMBROS){
-    const tip=document.createElement('p');
-    tip.className='o6-err';
-    tip.style.display='block';
-    tip.textContent=o6MsgTope();
-    list.appendChild(tip);
-  }
-}
-function o6SyncTopeAlta(nActivos){
-  /* Deshabilita inputs/botón Añadir al llegar a 10 activos. */
-  const full=Number(nActivos)>=O6_MAX_MIEMBROS;
-  const btn=document.getElementById('o6BtnMemCrear');
-  if(btn){ btn.disabled=full; btn.title=full?o6MsgTope():''; }
-  ['o6MemNombre','o6MemAlias','o6MemRol','o6MemPin'].forEach(function(id){
-    const el=document.getElementById(id); if(el) el.disabled=full;
-  });
-  const tip=document.getElementById('o6MemTopeTip');
-  if(tip){ tip.style.display=full?'block':'none'; tip.textContent=full?o6MsgTope():''; }
-  else if(full){
-    const form=btn && btn.parentElement;
-    if(form && !document.getElementById('o6MemTopeTip')){
-      const p=document.createElement('p');
-      p.id='o6MemTopeTip'; p.className='o6-err'; p.style.display='block';
-      p.textContent=o6MsgTope();
-      form.appendChild(p);
-    }
-  }
-}
-async function o6MiembroCrear(){
-  if(o6Busy) return;
-  const activos=o6MiembrosCache.filter(function(m){ return m&&m.activo!==false; });
-  if(activos.length>=O6_MAX_MIEMBROS){ o6SetErr('o6MemErr','Puedes tener hasta 10 personas en tu familia.'); return; }
-  const nombre=(document.getElementById('o6MemNombre').value||'').trim();
-  const alias=(document.getElementById('o6MemAlias').value||'').trim().toLowerCase();
-  const rol=(document.getElementById('o6MemRol').value||'').trim();
-  const pin=document.getElementById('o6MemPin').value||'';
-  o6SetErr('o6MemErr','');
-  if(nombre.length<2){ o6SetErr('o6MemErr','Escribe el nombre.'); return; }
-  if(alias.length<2){ o6SetErr('o6MemErr','Escribe el alias.'); return; }
-  if(!/^[0-9]{4,8}$/.test(pin)){ o6SetErr('o6MemErr','El PIN debe tener 4 a 8 dígitos.'); return; }
-  o6Busy=true;
-  const btn=document.getElementById('o6BtnMemCrear');
-  if(btn) btn.disabled=true;
-  try{
-    const {data,error}=await O6Rpc.miembroCrear(nombre,alias,rol,pin);
-    if(error && (!data || data.ok==null)){
-      o6SetErr('o6MemErr','No se pudo añadir.');
-      return;
-    }
-    if(!data || data.ok===false){
-      o6SetErr('o6MemErr', o6MensajeNegocio(data, 'No se pudo añadir.'));
-      if(o6Hint(data)==='tope_miembros') o6SyncTopeAlta(O6_MAX_MIEMBROS);
-      return;
-    }
-    document.getElementById('o6MemNombre').value='';
-    document.getElementById('o6MemAlias').value='';
-    document.getElementById('o6MemPin').value='';
-    /* Ola 7 ítem 2: tras alta, el formulario vuelve a default Hijo (no altera existentes). */
-    const rolEl=document.getElementById('o6MemRol'); if(rolEl) rolEl.value='hijo';
-    if(data.miembro) o6MiembrosCache.push(data.miembro);
-    else if(data.miembros) o6MiembrosCache=data.miembros;
-    await o6CargarMiembros();
-  }catch(e){
-    o6SetErr('o6MemErr','No se pudo añadir.');
-  }finally{
-    o6Busy=false;
-    if(btn) btn.disabled=false;
-  }
-}
-/* O6 · modal accesible (focus trap, Esc, restore focus); modos edit|pin|desactivar. */
-let o6ModalMode=null;
-let o6ModalMemberId=null;
-let o6ModalPrevFocus=null;
-let o6ModalSubmitting=false;
-function o6ModalEl(){ return document.getElementById('o6Modal'); }
-function o6ModalSetErr(msg){
-  const el=document.getElementById('o6ModalErr');
-  if(el){ el.textContent=msg||''; el.style.color='#b91c1c'; }
-}
-function o6ModalFocusables(){
-  const sheet=document.getElementById('o6ModalSheet');
-  if(!sheet) return [];
-  return Array.prototype.slice.call(sheet.querySelectorAll('button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'))
-    .filter(function(el){ return el.offsetParent!==null || el===document.activeElement; });
-}
-function o6ModalOnKey(e){
-  if(!o6ModalEl()||!o6ModalEl().classList.contains('show')) return;
-  if(e.key==='Escape'){ e.preventDefault(); o6ModalCerrar(); return; }
-  if(e.key!=='Tab') return;
-  const list=o6ModalFocusables();
-  if(!list.length) return;
-  const first=list[0], last=list[list.length-1];
-  if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
-  else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
-}
-function o6ModalAbrir(mode,id){
-  /* Abre sheet edit|pin|desactivar; rellena campos; atrapa foco. Sin confirm()/alert(). */
-  if(o6Busy||o6ModalSubmitting) return;
-  const m=o6MiembrosCache.find(function(x){ return Number(x.id)===Number(id); });
-  const modal=o6ModalEl();
-  const body=document.getElementById('o6ModalBody');
-  const title=document.getElementById('o6ModalTitle');
-  const ok=document.getElementById('o6ModalOk');
-  if(!modal||!body||!title||!ok) return;
-  o6ModalPrevFocus=document.activeElement;
-  o6ModalMode=mode;
-  o6ModalMemberId=id;
-  o6ModalSetErr('');
-  ok.disabled=false;
-  ok.textContent='Guardar';
-  if(mode==='edit'){
-    title.textContent='Editar persona';
-    const rol=String((m&&(m.rol||m.rol_v6d))||'hijo');
-    const rolNorm=(rol==='padre'||rol==='padre_admin')?'padre':'hijo';
-    body.innerHTML=
-      '<div class="o6-field"><label for="o6EditNombre">Nombre</label>'+
-      '<input id="o6EditNombre" maxlength="40" autocomplete="name" value="'+o6Esc(m&&m.nombre||'')+'"></div>'+
-      '<div class="o6-field"><label for="o6EditAlias">Alias</label>'+
-      '<input id="o6EditAlias" maxlength="16" autocapitalize="none" autocomplete="off" value="'+o6Esc(m&&m.alias||'')+'"></div>'+
-      '<div class="o6-field"><label for="o6EditRol">Rol</label>'+
-      '<select id="o6EditRol">'+
-        '<option value="padre"'+(rolNorm==='padre'?' selected':'')+'>Padre/Madre</option>'+
-        '<option value="hijo"'+(rolNorm==='hijo'?' selected':'')+'>Hijo/Hija</option>'+
-      '</select></div>';
-  } else if(mode==='pin'){
-    title.textContent='Cambiar PIN';
-    body.innerHTML=
-      '<div class="o6-field"><label for="o6EditPin">Nuevo PIN (4–8 dígitos)</label>'+
-      '<input id="o6EditPin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="4–8 dígitos"></div>';
-  } else if(mode==='desactivar'){
-    title.textContent='Desactivar persona';
-    ok.textContent='Desactivar';
-    const nom=o6Esc((m&&(m.nombre||m.alias))||'esta persona');
-    body.innerHTML=
-      '<p style="margin:0 0 8px;color:#1f1a4d;line-height:1.4">¿Desactivar a <strong>'+nom+'</strong>?</p>'+
-      '<p style="margin:0;color:#4b5563;font-size:.92rem;line-height:1.4">No se borra; solo deja de entrar. Puedes volver a activarla más adelante si el producto lo permite.</p>';
-  } else {
-    return;
-  }
-  modal.hidden=false;
-  modal.setAttribute('aria-hidden','false');
-  modal.classList.add('show');
-  document.addEventListener('keydown', o6ModalOnKey, true);
-  setTimeout(function(){
-    let first=null;
-    if(mode==='edit') first=document.getElementById('o6EditNombre');
-    else if(mode==='pin') first=document.getElementById('o6EditPin');
-    else first=ok;
-    if(first) first.focus();
-    else { const s=document.getElementById('o6ModalSheet'); if(s) s.focus(); }
-  },0);
-}
-function o6ModalCerrar(){
-  /* Cierra y restaura foco; limpia PIN del DOM. */
-  const modal=o6ModalEl();
-  if(!modal) return;
-  modal.classList.remove('show');
-  modal.hidden=true;
-  modal.setAttribute('aria-hidden','true');
-  document.removeEventListener('keydown', o6ModalOnKey, true);
-  const body=document.getElementById('o6ModalBody');
-  if(body) body.innerHTML='';
-  o6ModalSetErr('');
-  o6ModalMode=null;
-  o6ModalMemberId=null;
-  o6ModalSubmitting=false;
-  const ok=document.getElementById('o6ModalOk');
-  if(ok){ ok.disabled=false; ok.textContent='Guardar'; }
-  const prev=o6ModalPrevFocus;
-  o6ModalPrevFocus=null;
-  if(prev && typeof prev.focus==='function'){ try{ prev.focus(); }catch(e){} }
-}
-async function o6ModalConfirmar(){
-  /* Guarda vía O6Rpc; guarda doble envío + estado loading. */
-  if(o6Busy||o6ModalSubmitting) return;
-  const id=o6ModalMemberId;
-  const mode=o6ModalMode;
-  const okBtn=document.getElementById('o6ModalOk');
-  o6ModalSetErr('');
-  if(mode==='edit'){
-    const nombre=(document.getElementById('o6EditNombre').value||'').trim();
-    const alias=(document.getElementById('o6EditAlias').value||'').trim().toLowerCase();
-    const rol=(document.getElementById('o6EditRol').value||'').trim();
-    if(nombre.length<2){ o6ModalSetErr('Escribe el nombre.'); return; }
-    if(alias.length<2){ o6ModalSetErr('Escribe el alias.'); return; }
-    if(rol!=='padre'&&rol!=='hijo'){ o6ModalSetErr('Elige un rol.'); return; }
-    o6ModalSubmitting=true; o6Busy=true;
-    if(okBtn){ okBtn.disabled=true; okBtn.textContent='Guardando…'; }
-    try{
-      const {data,error}=await O6Rpc.miembroEditar(id, nombre, alias, rol);
-      if(error && (!data || data.ok==null)){
-        o6ModalSetErr('No se pudo guardar.');
-        return;
-      }
-      if(!data || data.ok===false){
-        o6ModalSetErr(o6MensajeNegocio(data, 'No se pudo guardar.'));
-        return;
-      }
-      o6ModalCerrar();
-      await o6CargarMiembros();
-    }catch(e){ o6ModalSetErr('No se pudo guardar.'); }
-    finally{
-      o6ModalSubmitting=false; o6Busy=false;
-      if(okBtn && o6ModalEl() && o6ModalEl().classList.contains('show')){
-        okBtn.disabled=false; okBtn.textContent='Guardar';
-      }
-    }
-  } else if(mode==='pin'){
-    const pin=document.getElementById('o6EditPin').value||'';
-    if(!/^[0-9]{4,8}$/.test(pin)){ o6ModalSetErr('El PIN debe tener 4 a 8 dígitos.'); return; }
-    o6ModalSubmitting=true; o6Busy=true;
-    if(okBtn){ okBtn.disabled=true; okBtn.textContent='Guardando…'; }
-    try{
-      const {data,error}=await O6Rpc.miembroPin(id, pin);
-      if(error && (!data || data.ok==null)){
-        o6ModalSetErr('No se pudo cambiar el PIN.');
-        return;
-      }
-      if(!data || data.ok===false){
-        o6ModalSetErr(o6MensajeNegocio(data, 'No se pudo cambiar el PIN.'));
-        return;
-      }
-      /* no mostrar el PIN */
-      o6ModalCerrar();
-    }catch(e){ o6ModalSetErr('No se pudo cambiar el PIN.'); }
-    finally{
-      o6ModalSubmitting=false; o6Busy=false;
-      if(okBtn && o6ModalEl() && o6ModalEl().classList.contains('show')){
-        okBtn.disabled=false; okBtn.textContent='Guardar';
-      }
-    }
-  } else if(mode==='desactivar'){
-    o6ModalSubmitting=true; o6Busy=true;
-    if(okBtn){ okBtn.disabled=true; okBtn.textContent='Desactivando…'; }
-    try{
-      const {data,error}=await O6Rpc.miembroDesactivar(id);
-      if(error && (!data || data.ok==null)){
-        o6ModalSetErr('No se pudo desactivar.');
-        return;
-      }
-      if(!data || data.ok===false){
-        o6ModalSetErr(o6MensajeNegocio(data, 'No se pudo desactivar.'));
-        return;
-      }
-      o6ModalCerrar();
-      await o6CargarMiembros();
-    }catch(e){ o6ModalSetErr('No se pudo desactivar.'); }
-    finally{
-      o6ModalSubmitting=false; o6Busy=false;
-      if(okBtn && o6ModalEl() && o6ModalEl().classList.contains('show')){
-        okBtn.disabled=false; okBtn.textContent='Desactivar';
-      }
-    }
-  }
-}
-function o6MiembroEditarUI(id){ o6ModalAbrir('edit', id); }
-function o6MiembroPinUI(id){ o6ModalAbrir('pin', id); }
-/* Bind cierre/confirm una vez el DOM O6 está listo (tras parse). */
-(function o6ModalBind(){
-  function bind(){
-    const modal=o6ModalEl();
-    if(!modal||modal.dataset.bound) return;
-    modal.dataset.bound='1';
-    modal.addEventListener('click', function(e){
-      const t=e.target;
-      if(t && t.getAttribute && t.getAttribute('data-o6-close')!=null){ o6ModalCerrar(); }
-    });
-    const ok=document.getElementById('o6ModalOk');
-    if(ok) ok.addEventListener('click', function(){ o6ModalConfirmar(); });
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bind);
-  else bind();
-})();
-
-function o6MiembroDesactivarUI(id){
-  /* Confirmación vía modal O6 (sin confirm()/alert()). */
-  o6ModalAbrir('desactivar', id);
-}
-
 const MEMBER_ROLES={
   hijo:['Hijo','Hija'],
   adulto:['Padre','Madre','Abuelo','Abuela','Tío','Tía','Tutor','Tutora']
@@ -5636,7 +3823,6 @@ async function solicitarTarea(i){
     creada_por:u.id,puntos_sumados:false,
     habilita_en:now.toISOString(),fecha_limite:limite.toISOString(),ventana_horas:2
   };
-  if(state.familiaId) row.familia_id=state.familiaId;   // Ola 8: insert directo siempre con la familia
   // v5 ítem 17: confirmación antes de escribir; Cancelar no cambia nada.
   if(!confirm('¿Solicitar «'+p.titulo+'»'+(Number(p.puntos)?' por '+p.puntos+' pts':'')+'? Tendrás 2 h para hacerla.')) return;
   const {data,error}=await supabase.from('familia_tareas').insert(row).select('*').single();
@@ -5788,8 +3974,7 @@ function dutyRow(item,kidId,by,lote){
     titulo:item.titulo,puntos:0,tipo:'deber',clase:'deber',asignada_a:kidId,creada_por:by,
     recurrencia:item.rec,estado:'pendiente',icono:'📚',lote,   // v6c C8: deberes base repartidos nacen activos
     habilita_en:item.when.toISOString(),fecha_limite:limite.toISOString(),
-    ventana_horas:item.ventana,puntos_sumados:false,inmediata:false,
-    ...(state.familiaId?{familia_id:state.familiaId}:{})   // Ola 8: deberes base con la familia
+    ventana_horas:item.ventana,puntos_sumados:false,inmediata:false
   };
 }
 async function repartirDeberes(){
@@ -5840,8 +4025,6 @@ async function init(){
     return;
   }
   supabase=crearClienteSupabase();
-  // O6: si hay token de /i/<token>, validar y mostrar registro; no restaurar sesión encima.
-  try{ if(await o6BootSiInvitacion()) return; }catch(e){}
   // MF O2: no cargar miembros ni nombres antes del PIN.
   fillLoginMembers();
   const savedFid=+localStorage.getItem('familia_fid');
@@ -5851,7 +4034,10 @@ async function init(){
     /* mf O4 D5: sin token de sesión no se restaura en silencio (haría fallar link_emitir → legacy). */
     if(!leerTokenFamilia()){
       try{localStorage.removeItem('familia_current');}catch(e){}
-      /* Ola 7: sin sesión no saltar a PIN (hace falta resolver apodo → select). */
+      if(localStorage.getItem('familia_nick')){
+        document.getElementById('loginPasoNick').style.display='none';
+        document.getElementById('loginPasoPin').style.display='block';
+      }
     } else {
     // Revalidar sesión silenciosa: cargar solo si el miembro sigue en esa casa.
     const {data:mm}=await eqFam(supabase.from('familia_miembros').select('id')).eq('id',saved).maybeSingle();
@@ -5859,7 +4045,10 @@ async function init(){
     else {
       try{localStorage.removeItem('familia_current');}catch(e){}
       limpiarTokenFamilia();
-      /* Ola 7: miembro ausente → quedarse en paso apodo (select requiere RPC). */
+      if(localStorage.getItem('familia_nick')){
+        document.getElementById('loginPasoNick').style.display='none';
+        document.getElementById('loginPasoPin').style.display='block';
+      }
     }
     }
   } else if(localStorage.getItem('familia_nick')){
@@ -5942,15 +4131,12 @@ init();
 #v3App.v3-on{display:flex}
 /* Cabecera con íconos de línea blanca. */
 /* v4 · ajuste 5: cabecera alegre de la v1 (degradado violeta) con avatar, nombre, rol, frase y puntos. */
-/* Restyle Ola 6 · cabecera admin en 2 niveles: arriba identidad, abajo acciones centradas. */
-.v3-head{background:var(--v6t-head,linear-gradient(135deg,#6366f1,#8b5cf6));color:#fff;padding:12px 14px;display:flex;flex-direction:column;align-items:stretch;gap:8px;flex:none;border-radius:0 0 20px 20px}
-.v3-head-top{display:flex;align-items:center;gap:10px;min-width:0;width:100%}
-.v3-head-bot{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;width:100%}
+.v3-head{background:var(--v6t-head,linear-gradient(135deg,#6366f1,#8b5cf6));color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;flex:none;border-radius:0 0 20px 20px}
 .v4-av{width:44px;height:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex:none;overflow:hidden;color:#1e293b}
 .v4-who{flex:1;min-width:0}.v4-who b{display:block;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .v4-who small{display:block;font-size:.75rem;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .v4-fam{font-size:.72rem;opacity:.85}
-.v3-head .v3-pts{background:rgba(255,255,255,.2);padding:6px 12px;border-radius:999px;min-height:44px;display:inline-flex;align-items:center}
+.v3-head .v3-pts{background:rgba(255,255,255,.2);padding:6px 10px;border-radius:999px}
 /* v4 · ajuste 5: paleta de estados (gris pendiente, verde hecho, amarillo esperando, naranja suave devuelta, rojo SOLO vencida sin enviar). */
 .v3-card.esp{border-left-color:#ca8a04}.v3-card.dev{border-left-color:#fb923c}
 .v3-st-esp{color:#a16207}.v3-st-dev{color:#b45309;font-weight:600}
@@ -5958,7 +4144,7 @@ init();
 .v4-panel{position:fixed;inset:0;background:#f8fafc;z-index:2400;display:none;flex-direction:column}
 .v4-panel.on{display:flex}
 .v4-panel-top{background:var(--v6t-head,linear-gradient(135deg,#6366f1,#8b5cf6));color:#fff;padding:12px 16px;display:flex;gap:10px;align-items:center}
-.v4-panel-top button{background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer;min-height:44px;min-width:44px;font-weight:600}
+.v4-panel-top button{background:rgba(255,255,255,.35);color:#fff;border:0;border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700;font-size:1rem;min-height:44px}
 .v4-panel-body{flex:1;overflow-y:auto;max-width:720px;width:100%;margin:0 auto}
 .v4-panel-body .section{display:block!important}
 /* En modo v3 los modales de la v1 deben quedar por encima del panel y de la hoja. */
@@ -6063,17 +4249,10 @@ body.v3-modo.tema-rosa,body.v3-modo.tema-rosa #v3App{--v3-cta:#be185d;--v6t-head
 .v6-mfila{display:grid;grid-template-columns:minmax(0,1fr) 96px auto;gap:8px;align-items:center;margin:6px 0}.v6-mfila .v3-grow{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.v6-mfila input[type=number]{width:96px}.v6-mp{display:flex!important;gap:4px;align-items:center;margin:0!important;color:#1e293b!important;white-space:nowrap}
 .v6-mb{font-size:.72rem;font-weight:700;border-radius:6px;padding:1px 6px;white-space:nowrap;color:#fff;background:#6b7280}.v6-mb.cargada{background:#b45309}.v6-mb.liberada{background:#15803d}.v6-mb.anulada{background:#b91c1c}.v6-vtag.err{background:#b91c1c}
 .v3-card.ok{border-left-color:var(--v3-ok)}.v3-card.err{border-left-color:var(--v3-err)}.v3-card.rev{border-left-color:var(--v3-azul)}
-/* v6e E-RV1 + Restyle Ola 6 ítem 4: Revisar en 2 filas — arriba ícono+título+chips+hora; abajo acciones. */
-.v3-card.rev-stack{display:grid;grid-template-columns:auto 1fr;align-items:start;gap:8px 10px}
-.v3-card.rev-stack > .famly-emoji-ico{grid-column:1;grid-row:1;align-self:center}
-.v3-card.rev-stack > .v3-grow{grid-column:2;grid-row:1;min-width:0}
-.v3-card.rev-stack > .v3-row,
-.v3-card.rev-stack > .v3-cta,
-.v3-card.rev-stack > .v3-btn2,
-.v3-card.rev-stack > .v3-full,
-.v3-card.rev-stack > .v3-sub{grid-column:1 / -1}
+/* v6e E-RV1: Por revisar apila título → chips → horas → botones full (thumb zone 390) */
+.v3-card.rev-stack{display:flex;flex-direction:column;align-items:stretch;gap:8px}
 .v3-card.rev-stack .v3-row{width:100%;display:flex;flex-wrap:wrap;gap:8px}
-.v3-card.rev-stack .v3-cta,.v3-card.rev-stack .v3-btn2,.v3-card.rev-stack .v3-full{flex:1 1 calc(50% - 4px);min-width:120px;min-height:44px;box-sizing:border-box}
+.v3-card.rev-stack .v3-cta,.v3-card.rev-stack .v3-btn2,.v3-card.rev-stack .v3-full{flex:1 1 100%;width:100%;min-height:44px;box-sizing:border-box}
 
 /* v6e E-AG1 Agenda: web + 390 (lista en semana; targets ≥44px; sin hover-only). */
 .v3-ag-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
@@ -6123,19 +4302,13 @@ body.v3-modo.tema-rosa,body.v3-modo.tema-rosa #v3App{--v3-cta:#be185d;--v6t-head
 .v3-btn2.err{color:var(--v3-err);border-color:#fecaca}
 .v3-full{width:100%}
 .v3-row{display:flex;gap:8px;flex-wrap:wrap}
-/* Restyle Ola 6 ítem 2: + Rápida · Nueva · Filtros · Multas en UNA fila a 390. */
-.v3-hoy-acciones{display:flex;flex-wrap:nowrap;gap:6px;margin-bottom:12px;align-items:stretch}
-.v3-hoy-acciones .v3-cta,.v3-hoy-acciones .v3-btn2{flex:1 1 0;min-width:0;min-height:44px;padding:8px 4px;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box}
-.v3-hoy-acciones .v3-ico{width:14px;height:14px;vertical-align:-2px}
 /* Barra retro de premios: 20 cuadritos pegados. */
 .v3-bar{display:grid;grid-template-columns:repeat(20,1fr);gap:1px;margin:8px 0 4px}
 .v3-bar i{height:12px;background:var(--v3-vacio)}
 .v3-bar i.f{background:var(--v3-gris)}.v3-bar.full i{background:var(--v3-ok)}
 /* Selector segmentado (Semana | Total, Tarea | Deber). */
-/* Restyle Ola 6 · Semana/Total centrado en Ranking. */
-.v3-seg{display:inline-flex;border:1px solid #cbd5e1;border-radius:10px;overflow:hidden;margin:0 auto 10px;justify-content:center}
-#v4Ranking .v3-seg,#v3-ranking .v3-seg{display:flex;width:fit-content;max-width:100%;margin-left:auto;margin-right:auto}
-.v3-seg button{background:#fff;border:0;padding:10px 18px;cursor:pointer;font-size:.85rem;min-height:44px}
+.v3-seg{display:inline-flex;border:1px solid #cbd5e1;border-radius:10px;overflow:hidden;margin-bottom:10px}
+.v3-seg button{background:#fff;border:0;padding:7px 14px;cursor:pointer;font-size:.85rem}
 .v3-seg button.on{background:#1f1a4d;color:#fff}
 /* Navegación inferior con íconos de línea. */
 .v3-nav{display:flex;justify-content:space-around;background:var(--v6t-nav,#1f1a4d);padding:6px 0 calc(6px + env(safe-area-inset-bottom));flex:none}
@@ -6170,33 +4343,17 @@ details.v3-admin summary{cursor:pointer;font-weight:600}
 .v3-cta.v6d-aprob{background:#15803d;color:#fff}
 .v6d-foto{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}.v6d-foto button{flex:1;min-height:44px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;cursor:pointer;font-size:.9rem}
 .v6d-foto small{flex-basis:100%;color:#64748b}
-/* Restyle Ola 3 fix (QA ALTA): override final de contraste. Todos los CTA verdes/claros
-   llevan texto #1f1a4d (≥4.5:1); va al final para ganar a las reglas v3/v6d con #fff. */
-.v3-cta,.v3-cta:disabled,.v3-cta.v6d-aprob,.v3-cta.v6d-comp,a.v3-cta{color:#1f1a4d!important}
-.v3-cta.v6d-aprob{background:var(--success,#86efac)!important}
-.v3-cta.v6d-comp{background:var(--info,#c7d2fe)!important}
-.v3-cta .v3-ico{stroke:#1f1a4d}
-/* Restyle Ola 3 fix (QA MEDIA): botón hallazgo en la cabecera V3, junto a la campana (solo admin). */
-#v3Hallazgo{display:none;background:var(--warn-bg,#fef3c7)!important;color:#1f1a4d;min-width:44px;min-height:44px;align-items:center;justify-content:center}
-#v3Hallazgo.on{display:inline-flex}
 </style>
 
 <div id="v3App" aria-live="polite">
   <!-- Cabecera: familia, saldo, bandeja (padres) y salir. -->
-  <!-- Restyle Ola 6 ítem 5: cabecera en 2 niveles (identidad / acciones centradas). -->
   <div class="v3-head">
-    <div class="v3-head-top">
-      <div class="v4-av" id="v4Av" aria-hidden="true">👤</div>
-      <div class="v4-who"><span class="v4-fam" id="v3Fam">FAMLY · Familia</span><!-- v6d D8 --><b id="v4Nom"></b><small id="v4Rol"></small><small id="v4Frase"></small></div>
-    </div>
-    <div class="v3-head-bot">
-      <span class="v3-pts" id="v3Pts"></span>
-      <!-- Campana de avisos de la v1 (openNotifs) con ícono de línea. -->
-      <button class="v3-icobtn" id="v4Bell" aria-label="Notificaciones" onclick="FamiliaV3.abrirV1(()=>openNotifs())"></button>
-      <!-- Restyle Ola 3/5: hallazgo clay WebP; solo admin. -->
-      <button class="v3-icobtn" id="v3Hallazgo" type="button" aria-label="Reportar un hallazgo" title="Reportar un hallazgo" onclick="abrirHallazgo()"></button>
-      <button class="v3-icobtn" id="v3InboxBtn" aria-label="Por aprobar" onclick="FamiliaV3.ir('bandeja')"></button>
-    </div>
+    <div class="v4-av" id="v4Av" aria-hidden="true">👤</div>
+    <div class="v4-who"><span class="v4-fam" id="v3Fam">FAMLY · Familia</span><!-- v6d D8 --><b id="v4Nom"></b><small id="v4Rol"></small><small id="v4Frase"></small></div>
+    <span class="v3-pts" id="v3Pts"></span>
+    <!-- Campana de avisos de la v1 (openNotifs) con ícono de línea. -->
+    <button class="v3-icobtn" id="v4Bell" aria-label="Avisos" onclick="FamiliaV3.abrirV1(()=>openNotifs())"></button>
+    <button class="v3-icobtn" id="v3InboxBtn" aria-label="Por aprobar" onclick="FamiliaV3.ir('bandeja')"></button>
   </div>
   <div class="v3-main">
     <section class="v3-sec on" id="v3-hoy"><h2>Hoy</h2><div id="v3Hoy"></div></section>
@@ -6221,7 +4378,7 @@ details.v3-admin summary{cursor:pointer;font-weight:600}
 window.FamiliaV3=(function(){
   'use strict';
 
-  /* --- Íconos SVG de línea (fallback si falta el WebP clay). --- */
+  /* --- Íconos SVG de línea (trazo 1.5, color heredado = blanco en cabecera/nav). --- */
   const ICO={
     hoy:'<path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/>',
     bandeja:'<path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 2h6l1-2h5"/>',
@@ -6230,30 +4387,12 @@ window.FamiliaV3=(function(){
     mas:'<path d="M12 5v14M5 12h14"/>',
     trofeo:'<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8"/>',
     campana:'<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
-    agenda:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>',
-    /* Bandera hallazgos (mismo trazo que el SVG previo de #v3Hallazgo). */
-    hallazgos:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>'
+    agenda:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>'
   };
   function svg(n){return '<svg class="v3-ico" viewBox="0 0 24 24" aria-hidden="true">'+ICO[n]+'</svg>';}
-  /* Restyle Ola 5 · mapa tab ICO → id de archivo WebP (sin -activo/-inactivo). */
-  const NAV_WEBP={hoy:'nav-hoy',bandeja:'nav-revisar',agenda:'nav-agenda',premio:'nav-premios',trofeo:'nav-ranking',yo:'nav-yo'};
-  /* Inserta <img> clay; si falla la carga, restaura el SVG inline (data-fb). */
-  function icoWebp(file,w,h,alt,fallbackHtml,eager){
-    const fb=encodeURIComponent(fallbackHtml||'');
-    const load=eager?'eager':'lazy';
-    const a=alt==null?'':String(alt).replace(/"/g,'&quot;');
-    return '<img class="v3-ico-img" src="iconos/'+file+'.webp" width="'+w+'" height="'+h+'" loading="'+load+'" decoding="async" alt="'+a+'" data-fb="'+fb+'" onerror="(function(el){el.onerror=null;try{var s=decodeURIComponent(el.getAttribute(\'data-fb\')||\'\');var t=document.createElement(\'span\');t.innerHTML=s;if(t.firstChild)el.replaceWith(t.firstChild);}catch(e){}})(this)">';
-  }
-  function icoNav(key,activo){
-    const base=NAV_WEBP[key];
-    if(!base) return svg(key);
-    return icoWebp(base+(activo?'-activo':'-inactivo'),40,40,'',svg(key),!!activo);
-  }
 
   /* --- Estado propio de la v3 (no se mezcla con el de la v1). --- */
   let seccion='hoy';            // pestaña activa
-  let desdeAdmin=false;         // Restyle Ola 6: Agenda (u otra) abierta desde Administrar familia
-  let abrirAdminAlPintar=false; // Restyle Ola 6: reabrir <details.v3-admin> tras Volver
 
   /* v6e E-DU1 / E-VE1 / E-SU1: menús de tiempo preestablecidos (hora en hora hasta 72 h; reabrir/subasta). */
   function optsDuracionHoras(sel){
@@ -6467,11 +4606,7 @@ window.FamiliaV3=(function(){
     // v6 A3: clase y etiqueta de ventana (verde «En su hora» / rojo «Se pasó la hora»).
     const vv=enVentana(t), vcls=vv?' v6-'+vv:'', vtxt=vv==='dentro'?'<span class="v6-vtag ok">En su hora</span>':vv==='poco'?'<span class="v6-vtag warn">Queda poco</span>':vv==='fuera'?'<span class="v6-vtag err">Se pasó la hora</span>':vv==='antes'?'<span class="v6-vtag v6d-antes-t">Aún no abre'+(t.habilita_en?' | Abre '+esc(new Date(t.habilita_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false})):'')+'</span>':'';   // v6d D7 · v6d D20c: «Aún no abre · Abre HH:MM» como texto único
     const obl=esObligatoria(t);
-    /* Restyle Ola 5: ícono clay si el emoji de la tarea está mapeado; si no, sin ícono (layout intacto). */
-    /* Restyle Ola 6 ítem 6: tarjetas 40 px (nav 40 / cabecera 28 se mantienen). */
-    const icoT=t.icono&&FAMLY_EMOJI_ICO[t.icono]?famlyEmojiIco(t.icono,{w:40,h:40}):'';
     return `<div class="v3-card ${e.c}${vcls}${obl?' v6b-obl':''}" data-id="${t.id}" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.detalle(${t.id})">
-      ${icoT}
       <div class="v3-grow"><div class="v3-t">${esc(t.titulo)}</div>${''/* v6d QA-fix D11: la tarjeta muestra SOLO el nombre; la descripción va en la ficha (detalle) */}
       <div class="v3-sub"><span class="v3-chip ${obl?'obl':esDeber(t)?'deber':''}">${obl?'Obligatoria':esDeber(t)?'Deber':'Tarea'}</span>
       ${who?etiquetaMiembro(who)+' ':''/* v6d D21 */}<span class="${e.cls}">${esc(e.txt)}</span>${t.puntos?' | '+t.puntos+' pts':''}</div>
@@ -6570,8 +4705,7 @@ window.FamiliaV3=(function(){
     // «Junto con», entre padres, inmediata, penalización, repetición de deberes).
     // v5 ítem 1: el hijo solicita tareas (y pasa a un hermano) desde Hoy, no desde «Yo → Más».
     let hHijo=!admin&&!soloLectura()?`<div class="v3-row" style="margin-bottom:12px"><button class="v3-cta" style="flex:1" onclick="FamiliaV3.hojaSolicitar()">Solicitar tarea</button><button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openSiblingTask())">Para un hermano</button></div>`:'';
-    /* Restyle Ola 6 ítem 2: «+ Rápida» / «Nueva»; 4 CTAs en una fila (.v3-hoy-acciones) a 390. */
-    let h=hHijo+(admin&&!soloLectura()?`<div class="v3-hoy-acciones"><button class="v3-cta" onclick="FamiliaV3.crearTarea()">+ Rápida</button><button class="v3-btn2" onclick="FamiliaV3.crearCompleto()">Nueva</button><button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Tareas: filtros, plantillas y borradores')">Filtros</button>${puede('aplicar_multa')||puede('administrar_multas')?'<button class="v3-btn2" onclick="FamiliaV3.hojaMultas()">Multas</button>':''/* v6d D9 */}</div>`:'');
+    let h=hHijo+(admin&&!soloLectura()?`<div class="v3-row" style="margin-bottom:12px"><button class="v3-cta" style="flex:1" onclick="FamiliaV3.crearTarea()">${svg('mas').replace('v3-ico','v3-ico" style="vertical-align:-5px')} Crear</button><button class="v3-btn2" onclick="FamiliaV3.crearCompleto()">Crear completo</button><button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Tareas: filtros, plantillas y borradores')">Filtros</button>${puede('aplicar_multa')||puede('administrar_multas')?'<button class="v3-btn2" onclick="FamiliaV3.hojaMultas()">⚖️ Multas</button>':''/* v6d D9 */}</div>`:'');
     // v6c C10b: «Vencidos» va ANTES de «Hoy» (primero en la pantalla). El hijo los ve aquí; el padre también los ve
     // con su acción (v6c C7c) y además siguen en «Revisar».
     if(venc.length) h+=`<h2 style="margin-top:4px">Vencidos</h2>`+venc.map(fila).join('')+(admin?`<p class="v3-sub">${venc.length} en «Revisar».</p>`:'');
@@ -6627,10 +4761,8 @@ window.FamiliaV3=(function(){
     if(v.length){
       h+='<h2 style="margin-top:16px">Vencidos</h2>';
       // F2c: se decide en cualquier estado vencido (por_decidir, pendiente_hijo o formato viejo).
-      /* Restyle Ola 6 ítem 4: vencidas en 2 filas (rev-stack). */
       h+=v.map(t=>{const listo=true;
-        const html=ficha(t,listo?`<div class="v3-row"><button class="v3-btn2 err" onclick="event.stopPropagation();FamiliaV3.descontar(${t.id})">Descontar${t.pierde_pts?' −'+t.pierde_pts:''}</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.perdonar(${t.id})">Perdonar</button>${t.estado_vencida==='descontada'||t.vencida_origen==='cierre_auto'?`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.reabrir(${t.id})">Reabrir</button>`:''}</div>`:'<span class="v3-sub">Falta que lo vea</span>');
-        return html.replace('class="v3-card ','class="v3-card rev-stack ');}).join('');
+        return ficha(t,listo?`<div class="v3-row"><button class="v3-btn2 err" onclick="event.stopPropagation();FamiliaV3.descontar(${t.id})">Descontar${t.pierde_pts?' −'+t.pierde_pts:''}</button><button class="v3-btn2" onclick="event.stopPropagation();FamiliaV3.perdonar(${t.id})">Perdonar</button>${t.estado_vencida==='descontada'||t.vencida_origen==='cierre_auto'?`<button class="v3-cta" onclick="event.stopPropagation();FamiliaV3.reabrir(${t.id})">Reabrir</button>`:''}</div>`:'<span class="v3-sub">Falta que lo vea</span>');}).join('');
     }
     // Premios pedidos por los hijos: Aprobar = familia_rpc_canjear_premio (resta puntos en BD).
     const sol=solicitudesPendientes();
@@ -6783,17 +4915,20 @@ window.FamiliaV3=(function(){
     }finally{enCurso.delete(k);}
   }
   function pintarPremios(u){
+    const verPadre = localStorage.getItem("v3_premios_ver") === "padre";
+    const esAdmin = esPadre(u);
     const asc=localStorage.getItem('v3_premios_orden')!=='desc';
     const S=Number(u.puntos)||0;
     // Cada quien ve sus premios: hijo → tipo 'hijo' (o vacío); padre → tipo 'padre'.
     // v6e E-PR1: además del tipo, el hijo no ve premios asignados a otro.
-    const lista=state.rewards.filter(r=>r.activo!==false&&((r.tipo||'hijo')==='padre')===esPadre(u)&&(!r.asignado_a||Number(r.asignado_a)===u.id||esPadre(u))).slice().sort((a,b)=>asc?(a.costo-b.costo):(b.costo-a.costo));
+    const lista=state.rewards.filter(r=>r.activo!==false&&((r.tipo||'hijo')==='padre')===(esAdmin?verPadre:esPadre(u))&&(!r.asignado_a||Number(r.asignado_a)===u.id||esAdmin)).slice().sort((a,b)=>asc?(a.costo-b.costo):(b.costo-a.costo));
     let h=`<button class="v3-btn2" style="margin-bottom:10px" onclick="FamiliaV3.ordenPremios()">Orden: ${asc?'menor → mayor':'mayor → menor'}</button>`;
+    if(esAdmin) h+=`<button class="v3-btn2" style="margin-bottom:10px;margin-left:6px" onclick="localStorage.setItem('v3_premios_ver',localStorage.getItem('v3_premios_ver')==='padre'?'hijo':'padre');FamiliaV3.pintar();">Ver: ${verPadre?'Padres':'Hijos'}</button>`;
     h+=lista.map(r=>{
       // v6 Mesada: verde si el TOTAL (incluida la mesada por liberar) alcanza; pedir solo con disponibles (botonPremio).
       const C=Math.max(1,Number(r.costo)||0), T=esPadre(u)?S:mesadaDe(u.id).total, llenos=Math.round(20*Math.min(T,C)/C), full=T>=C;
       const celdas=Array.from({length:20},(_,i)=>`<i class="${i<llenos?'f':''}"></i>`).join('');
-      return `<div class="v3-card" style="display:block"><div class="v3-row" style="justify-content:space-between;align-items:center"><span class="v3-t">${famlyEmojiIco(r.icono||'🎁',{w:40,h:40})} ${esc(r.nombre)}</span><span class="v3-sub">${C} pts</span></div>
+      return `<div class="v3-card" style="display:block"><div class="v3-row" style="justify-content:space-between"><span class="v3-t">${esc(r.nombre)}</span><span class="v3-sub">${C} pts</span></div>
         <div class="v3-bar ${full?'full':''}" role="progressbar" aria-valuemin="0" aria-valuemax="${C}" aria-valuenow="${Math.min(S,C)}" aria-label="${Math.min(S,C)} de ${C}">${celdas}</div>
         ${full?`<div class="v3-row" style="justify-content:space-between;align-items:center"><span class="v3-st-ok">${!esPadre(u)&&faltaDisponible(u.id,C)?'Te alcanza con tu mesada':'¡Ya lo puedes canjear!'}</span>${botonPremio(u,r)}</div>${!esPadre(u)&&faltaDisponible(u.id,C)?`<p class="v3-sub" style="margin-top:4px">${esc(faltaDisponible(u.id,C))}</p>`:''}`:`<span class="v3-sub">Te faltan ${C-T} pts</span>`}</div>`;
     }).join('');
@@ -6847,8 +4982,7 @@ window.FamiliaV3=(function(){
     if(admin){
       // v5 ítems 3, 5 y 8 (D1): cuadrícula de 2 columnas, nombres cortos; «Editar tareas» (asignadas, ficha para
       // editar/eliminar) y «Catálogo» (plantillas de la v1 en modo Definiciones). Resetear en rojo, al final y a lo ancho.
-      /* Restyle Ola 6: si venimos de «← Volver», el bloque admin queda abierto. */
-      h+=`<details class="v3-admin"${abrirAdminAlPintar?' open':''}><summary>Administrar familia</summary><div class="v5-grid">
+      h+=`<details class="v3-admin"><summary>Administrar familia</summary><div class="v5-grid">
         <button class="v3-btn2" onclick="FamiliaV3.panelV1('section-tareas','Editar tareas')">Editar tareas</button>
         <button class="v3-btn2" onclick="FamiliaV3.catalogo()">Catálogo</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaDeberes()">Deberes</button>
@@ -6856,7 +4990,7 @@ window.FamiliaV3=(function(){
         <button class="v3-btn2" onclick="FamiliaV3.panelV1('section-premios','Premios')">Premios</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>{openNewReward();const s=document.getElementById('rewardTipo');if(s){s.value='hijo';syncRewardParent();}})">Nuevo premio</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaMesadaV6()">Mesada mensual</button>
-        <button class="v3-btn2" onclick="FamiliaV3.agendaDesdeAdmin()">Agenda</button>
+        <button class="v3-btn2" onclick="FamiliaV3.ir('agenda')">Agenda</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openPenalty())">Descuento</button>
         <button class="v3-btn2" onclick="FamiliaV3.abrirV1(()=>openNewMember())">Integrante</button>
         <button class="v3-btn2" onclick="FamiliaV3.hojaPin()">PINs</button><button class="v3-btn2" onclick="FamiliaV3.hojaMovil()">📵 Celulares</button>
@@ -6881,7 +5015,6 @@ window.FamiliaV3=(function(){
     h+=selectorTema(u);
     h+=`<button class="v3-btn2 v3-full" style="margin-top:12px" onclick="FamiliaV3.salir()">Salir</button>`;
     document.getElementById('v3Yo').innerHTML=h;
-    abrirAdminAlPintar=false;
     ajustarCajasLuego();
   }
 
@@ -7432,7 +5565,6 @@ window.FamiliaV3=(function(){
       const row={titulo:p.titulo,puntos:deber?0:(Number(p.puntos)||0),recurrencia:'once',icono:'🙋',asignada_a:u.id,
         tipo:deber?'deber':'tarea',clase:deber?'deber':'tarea',inmediata:false,estado:'pendiente',creada_por:u.id,puntos_sumados:false,
         habilita_en:now.toISOString(),fecha_limite:limite.toISOString(),ventana_horas:2,client_req_id:reqId(k)};
-      if(state.familiaId) row.familia_id=state.familiaId;   // Ola 8: solicitud v3 con la familia
       // v6b B18: si es una plantilla guardada se envía plantilla_id y se revisa el cupo antes de preguntar.
       const pid=state.plantillas.some(x=>x.id===p.id)?p.id:null;
       if(pid){const b=await cupoBloqueo(pid,u.id); if(b) return showToast(b);}
@@ -7488,9 +5620,6 @@ window.FamiliaV3=(function(){
   }
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible') recargarAlVolver();});
   window.addEventListener('focus',recargarAlVolver);
-  /* Ola 8: el hijo ve tareas nuevas sin recargar → sondeo cada 60 s solo con la app visible y la pestaña Hoy abierta
-     (✗ realtime, decisión del Orquestador). Reusa recargarAlVolver (máx. 1 recarga / 10 s, sin paralelo). */
-  setInterval(()=>{ if(seccion==='hoy'&&document.visibilityState==='visible') recargarAlVolver(); },60000);
 
   /* --- Pintado general: cabecera, nav, contador de bandeja y sección activa. --- */
   function pintar(){
@@ -7504,12 +5633,7 @@ window.FamiliaV3=(function(){
     document.getElementById('v4Rol').textContent=(u.rol||'')+(isAdmin(u)?' · Admin':'')/* v6d D6 */+(edad?' · '+edad+' años':'');
     document.getElementById('v4Frase').textContent=u.frase||'';
     const noLeidas=(state.notifs||[]).filter(x=>x.para_id===u.id&&!x.leida).length;
-    {const vh=document.getElementById('v3Hallazgo'); if(vh){ vh.classList.toggle('on',!!(typeof isAdmin==='function'&&isAdmin(u))); /* fix Ola 3: hallazgo solo admin */
-      /* Restyle Ola 5: bandera clay; fallback SVG. */
-      vh.innerHTML=icoWebp('header-hallazgos',28,28,'',svg('hallazgos'),true);
-    }}
-    /* Restyle Ola 5: campana clay + badge. */
-    document.getElementById('v4Bell').innerHTML=icoWebp('header-campana',28,28,'',svg('campana'),true)+(noLeidas?`<span class="v3-dot">${noLeidas}</span>`:'');
+    document.getElementById('v4Bell').innerHTML=svg('campana')+(noLeidas?`<span class="v3-dot">${noLeidas}</span>`:'');
     document.body.classList.add('v3-modo');
     // «Ver como»: marca de solo lectura para los paneles y modales de la v1.
     document.body.classList.toggle('v4-ro',soloLectura());
@@ -7527,8 +5651,7 @@ window.FamiliaV3=(function(){
     const tabs=[['hoy','Hoy','hoy'],['agenda','Agenda','agenda'],['premios','Premios','premio'],['ranking','Ranking','trofeo'],['yo','Yo','yo']];
     if(admin) tabs.splice(1,0,['bandeja','Revisar','bandeja']);
     if(!admin&&seccion==='bandeja') seccion='hoy';
-    /* Restyle Ola 5: nav clay activo/inactivo; aria-label en el botón (img decorativo). */
-    document.getElementById('v3Nav').innerHTML=tabs.map(([k,l,i])=>`<button class="${seccion===k?'on':''}" onclick="FamiliaV3.ir('${k}')" aria-label="${l}">${icoNav(i,seccion===k)}${l}</button>`).join('');
+    document.getElementById('v3Nav').innerHTML=tabs.map(([k,l,i])=>`<button class="${seccion===k?'on':''}" onclick="FamiliaV3.ir('${k}')" aria-label="${l}">${svg(i)}${l}</button>`).join('');
     document.querySelectorAll('#v3App .v3-sec').forEach(s=>s.classList.toggle('on',s.id==='v3-'+seccion));
     if(seccion==='hoy') pintarHoy(u);
     if(seccion==='bandeja') pintarBandeja();
@@ -8482,6 +6605,7 @@ window.FamiliaV3=(function(){
   function agHijoId(u){
     if(!esPadre(u)) return u.id;
     const kids=(state.members||[]).filter(m=>!esPadre(m)).slice().sort(byName);
+    if(agMiembro===0) return 0; // Todos
     if(agMiembro&&kids.some(k=>k.id===agMiembro)) return agMiembro;
     agMiembro=kids[0]?kids[0].id:null;
     return agMiembro;
@@ -8509,8 +6633,22 @@ window.FamiliaV3=(function(){
   }
   async function cargarAgenda(){
     const u=currentUser(); if(!u) return;
-    const mid=agHijoId(u); if(!mid){state.agendaEv=[]; return;}
+    const mid=agHijoId(u); if(mid===null){state.agendaEv=[]; return;}
     const [a,b]=agRango();
+    if(mid===0){
+      // Todos: cargar de cada hijo y combinar
+      const kids=(state.members||[]).filter(m=>!esPadre(m));
+      let all=[];
+      for(const k of kids){
+        const {data}=await supabase.rpc('familia_rpc_expandir_agenda',{
+          p_actor_id:state.currentUserId, p_miembro_id:k.id,
+          p_desde:a.toISOString(), p_hasta:b.toISOString()
+        });
+        if(data) all=all.concat(data.map(e=>({...e, _hijo:k.nombre, _color:k.color||'#64748b'})));
+      }
+      state.agendaEv=all;
+      return;
+    }
     const {data,error}=await supabase.rpc('familia_rpc_expandir_agenda',{
       p_actor_id:state.currentUserId, p_miembro_id:mid,
       p_desde:a.toISOString(), p_hasta:b.toISOString()
@@ -8523,16 +6661,14 @@ window.FamiliaV3=(function(){
     const box=document.getElementById('v3Agenda'); if(!box) return;
     const kids=(state.members||[]).filter(m=>!esPadre(m)).slice().sort(byName);
     const mid=agHijoId(u);
-    const selHijo=esPadre(u)?`<select id="agHijo" onchange="FamiliaV3.agSetHijo(+this.value)">${kids.map(k=>`<option value="${k.id}" ${k.id===mid?'selected':''}>${esc(k.nombre)}</option>`).join('')}</select>`:'';
+    const selHijo=esPadre(u)?`<select id="agHijo" onchange="FamiliaV3.agSetHijo(+this.value)"><option value="0" ${mid===0?'selected':''}>Todos</option>${kids.map(k=>`<option value="${k.id}" ${k.id===mid?'selected':''}>${esc(k.nombre)}</option>`).join('')}</select>`:'';
     const [a,b]=agRango();
     let tit='';
     if(agVista==='dia') tit=agCursor.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'short'});
     else if(agVista==='semana'){const f=new Date(b); f.setDate(f.getDate()-1); tit=a.toLocaleDateString('es-CO',{day:'numeric',month:'short'})+' – '+f.toLocaleDateString('es-CO',{day:'numeric',month:'short'});}
     else tit=agCursor.toLocaleDateString('es-CO',{month:'long',year:'numeric'});
     const puedeCrear=!esPadre(u)&&!soloLectura();
-    /* Restyle Ola 6 ítem 1/O1.3: «← Volver» al menú Administrar familia si se entró desde ahí. */
-    const barAdmin=desdeAdmin?`<div class="v5-volver" style="position:static;top:auto;margin:0 0 10px -0px"><button type="button" onclick="FamiliaV3.volverAdmin()">← Volver</button></div>`:'';
-    box.innerHTML=`${barAdmin}<div class="v3-ag-top">${selHijo}
+    box.innerHTML=`<div class="v3-ag-top">${selHijo}
       <div class="v3-ag-seg" role="tablist">
         <button type="button" class="${agVista==='dia'?'on':''}" onclick="FamiliaV3.agSetVista('dia')">Día</button>
         <button type="button" class="${agVista==='semana'?'on':''}" onclick="FamiliaV3.agSetVista('semana')">Semana</button>
@@ -8558,10 +6694,11 @@ window.FamiliaV3=(function(){
       const col=e.color||'#64748b';
       const cls=e.origen==='tarea'?'tarea':'';
       const tap=e.origen==='tarea'?`FamiliaV3.detalle(${e.tarea_id})`:`FamiliaV3.hojaAgendaEv('${String(e.actividad_id)}','${agYMD(e.inicio)}')`;
+      const who=e._hijo?` · ${esc(e._hijo)}`:'';
       return `<div class="v3-ag-slot"><div class="v3-ag-hh">${hh}</div>
-        <button type="button" class="v3-ag-ev ${cls}" style="border-left-color:${col}" onclick="${tap}">
+        <button type="button" class="v3-ag-ev ${cls}" style="border-left-color:${e._color||col}" onclick="${tap}">
           <strong>${e.origen==='tarea'?'📋 ':''}${esc(e.titulo||'')}</strong>
-          <span class="sub">${hh}–${hf}${e.categoria?' · '+esc(e.categoria):''}</span>
+          <span class="sub">${hh}–${hf}${e.categoria?' · '+esc(e.categoria):''}${who}</span>
         </button></div>`;
     }).join('')+'</div>';
   }
@@ -8723,15 +6860,7 @@ window.FamiliaV3=(function(){
     cerrarHoja(); showToast('Listo'); await cargarAgenda(); pintar();
   }
 
-  /* Restyle Ola 6 ítem 1: salir de sub-opción admin → Yo con Administrar familia abierto. */
-  function abrirAdminMenu(){
-    abrirAdminAlPintar=true;
-    seccion='yo'; pintar();
-    try{const d=document.querySelector('#v3Yo details.v3-admin'); if(d) d.scrollIntoView({block:'nearest'});}catch(e){}
-  }
-  function agendaDesdeAdmin(){desdeAdmin=true; ir('agenda');}
-  function volverAdmin(){desdeAdmin=false; cerrarHoja(); cerrarPanel(); abrirAdminMenu();}
-  function ir(s){if(s!=='agenda') desdeAdmin=false; seccion=s;pintar();if(s==='yo')cargarHistorial().then(pintar);if(s==='yo'||s==='premios')cargarMesadaEst().then(pintar);if(s==='agenda')cargarAgenda().then(pintar);}
+    function ir(s){seccion=s;pintar();if(s==='yo')cargarHistorial().then(pintar);if(s==='yo'||s==='premios')cargarMesadaEst().then(pintar);if(s==='agenda')cargarAgenda().then(pintar);}
   function ranking(m){rkModo=m;pintar();}
   function ordenPremios(){localStorage.setItem('v3_premios_orden',localStorage.getItem('v3_premios_orden')==='desc'?'asc':'desc');pintar();}
   /* --- Administración v3 (MED 4): hojas propias; cada escritura es UNA fila (sin pasos encadenados). --- */
@@ -8977,7 +7106,7 @@ window.FamiliaV3=(function(){
     if(d.ok===false) return showToast('Ya la tomó '+(d.tomada_por||'otro'));
     showToast('¡Es tuya!'); scheduleReload();
   }
-  return {pintarAgenda,cargarAgenda,agSetVista,agNav,agIrDia,agSetHijo,hojaAgendaNueva,agPickCat,agSyncRec,guardarAgenda,hojaAgendaEv,hojaAgendaEditar,agArchivar,agExcepcion,hojaRoles,guardarRolMiembro,togglePermiso,hojaCambiarPin,guardarPinAjeno,liberarParaHacer,reabrir,aceptarSubasta,comprometer,hojaConvertirSerie,convertirSerie,hojaMultas,multaAplicar,hojaMultaEditar,multaGuardar,multaArchivar,noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,_grupoFecha:grupoFecha,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,agendaDesdeAdmin,volverAdmin,abrirAdminMenu,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
+  return {pintarAgenda,cargarAgenda,agSetVista,agNav,agIrDia,agSetHijo,hojaAgendaNueva,agPickCat,agSyncRec,guardarAgenda,hojaAgendaEv,hojaAgendaEditar,agArchivar,agExcepcion,hojaRoles,guardarRolMiembro,togglePermiso,hojaCambiarPin,guardarPinAjeno,liberarParaHacer,reabrir,aceptarSubasta,comprometer,hojaConvertirSerie,convertirSerie,hojaMultas,multaAplicar,hojaMultaEditar,multaGuardar,multaArchivar,noHizo,_deshacerRpc:avisoDeshacerRpc,_puedeRealizada:puedeRealizada,_diaHoy:limitesHoy,_grupoFecha:grupoFecha,hojaSerie,previaSerie,guardarSerie,hojaSerieCambiar,serieCambiar,serieBorrar,_serieRef:serieRefrescar,_serieAtajo:serieAtajo,hojaMovil,cambiarMovil,realizada,activarBorrador,_reExigeFoto:reExigeFoto,canjearPorHijo,_ptsTarde:ptsTardeValidos,aprobarTarde,activo,ir,pedirTiempo,guardarTema,agregarFotos,quitarFotoSel,_cajas:ajustarCajasLuego,iconoMov,hojaSolicitar,solicitar,catalogo,previaLote,hojaDeberes,descontarYa,hojaMesadaV6,guardarMesadaV6,ayudaFechaMesada,faltaDisponible,liberarMesadaV6,aprobarSolicitud,negarSolicitud,crearDeber,crearTarea,crearCompleto,traspaso,rechazarPremio,hojaLote,guardarLote,hojaMesada,guardarMesada,mesadaPendiente,hojaReset,confirmarReset,abrirV1,panelV1,cerrarPanel,hojaMetas,hojaChat,hojaMedallas,enviar,rechazar,reintentar,detalle,pedirPremio,aprobarPremio,canjearPadre,_grupoFecha:grupoFecha,aprobar,devolver,descontar,perdonar,verVencida,entendido,crearPaso1,crearPaso2,claseCrear,crearGuardar,cerrarHoja,ranking,ordenPremios,aceptarAprobada,hojaIntegrante,guardarIntegrante,hojaPremio,guardarPremio,hojaPin,resetPin,hojaVerComo,verComo,volverAMi,hojaPerfil,guardarPerfil,salir,pintar,_esDeber:esDeber,_inicioSemana:inicioSemana};
 })();
 </script>
 <script>
@@ -9051,4 +7180,5 @@ const FAMILIA_VERSION='mf1';
 </script>
 </body>
 </html>
+
 
