@@ -7048,7 +7048,7 @@ window.FamiliaV3=(function(){
   /* --- Historial completo para el ranking (sin el tope de 1.000 de loadAll). --- */
   async function cargarHistorial(){
     try{
-      const r=await supabase.from('familia_historial').select('miembro_id,pts,tipo,creado_en').is('archivada_en',null).range(0,49999);   // v4: sin archivadas
+      const r=await supabase.from('familia_historial').select('id,miembro_id,pts,tipo,texto,tarea_id,creado_en').is('archivada_en',null).range(0,49999);   // v4: sin archivadas · Ola 12: + id, texto y tarea_id (claseMov clasifica igual que con state.history)
       if(!r.error) histTotal=r.data||[];
     }catch(e){}
   }
@@ -7202,6 +7202,8 @@ window.FamiliaV3=(function(){
   function pintarRanking(u){
     const desde=rkModo==='semana'?inicioSemana():null;
     const MED=['🥇','🥈','🥉','🍬','⭐','🎈','🍪','🍎','⚽','🎯'];
+    // Ola 12: misma fuente para Semana y Total (historial completo con texto y tarea_id; respaldo state.history).
+    const srcRk=(histTotal&&histTotal.length?histTotal:state.history)||[];
     const filas=state.members.filter(isKid).map(k=>{
       // Columnas: g ganados (tareas/deberes) · me mesada · c canjeados · d descuentos · o otros (anulaciones, traspasos, ajustes).
       let g=0,me=0,c=0,d=0,o=0;
@@ -7209,7 +7211,11 @@ window.FamiliaV3=(function(){
       // Si la fila no tiene tarea o la tarea no está cargada, se usa creado_en del movimiento (como antes). El saldo no cambia.
       // v6c C13 (bordes Orq): el día se corta a las 00:00 en la zona de la familia (Europe/Madrid por defecto), no la del
       // equipo; la semana va de domingo a sábado y lo de semanas futuras (tarea futura aprobada antes) cuenta en su semana.
-      (state.history||[]).filter(h=>h.miembro_id===k.id&&(!desde||enSemanaActual(fechaMovRanking(h),u))).forEach(h=>{
+      // Ola 12 (bug Ganado semana): «Semana» cuenta por la FECHA DEL MOVIMIENTO (historial.creado_en, cuando se
+      // ganaron los puntos) desde el domingo 00:00 de la zona de la familia; antes usaba la fecha de la tarea
+      // (C13) y una tarea con fecha de otra semana aprobada hoy se quedaba fuera (Sara 15 ≠ 53).
+      // Fuente: historial completo (histTotal, sin tope de 1.000) si ya cargó; si no, state.history.
+      srcRk.filter(h=>h.miembro_id===k.id&&(!desde||enSemanaActual(new Date(h.creado_en),u))).forEach(h=>{
         const r=claseMov(h); if(!r) return;
         if(r.k==='g')g+=r.pts; else if(r.k==='me')me+=r.pts; else if(r.k==='c')c+=-r.pts; else if(r.k==='d')d+=-r.pts; else o+=r.pts;
       });
@@ -7228,7 +7234,7 @@ window.FamiliaV3=(function(){
     document.getElementById('v4Ranking').innerHTML=`${subRk}
       <div class="v3-card" style="display:block"><div class="v5-rk h"><span></span><span>Hijo</span><span class="n">Ganado</span><span class="n">Saldo</span></div>
       ${filas.map((x,i)=>`<div class="v5-rk" role="button" tabindex="0" style="cursor:pointer" onclick="FamiliaV3.abrirV1(()=>openBalance(${x.k.id}))" title="Ver saldo detallado"><span>${MED[i]||(i+1)+'.'}</span><span class="nom">${esc(x.k.nombre)}</span><strong class="n v3-st-ok">${x.g}</strong><span class="n">${x.saldo}</span></div>`).join('')||'<p class="v3-sub">Sin hijos</p>'}
-      <p class="v3-sub" style="margin-top:6px">Orden por Ganado${desde?' de esta semana':''}. Saldo = puntos de hoy. Toca un nombre para ver el detalle.</p></div>
+      <p class="v3-sub" style="margin-top:6px">Orden por Ganado${desde?' de esta semana':''}. Saldo = puntos acumulados. Toca un nombre para ver el detalle.</p></div>
       <div class="v3-seg" style="margin-top:10px;margin-bottom:0"><button class="${rkModo==='semana'?'on':''}" onclick="FamiliaV3.ranking('semana')">Semana</button><button class="${rkModo==='total'?'on':''}" onclick="FamiliaV3.ranking('total')">Total</button></div>`;
   }
 
