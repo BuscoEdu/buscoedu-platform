@@ -22,8 +22,41 @@ const STOPWORDS = new Set([
   'yo', 'hola', 'porfa', 'favor', 'gracias', 'info', 'informacion', 'universidad', 'estudios', 'area', 'modalidad',
   'virtual', 'virtuales', 'presencial', 'presenciales', 'online', 'linea', 'distancia', 'hibrida', 'hibrido',
   'maestria', 'maestrias', 'magister', 'especializacion', 'especializaciones', 'doctorado', 'pregrado', 'posgrado',
-  'postgrado', 'tecnico', 'tecnologo', 'profesional', 'beca', 'becas', 'ciudad', 'puede', 'ser', 'cerca'
+  'postgrado', 'tecnico', 'tecnologo', 'tecnologa', 'tecnologos', 'profesional', 'beca', 'becas', 'ciudad', 'puede', 'ser', 'cerca'
 ]);
+
+// Bloque: S7 · tope de precio o presupuesto («menos de 5 millones», «tengo un presupuesto de 3 millones»,
+// «algo barato», «$2.500.000», «800 mil»). En este lote NO se filtra por precio: se detecta, se quita del
+// texto y el bot responde con el copy congelado v1.7 (T_SIN_FILTRO_PRECIO) + resultados.
+// WA-fix-1b: antes solo valía «menos de/hasta N millones»; «presupuesto» sin ese patrón caía en «No te entendí».
+const PATRONES_PRECIO: RegExp[] = [
+  /\b(menos de|maximo|max|hasta|no mas de|tope de)\s*\$?\s*\d+(?:[.,]\d+)*\s*(?:millones|millon|mill|mil|m|pesos)\b/g,
+  /\bpresupuestos?\b(?:\s+(?:de|es|es de|maximo de|limitado))?/g,
+  /\b(?:mi|un|tengo|con)?\s*(?:bajo\s+)?presupuesto\b/g,
+  /\$\s*\d[\d.,]*/g,
+  /\b\d+(?:[.,]\d+)*\s*(?:millones|millon|mill|mil|cop|pesos)\b/g,
+  /\b(?:barat[oa]s?|economic[oa]s?|que no sea caro|no muy caro)\b/g
+];
+
+function plegarPrecio(texto: string): string {
+  return (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+export function detectarTopePrecio(texto: string): boolean {
+  const t = plegarPrecio(texto);
+  return PATRONES_PRECIO.some((p) => new RegExp(p.source).test(t));
+}
+
+// Se trabaja sobre el texto plegado (sin tildes): lo que queda pasa por terminoPrograma, que ya pliega.
+function quitarTopePrecio(texto: string): string {
+  // Sin precio, el texto queda igual (se conservan tildes de palabras no reconocidas, p. ej. «mecatrónica»).
+  if (!detectarTopePrecio(texto)) return texto;
+  let t = plegarPrecio(texto);
+  for (const p of PATRONES_PRECIO) t = t.replace(new RegExp(p.source, 'g'), ' ');
+  // Palabras que solo acompañan al presupuesto («tengo», «puedo pagar», «es bajo») tampoco son búsqueda.
+  t = t.replace(/\b(tengo|cuento con|dispongo de|puedo pagar|pagar|pago|bajo|alto|limitado|es|maximo|solo)\b/g, ' ');
+  return t.replace(/\s+/g, ' ').trim();
+}
 
 /**
  * Bloque: términos canónicos (con tilde, como están en el catálogo) y sus variantes/sinónimos sin tilde.
@@ -48,7 +81,8 @@ const CANONICOS: Array<{ termino: string; variantes: string[] }> = [
   { termino: 'Economía', variantes: ['economia', 'economista'] },
   { termino: 'Finanzas', variantes: ['finanzas', 'financiera'] },
   { termino: 'Gerencia', variantes: ['gerencia', 'gerente'] },
-  { termino: 'Tecnología', variantes: ['tecnologia'] },
+  // S12 · «tecnología» es ÁREA; «tecnólogo/tecnóloga» es NIVEL (stopword arriba + vozNaia.extraerNivel).
+  { termino: 'Tecnología', variantes: ['tecnologia', 'tecnologias', 'tecnologico'] },
   { termino: 'Arquitectura', variantes: ['arquitectura', 'arquitecto'] },
   { termino: 'Salud', variantes: ['salud'] },
   { termino: 'Proyectos', variantes: ['proyectos'] },
@@ -120,9 +154,30 @@ export function terminoPrograma(texto: string, excluir: string[] = []): string |
   return frase || null;
 }
 
+/**
+ * Bloque: S5 · todos los términos canónicos reconocidos del texto (sin repetir, en orden).
+ * Con 2+ términos la búsqueda exige TODOS (AND): «ingeniería de sistemas» ya no trae toda Ingeniería.
+ */
+export function terminosReconocidos(texto: string, excluir: string[] = []): string[] {
+  const fuera = new Set(excluir.flatMap((e) => plegarComando(e).split(' ')).filter(Boolean));
+  const plegados = quitarEmojis(texto)
+    .split(/[^\p{L}\p{N}]+/u)
+    .map((w) => plegarComando(w))
+    .filter((w) => w && !STOPWORDS.has(w) && !fuera.has(w));
+  const salida: string[] = [];
+  for (let i = 0; i < plegados.length; i++) {
+    const doble = i < plegados.length - 1 ? POR_VARIANTE.get(`${plegados[i]} ${plegados[i + 1]}`) : undefined;
+    const c = doble ?? canonico(plegados[i]);
+    if (doble) i++;
+    if (c && !salida.includes(c)) salida.push(c);
+  }
+  return salida;
+}
+
 /** Filtros del catálogo a partir SOLO del mensaje actual (C-04). Etiqueta = lo que se muestra en «para «…»». */
-export function filtrosDesdeTexto(texto: string): { filtros: FiltrosBusquedaWa; etiqueta: string } {
-  const limpio = quitarEmojis(texto);
+export function filtrosDesdeTexto(texto: string): { filtros: FiltrosBusquedaWa; etiqueta: string; topePrecio: boolean } {
+  const topePrecio = detectarTopePrecio(texto);
+  const limpio = quitarTopePrecio(quitarEmojis(texto));
   const slots = extraerSlotsDeclarados(limpio);
   const filtros: FiltrosBusquedaWa = {};
   if (slots.ciudad) filtros.ciudad = slots.ciudad;
@@ -130,10 +185,31 @@ export function filtrosDesdeTexto(texto: string): { filtros: FiltrosBusquedaWa; 
   if (slots.nivel) filtros.nivel_academico = slots.nivel;
   const termino = terminoPrograma(limpio, slots.ciudad ? [slots.ciudad] : []);
   if (termino) filtros.programa_o_area = termino;
-  const etiqueta = [filtros.nivel_academico, termino, filtros.modalidad, filtros.ciudad].filter(Boolean).join(' · ') || limpio.slice(0, 40);
-  return { filtros, etiqueta: etiqueta.slice(0, 60) };
+  // S5 · 2+ términos reconocidos → AND; la etiqueta muestra todos.
+  const todos = terminosReconocidos(limpio, slots.ciudad ? [slots.ciudad] : []);
+  if (todos.length >= 2) {
+    filtros.terminos_todos = todos;
+    filtros.programa_o_area = todos.join(' ');
+  }
+  const termino2 = filtros.programa_o_area;
+  const etiqueta = [filtros.nivel_academico, termino2, filtros.modalidad, filtros.ciudad].filter(Boolean).join(' · ') || limpio.slice(0, 40);
+  return { filtros, etiqueta: etiqueta.slice(0, 60), topePrecio };
+}
+
+/** S5 · filtros de respaldo por área (primer término) cuando el AND dio 0 resultados; null si no aplica. */
+export function filtrosRespaldoArea(f: FiltrosBusquedaWa): { filtros: FiltrosBusquedaWa; area: string } | null {
+  if (!f.terminos_todos || f.terminos_todos.length < 2) return null;
+  const area = f.terminos_todos[0];
+  const { terminos_todos: _t, ...resto } = f;
+  return { filtros: { ...resto, programa_o_area: area }, area };
 }
 
 export function filtrosVacios(f: FiltrosBusquedaWa): boolean {
   return !f.programa_o_area && !f.ciudad && !f.modalidad && !f.nivel_academico;
+}
+
+/** S6 · nota «Son virtuales…» solo si se pidió modalidad virtual Y una ciudad (solo «virtual», no «a distancia»). */
+export function ciudadNotaVirtual(f: FiltrosBusquedaWa): string | null {
+  if (!f.ciudad || !/\b(virtual|online|en linea)\b/.test(plegarComando(f.modalidad || ''))) return null;
+  return f.ciudad;
 }

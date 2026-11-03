@@ -19,6 +19,7 @@ import { etiquetaBeneficio } from "@/src/lib/etiquetas-beneficio";
 import MarkdownNaia from "@/components/naia/markdownNaia";
 import { esSnapshotCompleto, type SnapshotNaia } from "@/components/naia/naiaSession";
 import { EVENTO_FAB_NAIA } from "@/components/naia/naiaFab";
+import { filtrosDeEstaConsulta, filtrosEfectivosDeBusqueda, plegarTexto } from "@/components/naia/filtrosBusqueda";
 
 type EstadoBusqueda = "inicio" | "interpretando" | "consultando" | "listo" | "error";
 type Orden = "recomendado" | "virtual" | "beneficio" | "universidad";
@@ -82,30 +83,6 @@ function filtrosConValor(filtros: NaiaResponse["filtros"]): FiltrosOferta {
   return Object.fromEntries(
     Object.entries(filtros).filter(([, valor]) => typeof valor === "string" && valor.trim())
   ) as FiltrosOferta;
-}
-
-function plegarTexto(valor: string): string {
-  return valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-}
-
-/**
- * El nivel de una consulta anterior vive en el estado (y se reenvía en el
- * contexto). Si esta frase no lo repite, no se vuelve a aplicar: un nivel
- * que no está en el catálogo, o que choca con el programa pedido, deja el
- * panel en cero.
- */
-function filtrosDeEstaConsulta(filtros: FiltrosOferta, texto: string): FiltrosOferta {
-  const siguientes: FiltrosOferta = { ...filtros };
-  const nivel = (siguientes.nivel_academico ?? "").trim();
-  if (!nivel) return siguientes;
-  const dicho = plegarTexto(texto);
-  const pedido = plegarTexto(nivel);
-  const claves = ["pregrado", "posgrado", "tecnico", "tecnologo", "especializacion", "maestria", "doctorado", "continua"];
-  const loDice =
-    (pedido.length >= 3 && dicho.includes(pedido)) ||
-    claves.some((clave) => pedido.includes(clave) && dicho.includes(clave));
-  if (!loDice) delete siguientes.nivel_academico;
-  return siguientes;
 }
 
 /** La burbuja no puede prometer fichas cuando el listado real está vacío. */
@@ -480,7 +457,7 @@ export default function NaiaSearchExperience({
       setConversationId(siguienteRespuesta.conversationId);
 
       setEstado("consultando");
-      const filtros = filtrosDeEstaConsulta(filtrosConValor(siguienteRespuesta.filtros), texto);
+      const filtros = filtrosEfectivosDeBusqueda(filtrosConValor(siguienteRespuesta.filtros), texto);
       const resultado = await aplicarPrimeraPagina(filtros, () => {
         void reconsultarCatalogo(filtros);
       });

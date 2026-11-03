@@ -363,12 +363,14 @@ describe('Ola 1/2 · búsqueda (C-04, C-05, C-06, C-14, C-58)', () => {
     assert.deepEqual(e.ultimo().extra.map((b: any) => b.titulo), ['Nueva búsqueda', 'Hablar con asesor']);
   });
 
-  it('solo emojis → T10 con menú; la 2.ª seguida ofrece asesor (C-14, S10/S16)', async () => {
+  it('solo emojis → respuesta propia con menú (WA-fix-1 S10); «ok» ×2 sigue T10 → asesor', async () => {
     const e = entorno();
     await aceptado(e);
     await e.texto('😀🙏');
-    assert.equal(e.ultimo().contenido, C.T10_NO_ENTENDI);
+    assert.equal(e.ultimo().contenido, C.T_SOLO_EMOJI);
     assert.equal(e.ultimo().extra.length, 3);
+    await e.texto('ok');
+    assert.equal(e.ultimo().contenido, C.T10_NO_ENTENDI);
     await e.texto('ok');
     assert.equal(e.ultimo().contenido, C.T10_REPETIDO);
     assert.equal(e.consultas.length, 0);

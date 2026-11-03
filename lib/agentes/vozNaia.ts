@@ -211,7 +211,7 @@ function extraerNivel(texto: string): string | null {
   if (/\bdoctorado\b|\bphd\b/.test(t)) return 'doctorado';
   if (/\bmaestr/.test(t) || /\bmagister\b/.test(t)) return 'maestría';
   if (/\bespecializacion\b/.test(t)) return 'especialización';
-  if (/\btecnologo\b/.test(t)) return 'tecnólogo';
+  if (/\btecnolog[oa]s?\b/.test(t)) return 'tecnólogo';
   if (/\btecnico\b/.test(t)) return 'técnico';
   if (/\bpregrado\b|\bprofesional\b/.test(t)) return 'pregrado';
   if (/\bposgrado\b|\bpostgrado\b/.test(t)) return 'posgrado';
@@ -227,7 +227,8 @@ function extraerPresupuesto(texto: string): string | null {
   }
 
   const monto = texto.match(
-    /(?:hasta|máximo|maximo)\s+(\$?\s?\d[\d.\s]{1,14}(?:\s*(?:mil|millones?|cop|pesos))?)/i
+    // WA-fix-1 (S7): también «menos de / no más de N millones».
+    /(?:hasta|máximo|maximo|menos\s+de|no\s+m[aá]s\s+de)\s+(\$?\s?\d[\d.\s]{1,14}(?:\s*(?:mil|millones?|cop|pesos))?)/i
   );
   if (monto?.[1] && /presupuesto|pesos|cop|\$|millon/i.test(texto)) {
     return recortar(monto[1], 40);

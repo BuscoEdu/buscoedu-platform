@@ -1,5 +1,9 @@
 "use client";
 
+// Bloque: T17 si la oferta no trae texto de precio (WA-fix-1).
+import { TEXTO_PRECIO_NO_DISPONIBLE } from '@/src/lib/precios-publicos';
+// Bloque: copy S14 único (mismo texto que WhatsApp): SNIES + confirmar registro/acreditación.
+import { tRegistroSnies } from '@/src/lib/whatsapp/copy';
 import { useEffect, useRef, useState } from 'react';
 import type { OfertaAcademica } from '@/src/lib/ofertas';
 import { useMyList } from '@/src/contexts/MyListContext';
@@ -211,7 +215,8 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
       {/*
         BA-001: la ficha va por encima del panel de resultados móvil (z-[70])
         y del FAB. Ola 2: jerarquía qué es → vigencia (si hay fecha) → becas → acciones.
-        No se pinta precio: la oferta no trae ese campo. Un dato ausente no se inventa.
+        WA-fix-1: precio en la ficha = `oferta.texto_precio` (formateador único en BE, copy v1.7): «Precio: $monto COP por semestre»
+        si hay precio publicable (puerta precios-publicos en BE); si no, T17. Solo ficha; tarjeta = P2.
         «Becas y beneficios» solo si etiquetaBeneficio() devuelve una etiqueta.
       */}
       <div
@@ -263,6 +268,21 @@ export default function OfferDetailModal({ oferta, onClose, onAplicacionCompleta
                     {oferta.programa?.duracion ? (
                       <p className="mt-2 break-words text-sm text-[var(--color-muted)]">Duración: {oferta.programa.duracion}</p>
                     ) : null}
+                  </section>
+                ) : null}
+
+                {/* Bloque: precio publicable o T17. Va antes de la vigencia: es lo que más pregunta el estudiante. */}
+                <section className="rounded-[var(--radius-card)] border-2 border-[var(--color-text)] bg-white p-4 shadow-[var(--shadow-hard)]">
+                  <h3 className="text-lg font-bold text-[var(--color-text)]">Precio</h3>
+                  <p className="mt-2 break-words text-sm text-[var(--color-text)]">{oferta.texto_precio || TEXTO_PRECIO_NO_DISPONIBLE}</p>
+                </section>
+
+                {/* Bloque: S14 · registro SNIES real (programas_academicos.codigo_snies). Sin código → no se
+                    muestra (no se inventa «por confirmar»). Nunca afirma «acreditado». Solo ficha; tarjeta ✗. */}
+                {oferta.programa?.codigo_snies ? (
+                  <section className="rounded-[var(--radius-card)] border-2 border-[var(--color-text)] bg-white p-4 shadow-[var(--shadow-hard)]">
+                    <h3 className="text-lg font-bold text-[var(--color-text)]">Registro</h3>
+                    <p className="mt-2 break-words text-sm text-[var(--color-text)]">{tRegistroSnies(oferta.programa.codigo_snies)}</p>
                   </section>
                 ) : null}
 

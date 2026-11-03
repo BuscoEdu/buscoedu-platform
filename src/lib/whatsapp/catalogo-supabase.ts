@@ -11,7 +11,7 @@ import { listarTiposConsentimientoActivos } from '@/src/lib/leadcenter/tipos-con
 import type { OfertaAcademica } from '@/src/lib/ofertas';
 import { obtenerOfertas } from '@/src/lib/ofertas';
 import { URL_WEB } from './mensajes';
-import type { CatalogoWa, OfertaWa } from './tipos';
+import type { CatalogoWa, ConteoProgramasWa, OfertaWa } from './tipos';
 
 /** Ofertas que se piden a BD para agrupar por programa antes de cortar (C-52). */
 export const OFERTAS_POR_CONSULTA_WA = 100;
@@ -53,27 +53,89 @@ export function agruparPorPrograma(items: OfertaAcademica[]): OfertaWa[] {
       ...(ciudad ? { ciudad } : {}),
       ciudades: ciudad ? [ciudad] : [],
       ...(beneficio ? { beneficio } : {}),
+      // Bloque: WA-fix-1 · área del programa para S5 (respaldo) y S12 (ofrecer áreas).
+      ...(item.programa?.area ? { area: item.programa.area } : {}),
+      // S14 · código SNIES del programa para la respuesta de registro.
+      ...(item.programa?.codigo_snies ? { snies: item.programa.codigo_snies } : {}),
+      // WA-fix-1b · S13 · duración del catálogo (si viene) para la ficha.
+      ...(item.programa?.duracion ? { duracion: item.programa.duracion } : {}),
+      // Precio publicable (puerta precios-publicos); sin él la ficha usa T17.
+      ...(item.texto_precio ? { texto_precio: item.texto_precio } : {}),
       url: urlFicha(nombrePrograma)
     });
   }
   return [...grupos.values()];
 }
 
+/** Tope de páginas de 100 ofertas por consulta (1.000 ofertas): evita bucles largos si BD crece mucho. */
+export const MAX_PAGINAS_WA = 10;
+
+type PaginaOfertas = { ok: true; ofertas: OfertaAcademica[]; total: number; fue_respaldo_area?: boolean } | { ok: false };
+
+/**
+ * Bloque: WA-fix-1b · S6 · el total cuenta PROGRAMAS, no ofertas.
+ * Qué: pide páginas de 100 ofertas hasta traerlas todas (o hasta MAX_PAGINAS_WA), agrupa por programa
+ * y devuelve `total` = programas distintos.
+ * Por qué: en el preview «virtual · Medellín» decía 196 (ofertas) cuando eran 16 programas: con más de
+ * 100 ofertas el total caía al conteo de ofertas de BD. Puro (recibe la función de página) para probarlo sin BD.
+ */
+export async function buscarProgramasPaginado(
+  pedirPagina: (pagina: number, tamano: number) => Promise<PaginaOfertas>,
+  max: number
+): Promise<{ ok: true; ofertas: OfertaWa[]; total: number; respaldoArea?: boolean; completo: boolean; totalOfertas: number; conteo: ConteoProgramasWa } | { ok: false }> {
+  const primera = await pedirPagina(0, OFERTAS_POR_CONSULTA_WA);
+  if (!primera.ok) return { ok: false };
+  const todas = [...primera.ofertas];
+  let pagina = 1;
+  // Se sigue pidiendo mientras falten ofertas, la página anterior no venga vacía y no se pase el tope.
+  while (todas.length < primera.total && pagina < MAX_PAGINAS_WA) {
+    const r = await pedirPagina(pagina, OFERTAS_POR_CONSULTA_WA);
+    if (!r.ok) return { ok: false };
+    if (r.ofertas.length === 0) break;
+    todas.push(...r.ofertas);
+    pagina += 1;
+  }
+  const programas = agruparPorPrograma(todas);
+  const completo = todas.length >= primera.total;
+  return {
+    ok: true,
+    ofertas: programas.slice(0, Math.max(1, max)),
+    // Incompleto (más de 1.000 ofertas): se cuentan los programas vistos, nunca ofertas (cota inferior).
+    total: programas.length,
+    completo,
+    totalOfertas: primera.total,
+    // S12 exacto · conteo por área sobre TODOS los programas agrupados (antes del corte a `max`).
+    conteo: { exacto: completo, areas: contarAreasProgramas(programas) },
+    ...(primera.fue_respaldo_area ? { respaldoArea: true } : {})
+  };
+}
+
+/**
+ * Bloque: S12 exacto · programas por área (1 programa = 1, aunque tenga varias ofertas). Sin área no cuenta;
+ * orden por cantidad desc y, a igual cantidad, por nombre (orden estable).
+ */
+export function contarAreasProgramas(programas: Array<{ area?: string }>): Array<{ area: string; cantidad: number }> {
+  const conteo = new Map<string, number>();
+  for (const p of programas) if (p.area) conteo.set(p.area, (conteo.get(p.area) || 0) + 1);
+  return [...conteo.entries()]
+    .map(([area, cantidad]) => ({ area, cantidad }))
+    .sort((x, y) => y.cantidad - x.cantidad || x.area.localeCompare(y.area, 'es'));
+}
+
 export function crearCatalogoSupabase(dbServicio: SupabaseClient): CatalogoWa {
   return {
-    // Bloque: busca hasta 100 ofertas, agrupa por programa y devuelve hasta `max` programas + total real (C-12/C-52).
-    // Si BD tiene más de 100 ofertas para la consulta, `total` = conteo exacto de ofertas (cota superior) y se loguea.
+    // Bloque: trae todas las ofertas de la consulta por páginas, agrupa por programa y devuelve hasta
+    // `max` programas + total de PROGRAMAS (C-12/C-52, S6 WA-fix-1b).
     async buscar(filtros, max) {
-      const resultado = await obtenerOfertas(filtros, 0, OFERTAS_POR_CONSULTA_WA);
-      if (!resultado.ok) return { ok: false };
-      const programas = agruparPorPrograma(resultado.ofertas);
-      const completo = resultado.total <= resultado.ofertas.length;
-      if (!completo) console.info(JSON.stringify({ origen: 'wa_catalogo', evento: 'wa_total_aproximado', ofertas: resultado.total }));
-      return {
-        ok: true,
-        ofertas: programas.slice(0, Math.max(1, max)),
-        total: completo ? programas.length : resultado.total
-      };
+      // S5 · los términos AND viajan como opción aparte (FiltrosOferta es contrato de FE).
+      const { terminos_todos, ...base } = filtros;
+      const r = await buscarProgramasPaginado(async (pagina, tamano) => {
+        const res = await obtenerOfertas(base, pagina, tamano, { terminosTodos: terminos_todos });
+        return res.ok ? { ok: true, ofertas: res.ofertas, total: res.total, ...(res.fue_respaldo_area ? { fue_respaldo_area: true } : {}) } : { ok: false };
+      }, max);
+      if (!r.ok) return { ok: false };
+      if (!r.completo) console.info(JSON.stringify({ origen: 'wa_catalogo', evento: 'wa_total_aproximado', ofertas: r.totalOfertas, programas: r.total }));
+      return { ok: true, ofertas: r.ofertas, total: r.total, conteo: r.conteo, ...(r.respaldoArea ? { respaldoArea: true } : {}) };
     },
     async tiposConsentimiento() {
       return listarTiposConsentimientoActivos(dbServicio);

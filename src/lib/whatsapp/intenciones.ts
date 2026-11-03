@@ -16,6 +16,8 @@ export type IntencionTexto =
   | { tipo: 'mas' }
   | { tipo: 'becas' }
   | { tipo: 'precio' }
+  | { tipo: 'registro' }
+  | { tipo: 'emoji' }
   | { tipo: 'pregunta_abierta' }
   | { tipo: 'no_entendi' }
   | { tipo: 'buscar' };
@@ -59,13 +61,18 @@ export function esRevocacion(texto: string): boolean {
 export function clasificarTexto(texto: string): IntencionTexto {
   const sinEmoji = quitarEmojis(texto);
   const t = plegarComando(sinEmoji);
+  // Bloque: S10 · solo emojis (había texto pero no quedó nada) tiene respuesta propia, no T10.
+  if (!t && (texto || '').trim()) return { tipo: 'emoji' };
   if (!t || !/[a-z0-9ñ]/.test(t)) return { tipo: 'no_entendi' };
   if (REVOCAR.has(t)) return { tipo: 'revocar' };
   if (/^\d{1,2}$/.test(t)) return { tipo: 'numero', numero: Number(t) };
   if (SALUDOS.has(t)) return { tipo: 'saludo' };
   if (CIERRES.has(t)) return { tipo: 'cierre' };
   if (MAS.has(t)) return { tipo: 'mas' };
-  if (BECAS.has(t)) return { tipo: 'becas' };
+  // Bloque: S8 · «beca»/«becas» dentro de la frase vale lo mismo que el botón Becas.
+  if (BECAS.has(t) || /\bbecas?\b/.test(t)) return { tipo: 'becas' };
+  // Bloque: S14 · registro / acreditación: respuesta con el SNIES, nunca afirmar «acreditado».
+  if (/\b(ministerio|aprobad[oa]s?|snies|acreditad[oa]s?|acreditacion|registro calificado)\b/.test(t)) return { tipo: 'registro' };
   if (NO_ENTENDI.has(t) || t.length < 3) return { tipo: 'no_entendi' };
   // Bloque: precio antes que pregunta abierta («¿cuánto vale el semestre?» es precio, no opinión).
   if (/\b(precio|precios|cuanto cuesta|cuanto vale|cuanto sale|costo|valor del semestre|valor de la matricula|matricula)\b/.test(t)) {

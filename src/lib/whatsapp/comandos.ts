@@ -33,7 +33,16 @@ export function detectarComando(texto: string): ComandoUsuario | null {
   if (ASESOR.has(t)) return 'asesor';
   if (ALTA.has(t)) return 'alta';
   if (MENU.has(t)) return 'menu';
+  if (pideAsesor(t)) return 'asesor';
   return null;
+}
+
+// Bloque: S17 · pedir una persona dentro de una frase («quiero hablar con alguien») pasa a asesor a la 1.ª vez,
+// antes de la búsqueda y de clasificarTexto. \b evita falsos positivos como «desarrollo personal».
+const PATRON_ASESOR = /\b(asesor|asesora|alguien|persona|humano|hablar con)\b/;
+
+export function pideAsesor(texto: string): boolean {
+  return PATRON_ASESOR.test(plegarComando(texto));
 }
 
 /**

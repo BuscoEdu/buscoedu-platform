@@ -1,0 +1,9 @@
+{
+ "tomado_en": "2026-10-19 20:01:57 Europe/Madrid (18:01:57 UTC)",
+ "extensiones": {"unaccent": "disponible 1.1, NO instalada", "pg_trgm": "disponible 1.6, NO instalada"},
+ "schema_extensions": "existe",
+ "funciones_previas": [],
+ "indices_previos": [],
+ "migracion_registrada": 0,
+ "ultima_migracion": "20261018160000"
+}
