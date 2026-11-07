@@ -36,3 +36,11 @@ No inventes scripts que no estén en `package.json`.
 1. Abrir `/familia.html` (o la URL de preview/prod).
 2. Flujos críticos: crear / editar / validar / aprobar / subasta / vencer / reabrir / perdonar; web y móvil 390.
 3. Limpiar datos de prueba; **no tocar puntos reales** de los hijos.
+
+## Ecosistema (cerebro)
+
+Este repo forma parte del ecosistema personal de Jhon. El contexto general (metas, estado de cada app, decisiones) vive en el repo privado **`bejarano-labs/cerebro`**: https://github.com/bejarano-labs/cerebro
+
+- Antes de una tarea grande, lee `cerebro/AGENTS.md`, `cerebro/02-metas/vision.md` y `cerebro/03-proyectos/buscoedu/estado.md`.
+- Al terminar, si tienes acceso a `cerebro`, actualiza `03-proyectos/buscoedu/estado.md` (qué cambió y siguiente paso) y registra las decisiones importantes en `03-proyectos/buscoedu/decisiones.md`.
+- Las reglas de la casa de **este** repo siguen mandando: el cerebro no autoriza push, deploy ni cambios en Vercel/Supabase.
